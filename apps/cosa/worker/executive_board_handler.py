@@ -59,7 +59,6 @@ async def execute_executive_deliberation_framed_task(
         spec_registry=plane.spec_registry,
     )
 
-
     raw_evidence = payload.get("evidence_refs") or []
     evidence_refs = tuple(
         EvidenceRef(
@@ -111,7 +110,12 @@ async def execute_executive_deliberation_framed_task(
         try:
             outcome: ExecutiveAnalysisOutcome = await runner.run(request)
         except ExecutiveBoardInputError as exc:
-            logger.error("deliberation_id=%s role=%s input validation failed: %s", deliberation_id, role_key, exc)
+            logger.error(
+                "deliberation_id=%s role=%s input validation failed: %s",
+                deliberation_id,
+                role_key,
+                exc,
+            )
             outcome = ExecutiveAnalysisOutcome(
                 kind="executive.analysis.failed.v1",
                 deliberation_id=str(deliberation_id),
@@ -120,7 +124,9 @@ async def execute_executive_deliberation_framed_task(
                 error_detail=str(exc),
             )
         except Exception as exc:
-            logger.exception("deliberation_id=%s role=%s unexpected error: %s", deliberation_id, role_key, exc)
+            logger.exception(
+                "deliberation_id=%s role=%s unexpected error: %s", deliberation_id, role_key, exc
+            )
             outcome = ExecutiveAnalysisOutcome(
                 kind="executive.analysis.failed.v1",
                 deliberation_id=str(deliberation_id),

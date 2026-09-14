@@ -25,11 +25,13 @@ __all__ = [
 
 class ManifestConflictError(Exception):
     """Raised when an attempt is made to insert a duplicate execution manifest for a run."""
+
     pass
 
 
 class StepRecordConflictError(Exception):
     """Raised when an attempt is made to insert a duplicate step record for a run."""
+
     pass
 
 
@@ -122,7 +124,10 @@ def make_manifest(
     evidence_refs: list[str] | None = None,
 ) -> GovernedWorkflowRunManifest:
     rid = run_id or f"run_{uuid.uuid4().hex[:16]}"
-    def_hash = workflow_definition_hash or hashlib.sha256(f"wf_{workflow_asset_id}:{workflow_version}".encode()).hexdigest()
+    def_hash = (
+        workflow_definition_hash
+        or hashlib.sha256(f"wf_{workflow_asset_id}:{workflow_version}".encode()).hexdigest()
+    )
     pol_hash = policy_hash or hashlib.sha256(b"default_policy_epoch_v1").hexdigest()
 
     manifest = GovernedWorkflowRunManifest(
@@ -148,9 +153,13 @@ def make_manifest(
 
 
 class WorkflowManifestRepository(Protocol):
-    async def create_manifest(self, manifest: GovernedWorkflowRunManifest) -> GovernedWorkflowRunManifest: ...
+    async def create_manifest(
+        self, manifest: GovernedWorkflowRunManifest
+    ) -> GovernedWorkflowRunManifest: ...
     async def get_manifest(self, run_id: str) -> GovernedWorkflowRunManifest | None: ...
-    async def get_manifest_by_hash(self, manifest_hash: str) -> GovernedWorkflowRunManifest | None: ...
+    async def get_manifest_by_hash(
+        self, manifest_hash: str
+    ) -> GovernedWorkflowRunManifest | None: ...
     async def create_step_record(self, record: WorkflowStepRecord) -> WorkflowStepRecord: ...
     async def update_step_record(self, record: WorkflowStepRecord) -> WorkflowStepRecord: ...
     async def get_step_records(self, run_id: str) -> list[WorkflowStepRecord]: ...
@@ -160,9 +169,13 @@ class InMemoryWorkflowManifestRepository:
     def __init__(self) -> None:
         self._manifests: dict[str, GovernedWorkflowRunManifest] = {}
         self._by_hash: dict[str, GovernedWorkflowRunManifest] = {}
-        self._step_records: dict[tuple[str, str], WorkflowStepRecord] = {}  # (run_id, step_id) -> record
+        self._step_records: dict[
+            tuple[str, str], WorkflowStepRecord
+        ] = {}  # (run_id, step_id) -> record
 
-    async def create_manifest(self, manifest: GovernedWorkflowRunManifest) -> GovernedWorkflowRunManifest:
+    async def create_manifest(
+        self, manifest: GovernedWorkflowRunManifest
+    ) -> GovernedWorkflowRunManifest:
         if manifest.run_id in self._manifests:
             raise ManifestConflictError(f"Manifest for run {manifest.run_id} already exists")
         if not manifest.manifest_hash:
@@ -203,7 +216,9 @@ class PostgresWorkflowManifestRepository(WorkflowManifestRepository):
     ) -> None:
         self._session_factory = session_factory
 
-    async def create_manifest(self, manifest: GovernedWorkflowRunManifest) -> GovernedWorkflowRunManifest:
+    async def create_manifest(
+        self, manifest: GovernedWorkflowRunManifest
+    ) -> GovernedWorkflowRunManifest:
         if not manifest.manifest_hash:
             manifest.manifest_hash = manifest.compute_hash()
 
@@ -250,7 +265,9 @@ class PostgresWorkflowManifestRepository(WorkflowManifestRepository):
                     "trigger_id": manifest.trigger_id,
                     "correlation_id": manifest.correlation_id,
                     "evidence_refs": json.dumps(manifest.evidence_refs),
-                    "manifest_json": json.dumps(manifest.manifest_json or manifest.model_dump(mode="json")),
+                    "manifest_json": json.dumps(
+                        manifest.manifest_json or manifest.model_dump(mode="json")
+                    ),
                     "created_at": manifest.created_at,
                 },
             )
@@ -329,14 +346,18 @@ class PostgresWorkflowManifestRepository(WorkflowManifestRepository):
                     "input_hash": record.input_hash,
                     "output_hash": record.output_hash,
                     "safe_reason_code": record.safe_reason_code,
-                    "error_details": json.dumps(record.error_details) if record.error_details else None,
+                    "error_details": json.dumps(record.error_details)
+                    if record.error_details
+                    else None,
                     "created_at": record.created_at,
                     "completed_at": record.completed_at,
                 },
             )
             row = res.mappings().one_or_none()
             if not row:
-                raise StepRecordConflictError(f"Step record for run '{record.run_id}' step '{record.step_id}' already exists")
+                raise StepRecordConflictError(
+                    f"Step record for run '{record.run_id}' step '{record.step_id}' already exists"
+                )
             return record
 
     async def update_step_record(self, record: WorkflowStepRecord) -> WorkflowStepRecord:
@@ -363,7 +384,9 @@ class PostgresWorkflowManifestRepository(WorkflowManifestRepository):
                     "checkpoint_ref": record.checkpoint_ref,
                     "output_hash": record.output_hash,
                     "safe_reason_code": record.safe_reason_code,
-                    "error_details": json.dumps(record.error_details) if record.error_details else None,
+                    "error_details": json.dumps(record.error_details)
+                    if record.error_details
+                    else None,
                     "completed_at": record.completed_at,
                 },
             )
@@ -394,7 +417,9 @@ class PostgresWorkflowManifestRepository(WorkflowManifestRepository):
                     input_hash=r["input_hash"],
                     output_hash=r["output_hash"],
                     safe_reason_code=r["safe_reason_code"],
-                    error_details=r["error_details"] if isinstance(r["error_details"], dict) else (json.loads(r["error_details"]) if r["error_details"] else None),
+                    error_details=r["error_details"]
+                    if isinstance(r["error_details"], dict)
+                    else (json.loads(r["error_details"]) if r["error_details"] else None),
                     created_at=r["created_at"],
                     completed_at=r["completed_at"],
                 )

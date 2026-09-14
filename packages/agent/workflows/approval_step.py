@@ -65,7 +65,9 @@ class ApprovalGateStep:
                 return StepOutcome(status=StepStatus.COMPLETED)
             if "DENY" in decision_str:
                 perm_val = getattr(self._permission, "value", self._permission)
-                return StepOutcome(status=StepStatus.FAILED, error=f"{perm_val} is denied by policy")
+                return StepOutcome(
+                    status=StepStatus.FAILED, error=f"{perm_val} is denied by policy"
+                )
 
         # 2. Require trusted workspace_id
         workspace_id = state.get("workspace_id")

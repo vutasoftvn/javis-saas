@@ -83,7 +83,10 @@ class InMemorySkillCandidateStore:
         if not cand.definition_hash:
             computed = f"sha256:{cand.proposed_skill.compute_hash()}"
             cand.definition_hash = computed
-        if hasattr(cand.proposed_skill, "definition_hash") and not cand.proposed_skill.definition_hash:
+        if (
+            hasattr(cand.proposed_skill, "definition_hash")
+            and not cand.proposed_skill.definition_hash
+        ):
             cand.proposed_skill.definition_hash = cand.definition_hash
         key = (str(workspace_id), cand.candidate_id)
         self._candidates[key] = cand.model_copy(deep=True)
@@ -214,7 +217,10 @@ class PostgresSkillCandidateStore:
         if not cand.definition_hash:
             computed = f"sha256:{cand.proposed_skill.compute_hash()}"
             cand.definition_hash = computed
-        if hasattr(cand.proposed_skill, "definition_hash") and not cand.proposed_skill.definition_hash:
+        if (
+            hasattr(cand.proposed_skill, "definition_hash")
+            and not cand.proposed_skill.definition_hash
+        ):
             cand.proposed_skill.definition_hash = cand.definition_hash
 
         async with self._session_factory() as session, session.begin():
@@ -443,7 +449,8 @@ class PostgresSkillCandidateStore:
             # Idempotent replay: already published with same approval and hash
             if cand.status == SkillStatus.PUBLISHED:
                 if cand.promotion_approval_id == approval_id and (
-                    expected_definition_hash in (cand.promotion_definition_hash, cand.definition_hash)
+                    expected_definition_hash
+                    in (cand.promotion_definition_hash, cand.definition_hash)
                 ):
                     return True, "ALREADY_PUBLISHED", cand
                 return False, "ALREADY_PUBLISHED_DIFFERENT_APPROVAL", cand

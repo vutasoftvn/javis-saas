@@ -18,7 +18,7 @@ def parse_skill_pin_ref(ref: str) -> tuple[str, str]:
     """
     if not ref.startswith(_PREFIX):
         raise ExecutiveBoardInputError(f"UNSUPPORTED_SKILL_PIN_FORMAT: {ref}")
-    body = ref[len(_PREFIX):]
+    body = ref[len(_PREFIX) :]
     path, sep, version = body.partition("@")
     if not sep or not path or not version:
         raise ExecutiveBoardInputError(f"UNSUPPORTED_SKILL_PIN_FORMAT: {ref}")
@@ -40,6 +40,8 @@ async def resolve_role_pin_skills(
                 f"SKILL_PIN_NOT_PUBLISHED: '{skill_id}@{version}' not found in spec registry"
             )
         refs.append(
-            PinnedSkillRef(skill_id=skill_id, version=version, definition_hash=record.definition_hash)
+            PinnedSkillRef(
+                skill_id=skill_id, version=version, definition_hash=record.definition_hash
+            )
         )
     return refs

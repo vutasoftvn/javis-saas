@@ -29,10 +29,10 @@ _CANNED_SNAPSHOT = {
     "dossierId": "dossier-123",
     "revision": 2,
     "severity": "MEDIUM",
-    "controlStates": [{"controlId": "mfa-enforced", "category": "access_control", "state": "IMPLEMENTED"}],
-    "findings": [
-        {"category": "outdated_dependency", "severity": "MEDIUM", "sourceRef": "src-1"}
+    "controlStates": [
+        {"controlId": "mfa-enforced", "category": "access_control", "state": "IMPLEMENTED"}
     ],
+    "findings": [{"category": "outdated_dependency", "severity": "MEDIUM", "sourceRef": "src-1"}],
     "evidenceRefs": [{"sourceRef": "src-1", "classification": "internal"}],
     "status": "CONFIRMED",
     # Trường lạ không thuộc output_schema — phải bị lọc bỏ, không passthrough.
@@ -99,9 +99,7 @@ async def test_handler_rejects_args_workspace_id_override_of_dict_ctx() -> None:
     handler = create_security_posture_read_handler(fake_client)
     ctx: dict[str, Any] = {"project_id": "project-A", "workspace_id": "workspace-1"}
 
-    result = await handler(
-        {"project_id": "project-A", "workspace_id": "workspace-EVIL"}, ctx
-    )
+    result = await handler({"project_id": "project-A", "workspace_id": "workspace-EVIL"}, ctx)
 
     call = fake_client.calls[0]
     assert call["headers"] == {"X-Workspace-Id": "workspace-1"}

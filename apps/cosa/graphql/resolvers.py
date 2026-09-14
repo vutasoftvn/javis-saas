@@ -180,4 +180,3 @@ PERSISTED_OPERATIONS: dict[str, PersistedOperation] = {
     "enterpriseKnowledgeSearch": EnterpriseKnowledgeSearchOperation(),
     "workspaceAuthorityOverview": WorkspaceAuthorityOverviewOperation(),
 }
-

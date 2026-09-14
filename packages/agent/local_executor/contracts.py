@@ -15,6 +15,7 @@ __all__ = [
 
 class LocalExecutionGrant(BaseModel):
     """Grant cấp quyền thực thi trong Safe Sandbox."""
+
     model_config = ConfigDict(extra="forbid")
 
     grant_id: str
@@ -34,6 +35,7 @@ class LocalExecutionGrant(BaseModel):
 
 class LocalExecutionReceipt(BaseModel):
     """Biên lai thực thi do Safe Sandbox / Local Executor ký trả."""
+
     model_config = ConfigDict(extra="forbid")
 
     receipt_id: str
@@ -50,6 +52,7 @@ class LocalExecutionReceipt(BaseModel):
 
 class EngineeringEvidenceSnapshot(BaseModel):
     """Hình chiếu chỉ đọc của bằng chứng kỹ thuật, không chứa command text hay secrets."""
+
     model_config = ConfigDict(extra="forbid")
 
     workspace_id: str

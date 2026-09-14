@@ -142,7 +142,11 @@ class CosaPolicyEngine:
             has_active_grant = True
 
             # Evaluate mapped business permission
-            if snapshot is not None and snapshot.business_policy_rules is not None and grant is not None:
+            if (
+                snapshot is not None
+                and snapshot.business_policy_rules is not None
+                and grant is not None
+            ):
                 from apps.cosa.policies.business_permission_evaluator import (
                     evaluate_business_policy_ruleset,
                 )
@@ -207,9 +211,7 @@ class CosaPolicyEngine:
             if matched is not None and matched.decision == "ALLOW":
                 return PolicyDecision(
                     outcome=PolicyOutcome.ALLOW,
-                    reasons=(
-                        matched.reason or f"Tenant policy ALLOW for {matched.tool_pattern}",
-                    ),
+                    reasons=(matched.reason or f"Tenant policy ALLOW for {matched.tool_pattern}",),
                 )
 
         # 3. Rule hardcode — fallback explicitly versioned.

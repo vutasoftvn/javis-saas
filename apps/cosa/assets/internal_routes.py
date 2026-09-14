@@ -52,7 +52,10 @@ def get_authoring_service(request: Request | None = None) -> AuthoringService:
 
 def get_evaluation_service(request: Request | None = None) -> EvaluationService:
     if request is not None:
-        if hasattr(request.app.state, "evaluation_service") and request.app.state.evaluation_service:
+        if (
+            hasattr(request.app.state, "evaluation_service")
+            and request.app.state.evaluation_service
+        ):
             return request.app.state.evaluation_service
         plane = getattr(request.app.state, "plane", None)
         if plane is not None:
@@ -140,7 +143,9 @@ async def handle_authoring_command(
                 created_by=body.created_by,
             )
         else:
-            raise HTTPException(status_code=400, detail=f"Unsupported asset kind: {body.asset_kind}")
+            raise HTTPException(
+                status_code=400, detail=f"Unsupported asset kind: {body.asset_kind}"
+            )
 
         return AuthoringResponse(
             asset_id=saved.asset_id,
@@ -197,7 +202,9 @@ async def handle_authoring_command(
 
     elif body.operation == "PUBLISH":
         if not body.asset_id or not body.expected_hash:
-            raise HTTPException(status_code=400, detail="Missing asset_id or expected_hash for PUBLISH")
+            raise HTTPException(
+                status_code=400, detail="Missing asset_id or expected_hash for PUBLISH"
+            )
         if not body.company_command_ref:
             raise HTTPException(
                 status_code=400,

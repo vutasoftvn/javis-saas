@@ -72,7 +72,9 @@ class PostgresWorkflowDefinitionRepository(WorkflowDefinitionRepository):
                 workflow_id=row["workflow_asset_id"],
                 version=row["version"],
                 definition_hash=row["definition_hash"],
-                spec_data=row["spec_data"] if isinstance(row["spec_data"], dict) else json.loads(row["spec_data"]),
+                spec_data=row["spec_data"]
+                if isinstance(row["spec_data"], dict)
+                else json.loads(row["spec_data"]),
                 description=row["description"],
                 created_at=row["created_at"],
                 workspace_id=row["workspace_id"],
@@ -90,7 +92,9 @@ class PostgresWorkflowDefinitionRepository(WorkflowDefinitionRepository):
             """
         )
         async with self._session_factory() as session:
-            res = await session.execute(stmt, {"wid": workflow_id, "version": version, "ws_id": workspace_id})
+            res = await session.execute(
+                stmt, {"wid": workflow_id, "version": version, "ws_id": workspace_id}
+            )
             row = res.mappings().one_or_none()
             if not row:
                 return None
@@ -99,7 +103,9 @@ class PostgresWorkflowDefinitionRepository(WorkflowDefinitionRepository):
                 workflow_id=row["workflow_asset_id"],
                 version=row["version"],
                 definition_hash=row["definition_hash"],
-                spec_data=row["spec_data"] if isinstance(row["spec_data"], dict) else json.loads(row["spec_data"]),
+                spec_data=row["spec_data"]
+                if isinstance(row["spec_data"], dict)
+                else json.loads(row["spec_data"]),
                 description=row["description"],
                 created_at=row["created_at"],
                 workspace_id=row["workspace_id"],
@@ -128,7 +134,9 @@ class PostgresWorkflowDefinitionRepository(WorkflowDefinitionRepository):
                 workflow_id=row["workflow_asset_id"],
                 version=row["version"],
                 definition_hash=row["definition_hash"],
-                spec_data=row["spec_data"] if isinstance(row["spec_data"], dict) else json.loads(row["spec_data"]),
+                spec_data=row["spec_data"]
+                if isinstance(row["spec_data"], dict)
+                else json.loads(row["spec_data"]),
                 description=row["description"],
                 created_at=row["created_at"],
                 workspace_id=row["workspace_id"],
@@ -166,7 +174,9 @@ class PostgresWorkflowDefinitionRepository(WorkflowDefinitionRepository):
                     workflow_id=r["workflow_asset_id"],
                     version=r["version"],
                     definition_hash=r["definition_hash"],
-                    spec_data=r["spec_data"] if isinstance(r["spec_data"], dict) else json.loads(r["spec_data"]),
+                    spec_data=r["spec_data"]
+                    if isinstance(r["spec_data"], dict)
+                    else json.loads(r["spec_data"]),
                     description=r["description"],
                     created_at=r["created_at"],
                     workspace_id=r["workspace_id"],

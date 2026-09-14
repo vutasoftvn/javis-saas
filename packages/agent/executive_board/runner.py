@@ -121,10 +121,13 @@ class ExecutiveBoardRunner:
             output_schema=EXECUTIVE_ANALYSIS_OUTPUT_SCHEMA,
         ).with_hash()
 
-        evidence_text = "\n".join(
-            f"- {ref.source_ref} (hash={ref.source_hash}, classification={ref.classification})"
-            for ref in req.evidence_refs
-        ) or "(không có evidence nào được đính kèm)"
+        evidence_text = (
+            "\n".join(
+                f"- {ref.source_ref} (hash={ref.source_hash}, classification={ref.classification})"
+                for ref in req.evidence_refs
+            )
+            or "(không có evidence nào được đính kèm)"
+        )
 
         run_req = RunRequest(
             principal=f"executive_board:{req.role_key}",

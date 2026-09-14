@@ -213,9 +213,7 @@ async def execute_run_task(
                     workspace_id=workspace_id,
                     project_id=project_id,
                 )
-            return RunTaskResult(
-                status="failed", error="project_context_required", run_id=run_id
-            )
+            return RunTaskResult(status="failed", error="project_context_required", run_id=run_id)
 
         team_client = getattr(plane, "project_team_client", None) or ProjectTeamClient()
         try:
@@ -267,15 +265,11 @@ async def execute_run_task(
                     workspace_id=workspace_id,
                     project_id=project_id,
                 )
-            return RunTaskResult(
-                status="failed", error="project_context_mismatch", run_id=run_id
-            )
+            return RunTaskResult(status="failed", error="project_context_mismatch", run_id=run_id)
 
         local_spec = _AGENT_PROFILE_SPECS.get(agent_profile)
         if not local_spec:
-            return RunTaskResult(
-                status="failed", error="unknown_agent_profile", run_id=run_id
-            )
+            return RunTaskResult(status="failed", error="unknown_agent_profile", run_id=run_id)
 
         if (
             local_spec.id != authority.spec.id
@@ -306,9 +300,7 @@ async def execute_run_task(
                     workspace_id=workspace_id,
                     project_id=project_id,
                 )
-            return RunTaskResult(
-                status="failed", error="spec_hash_mismatch", run_id=run_id
-            )
+            return RunTaskResult(status="failed", error="spec_hash_mismatch", run_id=run_id)
 
         if agent_profile == "customer_support" and not authority.policy_snapshot.get(
             "knowledge_gate_passed", False
@@ -1097,9 +1089,7 @@ async def _report_schedule_execution_complete(
                 headers=headers,
             )
     except Exception as e:
-        logger.warning(
-            "Failed to report complete schedule execution %s: %s", schedule_exec_id, e
-        )
+        logger.warning("Failed to report complete schedule execution %s: %s", schedule_exec_id, e)
 
 
 async def execute_scheduled_session_task(
@@ -1150,8 +1140,10 @@ async def execute_scheduled_session_task(
                         or data.get("agent_profile_snapshot")
                         or "operations"
                     )
-                    project_id = project_id or data.get("projectIdSnapshot") or data.get(
-                        "project_id_snapshot"
+                    project_id = (
+                        project_id
+                        or data.get("projectIdSnapshot")
+                        or data.get("project_id_snapshot")
                     )
         except Exception as exc:
             logger.warning("Could not fetch execution snapshot from control plane: %s", exc)

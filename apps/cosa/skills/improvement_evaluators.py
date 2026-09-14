@@ -94,7 +94,11 @@ class RegisteredSkillEvaluator:
 
         output_str = ""
         if isinstance(result.final_output, dict):
-            output_str = str(result.final_output.get("response") or result.final_output.get("output") or result.final_output)
+            output_str = str(
+                result.final_output.get("response")
+                or result.final_output.get("output")
+                or result.final_output
+            )
         elif result.final_output:
             output_str = str(result.final_output)
 
@@ -109,7 +113,9 @@ class RegisteredSkillEvaluator:
         elif expected_outcome == "reject":
             # For reject cases, the model is expected to deny or refuse
             lower_out = output_str.lower()
-            if any(term in lower_out for term in ("từ chối", "refuse", "cannot", "không thể", "denied")):
+            if any(
+                term in lower_out for term in ("từ chối", "refuse", "cannot", "không thể", "denied")
+            ):
                 return 1.0
             return 0.0
 

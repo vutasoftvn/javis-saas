@@ -147,12 +147,19 @@ def create_cosa_app(plane: CosaAgentPlane | None = None) -> FastAPI:
                     capability_registry=app.state.plane.capability_registry,
                 )
                 if app.state.plane.event_intake_deps is not None:
-                    app.state.authoring_service = getattr(app.state.plane.event_intake_deps, "authoring_service", None)
-                    app.state.evaluation_service = getattr(app.state.plane.event_intake_deps, "evaluation_service", None)
+                    app.state.authoring_service = getattr(
+                        app.state.plane.event_intake_deps, "authoring_service", None
+                    )
+                    app.state.evaluation_service = getattr(
+                        app.state.plane.event_intake_deps, "evaluation_service", None
+                    )
 
             if hasattr(app.state.plane, "authoring_service") and app.state.plane.authoring_service:
                 app.state.authoring_service = app.state.plane.authoring_service
-            if hasattr(app.state.plane, "evaluation_service") and app.state.plane.evaluation_service:
+            if (
+                hasattr(app.state.plane, "evaluation_service")
+                and app.state.plane.evaluation_service
+            ):
                 app.state.evaluation_service = app.state.plane.evaluation_service
         try:
             yield

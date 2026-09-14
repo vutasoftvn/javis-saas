@@ -452,7 +452,9 @@ class PostgresWorkforceRepository:
                     "configured_by": configured_by,
                     "created_at": now,
                     "agent_instance_id": str(eid) if eid else None,
-                    "company_workforce_member_id": str(company_workforce_member_id) if company_workforce_member_id else None,
+                    "company_workforce_member_id": str(company_workforce_member_id)
+                    if company_workforce_member_id
+                    else None,
                 },
             )
             await session.commit()
@@ -1241,7 +1243,8 @@ class InMemoryWorkforceRepository:
                     created_at=existing.created_at,
                     retired_at=None,
                     agent_instance_id=eid or existing.agent_instance_id,
-                    company_workforce_member_id=company_workforce_member_id or existing.company_workforce_member_id,
+                    company_workforce_member_id=company_workforce_member_id
+                    or existing.company_workforce_member_id,
                 )
                 self.assignments[existing.assignment_id] = updated
                 return updated

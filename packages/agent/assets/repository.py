@@ -29,7 +29,9 @@ def compute_canonical_hash(content: dict[str, Any]) -> str:
 
 
 class WorkspaceAssetRepository(Protocol):
-    async def create_draft(self, workspace_id: str, draft: WorkspaceAssetDraft) -> WorkspaceAssetVersion: ...
+    async def create_draft(
+        self, workspace_id: str, draft: WorkspaceAssetDraft
+    ) -> WorkspaceAssetVersion: ...
     async def clone_to_draft(
         self,
         workspace_id: str,
@@ -38,8 +40,12 @@ class WorkspaceAssetRepository(Protocol):
         source_content: dict[str, Any],
         created_by: str,
     ) -> WorkspaceAssetVersion: ...
-    async def get_version(self, workspace_id: str, asset_id: str, version: str) -> WorkspaceAssetVersion | None: ...
-    async def get_latest_version(self, workspace_id: str, asset_id: str) -> WorkspaceAssetVersion | None: ...
+    async def get_version(
+        self, workspace_id: str, asset_id: str, version: str
+    ) -> WorkspaceAssetVersion | None: ...
+    async def get_latest_version(
+        self, workspace_id: str, asset_id: str
+    ) -> WorkspaceAssetVersion | None: ...
     async def replace_draft_content(
         self, workspace_id: str, asset_id: str, version: str, content: dict[str, Any]
     ) -> WorkspaceAssetVersion: ...
@@ -47,7 +53,9 @@ class WorkspaceAssetRepository(Protocol):
         self, workspace_id: str, asset_id: str, version: str, expected_hash: str
     ) -> WorkspaceAssetVersion: ...
     async def record_evaluation(self, evaluation: AssetEvaluationResult) -> None: ...
-    async def get_latest_evaluation(self, workspace_id: str, asset_id: str, version: str) -> AssetEvaluationResult | None: ...
+    async def get_latest_evaluation(
+        self, workspace_id: str, asset_id: str, version: str
+    ) -> AssetEvaluationResult | None: ...
 
 
 class InMemoryWorkspaceAssetRepository:
@@ -57,7 +65,9 @@ class InMemoryWorkspaceAssetRepository:
         # key: (workspace_id, asset_id, version) -> list of evaluations
         self._evaluations: dict[tuple[str, str, str], list[AssetEvaluationResult]] = {}
 
-    async def create_draft(self, workspace_id: str, draft: WorkspaceAssetDraft) -> WorkspaceAssetVersion:
+    async def create_draft(
+        self, workspace_id: str, draft: WorkspaceAssetDraft
+    ) -> WorkspaceAssetVersion:
         key = (workspace_id, draft.asset_id, draft.version)
         definition_hash = compute_canonical_hash(draft.content)
 
@@ -112,12 +122,17 @@ class InMemoryWorkspaceAssetRepository:
         self._versions[(workspace_id, clone_asset_id, clone_version)] = version
         return version
 
-    async def get_version(self, workspace_id: str, asset_id: str, version: str) -> WorkspaceAssetVersion | None:
+    async def get_version(
+        self, workspace_id: str, asset_id: str, version: str
+    ) -> WorkspaceAssetVersion | None:
         return self._versions.get((workspace_id, asset_id, version))
 
-    async def get_latest_version(self, workspace_id: str, asset_id: str) -> WorkspaceAssetVersion | None:
+    async def get_latest_version(
+        self, workspace_id: str, asset_id: str
+    ) -> WorkspaceAssetVersion | None:
         candidates = [
-            v for (ws, a_id, _), v in self._versions.items()
+            v
+            for (ws, a_id, _), v in self._versions.items()
             if ws == workspace_id and a_id == asset_id
         ]
         if not candidates:
@@ -130,10 +145,14 @@ class InMemoryWorkspaceAssetRepository:
         key = (workspace_id, asset_id, version)
         item = self._versions.get(key)
         if not item:
-            raise AssetNotFoundError(f"Asset version {asset_id}:{version} not found in workspace {workspace_id}")
+            raise AssetNotFoundError(
+                f"Asset version {asset_id}:{version} not found in workspace {workspace_id}"
+            )
 
         if item.lifecycle not in (AssetLifecycle.DRAFT, AssetLifecycle.CANDIDATE):
-            raise AssetImmutableError(f"Cannot mutate content of asset in lifecycle {item.lifecycle.value}")
+            raise AssetImmutableError(
+                f"Cannot mutate content of asset in lifecycle {item.lifecycle.value}"
+            )
 
         new_hash = compute_canonical_hash(content)
         updated = WorkspaceAssetVersion(
@@ -158,9 +177,13 @@ class InMemoryWorkspaceAssetRepository:
     ) -> WorkspaceAssetVersion:
         latest = self._versions.get((workspace_id, asset_id, version))
         if not latest:
-            raise AssetNotFoundError(f"Asset version {asset_id}:{version} not found in workspace {workspace_id}")
+            raise AssetNotFoundError(
+                f"Asset version {asset_id}:{version} not found in workspace {workspace_id}"
+            )
         if latest.definition_hash != expected_hash:
-            raise AssetConflictError(f"expected_hash mismatch: expected {expected_hash}, found {latest.definition_hash}")
+            raise AssetConflictError(
+                f"expected_hash mismatch: expected {expected_hash}, found {latest.definition_hash}"
+            )
 
         if latest.lifecycle == AssetLifecycle.PUBLISHED:
             return latest
@@ -198,7 +221,9 @@ class InMemoryWorkspaceAssetRepository:
                 "evaluated_at": evaluation.evaluated_at.isoformat(),
             }
 
-    async def get_latest_evaluation(self, workspace_id: str, asset_id: str, version: str) -> AssetEvaluationResult | None:
+    async def get_latest_evaluation(
+        self, workspace_id: str, asset_id: str, version: str
+    ) -> AssetEvaluationResult | None:
         evals = self._evaluations.get((workspace_id, asset_id, version), [])
         if not evals:
             return None
@@ -209,7 +234,9 @@ class PostgresWorkspaceAssetRepository:
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._session_factory = session_factory
 
-    async def create_draft(self, workspace_id: str, draft: WorkspaceAssetDraft) -> WorkspaceAssetVersion:
+    async def create_draft(
+        self, workspace_id: str, draft: WorkspaceAssetDraft
+    ) -> WorkspaceAssetVersion:
         definition_hash = compute_canonical_hash(draft.content)
         async with self._session_factory() as session:
             # 1. Upsert workspace_assets
@@ -335,7 +362,11 @@ class PostgresWorkspaceAssetRepository:
     def _row_to_version(self, row: Any) -> WorkspaceAssetVersion:
         origin = None
         if row["origin_json"]:
-            raw_origin = row["origin_json"] if isinstance(row["origin_json"], dict) else json.loads(row["origin_json"])
+            raw_origin = (
+                row["origin_json"]
+                if isinstance(row["origin_json"], dict)
+                else json.loads(row["origin_json"])
+            )
             origin = AssetOrigin(
                 kind=raw_origin.get("kind", "CLONE"),
                 asset_id=raw_origin.get("asset_id", ""),
@@ -367,7 +398,9 @@ class PostgresWorkspaceAssetRepository:
             published_at=row["published_at"],
         )
 
-    async def get_version(self, workspace_id: str, asset_id: str, version: str) -> WorkspaceAssetVersion | None:
+    async def get_version(
+        self, workspace_id: str, asset_id: str, version: str
+    ) -> WorkspaceAssetVersion | None:
         async with self._session_factory() as session:
             stmt = text(
                 """
@@ -380,13 +413,17 @@ class PostgresWorkspaceAssetRepository:
                 WHERE v.workspace_id = :ws_id AND v.asset_id = :asset_id AND v.version = :ver
                 """
             )
-            res = await session.execute(stmt, {"ws_id": workspace_id, "asset_id": asset_id, "ver": version})
+            res = await session.execute(
+                stmt, {"ws_id": workspace_id, "asset_id": asset_id, "ver": version}
+            )
             row = res.mappings().first()
             if not row:
                 return None
             return self._row_to_version(row)
 
-    async def get_latest_version(self, workspace_id: str, asset_id: str) -> WorkspaceAssetVersion | None:
+    async def get_latest_version(
+        self, workspace_id: str, asset_id: str
+    ) -> WorkspaceAssetVersion | None:
         async with self._session_factory() as session:
             stmt = text(
                 """
@@ -414,7 +451,9 @@ class PostgresWorkspaceAssetRepository:
         if not current:
             raise AssetNotFoundError(f"Asset version {asset_id}:{version} not found")
         if current.lifecycle not in (AssetLifecycle.DRAFT, AssetLifecycle.CANDIDATE):
-            raise AssetImmutableError(f"Cannot mutate content of asset in lifecycle {current.lifecycle.value}")
+            raise AssetImmutableError(
+                f"Cannot mutate content of asset in lifecycle {current.lifecycle.value}"
+            )
 
         new_hash = compute_canonical_hash(content)
         async with self._session_factory() as session:
@@ -460,7 +499,9 @@ class PostgresWorkspaceAssetRepository:
                 raise AssetNotFoundError(f"Asset {asset_id} not found in workspace {workspace_id}")
 
             if row["definition_hash"] != expected_hash:
-                raise AssetConflictError(f"expected_hash mismatch: expected {expected_hash}, found {row['definition_hash']}")
+                raise AssetConflictError(
+                    f"expected_hash mismatch: expected {expected_hash}, found {row['definition_hash']}"
+                )
 
             stmt_update = text(
                 """
@@ -469,7 +510,9 @@ class PostgresWorkspaceAssetRepository:
                 WHERE workspace_id = :ws_id AND asset_id = :asset_id AND version = :ver
                 """
             )
-            await session.execute(stmt_update, {"ws_id": workspace_id, "asset_id": asset_id, "ver": version})
+            await session.execute(
+                stmt_update, {"ws_id": workspace_id, "asset_id": asset_id, "ver": version}
+            )
 
             stmt_asset_update = text(
                 """
@@ -478,7 +521,9 @@ class PostgresWorkspaceAssetRepository:
                 WHERE workspace_id = :ws_id AND asset_id = :asset_id
                 """
             )
-            await session.execute(stmt_asset_update, {"ws_id": workspace_id, "asset_id": asset_id, "ver": version})
+            await session.execute(
+                stmt_asset_update, {"ws_id": workspace_id, "asset_id": asset_id, "ver": version}
+            )
             await session.commit()
 
         updated = await self.get_version(workspace_id, asset_id, version)
@@ -541,7 +586,9 @@ class PostgresWorkspaceAssetRepository:
             )
             await session.commit()
 
-    async def get_latest_evaluation(self, workspace_id: str, asset_id: str, version: str) -> AssetEvaluationResult | None:
+    async def get_latest_evaluation(
+        self, workspace_id: str, asset_id: str, version: str
+    ) -> AssetEvaluationResult | None:
         async with self._session_factory() as session:
             stmt = text(
                 """
@@ -554,7 +601,9 @@ class PostgresWorkspaceAssetRepository:
                 LIMIT 1
                 """
             )
-            res = await session.execute(stmt, {"ws_id": workspace_id, "asset_id": asset_id, "ver": version})
+            res = await session.execute(
+                stmt, {"ws_id": workspace_id, "asset_id": asset_id, "ver": version}
+            )
             row = res.mappings().first()
             if not row:
                 return None
@@ -566,11 +615,21 @@ class PostgresWorkspaceAssetRepository:
                 version=row["version"],
                 definition_hash=row["definition_hash"],
                 status=row["status"],
-                structural_result=row["structural_result"] if isinstance(row["structural_result"], dict) else json.loads(row["structural_result"]),
-                negative_policy_result=row["negative_policy_result"] if isinstance(row["negative_policy_result"], dict) else json.loads(row["negative_policy_result"]),
-                scenario_suite_result=row["scenario_suite_result"] if isinstance(row["scenario_suite_result"], dict) else json.loads(row["scenario_suite_result"]),
-                evidence_refs=row["evidence_refs"] if isinstance(row["evidence_refs"], list) else json.loads(row["evidence_refs"]),
-                cost_latency_summary=row["cost_latency_summary"] if isinstance(row["cost_latency_summary"], dict) else json.loads(row["cost_latency_summary"]),
+                structural_result=row["structural_result"]
+                if isinstance(row["structural_result"], dict)
+                else json.loads(row["structural_result"]),
+                negative_policy_result=row["negative_policy_result"]
+                if isinstance(row["negative_policy_result"], dict)
+                else json.loads(row["negative_policy_result"]),
+                scenario_suite_result=row["scenario_suite_result"]
+                if isinstance(row["scenario_suite_result"], dict)
+                else json.loads(row["scenario_suite_result"]),
+                evidence_refs=row["evidence_refs"]
+                if isinstance(row["evidence_refs"], list)
+                else json.loads(row["evidence_refs"]),
+                cost_latency_summary=row["cost_latency_summary"]
+                if isinstance(row["cost_latency_summary"], dict)
+                else json.loads(row["cost_latency_summary"]),
                 evaluator_version=row["evaluator_version"],
                 evaluated_at=row["evaluated_at"],
             )

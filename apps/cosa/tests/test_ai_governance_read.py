@@ -30,7 +30,9 @@ _CANNED_SNAPSHOT = {
     "revision": 2,
     "status": "CONFIRMED",
     "snapshotRef": "sha256:abc123",
-    "policy": [{"id": "cosa.model_policy.default", "version": "1.0.0", "definitionHash": "deadbeef"}],
+    "policy": [
+        {"id": "cosa.model_policy.default", "version": "1.0.0", "definitionHash": "deadbeef"}
+    ],
     "evaluators": [{"id": "eval.default", "version": "1.0.0", "definitionHash": "beadfeed"}],
     "observedAt": "2026-09-12T00:00:00.000Z",
     "riskSignals": [{"category": "POLICY_DRIFT", "severity": "LOW"}],
@@ -62,7 +64,9 @@ async def test_handler_uses_ctx_project_and_workspace_scope_with_real_dict_ctx()
         "revision": 2,
         "status": "CONFIRMED",
         "snapshotRef": "sha256:abc123",
-        "policy": [{"id": "cosa.model_policy.default", "version": "1.0.0", "definitionHash": "deadbeef"}],
+        "policy": [
+            {"id": "cosa.model_policy.default", "version": "1.0.0", "definitionHash": "deadbeef"}
+        ],
         "evaluators": [{"id": "eval.default", "version": "1.0.0", "definitionHash": "beadfeed"}],
         "observedAt": "2026-09-12T00:00:00.000Z",
         "riskSignals": [{"category": "POLICY_DRIFT", "severity": "LOW"}],
@@ -97,9 +101,7 @@ async def test_handler_rejects_args_workspace_id_override_of_dict_ctx() -> None:
     handler = create_ai_governance_read_handler(fake_client)
     ctx: dict[str, Any] = {"project_id": "project-A", "workspace_id": "workspace-1"}
 
-    result = await handler(
-        {"project_id": "project-A", "workspace_id": "workspace-EVIL"}, ctx
-    )
+    result = await handler({"project_id": "project-A", "workspace_id": "workspace-EVIL"}, ctx)
 
     call = fake_client.calls[0]
     assert call["headers"] == {"X-Workspace-Id": "workspace-1"}

@@ -394,6 +394,7 @@ class ProjectActivityEventDTO(BaseModel):
 
     Mỗi row tương ứng 1 ProjectActivityEventRecord từ repository.
     """
+
     event_id: str
     workspace_id: str
     project_id: str
@@ -421,6 +422,7 @@ class ProjectActivityDetailDTO(BaseModel):
     Rechecks source visibility, trả only redacted metadata khi source bị restrict
     hoặc không tồn tại. KHÔNG bao giờ trả raw source object.
     """
+
     event_id: str
     workspace_id: str
     project_id: str
@@ -446,6 +448,7 @@ class ProjectActivityDetailDTO(BaseModel):
 
 class ProjectActivityListResponse(BaseModel):
     """Response to list project activity — paginated, filtered by sequence."""
+
     items: list[ProjectActivityEventDTO] = Field(default_factory=list)
     total: int = 0
     next_cursor: int | None = None  # after_project_sequence để continue

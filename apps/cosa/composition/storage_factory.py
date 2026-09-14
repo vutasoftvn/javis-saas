@@ -334,7 +334,9 @@ def init_plane_storage(
     elif resolved_url:
         imp_engine, imp_session_factory = build_postgres_session_factory(resolved_url)
         created_engines.append(imp_engine)
-        imp_repo = PostgresSkillImprovementRepository(imp_session_factory, candidate_store=cand_store)
+        imp_repo = PostgresSkillImprovementRepository(
+            imp_session_factory, candidate_store=cand_store
+        )
     else:
         imp_repo = InMemorySkillImprovementRepository(candidate_store=cand_store)
 

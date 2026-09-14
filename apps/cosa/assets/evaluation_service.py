@@ -25,7 +25,9 @@ class EvaluationService:
     ) -> AssetEvaluationResult:
         item = await self._repository.get_version(workspace_id, asset_id, version)
         if not item:
-            raise AssetNotFoundError(f"Asset version {asset_id}:{version} not found in workspace {workspace_id}")
+            raise AssetNotFoundError(
+                f"Asset version {asset_id}:{version} not found in workspace {workspace_id}"
+            )
 
         content = item.content_json
         structural_errors: list[str] = []
@@ -41,7 +43,9 @@ class EvaluationService:
         if item.scope.kind in (AssetScopeKind.PROJECT_SANDBOX, "PROJECT_SANDBOX"):
             caps = content.get("capability_refs", [])
             if caps:
-                structural_errors.append("PROJECT_SANDBOX assets cannot declare external capability_refs")
+                structural_errors.append(
+                    "PROJECT_SANDBOX assets cannot declare external capability_refs"
+                )
 
         # 3. Workflow asset structural & executor readiness validation
         is_workflow = item.kind == AssetKind.WORKFLOW
@@ -58,7 +62,9 @@ class EvaluationService:
                     spec,
                     WorkflowValidationContext(
                         workspace_id=workspace_id,
-                        project_id=getattr(item.scope, "project_id", None) if hasattr(item, "scope") else None,
+                        project_id=getattr(item.scope, "project_id", None)
+                        if hasattr(item, "scope")
+                        else None,
                     ),
                 )
                 if not val_res.is_valid:
@@ -113,7 +119,9 @@ class EvaluationService:
                         WHERE workspace_id = :ws_id AND asset_id = :asset_id AND version = :ver
                         """
                     )
-                    await session.execute(stmt, {"ws_id": workspace_id, "asset_id": asset_id, "ver": version})
+                    await session.execute(
+                        stmt, {"ws_id": workspace_id, "asset_id": asset_id, "ver": version}
+                    )
                     await session.commit()
 
         return result

@@ -53,6 +53,7 @@ class DeterministicHandlerRegistry:
 
 # Built-in pure deterministic transforms (no I/O):
 
+
 def _pass_through(state: dict[str, Any], params: dict[str, Any] | None = None) -> dict[str, Any]:
     """Passes state or specified inputs through."""
     if params and "output_key" in params:
@@ -104,4 +105,3 @@ register_deterministic_handler("format_template", _format_template)
 register_deterministic_handler("format_string", _format_template)
 
 WHITELISTED_DETERMINISTIC_HANDLERS = _REGISTRY
-

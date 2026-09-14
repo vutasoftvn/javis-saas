@@ -135,7 +135,12 @@ async def execute_skill_candidate_promotion(
     cand = await cand_store.get_candidate(workspace_id, candidate_id)
     if cand is None:
         await _record_action_event(
-            plane, workspace_id, approval_id, None, "approval.action.rejected", "CANDIDATE_NOT_FOUND"
+            plane,
+            workspace_id,
+            approval_id,
+            None,
+            "approval.action.rejected",
+            "CANDIDATE_NOT_FOUND",
         )
         return ApprovalActionResult(
             success=False,

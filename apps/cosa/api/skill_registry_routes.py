@@ -144,7 +144,9 @@ def _run_workspace_custom_evaluation(
 
 def get_skill_candidate_store(request: Request) -> SkillCandidateStore:
     """Dependency injection helper cho SkillCandidateStore."""
-    plane = getattr(request.app.state, "plane", None) or getattr(request.app.state, "cosa_plane", None)
+    plane = getattr(request.app.state, "plane", None) or getattr(
+        request.app.state, "cosa_plane", None
+    )
     if plane is not None and getattr(plane, "skill_candidate_store", None) is not None:
         return plane.skill_candidate_store
     store = getattr(request.app.state, "skill_candidate_store", None)
@@ -162,7 +164,9 @@ def get_skill_candidate_store(request: Request) -> SkillCandidateStore:
 
 def get_skill_improvement_repository(request: Request) -> SkillImprovementRepository:
     """Dependency injection helper cho SkillImprovementRepository."""
-    plane = getattr(request.app.state, "plane", None) or getattr(request.app.state, "cosa_plane", None)
+    plane = getattr(request.app.state, "plane", None) or getattr(
+        request.app.state, "cosa_plane", None
+    )
     if plane is not None and getattr(plane, "skill_improvement_repository", None) is not None:
         return plane.skill_improvement_repository
     repo = getattr(request.app.state, "skill_improvement_repository", None)
@@ -669,7 +673,9 @@ async def record_skill_feedback(
             detail="Missing required workspace context",
         )
 
-    idempotency_key = request.headers.get("Idempotency-Key") or request.headers.get("idempotency-key")
+    idempotency_key = request.headers.get("Idempotency-Key") or request.headers.get(
+        "idempotency-key"
+    )
     if not idempotency_key or not idempotency_key.strip():
         raise HTTPException(
             status_code=400,
@@ -682,7 +688,9 @@ async def record_skill_feedback(
             detail="Missing required run_id in feedback request",
         )
 
-    matching_obs = await improvement_repo.get_usage_observations(ws_id, req.run_id.strip(), skill_id)
+    matching_obs = await improvement_repo.get_usage_observations(
+        ws_id, req.run_id.strip(), skill_id
+    )
     if not matching_obs:
         raise HTTPException(
             status_code=400,
@@ -712,7 +720,9 @@ async def record_skill_feedback(
         notes=req.notes,
     )
 
-    write_result = await improvement_repo.record_feedback_and_maybe_enqueue(feedback=fb, policy=policy)
+    write_result = await improvement_repo.record_feedback_and_maybe_enqueue(
+        feedback=fb, policy=policy
+    )
 
     data = {
         "feedback_id": write_result.feedback_id,

@@ -29,9 +29,7 @@ _CANNED_SNAPSHOT = {
     "dossierId": "dossier-123",
     "revision": 2,
     "capacityBands": [{"roleCategory": "engineering", "headcount": 5}],
-    "riskSignals": [
-        {"category": "attrition_risk", "severity": "MEDIUM", "sourceRef": "src-1"}
-    ],
+    "riskSignals": [{"category": "attrition_risk", "severity": "MEDIUM", "sourceRef": "src-1"}],
     "sourceRefs": [{"sourceRef": "src-1", "classification": "internal"}],
     "status": "CONFIRMED",
     # Trường lạ không thuộc output_schema — phải bị lọc bỏ, không passthrough.
@@ -60,9 +58,7 @@ async def test_handler_uses_ctx_project_and_workspace_scope_with_real_dict_ctx()
         "dossierId": "dossier-123",
         "revision": 2,
         "capacityBands": [{"roleCategory": "engineering", "headcount": 5}],
-        "riskSignals": [
-            {"category": "attrition_risk", "severity": "MEDIUM", "sourceRef": "src-1"}
-        ],
+        "riskSignals": [{"category": "attrition_risk", "severity": "MEDIUM", "sourceRef": "src-1"}],
         "sourceRefs": [{"sourceRef": "src-1", "classification": "internal"}],
         "status": "CONFIRMED",
     }
@@ -95,9 +91,7 @@ async def test_handler_rejects_args_workspace_id_override_of_dict_ctx() -> None:
     handler = create_people_risk_read_handler(fake_client)
     ctx: dict[str, Any] = {"project_id": "project-A", "workspace_id": "workspace-1"}
 
-    result = await handler(
-        {"project_id": "project-A", "workspace_id": "workspace-EVIL"}, ctx
-    )
+    result = await handler({"project_id": "project-A", "workspace_id": "workspace-EVIL"}, ctx)
 
     call = fake_client.calls[0]
     assert call["headers"] == {"X-Workspace-Id": "workspace-1"}

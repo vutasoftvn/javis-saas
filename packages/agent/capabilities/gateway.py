@@ -171,7 +171,6 @@ class CapabilityGateway:
         self._enablement_store = enablement_store or InMemoryEnablementStore()
         self._live_authorizer = live_authorizer
 
-
     async def execute(self, req: GatewayExecutionRequest) -> GatewayExecutionResult:
         from opentelemetry import trace
 
@@ -608,16 +607,25 @@ class CapabilityGateway:
         if self._live_authorizer is not None:
             skip_ticket = False
             if hasattr(self._live_authorizer, "is_ticket_required"):
-                skip_ticket = not self._live_authorizer.is_ticket_required(spec, req.context, req.capability_id)
+                skip_ticket = not self._live_authorizer.is_ticket_required(
+                    spec, req.context, req.capability_id
+                )
             else:
                 meta = getattr(spec, "metadata", {}) or {}
-                if meta.get("draft_only") is True or meta.get("risk_class") == "READ" or req.capability_id.endswith((".read", ".list", ".get", ".query")):
+                if (
+                    meta.get("draft_only") is True
+                    or meta.get("risk_class") == "READ"
+                    or req.capability_id.endswith((".read", ".list", ".get", ".query"))
+                ):
                     skip_ticket = True
 
             if not skip_ticket:
                 auth_res = await self._live_authorizer.authorize(req, spec)
                 if not auth_res.allowed:
-                    err_msg = auth_res.error_message or f"Execution of '{req.capability_id}' denied: live authorization rejected"
+                    err_msg = (
+                        auth_res.error_message
+                        or f"Execution of '{req.capability_id}' denied: live authorization rejected"
+                    )
                     tc_record.status = "denied"
                     tc_record.error_message = err_msg
                     await self._repo.save_tool_call(tc_record)
@@ -645,7 +653,6 @@ class CapabilityGateway:
                         req.context.metadata["authorization_ticket_id"] = auth_ticket_id
                     elif isinstance(req.context, dict):
                         req.context["authorization_ticket_id"] = auth_ticket_id
-
 
         # Bước 9 & 10: Execute Handler
         await self._repo.append_event(
@@ -678,7 +685,6 @@ class CapabilityGateway:
                     output = handler(req.input_payload, handler_ctx)
             finally:
                 reset_outbound_headers(header_token)
-
 
             # Persist status completed & audit
             tc_record.status = "completed"

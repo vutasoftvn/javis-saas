@@ -311,7 +311,10 @@ async def _dispatch_skill_improvement_task(plane: CosaAgentPlane, task, payload:
 
         await _heartbeat_task_claim_only(plane, task.task_id, task.claim_token, _execute_handler())
         outcome = outcome_holder[0] if outcome_holder else None
-        is_success = outcome is not None and outcome.status not in ("STALE", "FAILED_REQUIRES_ATTENTION")
+        is_success = outcome is not None and outcome.status not in (
+            "STALE",
+            "FAILED_REQUIRES_ATTENTION",
+        )
         ok = await plane.scheduler.complete_task(
             task.task_id,
             worker_id=WORKER_ID,

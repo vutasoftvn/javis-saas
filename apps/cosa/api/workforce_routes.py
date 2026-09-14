@@ -173,11 +173,7 @@ async def create_assignment(
 
         members = overview.get("members", [])
         target = next(
-            (
-                m
-                for m in members
-                if str(m.get("id")) == str(req.company_workforce_member_id)
-            ),
+            (m for m in members if str(m.get("id")) == str(req.company_workforce_member_id)),
             None,
         )
         if (
@@ -1005,7 +1001,9 @@ async def decide_approval(
     except Exception:
         pass
 
-    binding_kind = getattr(existing_approval, "binding_kind", None) or getattr(decided, "binding_kind", "TOOL_CALL")
+    binding_kind = getattr(existing_approval, "binding_kind", None) or getattr(
+        decided, "binding_kind", "TOOL_CALL"
+    )
     binding_kind_str = str(getattr(binding_kind, "value", binding_kind)).upper()
 
     if binding_kind_str == "CHANGE_REQUEST":

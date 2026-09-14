@@ -16,7 +16,6 @@ from agent.workflows.validation import UnsupportedWorkflowStepError
 __all__ = ["UnsupportedWorkflowStepError", "WorkflowEngine"]
 
 
-
 class WorkflowEngine:
     """Workflow execution engine supporting both:
     1. Linear step pipelines (backward-compatible `start` and `resume`).
@@ -194,25 +193,34 @@ class WorkflowEngine:
                             f"DETERMINISTIC step '{step_spec.id}' has no handler specified",
                         )
 
-                step_params = getattr(step_spec, "params", {}) or (step_spec.inputs if step_spec.inputs else {})
+                step_params = getattr(step_spec, "params", {}) or (
+                    step_spec.inputs if step_spec.inputs else {}
+                )
                 import inspect
+
                 sig = inspect.signature(handler_fn)
                 takes_params = len(sig.parameters) >= 2
 
                 if inspect.iscoroutinefunction(handler_fn):
                     if takes_params:
+
                         async def _async_with_params(s: Any, _f=handler_fn, _p=step_params) -> Any:
                             return await _f(s, _p)
+
                         step_callable = _async_with_params
                     else:
                         step_callable = handler_fn
                 elif takes_params:
+
                     async def _sync_with_params(s: Any, _f=handler_fn, _p=step_params) -> Any:
                         return _f(s, _p)
+
                     step_callable = _sync_with_params
                 else:
+
                     async def _sync_without_params(s: Any, _f=handler_fn) -> Any:
                         return _f(s)
+
                     step_callable = _sync_without_params
 
                 compiled_steps.append(DeterministicStep(name=step_name, fn=step_callable))
@@ -221,8 +229,16 @@ class WorkflowEngine:
 
                 dep_id = (
                     step_spec.project_agent_deployment_id
-                    or (step_spec.inputs.get("project_agent_deployment_id") if step_spec.inputs else None)
-                    or (step_spec.metadata.get("project_agent_deployment_id") if step_spec.metadata else None)
+                    or (
+                        step_spec.inputs.get("project_agent_deployment_id")
+                        if step_spec.inputs
+                        else None
+                    )
+                    or (
+                        step_spec.metadata.get("project_agent_deployment_id")
+                        if step_spec.metadata
+                        else None
+                    )
                 )
                 compiled_steps.append(
                     AgentWorkflowStep(

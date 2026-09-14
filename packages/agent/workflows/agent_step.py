@@ -34,14 +34,8 @@ class AgentWorkflowStep:
                 status=StepStatus.FAILED,
                 error="Governed workflow manifest is required for an AGENT step",
             )
-        workspace_id = (
-            manifest.workspace_id
-            or state.get("workspace_id")
-        )
-        project_id = (
-            manifest.project_id
-            or state.get("project_id")
-        )
+        workspace_id = manifest.workspace_id or state.get("workspace_id")
+        project_id = manifest.project_id or state.get("project_id")
         dep_id = (
             self._project_agent_deployment_id
             or manifest.project_agent_deployment_id
@@ -100,7 +94,9 @@ class AgentWorkflowStep:
             )
         spec_id = agent_spec_info.get("id")
         version = agent_spec_info.get("version")
-        definition_hash = agent_spec_info.get("definitionHash") or agent_spec_info.get("definition_hash")
+        definition_hash = agent_spec_info.get("definitionHash") or agent_spec_info.get(
+            "definition_hash"
+        )
         pinned_spec = pinned_specs.get(spec_id) if spec_id else None
         if not isinstance(pinned_spec, dict):
             return StepOutcome(
@@ -109,7 +105,13 @@ class AgentWorkflowStep:
             )
         pinned_version = pinned_spec.get("version")
         pinned_hash = pinned_spec.get("definition_hash") or pinned_spec.get("definitionHash")
-        if not spec_id or not version or not definition_hash or version != pinned_version or definition_hash != pinned_hash:
+        if (
+            not spec_id
+            or not version
+            or not definition_hash
+            or version != pinned_version
+            or definition_hash != pinned_hash
+        ):
             return StepOutcome(
                 status=StepStatus.FAILED,
                 error="Live AgentSpec does not match the exact manifest pin",

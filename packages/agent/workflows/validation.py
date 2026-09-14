@@ -87,7 +87,9 @@ class WorkflowPublishValidator:
                 active_capabilities=set(context.get("active_capabilities", [])),
                 registered_handlers=set(context.get("registered_handlers", [])),
                 published_assets=context.get("published_assets", {}),
-                registered_executors=set(context.get("registered_executors", cls.DEFAULT_EXECUTABLE_STEP_TYPES)),
+                registered_executors=set(
+                    context.get("registered_executors", cls.DEFAULT_EXECUTABLE_STEP_TYPES)
+                ),
             )
 
         executors = (
@@ -158,7 +160,11 @@ class WorkflowPublishValidator:
                     errors.append(f"APPROVAL_GATE step '{step.id}' missing subject_key")
 
             elif step.type == StepType.RETRY:
-                handler = step.handler or (step.inputs.get("handler") if step.inputs else None) or step.action
+                handler = (
+                    step.handler
+                    or (step.inputs.get("handler") if step.inputs else None)
+                    or step.action
+                )
                 if not handler:
                     errors.append(f"RETRY step '{step.id}' missing registered retry target")
                 else:
@@ -180,12 +186,18 @@ class WorkflowPublishValidator:
                     try:
                         m = int(max_attempts)
                         if not (1 <= m <= 10):
-                            errors.append(f"RETRY step '{step.id}' max_attempts must be between 1 and 10")
+                            errors.append(
+                                f"RETRY step '{step.id}' max_attempts must be between 1 and 10"
+                            )
                     except (ValueError, TypeError):
                         errors.append(f"RETRY step '{step.id}' max_attempts must be an integer")
 
             elif step.type == StepType.DETERMINISTIC:
-                handler = step.handler or (step.inputs.get("handler") if step.inputs else None) or step.action
+                handler = (
+                    step.handler
+                    or (step.inputs.get("handler") if step.inputs else None)
+                    or step.action
+                )
                 if not handler:
                     errors.append(f"DETERMINISTIC step '{step.id}' missing handler")
                 else:

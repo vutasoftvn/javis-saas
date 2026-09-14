@@ -125,7 +125,7 @@ async def _stream_project_activity(
     """
     repo: ProjectActivityRepository = getattr(plane, "project_activity_repository", None)
     if repo is None:
-        yield "event: error\ndata: {\"error\": \"Project Activity repository unavailable\"}\n\n"
+        yield 'event: error\ndata: {"error": "Project Activity repository unavailable"}\n\n'
         return
 
     # Replay history
@@ -188,11 +188,13 @@ def create_project_activity_router() -> APIRouter:
         # Tạo generator với proper SSE format
         async def event_generator():
             try:
-                async for line in _stream_project_activity(plane, identity, project_id, after_sequence):
+                async for line in _stream_project_activity(
+                    plane, identity, project_id, after_sequence
+                ):
                     yield line
             except Exception as e:
                 logger.exception("Error in project activity stream: %s", e)
-                yield f"event: error\ndata: {{\"error\": \"{e!s}\"}}\n\n"
+                yield f'event: error\ndata: {{"error": "{e!s}"}}\n\n'
 
         return StreamingResponse(
             event_generator(),

@@ -99,9 +99,7 @@ async def test_handler_rejects_args_workspace_id_override_of_dict_ctx() -> None:
     handler = create_legal_issue_read_handler(fake_client)
     ctx: dict[str, Any] = {"project_id": "project-A", "workspace_id": "workspace-1"}
 
-    result = await handler(
-        {"project_id": "project-A", "workspace_id": "workspace-EVIL"}, ctx
-    )
+    result = await handler({"project_id": "project-A", "workspace_id": "workspace-EVIL"}, ctx)
 
     call = fake_client.calls[0]
     assert call["headers"] == {"X-Workspace-Id": "workspace-1"}

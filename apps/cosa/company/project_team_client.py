@@ -60,9 +60,7 @@ class ProjectTeamClient:
             or "http://localhost:4000"
         ).rstrip("/")
         self.service_token = (
-            service_token
-            or os.getenv("COSA_WORKER_SERVICE_TOKEN")
-            or "dev-worker-service-token"
+            service_token or os.getenv("COSA_WORKER_SERVICE_TOKEN") or "dev-worker-service-token"
         )
         self.timeout = timeout
 
@@ -74,9 +72,7 @@ class ProjectTeamClient:
         profile_key: str,
     ) -> ProjectAgentRunAuthority:
         """GET /internal/operations/projects/:projectId/startup-team/:profileKey/run-authority"""
-        url = (
-            f"{self.base_url}/internal/operations/projects/{project_id}/startup-team/{profile_key}/run-authority"
-        )
+        url = f"{self.base_url}/internal/operations/projects/{project_id}/startup-team/{profile_key}/run-authority"
         headers = {
             "X-Workspace-Id": workspace_id,
             "X-Service-Token": self.service_token,

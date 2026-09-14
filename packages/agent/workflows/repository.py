@@ -103,5 +103,6 @@ class InMemoryWorkflowDefinitionRepository:
 def __getattr__(name: str) -> Any:
     if name == "PostgresWorkflowDefinitionRepository":
         from agent.workflows.postgres_repository import PostgresWorkflowDefinitionRepository
+
         return PostgresWorkflowDefinitionRepository
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

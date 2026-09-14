@@ -45,7 +45,11 @@ class SkillUsageObserver:
 
         observations: list[SkillUsageObservation] = []
         root_spec_id = getattr(root_spec, "id", "") or "root_agent"
-        root_hash = getattr(root_spec, "definition_hash", "") or getattr(root_spec, "version", "") or "root_hash"
+        root_hash = (
+            getattr(root_spec, "definition_hash", "")
+            or getattr(root_spec, "version", "")
+            or "root_hash"
+        )
 
         mode = os.getenv("COSA_SKILL_IMPROVEMENT_MODE", "OFF").upper()
 
@@ -104,7 +108,9 @@ class InMemorySkillUsageObserver(SkillUsageObserver):
         resolved_skills: list[SkillSpec],
         pinned_refs: list[PinnedSkillRef] | None = None,
     ) -> list[SkillUsageObservation]:
-        res = await super().record_resolved_pins(run_record, root_spec, resolved_skills, pinned_refs)
+        res = await super().record_resolved_pins(
+            run_record, root_spec, resolved_skills, pinned_refs
+        )
         self._observations.extend(res)
         return res
 

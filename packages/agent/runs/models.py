@@ -37,7 +37,6 @@ __all__ = [
 ApprovalBindingKind = Literal["TOOL_CALL", "CHANGE_REQUEST"]
 
 
-
 class ApprovalSubject(BaseModel):
     kind: str
     ref: str
@@ -285,9 +284,10 @@ class GovernedWorkflowRunOutcome(BaseModel):
 def __getattr__(name: str) -> Any:
     if name == "GovernedWorkflowRunManifest":
         from agent.workflows.manifest import GovernedWorkflowRunManifest
+
         return GovernedWorkflowRunManifest
     if name == "WorkflowRunRecord":
         from agent.workflows.models import WorkflowRunRecord
+
         return WorkflowRunRecord
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-

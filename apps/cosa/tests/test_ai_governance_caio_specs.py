@@ -45,7 +45,9 @@ def test_ai_governance_profile_capability_refs_never_touch_governance_write_surf
     spec = AGENT_PROFILE_SPECS["ai_governance"]
     for ref in spec.capability_refs:
         for forbidden in _FORBIDDEN_CAPABILITY_SUBSTRINGS:
-            assert forbidden not in ref, f"forbidden capability surface {ref!r} found on ai_governance spec"
+            assert forbidden not in ref, (
+                f"forbidden capability surface {ref!r} found on ai_governance spec"
+            )
 
 
 def test_caio_is_capability_empty_and_carries_advisory_disclaimer():

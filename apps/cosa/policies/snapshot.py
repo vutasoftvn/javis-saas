@@ -63,7 +63,10 @@ class AgentAuthorizationSnapshot(BaseModel):
                 return False, "CONSTRAINT_AMOUNT_EXCEEDED", grant
         if "currency" in constraints and payload:
             facts_amount = payload.get("amount")
-            if isinstance(facts_amount, dict) and facts_amount.get("currency") != constraints["currency"]:
+            if (
+                isinstance(facts_amount, dict)
+                and facts_amount.get("currency") != constraints["currency"]
+            ):
                 return False, "CONSTRAINT_CURRENCY_MISMATCH", grant
         return True, "ALLOWED", grant
 

@@ -90,9 +90,7 @@ class CompanyServiceClient:
         project_agent_deployment_id: str,
     ) -> dict[str, Any]:
         """Resolve a live ProjectAgentDeployment authority pin for workflow execution."""
-        service_token = os.environ.get(
-            "COSA_WORKER_SERVICE_TOKEN", "dev-worker-service-token"
-        )
+        service_token = os.environ.get("COSA_WORKER_SERVICE_TOKEN", "dev-worker-service-token")
         return await self.get(
             f"/internal/operations/projects/{project_id}/agent-deployments/"
             f"{project_agent_deployment_id}/deployment-authority",
@@ -135,7 +133,6 @@ class CompanyServiceClient:
                 "X-Workspace-Id": str(workspace_id),
             },
         )
-
 
     async def resolve_data_use(
         self,

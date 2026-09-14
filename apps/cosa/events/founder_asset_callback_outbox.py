@@ -5,6 +5,7 @@ authoring completed but its status callback could not be delivered.  This
 outbox preserves the exact callback payload so a duplicate command retries
 only that callback, never the authoring side effect.
 """
+
 from __future__ import annotations
 
 import json
@@ -30,7 +31,9 @@ class FounderAssetCallbackRecord:
 
 class FounderAssetCallbackOutbox(Protocol):
     async def enqueue(self, record: FounderAssetCallbackRecord) -> FounderAssetCallbackRecord: ...
-    async def get(self, workspace_id: str, command_id: str) -> FounderAssetCallbackRecord | None: ...
+    async def get(
+        self, workspace_id: str, command_id: str
+    ) -> FounderAssetCallbackRecord | None: ...
     async def mark_delivered(self, workspace_id: str, command_id: str) -> None: ...
     async def mark_failed(self, workspace_id: str, command_id: str, error: str) -> None: ...
 
@@ -44,7 +47,9 @@ class InMemoryFounderAssetCallbackOutbox:
         existing = self._records.get(key)
         if existing is not None:
             if existing.payload != record.payload:
-                raise ValueError("Founder asset callback payload conflicts with the durable command record")
+                raise ValueError(
+                    "Founder asset callback payload conflicts with the durable command record"
+                )
             return existing
         now = datetime.now(UTC)
         stored = replace(record, created_at=now, updated_at=now)
@@ -136,13 +141,17 @@ class PostgresFounderAssetCallbackOutbox:
                 record.command_id,
                 json.dumps(record.payload, sort_keys=True, separators=(",", ":")),
             )
-            stored = self._from_row(row) if row is not None else await self._get_in_connection(
-                conn, record.workspace_id, record.command_id
+            stored = (
+                self._from_row(row)
+                if row is not None
+                else await self._get_in_connection(conn, record.workspace_id, record.command_id)
             )
             if stored is None:
                 raise RuntimeError("Failed to persist founder asset callback outbox record")
             if stored.payload != record.payload:
-                raise ValueError("Founder asset callback payload conflicts with the durable command record")
+                raise ValueError(
+                    "Founder asset callback payload conflicts with the durable command record"
+                )
             return stored
 
     async def get(self, workspace_id: str, command_id: str) -> FounderAssetCallbackRecord | None:

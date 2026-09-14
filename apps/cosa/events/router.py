@@ -19,15 +19,17 @@ CONSUMER = "agentos.event_intake"
 TASK_RESULT_SUBMITTED_EVENT = "operating.task.result_submitted.v1"
 
 # Project Activity event types — Company events that project into Founder Activity Feed
-PROJECT_ACTIVITY_EVENT_TYPES = frozenset([
-    "operations.task.created.v1",
-    "operations.task.completed.v1",
-    "operations.work_package.created.v1",
-    "operations.decision.recorded.v1",
-    "operations.evidence.linked.v1",
-    "operations.risk.raised.v1",
-    "operations.risk.resolved.v1",
-])
+PROJECT_ACTIVITY_EVENT_TYPES = frozenset(
+    [
+        "operations.task.created.v1",
+        "operations.task.completed.v1",
+        "operations.work_package.created.v1",
+        "operations.decision.recorded.v1",
+        "operations.evidence.linked.v1",
+        "operations.risk.raised.v1",
+        "operations.risk.resolved.v1",
+    ]
+)
 
 # COSA Automation MVP (Task 4) — Company outbox event carrying exactly
 # AutomationDispatchEnvelopeV1. Reference-only; anything else is quarantined.

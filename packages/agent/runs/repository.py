@@ -84,9 +84,7 @@ class RunRepository(Protocol):
     async def create_workflow_manifest(
         self, manifest: GovernedWorkflowRunManifest
     ) -> GovernedWorkflowRunManifest: ...
-    async def get_workflow_manifest(
-        self, run_id: str
-    ) -> GovernedWorkflowRunManifest | None: ...
+    async def get_workflow_manifest(self, run_id: str) -> GovernedWorkflowRunManifest | None: ...
     async def get_checkpoint(self, checkpoint_ref: str) -> RunCheckpointRecord | None: ...
     async def list_checkpoints(self, run_id: str) -> list[RunCheckpointRecord]: ...
 
@@ -328,14 +326,14 @@ class InMemoryRunRepository:
     ) -> GovernedWorkflowRunManifest:
         if not hasattr(self, "_workflow_manifest_repo"):
             from agent.workflows.manifest import InMemoryWorkflowManifestRepository
+
             self._workflow_manifest_repo = InMemoryWorkflowManifestRepository()
         return await self._workflow_manifest_repo.create_manifest(manifest)
 
-    async def get_workflow_manifest(
-        self, run_id: str
-    ) -> GovernedWorkflowRunManifest | None:
+    async def get_workflow_manifest(self, run_id: str) -> GovernedWorkflowRunManifest | None:
         if not hasattr(self, "_workflow_manifest_repo"):
             from agent.workflows.manifest import InMemoryWorkflowManifestRepository
+
             self._workflow_manifest_repo = InMemoryWorkflowManifestRepository()
         return await self._workflow_manifest_repo.get_manifest(run_id)
 
@@ -1032,14 +1030,14 @@ class PostgresRunRepository(BasePostgresRepository):
     ) -> GovernedWorkflowRunManifest:
         if not hasattr(self, "_workflow_manifest_repo"):
             from agent.workflows.manifest import PostgresWorkflowManifestRepository
+
             self._workflow_manifest_repo = PostgresWorkflowManifestRepository(self._session_factory)
         return await self._workflow_manifest_repo.create_manifest(manifest)
 
-    async def get_workflow_manifest(
-        self, run_id: str
-    ) -> GovernedWorkflowRunManifest | None:
+    async def get_workflow_manifest(self, run_id: str) -> GovernedWorkflowRunManifest | None:
         if not hasattr(self, "_workflow_manifest_repo"):
             from agent.workflows.manifest import PostgresWorkflowManifestRepository
+
             self._workflow_manifest_repo = PostgresWorkflowManifestRepository(self._session_factory)
         return await self._workflow_manifest_repo.get_manifest(run_id)
 
@@ -1506,7 +1504,9 @@ class PostgresRunRepository(BasePostgresRepository):
                     "subject_hash": approval.subject_hash,
                     "reviewer": approval.reviewer,
                     "reason": approval.reason,
-                    "evidence": json.dumps(approval.evidence) if approval.evidence is not None else None,
+                    "evidence": json.dumps(approval.evidence)
+                    if approval.evidence is not None
+                    else None,
                     "manifest_hash": approval.manifest_hash,
                     "created_at": approval.created_at,
                     "decided_at": approval.decided_at,
@@ -1659,7 +1659,9 @@ class PostgresRunRepository(BasePostgresRepository):
                     "workspace_id": approval.workspace_id or "",
                     "event_type": "approval.decided",
                     "actor_id": reviewer,
-                    "payload": json.dumps({"approved": approved, "reason": reason, "action": approval.action}),
+                    "payload": json.dumps(
+                        {"approved": approved, "reason": reason, "action": approval.action}
+                    ),
                     "created_at": now,
                 },
             )

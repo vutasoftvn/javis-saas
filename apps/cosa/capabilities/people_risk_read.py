@@ -92,7 +92,9 @@ def _resolve_project_id(args: dict[str, Any], ctx: Any) -> str:
     scope và từ chối thẳng thay vì âm thầm override — không được để lộ dữ
     liệu Project khác.
     """
-    context_project_id = ctx.get("project_id") if isinstance(ctx, dict) else getattr(ctx, "project_id", None)
+    context_project_id = (
+        ctx.get("project_id") if isinstance(ctx, dict) else getattr(ctx, "project_id", None)
+    )
     context_project_id = str(context_project_id) if context_project_id else None
 
     requested_project_id = args.get("project_id")

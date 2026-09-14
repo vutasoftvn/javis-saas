@@ -45,8 +45,13 @@ class AuthoringService:
         content: dict[str, Any],
     ) -> WorkspaceAssetVersion:
         # Check if asset is builtin (immutable)
-        if identity.asset_id.startswith("builtin.") or getattr(identity, "origin", None) == "BUILTIN":
-            raise BuiltinAssetReadOnlyError(f"Built-in asset {identity.asset_id} cannot be edited directly")
+        if (
+            identity.asset_id.startswith("builtin.")
+            or getattr(identity, "origin", None) == "BUILTIN"
+        ):
+            raise BuiltinAssetReadOnlyError(
+                f"Built-in asset {identity.asset_id} cannot be edited directly"
+            )
 
         # Mutate draft
         return await self._repository.replace_draft_content(
@@ -67,12 +72,18 @@ class AuthoringService:
         content = source_content
         if content is None:
             # 1. Try resolving from existing published asset in repository
-            existing = await self._repository.get_version(workspace_id, source.asset_id, source.version)
+            existing = await self._repository.get_version(
+                workspace_id, source.asset_id, source.version
+            )
             if existing:
                 content = existing.content_json
             # 2. Try resolving from spec_registry if available
             elif self._spec_registry is not None:
-                kind_str = source.kind.value.lower() if hasattr(source.kind, "value") else str(source.kind).lower()
+                kind_str = (
+                    source.kind.value.lower()
+                    if hasattr(source.kind, "value")
+                    else str(source.kind).lower()
+                )
                 rec = await self._spec_registry.get(kind_str, source.asset_id, source.version)
                 if rec:
                     content = (
@@ -220,7 +231,9 @@ class AuthoringService:
         is_workflow = item.kind == AssetKind.WORKFLOW
 
         # Verify evaluation
-        latest_eval = await self._repository.get_latest_evaluation(workspace_id, asset_id, item.version)
+        latest_eval = await self._repository.get_latest_evaluation(
+            workspace_id, asset_id, item.version
+        )
         if not latest_eval or latest_eval.status != "PASS":
             if is_workflow:
                 raise WorkflowPublishDisabledError(
@@ -247,13 +260,17 @@ class AuthoringService:
             try:
                 spec = WorkflowSpec.model_validate(item.content_json)
             except Exception as exc:
-                raise WorkflowPublishDisabledError(f"Workflow schema validation failed: {exc}") from exc
+                raise WorkflowPublishDisabledError(
+                    f"Workflow schema validation failed: {exc}"
+                ) from exc
 
             val_res = WorkflowPublishValidator.validate(
                 spec,
                 WorkflowValidationContext(
                     workspace_id=workspace_id,
-                    project_id=getattr(item.scope, "project_id", None) if hasattr(item, "scope") else None,
+                    project_id=getattr(item.scope, "project_id", None)
+                    if hasattr(item, "scope")
+                    else None,
                 ),
             )
             if not val_res.is_valid:
@@ -279,6 +296,4 @@ class AuthoringService:
                     "Durable workflow definition hash does not match the asset version hash"
                 )
 
-        return await self._repository.publish(
-            workspace_id, asset_id, item.version, expected_hash
-        )
+        return await self._repository.publish(workspace_id, asset_id, item.version, expected_hash)

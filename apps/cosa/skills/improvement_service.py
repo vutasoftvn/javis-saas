@@ -75,11 +75,17 @@ class SkillImprovementService:
             has_live_request=False,
         )
         if not eligible:
-            status = "DEFERRED_POLICY_DISABLED" if reason in ("POLICY_OFF", "POLICY_OBSERVE_ONLY") else "NOT_ELIGIBLE"
+            status = (
+                "DEFERRED_POLICY_DISABLED"
+                if reason in ("POLICY_OFF", "POLICY_OBSERVE_ONLY")
+                else "NOT_ELIGIBLE"
+            )
             return ImprovementOutcome(status=status, safe_reason_code=reason)
 
         # 2. Reload source spec from spec registry
-        published_record = await self._spec_registry.get("skill", request.skill_id, request.skill_version)
+        published_record = await self._spec_registry.get(
+            "skill", request.skill_id, request.skill_version
+        )
         if published_record is None:
             return ImprovementOutcome(
                 status="NOT_ELIGIBLE", safe_reason_code="SOURCE_SPEC_NOT_FOUND"
@@ -109,9 +115,7 @@ class SkillImprovementService:
 
         cases: list[EvalCase] = evaluator.get_eval_cases()
         if not cases:
-            return ImprovementOutcome(
-                status="NOT_ELIGIBLE", safe_reason_code="NO_EVALUATION_CASES"
-            )
+            return ImprovementOutcome(status="NOT_ELIGIBLE", safe_reason_code="NO_EVALUATION_CASES")
 
         # 4. Baseline evaluation
         baseline_score, _, _ = await executor.run_suite(
@@ -223,7 +227,9 @@ class SkillImprovementService:
             )
             await self._repository.record_evaluation(eval_record)
             for m in mutation_records:
-                await self._repository.record_mutation(m.model_copy(update={"candidate_id": candidate_id}))
+                await self._repository.record_mutation(
+                    m.model_copy(update={"candidate_id": candidate_id})
+                )
 
             return ImprovementOutcome(
                 status="COMPLETED",

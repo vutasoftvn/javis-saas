@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 class ExecutiveBoardInputError(Exception):
     """Raised when an executive board input violation occurs."""
+
     pass
 
 
@@ -83,4 +84,3 @@ EXECUTIVE_ANALYSIS_OUTPUT_SCHEMA: dict[str, Any] = {
         "human_review_required": {"type": "boolean"},
     },
 }
-

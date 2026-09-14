@@ -26,9 +26,7 @@ async def relay_skill_improvement_outbox(
     limit: int = 10,
 ) -> list[str]:
     """Claim pending/due skill improvement outbox records and schedule worker tasks."""
-    repo: SkillImprovementRepository | None = getattr(
-        plane, "skill_improvement_repository", None
-    )
+    repo: SkillImprovementRepository | None = getattr(plane, "skill_improvement_repository", None)
     if repo is None or not hasattr(repo, "claim_improvement_outbox"):
         return []
 
@@ -95,9 +93,7 @@ async def execute_skill_improvement_task(
             safe_reason_code="INVALID_PAYLOAD",
         )
 
-    repo: SkillImprovementRepository | None = getattr(
-        plane, "skill_improvement_repository", None
-    )
+    repo: SkillImprovementRepository | None = getattr(plane, "skill_improvement_repository", None)
     if repo is None:
         return ImprovementOutcome(
             status="FAILED_REQUIRES_ATTENTION",

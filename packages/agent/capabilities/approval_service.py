@@ -253,7 +253,9 @@ class DurableApprovalService:
                 reason_code="APPROVAL_SUBJECT_STALE",
                 approval_record=approval,
             )
-        if approval.expires_at is not None and approval.expires_at < datetime.datetime.now(datetime.UTC):
+        if approval.expires_at is not None and approval.expires_at < datetime.datetime.now(
+            datetime.UTC
+        ):
             return ApprovalChangeExecutionResult(
                 can_execute=False,
                 reason_code="APPROVAL_EXPIRED",

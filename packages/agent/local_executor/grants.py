@@ -21,7 +21,9 @@ __all__ = [
     "verify_receipt_against_context",
 ]
 
-_SECRET = os.environ.get("COSA_LOCAL_EXECUTOR_DELEGATION_SECRET", "dev-local-executor-secret-32-chars-long!")
+_SECRET = os.environ.get(
+    "COSA_LOCAL_EXECUTOR_DELEGATION_SECRET", "dev-local-executor-secret-32-chars-long!"
+)
 
 
 class GrantVerificationError(Exception):
@@ -30,7 +32,9 @@ class GrantVerificationError(Exception):
 
 def canonical_input_hash(data: dict[str, Any]) -> str:
     """Tạo sha256 hash chuẩn hoá (deterministic canonical json) của input."""
-    raw = json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    raw = json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode(
+        "utf-8"
+    )
     return hashlib.sha256(raw).hexdigest()
 
 
@@ -91,9 +95,13 @@ def verify_receipt_against_context(
 
     # Extract artifact hashes safely
     artifact_hashes = []
-    if "artifact_hashes" in receipt.artifact_metadata and isinstance(receipt.artifact_metadata["artifact_hashes"], list):
+    if "artifact_hashes" in receipt.artifact_metadata and isinstance(
+        receipt.artifact_metadata["artifact_hashes"], list
+    ):
         artifact_hashes = [str(h) for h in receipt.artifact_metadata["artifact_hashes"]]
-    elif "artifacts" in receipt.artifact_metadata and isinstance(receipt.artifact_metadata["artifacts"], list):
+    elif "artifacts" in receipt.artifact_metadata and isinstance(
+        receipt.artifact_metadata["artifacts"], list
+    ):
         for art in receipt.artifact_metadata["artifacts"]:
             if isinstance(art, dict) and "sha256" in art:
                 artifact_hashes.append(str(art["sha256"]))

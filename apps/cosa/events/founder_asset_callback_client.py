@@ -3,6 +3,7 @@
 POSTs signed status callback to Company control plane reporting command outcome:
 SUCCESS, FAILED, or REJECTED with updated assetRef and evaluation summary.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -21,7 +22,9 @@ class FounderAssetCallbackDeliveryError(Exception):
     """Raised when asset status callback delivery to Company plane fails after retries."""
 
     def __init__(self, command_id: str, message: str) -> None:
-        super().__init__(f"Failed to deliver asset status callback for command {command_id}: {message}")
+        super().__init__(
+            f"Failed to deliver asset status callback for command {command_id}: {message}"
+        )
         self.command_id = command_id
 
 
@@ -98,4 +101,3 @@ class FounderAssetStatusCallbackClient:
                     await asyncio.sleep(self._backoff_sec * (2 ** (attempt - 1)))
 
         raise FounderAssetCallbackDeliveryError(command_id, str(last_exc))
-

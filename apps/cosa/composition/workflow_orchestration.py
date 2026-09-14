@@ -86,7 +86,9 @@ class WorkflowOrchestration:
         `execute_manifest` (fresh run) and `resume_manifest` (Task 11) so a resume
         re-verifies the exact same pin instead of re-deriving its own copy."""
         if self.workflow_definition_repository is None:
-            raise RuntimeError("Durable workflow definition repository is required for manifest execution")
+            raise RuntimeError(
+                "Durable workflow definition repository is required for manifest execution"
+            )
 
         record = await self.workflow_definition_repository.get_definition(
             manifest.workflow_asset_id,
@@ -108,7 +110,9 @@ class WorkflowOrchestration:
             or resolved_hash != record.definition_hash
             or record.definition_hash != manifest.workflow_definition_hash
         ):
-            raise ValueError("Resolved workflow definition does not match the exact manifest definition hash pin")
+            raise ValueError(
+                "Resolved workflow definition does not match the exact manifest definition hash pin"
+            )
         if spec is not None:
             supplied_hash = getattr(spec, "definition_hash", None) or spec.compute_hash()
             if (
@@ -116,7 +120,9 @@ class WorkflowOrchestration:
                 or spec.version != resolved_spec.version
                 or supplied_hash != resolved_hash
             ):
-                raise ValueError("Caller-supplied workflow definition does not match the durable manifest pin")
+                raise ValueError(
+                    "Caller-supplied workflow definition does not match the durable manifest pin"
+                )
         return resolved_spec
 
     def _seed_manifest_state(self, state: dict[str, Any], manifest: Any) -> dict[str, Any]:
@@ -181,8 +187,7 @@ class IWorkflowOrchestration:
     approval_service: Any
     workflow_definition_repository: WorkflowDefinitionRepository | None
 
-    def get_executor_health(self) -> dict[str, dict[str, Any]]:
-        ...
+    def get_executor_health(self) -> dict[str, dict[str, Any]]: ...
 
     async def execute_spec(
         self,
@@ -190,8 +195,7 @@ class IWorkflowOrchestration:
         *,
         initial_state: dict[str, Any],
         custom_step_builders: Any = None,
-    ) -> Any:
-        ...
+    ) -> Any: ...
 
     async def execute_manifest(
         self,
@@ -199,8 +203,7 @@ class IWorkflowOrchestration:
         *,
         initial_state: dict[str, Any] | None = None,
         spec: Any | None = None,
-    ) -> Any:
-        ...
+    ) -> Any: ...
 
     async def resume_manifest(
         self,
@@ -208,5 +211,4 @@ class IWorkflowOrchestration:
         workflow: Any,
         *,
         spec: Any | None = None,
-    ) -> Any:
-        ...
+    ) -> Any: ...

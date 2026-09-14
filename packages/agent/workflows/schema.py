@@ -22,7 +22,6 @@ class StepType(enum.StrEnum):
     ROUTER = "router"
 
 
-
 class WorkflowStepSpec(BaseModel):
     id: str
     name: str | None = None

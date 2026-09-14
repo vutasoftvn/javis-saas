@@ -27,7 +27,9 @@ class LocalExecutorRepository:
     def get_receipt(self, receipt_id: str) -> LocalExecutionReceipt | None:
         return self._receipts.get(receipt_id)
 
-    def get_receipt_for_tool_call(self, workspace_id: str, tool_call_id: str) -> LocalExecutionReceipt | None:
+    def get_receipt_for_tool_call(
+        self, workspace_id: str, tool_call_id: str
+    ) -> LocalExecutionReceipt | None:
         for r in self._receipts.values():
             if str(r.workspace_id) == str(workspace_id) and r.tool_call_id == tool_call_id:
                 return r

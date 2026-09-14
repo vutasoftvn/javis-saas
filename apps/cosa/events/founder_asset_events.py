@@ -47,7 +47,9 @@ class FounderAssetCommand(BaseModel):
         populate_by_name = True
 
 
-def validate_founder_asset_command_payload(payload: dict[str, Any]) -> tuple[FounderAssetCommand | None, str | None]:
+def validate_founder_asset_command_payload(
+    payload: dict[str, Any],
+) -> tuple[FounderAssetCommand | None, str | None]:
     if not isinstance(payload, dict):
         return None, "payload must be an object"
 
@@ -87,7 +89,9 @@ def _status_callback_payload(
     }
 
 
-async def _deliver_callback_record(deps: Any, record: FounderAssetCallbackRecord) -> tuple[str, str | None]:
+async def _deliver_callback_record(
+    deps: Any, record: FounderAssetCallbackRecord
+) -> tuple[str, str | None]:
     callback_client = getattr(deps, "status_callback_client", None)
     callback_outbox = getattr(deps, "founder_asset_callback_outbox", None)
     if callback_client is None:
@@ -112,7 +116,9 @@ async def _deliver_callback_record(deps: Any, record: FounderAssetCallbackRecord
         return "failed", f"callback delivery failed: {cb_err}"
 
 
-async def replay_founder_asset_callback(deps: Any, *, workspace_id: str, command_id: str) -> tuple[str, str | None]:
+async def replay_founder_asset_callback(
+    deps: Any, *, workspace_id: str, command_id: str
+) -> tuple[str, str | None]:
     """Retry a pending callback for an idempotent duplicate Company command.
 
     Authoring has already run for this command.  A replay must never invoke it
@@ -120,17 +126,19 @@ async def replay_founder_asset_callback(deps: Any, *, workspace_id: str, command
     """
     callback_outbox = getattr(deps, "founder_asset_callback_outbox", None)
     if callback_outbox is None:
-        if getattr(deps, "authoring_service", None) is not None and getattr(
-            deps, "status_callback_client", None
-        ) is not None:
+        if (
+            getattr(deps, "authoring_service", None) is not None
+            and getattr(deps, "status_callback_client", None) is not None
+        ):
             return "failed", "durable callback outbox is required for authoring replay"
         return "duplicate", None
 
     record = await callback_outbox.get(workspace_id, command_id)
     if record is None:
-        if getattr(deps, "authoring_service", None) is not None and getattr(
-            deps, "status_callback_client", None
-        ) is not None:
+        if (
+            getattr(deps, "authoring_service", None) is not None
+            and getattr(deps, "status_callback_client", None) is not None
+        ):
             return "failed", "durable callback record is missing for an authored command"
         return "duplicate", None
     if record.delivery_status == "DELIVERED":
@@ -168,9 +176,7 @@ async def dispatch_founder_asset_command(deps: Any, env: Any) -> tuple[str, str 
         from agent.assets.contracts import AssetKind, AssetScope, PinnedAssetIdentity
 
         target_scope = (
-            AssetScope.project_sandbox(cmd.project_id)
-            if cmd.project_id
-            else AssetScope.workspace()
+            AssetScope.project_sandbox(cmd.project_id) if cmd.project_id else AssetScope.workspace()
         )
         source_id = PinnedAssetIdentity(
             kind=AssetKind(cmd.asset_kind),

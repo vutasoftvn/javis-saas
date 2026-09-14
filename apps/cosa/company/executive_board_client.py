@@ -46,9 +46,7 @@ class ExecutiveBoardClient:
             or "http://localhost:4000"
         ).rstrip("/")
         self.service_token = (
-            service_token
-            or os.getenv("COSA_WORKER_SERVICE_TOKEN")
-            or "dev-worker-service-token"
+            service_token or os.getenv("COSA_WORKER_SERVICE_TOKEN") or "dev-worker-service-token"
         )
         self.timeout = timeout
 

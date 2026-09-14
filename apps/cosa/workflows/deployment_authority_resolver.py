@@ -36,7 +36,9 @@ class CompanyDeploymentAuthorityResolver:
     ) -> dict[str, Any]:
         """Resolve only exact published Skill assets within one Workspace."""
         if self._asset_repository is None:
-            raise RuntimeError("Scoped workspace asset repository is required for workflow skill pins")
+            raise RuntimeError(
+                "Scoped workspace asset repository is required for workflow skill pins"
+            )
 
         resolved: dict[str, Any] = {}
         for skill_id, raw_ref in skill_refs.items():
@@ -49,12 +51,16 @@ class CompanyDeploymentAuthorityResolver:
 
             skill = await self._asset_repository.get_version(workspace_id, skill_id, version)
             if skill is None:
-                raise ValueError(f"Pinned Skill '{skill_id}:{version}' was not found in its workspace")
+                raise ValueError(
+                    f"Pinned Skill '{skill_id}:{version}' was not found in its workspace"
+                )
             if skill.kind != AssetKind.SKILL:
                 raise ValueError(f"Pinned asset '{skill_id}:{version}' is not a Skill")
             if skill.lifecycle != AssetLifecycle.PUBLISHED:
                 raise ValueError(f"Pinned Skill '{skill_id}:{version}' is not published")
             if skill.definition_hash != definition_hash:
-                raise ValueError(f"Pinned Skill '{skill_id}:{version}' does not match its definition hash")
+                raise ValueError(
+                    f"Pinned Skill '{skill_id}:{version}' does not match its definition hash"
+                )
             resolved[skill_id] = skill
         return resolved
