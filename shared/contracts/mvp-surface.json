@@ -800,6 +800,38 @@
       "backend_test": "services/company/identity/tests/agent-authorization.test.ts",
       "flutter_test": "frontend/test/modules/settings/permissions_service_test.dart",
       "integration_test": "tests/e2e/test_cross_plane_smoke.py"
+    },
+    {
+      "id": "operations.founder_asset.command",
+      "enabled": true,
+      "owner": "company-operations",
+      "plane": "company",
+      "method": "POST",
+      "path": "/operations/founder/assets/commands",
+      "schema": "operations.founder_asset.command.v1",
+      "source_kind": "company_db",
+      "requires_workspace": true,
+      "requires_project": false,
+      "frontend_symbol": "FounderAssetService.commandAsset",
+      "backend_test": "services/company/operations/tests/founder-asset-authoring.service.test.ts",
+      "flutter_test": "frontend/test/modules/skills/founder_asset_service_test.dart",
+      "integration_test": "tests/apps/cosa/events/test_founder_asset_events.py"
+    },
+    {
+      "id": "operations.founder_asset.library",
+      "enabled": true,
+      "owner": "company-operations",
+      "plane": "company",
+      "method": "GET",
+      "path": "/operations/founder-assets",
+      "schema": "operations.founder_asset.library.v1",
+      "source_kind": "company_db",
+      "requires_workspace": true,
+      "requires_project": false,
+      "frontend_symbol": "FounderAssetService.listLibrary",
+      "backend_test": "services/company/operations/tests/founder-asset-query.handler.test.ts",
+      "flutter_test": "frontend/test/modules/skills/founder_asset_service_test.dart",
+      "integration_test": "tests/apps/cosa/events/test_founder_asset_events.py"
     }
   ]
 }

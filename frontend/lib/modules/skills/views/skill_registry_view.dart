@@ -6,6 +6,7 @@ import '../../../core/ui/app_copy.dart';
 import '../../../core/ui/layout_breakpoints.dart';
 import '../controllers/skill_registry_controller.dart';
 import 'widgets/add_skill_candidate_dialog.dart';
+import 'widgets/founder_asset_library_dialog.dart';
 import 'widgets/skill_detail_sidebar.dart';
 
 const List<Map<String, Object>> _kSkillDomains = [
@@ -115,6 +116,15 @@ class SkillRegistryView extends StatelessWidget {
                 );
               },
             ),
+          ),
+          // Icon-only kể cả ở medium/expanded (không phải `isCompact` binary
+          // như filter) — header đã đủ chật ở breakpoint medium (794px), thêm
+          // 1 button label đầy đủ ở đây từng gây tràn `RenderFlex` (golden
+          // test `skill_registry_responsive_test.dart` bắt được lỗi này).
+          IconButton(
+            tooltip: 'Kho Asset Founder (clone/publish)',
+            onPressed: () => FounderAssetLibraryDialog.show(context),
+            icon: const Icon(Icons.inventory_2_outlined, color: Color(0xFFA78BFA)),
           ),
           if (isCompact)
             IconButton(

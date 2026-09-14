@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 109 | 23 |
 | VALID_KEEP (giữ nguyên) | 131 | 36 |
-| REVIEW (chưa phân loại) | 1059 | 233 |
+| REVIEW (chưa phân loại) | 1096 | 242 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -41,28 +41,29 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 
 | File | Hits |
 |---|---|
-| frontend/lib/core/network/mvp_endpoints.g.dart | 41 |
+| frontend/lib/core/network/mvp_endpoints.g.dart | 43 |
 | apps/cosa/auth/jwt.py | 35 |
 | apps/cosa/policies/company_policy_client.py | 27 |
 | services/company/shared/auth/cosa-delegation.service.ts | 24 |
 | apps/cosa/api/workforce_routes.py | 22 |
 | apps/cosa/auth/dependency.py | 21 |
+| packages/agent/workforce/repository.py | 20 |
 | apps/cosa/worker/copilot_run.py | 19 |
 | apps/cosa/worker/handlers.py | 19 |
-| packages/agent/workforce/repository.py | 19 |
 | apps/cosa/project_activity/company_event_projector.py | 18 |
 | apps/cosa/worker/wga_run.py | 18 |
 | services/cosa/services/workspace-connector.service.ts | 17 |
 | services/company/shared/auth/ai-governance-snapshot-verification.ts | 16 |
 | apps/cosa/api/project_context.py | 15 |
+| apps/cosa/composition/agent_plane.py | 15 |
 | frontend/lib/modules/auth/services/auth_service.dart | 15 |
 | frontend/lib/modules/auth/controllers/auth_controller.dart | 14 |
-| apps/cosa/composition/agent_plane.py | 13 |
 | services/company/operations/services/workspace-runtime.service.ts | 13 |
 | apps/cosa/capabilities/client.py | 12 |
 | apps/cosa/compliance/resolver.py | 12 |
 | frontend/lib/data/models/stage_model.dart | 12 |
 | frontend/lib/modules/auth/views/register_view.dart | 12 |
+| apps/cosa/events/router.py | 11 |
 | frontend/lib/core/localization/app_translations.dart | 10 |
 | packages/agent/capabilities/readiness.py | 10 |
 | apps/cosa/company/executive_board_client.py | 9 |
@@ -70,13 +71,13 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/identity/handlers/workspace.handler.ts | 9 |
 | apps/cosa/capabilities/project_lifecycle.py | 8 |
 | apps/cosa/composition/context_assembler.py | 8 |
-| apps/cosa/events/router.py | 8 |
 | apps/cosa/tests/test_ai_governance_read.py | 8 |
 | apps/cosa/tests/test_data_governance_read.py | 8 |
 | apps/cosa/tests/test_legal_issue_read.py | 8 |
 | apps/cosa/tests/test_people_risk_read.py | 8 |
 | apps/cosa/tests/test_product_decision_read.py | 8 |
 | apps/cosa/tests/test_security_posture_read.py | 8 |
+| services/company/operations/services/founder-asset-query.service.ts | 8 |
 | apps/cosa/auth/workspace_client.py | 7 |
 | apps/cosa/capabilities/engagement_assignment_write.py | 7 |
 | apps/cosa/capabilities/operations_read.py | 7 |
@@ -102,6 +103,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/composition/capability_registration.py | 5 |
 | apps/cosa/events/automation_outcome_client.py | 5 |
 | apps/cosa/events/runtime_signal.py | 5 |
+| apps/cosa/workflows/deployment_authority_resolver.py | 5 |
 | frontend/lib/core/localization/locales/vi/vi_strategy.dart | 5 |
 | frontend/lib/core/network/api_client.dart | 5 |
 | frontend/lib/data/models/company_pulse_model.dart | 5 |
@@ -118,6 +120,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/api/project_activity_routes.py | 4 |
 | apps/cosa/api/project_knowledge_routes.py | 4 |
 | apps/cosa/api/workforce_internal_routes.py | 4 |
+| apps/cosa/assets/authoring_service.py | 4 |
 | apps/cosa/capabilities/engagement_read.py | 4 |
 | apps/cosa/capabilities/marketing_read.py | 4 |
 | apps/cosa/capabilities/venture_profile.py | 4 |
@@ -131,7 +134,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/api/app.py | 3 |
 | apps/cosa/api/conversation_routes.py | 3 |
 | apps/cosa/api/copilot_routes.py | 3 |
-| apps/cosa/assets/authoring_service.py | 3 |
 | apps/cosa/assets/internal_routes.py | 3 |
 | apps/cosa/capabilities/__init__.py | 3 |
 | apps/cosa/capabilities/ai_governance_read.py | 3 |
@@ -144,6 +146,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/capabilities/product_decision_read.py | 3 |
 | apps/cosa/capabilities/security_posture_read.py | 3 |
 | apps/cosa/compliance/data_egress_context.py | 3 |
+| apps/cosa/events/founder_asset_events.py | 3 |
 | apps/cosa/events/workforce_employee_contract.py | 3 |
 | apps/cosa/knowledge_ingestion/publish.py | 3 |
 | apps/cosa/worker/executive_board_handler.py | 3 |
@@ -155,6 +158,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | frontend/lib/modules/hologram_hub/widgets/evidence/decision_log_modal.dart | 3 |
 | packages/agent/capabilities/outbound_headers.py | 3 |
 | packages/agent/migrations/003_add_workforce_member_reference.sql | 3 |
+| packages/agent/workflows/live_authority.py | 3 |
 | services/company/finance-legal/handlers/ai-compliance-e2e-seed.handler.ts | 3 |
 | services/company/identity/handlers/tenant-context.handler.ts | 3 |
 | services/company/identity/services/platform.client.ts | 3 |
@@ -174,10 +178,11 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/capabilities/legal_write.py | 2 |
 | apps/cosa/compliance/data_model_gate.py | 2 |
 | apps/cosa/config/planes.py | 2 |
-| apps/cosa/events/founder_asset_events.py | 2 |
+| apps/cosa/events/contracts.py | 2 |
 | apps/cosa/policies/business_permission_evaluator.py | 2 |
 | apps/cosa/policies/snapshot.py | 2 |
 | apps/cosa/worker/autopilot_run.py | 2 |
+| apps/cosa/worker/governed_workflow_run.py | 2 |
 | frontend/lib/core/routing/app_routes.dart | 2 |
 | frontend/lib/modules/agents/services/agents_service.dart | 2 |
 | frontend/lib/modules/chat/models/data_access_declaration.dart | 2 |
@@ -188,7 +193,10 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | frontend/lib/modules/settings/views/settings_extensions_page.dart | 2 |
 | frontend/lib/modules/vault/services/evidence_service.dart | 2 |
 | packages/agent/contracts/invocation.py | 2 |
+| packages/agent/migrations/012_founder_asset_callback_outbox.sql | 2 |
+| packages/agent/workflows/approval_step.py | 2 |
 | packages/agent/workflows/automation_manifest.py | 2 |
+| packages/agent/workflows/tool_step.py | 2 |
 | services/company/events/outbox-relay.service.ts | 2 |
 | services/company/finance-legal/services/cas-link.service.ts | 2 |
 | services/company/identity/migrations/001_cosa_startup_core_baseline.up.sql | 2 |
@@ -210,6 +218,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/assets/schemas.py | 1 |
 | apps/cosa/compliance/__init__.py | 1 |
 | apps/cosa/compliance/contracts.py | 1 |
+| apps/cosa/events/founder_asset_callback_outbox.py | 1 |
 | apps/cosa/events/local_auth.py | 1 |
 | frontend/lib/core/controllers/company_scope_controller.dart | 1 |
 | frontend/lib/core/network/api_auth_resolver.dart | 1 |

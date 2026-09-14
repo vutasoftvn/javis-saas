@@ -1,10 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/network/api_result.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../modules/skills/services/skill_registry_service.dart';
+import '../models/founder_asset.dart';
+import '../services/founder_asset_service.dart';
 
 class SkillRegistryController extends GetxController {
   final SkillRegistryService _service = SkillRegistryService();
+  final FounderAssetService _founderAssetService = FounderAssetService();
+
+  // Founder-configurable asset (clone-only trên built-in, publish version mới
+  // immutable) — tách biệt state với `skills` (skillpack lifecycle cũ) vì 2
+  // hệ thống khác nhau (xem CLAUDE.md "Skill tách khỏi Agent" +
+  // docs/superpowers/specs/2026-09-13-founder-configurable-agent-skill-workflow-design.md).
+  final founderAssetLibrary = <FounderAssetLibraryItem>[].obs;
+  final isLoadingFounderAssets = false.obs;
 
   final skills = <Map<String, dynamic>>[].obs;
   final isLoading = false.obs;
@@ -211,6 +222,76 @@ class SkillRegistryController extends GetxController {
         '$e',
         title: 'Không thể phê duyệt',
       );
+    }
+  }
+
+  // ── Founder-configurable asset: clone-only trên built-in, publish ────────
+
+  Future<void> loadFounderAssetLibrary() async {
+    isLoadingFounderAssets.value = true;
+    try {
+      final result = await _founderAssetService.listLibrary();
+      switch (result) {
+        case ApiSuccess<List<FounderAssetLibraryItem>>(:final data):
+          founderAssetLibrary.assignAll(data);
+        case ApiFailure<List<FounderAssetLibraryItem>>(:final failure):
+          AppToast.error(failure.message, title: 'Không tải được thư viện asset');
+      }
+    } finally {
+      isLoadingFounderAssets.value = false;
+    }
+  }
+
+  /// Clone 1 built-in asset thành draft thuộc Workspace — built-in KHÔNG BAO
+  /// GIỜ bị sửa/xoá trực tiếp, chỉ tạo bản sao mới giữ lineage.
+  Future<void> cloneFounderAsset({
+    required FounderAssetKind assetKind,
+    required String sourceAssetId,
+    String? sourceVersion,
+    required String reason,
+  }) async {
+    final result = await _founderAssetService.cloneAsset(
+      assetKind: assetKind,
+      sourceAssetId: sourceAssetId,
+      sourceVersion: sourceVersion,
+      reason: reason,
+    );
+    switch (result) {
+      case ApiSuccess<FounderAssetCommandResult>():
+        AppToast.success(
+          'Đã gửi yêu cầu clone — đang xử lý (bất đồng bộ)',
+          title: 'Clone asset',
+        );
+        await loadFounderAssetLibrary();
+      case ApiFailure<FounderAssetCommandResult>(:final failure):
+        AppToast.error(failure.message, title: 'Không thể clone asset');
+    }
+  }
+
+  /// Publish 1 draft đã evaluate PASS thành version mới immutable.
+  Future<void> publishFounderAsset({
+    required FounderAssetKind assetKind,
+    required String assetId,
+    required String version,
+    required String expectedHash,
+    required String reason,
+  }) async {
+    final result = await _founderAssetService.publishAsset(
+      assetKind: assetKind,
+      assetId: assetId,
+      version: version,
+      expectedHash: expectedHash,
+      reason: reason,
+    );
+    switch (result) {
+      case ApiSuccess<FounderAssetCommandResult>():
+        AppToast.success(
+          'Đã gửi yêu cầu publish — đang xử lý (bất đồng bộ)',
+          title: 'Publish asset',
+        );
+        await loadFounderAssetLibrary();
+      case ApiFailure<FounderAssetCommandResult>(:final failure):
+        AppToast.error(failure.message, title: 'Không thể publish asset');
     }
   }
 
