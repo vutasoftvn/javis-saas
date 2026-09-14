@@ -13,12 +13,16 @@ import {
   getProjectExecutiveRoleStates,
   selectStartupCorePreset,
   activateExecutiveRole,
-  disableExecutiveRole,
   ProjectExecutiveRoleState,
 } from "../services/executive-role-activation.service";
 import {
   activateProjectStartupTeamMember,
 } from "../services/project-startup-team.service";
+import {
+  activateWorkspaceExecutiveRole,
+  disableWorkspaceExecutiveRole,
+} from "../services/workspace-executive-role-activation.service";
+import { createProjectService } from "../services/project.service";
 
 describe("Executive Role Activation Service", () => {
   let founderCtx: TenantContext;
@@ -138,8 +142,11 @@ describe("Executive Role Activation Service", () => {
     ).rejects.toThrow(/EXECUTIVE_ROLE_NOT_AVAILABLE/);
   });
 
-  it("selectStartupCorePreset activates only eligible default roles and records setting", async () => {
-    // Activate marketing only (finance remains TEMPLATE)
+  it("selectStartupCorePreset no longer drives the board — preset must not auto-activate anything", async () => {
+    // 2026-09-14: activation chuyển sang cấp Workspace và chỉ xảy ra khi
+    // Founder gọi tường minh. Preset (đường cũ, đã deprecate ở tầng handler)
+    // KHÔNG được phép tự bật role nào trên board nữa — đây là guard chống
+    // auto-activation lén quay lại (CLAUDE.md quy tắc #5).
     await activateProjectStartupTeamMember(founderCtx, projectId, "marketing", { expectedVersion: 1 });
 
     const result = await selectStartupCorePreset(founderCtx, projectId, {
@@ -147,33 +154,38 @@ describe("Executive Role Activation Service", () => {
       expectedVersion: 1,
       idempotencyKey: "preset-disc-1",
     });
-
     expect(result.presetKey).toBe("startup-discovery");
-    // cmo is eligible (marketing is ACTIVE) -> activated
-    // cfo is not eligible (finance is TEMPLATE) -> remains unavailable/not activated
-    // chief_of_staff requires operations profile which is TEMPLATE -> unavailable
+
     const states = await getProjectExecutiveRoleStates(founderCtx, projectId);
     const cmo = states.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "cmo");
     const cfo = states.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "cfo");
     const cos = states.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "chief_of_staff");
 
-    expect(cmo?.displayState).toBe("ACTIVE");
+    // marketing ACTIVE → cmo khả dụng, nhưng KHÔNG được tự activate.
+    expect(cmo?.displayState).toBe("AVAILABLE_NOT_ACTIVATED");
+    // finance/operations vẫn TEMPLATE ở mọi Project → gate UNAVAILABLE giữ nguyên.
     expect(cfo?.displayState).toBe("UNAVAILABLE");
     expect(cos?.displayState).toBe("UNAVAILABLE");
+    // Preset cũng không còn được phản ánh trong board projection.
+    expect(states.settings).toBeUndefined();
   });
 
-  it("disabling an active role retains history and sets state to DISABLED", async () => {
+  it("disabling a workspace-activated role is reflected in the project projection", async () => {
     await activateProjectStartupTeamMember(founderCtx, projectId, "marketing", { expectedVersion: 1 });
     const cmoBefore = (await getProjectExecutiveRoleStates(founderCtx, projectId)).roles.find(
       (r: ProjectExecutiveRoleState) => r.roleKey === "cmo"
     );
+    expect(cmoBefore?.displayState).toBe("AVAILABLE_NOT_ACTIVATED");
 
-    const act = await activateExecutiveRole(founderCtx, projectId, "cmo", {
-      expectedVersion: cmoBefore!.version,
-    });
+    const act = await activateWorkspaceExecutiveRole(founderCtx, "cmo", {});
     expect(act.state).toBe("ACTIVE");
+    expect(
+      (await getProjectExecutiveRoleStates(founderCtx, projectId)).roles.find(
+        (r: ProjectExecutiveRoleState) => r.roleKey === "cmo"
+      )?.displayState
+    ).toBe("ACTIVE");
 
-    const disabled = await disableExecutiveRole(founderCtx, projectId, "cmo", {
+    const disabled = await disableWorkspaceExecutiveRole(founderCtx, "cmo", {
       expectedVersion: act.version,
       reason: "No longer needed for discovery phase",
     });
@@ -243,30 +255,29 @@ describe("Executive Role Activation Service", () => {
     ).rejects.toThrow(/CAS_CONFLICT|stale/i);
   });
 
-  it("selectStartupCorePreset with startup-build-launch activates eligible defaults only upon explicit preset selection", async () => {
+  it("workspace activation is shared across every Project in the workspace", async () => {
     // Operations and Marketing are ACTIVE; Finance remains TEMPLATE
     await activateProjectStartupTeamMember(founderCtx, projectId, "operations", { expectedVersion: 1 });
     await activateProjectStartupTeamMember(founderCtx, projectId, "marketing", { expectedVersion: 1 });
 
-    const result = await selectStartupCorePreset(founderCtx, projectId, {
-      presetKey: "startup-build-launch",
-      expectedVersion: 1,
-      idempotencyKey: "preset-build-1",
-    });
+    await activateWorkspaceExecutiveRole(founderCtx, "cmo", {});
+    await activateWorkspaceExecutiveRole(founderCtx, "chief_of_staff", {});
+    await activateWorkspaceExecutiveRole(founderCtx, "coo", {});
 
-    expect(result.presetKey).toBe("startup-build-launch");
+    // Project thứ 2 trong cùng workspace thấy ngay cùng một bộ role ACTIVE —
+    // đây chính là điểm khác biệt cốt lõi so với activation cấp Project cũ.
+    const secondProject = await createProjectService(founderCtx, { title: "Shared Board Project" });
 
-    const states = await getProjectExecutiveRoleStates(founderCtx, projectId);
-    const cmo = states.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "cmo");
-    const cos = states.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "chief_of_staff");
-    const coo = states.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "coo");
-    const cfo = states.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "cfo");
+    for (const targetProjectId of [projectId, secondProject.id]) {
+      const states = await getProjectExecutiveRoleStates(founderCtx, targetProjectId);
+      const byKey = (k: string) =>
+        states.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === k)?.displayState;
 
-    // Eligible defaults (operations & marketing active) are activated
-    expect(cmo?.displayState).toBe("ACTIVE");
-    expect(cos?.displayState).toBe("ACTIVE");
-    expect(coo?.displayState).toBe("ACTIVE");
-    // Ineligible default (finance not active) remains UNAVAILABLE
-    expect(cfo?.displayState).toBe("UNAVAILABLE");
+      expect(byKey("cmo")).toBe("ACTIVE");
+      expect(byKey("chief_of_staff")).toBe("ACTIVE");
+      expect(byKey("coo")).toBe("ACTIVE");
+      // finance chưa ACTIVE ở Project nào → gate UNAVAILABLE vẫn giữ.
+      expect(byKey("cfo")).toBe("UNAVAILABLE");
+    }
   });
 });

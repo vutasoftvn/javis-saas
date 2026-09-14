@@ -12,6 +12,8 @@ import {
   isStartupCorePresetKey,
 } from "../../shared/contracts/executive-advisor-roles.generated";
 import { verifyUnderlyingAgentActive } from "./founder-agent-compatibility.service";
+import { getWorkspaceExecutiveRoleStates } from "./workspace-executive-role-activation.service";
+import { roleKeysForStage, PERSISTENT_EXECUTIVE_ROLES } from "./executive-board-stage-presets";
 
 const {
   projects,
@@ -137,7 +139,14 @@ export async function requireExecutiveBoardFounderAuthorityForWorkspace(
 }
 
 /**
- * Lấy trạng thái hiển thị trung thực của toàn bộ Executive Roles theo Project.
+ * Lấy trạng thái hiển thị trung thực của toàn bộ Executive Roles cho một
+ * Project.
+ *
+ * Từ 2026-09-14, nguồn activation duy nhất là bảng cấp Workspace
+ * (`workspace_executive_role_activations`) — 1 công ty chỉ có 1 CFO/CRO/COO
+ * thật, dùng chung cho mọi Project. Hàm này giữ lại vì client cũ vẫn đọc theo
+ * Project, nhưng chỉ còn là projection của board cấp Workspace; `settings`
+ * (preset) không còn ý nghĩa nên luôn trả `undefined`.
  */
 export async function getProjectExecutiveRoleStates(
   ctx: TenantContext,
@@ -146,7 +155,7 @@ export async function getProjectExecutiveRoleStates(
   const wsId = BigInt(ctx.workspaceId);
   const projId = BigInt(projectId);
 
-  // 1. Verify Project belongs to Workspace
+  // Vẫn xác nhận Project thuộc đúng Workspace (chống cross-tenant enumeration).
   const [project] = await db
     .select({ id: projects.id })
     .from(projects)
@@ -157,118 +166,100 @@ export async function getProjectExecutiveRoleStates(
     throw APIError.notFound("Project not found");
   }
 
-  // 2. Fetch current settings
-  const [settingsRow] = await db
-    .select()
-    .from(projectExecutiveBoardSettings)
-    .where(
-      and(
-        eq(projectExecutiveBoardSettings.workspaceId, wsId),
-        eq(projectExecutiveBoardSettings.projectId, projId)
-      )
-    )
-    .limit(1);
-
-  // 3. Fetch active startup team assignments
-  const assignments = await db
-    .select({
-      profileKey: projectAgentAssignments.profileKey,
-      state: projectAgentAssignments.state,
-      specHash: projectAgentAssignments.specHash,
-    })
-    .from(projectAgentAssignments)
-    .where(
-      and(
-        eq(projectAgentAssignments.workspaceId, wsId),
-        eq(projectAgentAssignments.projectId, projId)
-      )
-    );
-
-  const activeProfiles = new Set(
-    assignments
-      .filter((a) => a.state === "ACTIVE" && Boolean(a.specHash))
-      .map((a) => a.profileKey)
-  );
-
-  // 4. Fetch existing executive role activations
-  const activations = await db
-    .select()
-    .from(projectExecutiveRoleActivations)
-    .where(
-      and(
-        eq(projectExecutiveRoleActivations.workspaceId, wsId),
-        eq(projectExecutiveRoleActivations.projectId, projId)
-      )
-    );
-
-  const activationMap = new Map(activations.map((a) => [a.roleKey, a]));
-
-  // 5. Build role states
-  const roleStates: ProjectExecutiveRoleState[] = Object.values(EXECUTIVE_ROLE_CATALOG).map(
-    (roleDef) => {
-      const isProfileEligible =
-        roleDef.runtimeReadiness === "READY" &&
-        activeProfiles.has(roleDef.requiredProfileKey);
-
-      const existingAct = activationMap.get(roleDef.key);
-
-      let displayState: ExecutiveRoleDisplayState = "UNAVAILABLE";
-      let version = 1;
-      let activationSource: string | undefined;
-      let activatedAt: string | undefined;
-      let actorId: string | undefined;
-      let disabledReason: string | undefined;
-
-      if (existingAct) {
-        version = existingAct.version;
-        activationSource = existingAct.activationSource;
-        actorId = existingAct.actorId.toString();
-
-        if (existingAct.state === "ACTIVE") {
-          // If underlying assignment is no longer active, truth in display is UNAVAILABLE
-          displayState = isProfileEligible ? "ACTIVE" : "UNAVAILABLE";
-          if (!isProfileEligible) {
-            disabledReason = "UNDERLYING_PROFILE_UNAVAILABLE";
-          }
-          activatedAt = existingAct.updatedAt.toISOString();
-        } else if (existingAct.state === "DISABLED") {
-          displayState = "DISABLED";
-        }
-      } else {
-        displayState = isProfileEligible ? "AVAILABLE_NOT_ACTIVATED" : "UNAVAILABLE";
-        if (!isProfileEligible) {
-          disabledReason = "UNDERLYING_PROFILE_UNAVAILABLE";
-        }
-      }
-
-      return {
-        roleKey: roleDef.key,
-        label: roleDef.label,
-        advisoryRemit: roleDef.advisoryRemit,
-        displayState,
-        runtimeReadiness: roleDef.runtimeReadiness,
-        requiredProfileKey: roleDef.requiredProfileKey,
-        activationSource,
-        version,
-        activatedAt,
-        actorId,
-        disabledReason,
-      };
-    }
-  );
+  const workspaceBoard = await getWorkspaceExecutiveRoleStates(ctx);
 
   return {
     projectId,
-    settings: settingsRow
-      ? {
-          presetKey: settingsRow.presetKey as StartupCorePresetKey,
-          version: settingsRow.version,
-          selectedBy: settingsRow.selectedBy.toString(),
-          updatedAt: settingsRow.updatedAt.toISOString(),
-        }
-      : undefined,
-    roles: roleStates,
+    settings: undefined,
+    roles: workspaceBoard.roles.map((r) => ({
+      roleKey: r.roleKey,
+      label: r.label,
+      advisoryRemit: r.advisoryRemit,
+      displayState: r.displayState,
+      runtimeReadiness: r.runtimeReadiness,
+      requiredProfileKey: r.requiredProfileKey,
+      version: r.version,
+      activatedAt: r.activatedAt,
+      actorId: r.actorId,
+      disabledReason: r.disabledReason,
+    })),
   };
+}
+
+export interface StageSuggestion {
+  stage: string;
+  toActivate: ExecutiveRoleKey[];
+  toSuggestDeactivate: ExecutiveRoleKey[];
+}
+
+/**
+ * Tính diff gợi ý Executive Board theo stage hiện tại của Project — CHỈ gợi ý,
+ * KHÔNG tự activate/deactivate bất cứ gì (CLAUDE.md quy tắc #5). Activation
+ * thật sự là hành động Workspace-scoped do Founder chủ động gọi.
+ */
+export async function getStageSuggestion(
+  ctx: TenantContext,
+  projectId: string
+): Promise<StageSuggestion> {
+  const wsId = BigInt(ctx.workspaceId);
+  const projId = BigInt(projectId);
+
+  const [project] = await db
+    .select({ lifecycleStage: projects.lifecycleStage })
+    .from(projects)
+    .where(and(eq(projects.id, projId), eq(projects.workspaceId, wsId)))
+    .limit(1);
+
+  if (!project) {
+    throw APIError.notFound("Project not found");
+  }
+
+  const stage = project.lifecycleStage;
+  const presetRoles = new Set(roleKeysForStage(stage));
+  const persistent = new Set(PERSISTENT_EXECUTIVE_ROLES);
+
+  // Activation dùng chung cả Workspace, nên gợi ý TẮT cũng phải xét cả
+  // Workspace: một role Project này không cần vẫn có thể đang là chỗ dựa của
+  // Project khác ở stage khác. Chỉ gợi ý tắt khi KHÔNG Project nào trong
+  // workspace còn cần role đó theo stage hiện tại của nó — nếu không, làm theo
+  // gợi ý sẽ rút mất role của Project khác.
+  const workspaceProjects = await db
+    .select({ lifecycleStage: projects.lifecycleStage })
+    .from(projects)
+    .where(eq(projects.workspaceId, wsId));
+
+  const neededByAnyProject = new Set<ExecutiveRoleKey>();
+  for (const p of workspaceProjects) {
+    for (const roleKey of roleKeysForStage(p.lifecycleStage)) {
+      neededByAnyProject.add(roleKey);
+    }
+  }
+
+  const board = await getWorkspaceExecutiveRoleStates(ctx);
+
+  const toActivate: ExecutiveRoleKey[] = [];
+  const toSuggestDeactivate: ExecutiveRoleKey[] = [];
+
+  for (const role of board.roles) {
+    const inPreset = presetRoles.has(role.roleKey);
+
+    // Chỉ gợi ý bật role thật sự bật được — role UNAVAILABLE (agent nền chưa
+    // chạy ở Project nào) không bao giờ được gợi ý.
+    if (inPreset && role.displayState === "AVAILABLE_NOT_ACTIVATED") {
+      toActivate.push(role.roleKey);
+    }
+
+    if (
+      !inPreset &&
+      role.displayState === "ACTIVE" &&
+      !persistent.has(role.roleKey) &&
+      !neededByAnyProject.has(role.roleKey)
+    ) {
+      toSuggestDeactivate.push(role.roleKey);
+    }
+  }
+
+  return { stage, toActivate, toSuggestDeactivate };
 }
 
 /**
