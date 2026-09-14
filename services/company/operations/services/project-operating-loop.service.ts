@@ -1,5 +1,5 @@
 import { APIError } from "encore.dev/api";
-import { eq, and, isNull, desc } from "drizzle-orm";
+import { eq, and, isNull, desc, inArray } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import type { TenantContext } from "../../shared/types/tenant_context";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
@@ -124,6 +124,10 @@ export interface TaskDto {
   projectId: string;
   weeklyCommitmentId?: string | null;
   initiativeId?: string | null;
+  // Denormalized lúc tạo task (xem task.service.ts) từ weeklyCommitment/
+  // initiative — cho phép đọc trực tiếp task theo tuần/KR mà không cần join.
+  weeklyPlanId?: string | null;
+  keyResultId?: string | null;
   title: string;
   status: string;
   priority: string;
@@ -291,6 +295,8 @@ function toTask(row: typeof tasks.$inferSelect): TaskDto {
     projectId: row.projectId.toString(),
     weeklyCommitmentId: row.weeklyCommitmentId ? row.weeklyCommitmentId.toString() : null,
     initiativeId: row.initiativeId ? row.initiativeId.toString() : null,
+    weeklyPlanId: row.weeklyPlanId ? row.weeklyPlanId.toString() : null,
+    keyResultId: row.keyResultId ? row.keyResultId.toString() : null,
     title: row.title,
     status: row.status,
     priority: row.priority,
@@ -650,6 +656,7 @@ export async function createTaskAuthorized(
   await verifyProjectInWorkspace(wsId, pId);
 
   let weeklyCommitmentId: bigint | null = null;
+  let commitmentRow: typeof weeklyCommitments.$inferSelect | null = null;
   if (req.weeklyCommitmentId) {
     weeklyCommitmentId = BigInt(req.weeklyCommitmentId);
     const [com] = await db
@@ -665,9 +672,11 @@ export async function createTaskAuthorized(
     if (!com) {
       throw APIError.invalidArgument("Weekly commitment does not belong to project/workspace");
     }
+    commitmentRow = com;
   }
 
   let initiativeId: bigint | null = null;
+  let initiativeRow: typeof initiatives.$inferSelect | null = null;
   if (req.initiativeId) {
     initiativeId = BigInt(req.initiativeId);
     const [init] = await db
@@ -683,6 +692,23 @@ export async function createTaskAuthorized(
     if (!init) {
       throw APIError.invalidArgument("Initiative does not belong to project/workspace");
     }
+    initiativeRow = init;
+  }
+
+  // Denormalize weeklyPlanId/keyResultId lên Task lúc tạo — đồng nhất với
+  // pattern đã có ở task.service.ts::createTaskService cho cùng bảng `tasks`.
+  // Ưu tiên purposeRef của weeklyCommitment khi purposeType là "KR"; fallback
+  // sang keyResultId của initiative khi task gắn trực tiếp initiative.
+  let resolvedWeeklyPlanId: bigint | null = null;
+  let resolvedKeyResultId: bigint | null = null;
+  if (commitmentRow) {
+    resolvedWeeklyPlanId = commitmentRow.weeklyPlanId;
+    if (commitmentRow.purposeType === "KR" && commitmentRow.purposeRef) {
+      resolvedKeyResultId = BigInt(commitmentRow.purposeRef);
+    }
+  }
+  if (!resolvedKeyResultId && initiativeRow) {
+    resolvedKeyResultId = initiativeRow.keyResultId;
   }
 
   const initialStatus = req.status || "todo";
@@ -701,6 +727,8 @@ export async function createTaskAuthorized(
       projectId: pId,
       weeklyCommitmentId,
       initiativeId,
+      weeklyPlanId: resolvedWeeklyPlanId,
+      keyResultId: resolvedKeyResultId,
       title: req.title,
       status: initialStatus,
       priority: req.priority || "medium",
@@ -835,6 +863,7 @@ export async function getProjectOperatingLoop(
       .where(
         and(
           eq(keyResults.workspaceId, wsId),
+          inArray(keyResults.objectiveId, objIds),
           isNull(keyResults.deletedAt)
         )
       );

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createTestWorkspaceWithMember } from "./_helpers";
 import { createProjectService } from "../services/project.service";
+import { MVP_CAPABILITY_BY_ID } from "../../shared/contracts/mvp-surface.generated";
 import {
   getProjectOperatingLoopApi,
   createObjectiveApi,
@@ -12,6 +13,36 @@ import {
   createTaskApi,
   advanceTaskApi,
 } from "../handlers/project-operating-loop.handler";
+
+// Step 3 — mọi route thật handler đã export (key-results, initiatives,
+// task-status PATCH) PHẢI có 1 entry canonical trong mvp-surface.json. Test
+// này là "drift detector": trước khi đăng ký entry, nó đỏ (route invisible
+// với contract); sau khi đăng ký + regenerate, nó xanh.
+describe("project-operating-loop contract completeness (mvp-surface registration)", () => {
+  it("registers POST .../operating-loop/key-results as a canonical capability", () => {
+    const cap = MVP_CAPABILITY_BY_ID.get("project.key_result.write");
+    expect(cap).toBeDefined();
+    expect(cap?.method).toBe("POST");
+    expect(cap?.path).toBe("/operations/projects/:projectId/operating-loop/key-results");
+    expect(cap?.requiresProject).toBe(true);
+  });
+
+  it("registers POST .../operating-loop/initiatives as a canonical capability", () => {
+    const cap = MVP_CAPABILITY_BY_ID.get("project.initiative.write");
+    expect(cap).toBeDefined();
+    expect(cap?.method).toBe("POST");
+    expect(cap?.path).toBe("/operations/projects/:projectId/operating-loop/initiatives");
+    expect(cap?.requiresProject).toBe(true);
+  });
+
+  it("registers PATCH .../operating-loop/tasks/:taskId/status as a canonical capability", () => {
+    const cap = MVP_CAPABILITY_BY_ID.get("project.task.status.write");
+    expect(cap).toBeDefined();
+    expect(cap?.method).toBe("PATCH");
+    expect(cap?.path).toBe("/operations/projects/:projectId/operating-loop/tasks/:taskId/status");
+    expect(cap?.requiresProject).toBe(true);
+  });
+});
 
 describe("project-operating-loop handler authorization & tenant boundaries", () => {
   it("rejects unauthenticated requests (missing bearer)", async () => {
@@ -185,5 +216,169 @@ describe("project-operating-loop handler authorization & tenant boundaries", () 
     expect(loop.objectives[0].keyResults).toHaveLength(1);
     expect(loop.objectives[0].keyResults[0].initiatives).toHaveLength(1);
     expect(loop.tasks).toHaveLength(1);
+  });
+
+  it("returns the exact canonical response shape from getProjectOperatingLoopApi", async () => {
+    const ws = await createTestWorkspaceWithMember({ role: "founder" });
+    const project = await createProjectService(
+      {
+        workspaceId: ws.workspaceId,
+        userId: ws.userId,
+        membershipRole: "admin",
+        permissions: [],
+        correlationId: "test",
+      } as any,
+      { title: "Shape Project" }
+    );
+
+    const objective = await createObjectiveApi({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      projectId: project.id,
+      title: "Objective",
+    });
+    const kr = await createKeyResultApi({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      projectId: project.id,
+      objectiveId: objective.id,
+      title: "KR",
+    });
+    const initiative = await createInitiativeApi({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      projectId: project.id,
+      keyResultId: kr.id,
+      title: "Initiative",
+    });
+    const cycle = await createCycleApi({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      projectId: project.id,
+      durationWeeks: 12,
+    });
+    const week = await createWeeklyPlanApi({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      projectId: project.id,
+      cycleId: cycle.id,
+      weekNo: 1,
+    });
+    const commitment = await createWeeklyCommitmentApi({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      projectId: project.id,
+      weeklyPlanId: week.id,
+      initiativeId: initiative.id,
+      title: "Commitment",
+    });
+    const task = await createTaskApi({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      projectId: project.id,
+      weeklyCommitmentId: commitment.id,
+      initiativeId: initiative.id,
+      title: "Task",
+    });
+
+    const loop = await getProjectOperatingLoopApi({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      projectId: project.id,
+    });
+
+    expect(loop).toMatchObject({
+      project: { id: project.id, lifecycleStage: "P0_DISCOVERY", stageVersion: 0 },
+      objectives: [
+        {
+          objective: { id: objective.id },
+          keyResults: [{ keyResult: { id: kr.id }, initiatives: [{ id: initiative.id }] }],
+        },
+      ],
+      activeCycle: { id: cycle.id, currentWeek: 1 },
+      currentWeek: { weekNo: 1 },
+      commitments: [{ weeklyPlanId: week.id }],
+      tasks: [{ projectId: project.id }],
+    });
+
+    // Task 3 Step 4 — task denormalizes weeklyPlanId/keyResultId from the
+    // commitment/initiative it was created against; DTO must surface both.
+    expect(loop.tasks[0]).toMatchObject({
+      id: task.id,
+      weeklyPlanId: week.id,
+      keyResultId: kr.id,
+    });
+  });
+
+  it("Objective body accepts `why` and does not surface the legacy client-only key `description`", async () => {
+    const ws = await createTestWorkspaceWithMember({ role: "founder" });
+    const project = await createProjectService(
+      {
+        workspaceId: ws.workspaceId,
+        userId: ws.userId,
+        membershipRole: "admin",
+        permissions: [],
+        correlationId: "test",
+      } as any,
+      { title: "Body Shape Project" }
+    );
+
+    const objective = await createObjectiveApi({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      projectId: project.id,
+      title: "Objective with why",
+      why: "Vì đây là ưu tiên số 1",
+      // Legacy client-only key from an older contract draft — must be a
+      // silent no-op, not a stored field (no documented compat decision to
+      // keep it).
+      ...({ description: "legacy client field" } as any),
+    });
+
+    expect(objective.why).toBe("Vì đây là ưu tiên số 1");
+    expect((objective as any).description).toBeUndefined();
+  });
+
+  it("Weekly commitment body accepts `plannedEffort` and does not surface the legacy client-only key `targetConfidence`", async () => {
+    const ws = await createTestWorkspaceWithMember({ role: "founder" });
+    const project = await createProjectService(
+      {
+        workspaceId: ws.workspaceId,
+        userId: ws.userId,
+        membershipRole: "admin",
+        permissions: [],
+        correlationId: "test",
+      } as any,
+      { title: "Commitment Body Shape Project" }
+    );
+    const cycle = await createCycleApi({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      projectId: project.id,
+      durationWeeks: 12,
+    });
+    const week = await createWeeklyPlanApi({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      projectId: project.id,
+      cycleId: cycle.id,
+      weekNo: 1,
+    });
+
+    const commitment = await createWeeklyCommitmentApi({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      projectId: project.id,
+      weeklyPlanId: week.id,
+      title: "Commitment with plannedEffort",
+      plannedEffort: "HIGH",
+      // Legacy client-only key from an older contract draft — must be a
+      // silent no-op, not a stored field (no documented compat decision to
+      // keep it).
+      ...({ targetConfidence: 0.9 } as any),
+    });
+
+    expect(commitment.plannedEffort).toBe("HIGH");
+    expect((commitment as any).targetConfidence).toBeUndefined();
   });
 });
