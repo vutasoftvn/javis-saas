@@ -4,17 +4,20 @@
 // publish. Không tự tạo initiative/commitment — founder/agent gắn KR vào
 // từng tuần thủ công sau đó; generator chỉ dựng khung 12-week-cycle theo
 // đúng durationWeeks yêu cầu.
+//
+// Task 5 (2026-09-14 remediation) — createCycleAuthorized giờ tự materialize
+// toàn bộ weekly_plans 1..durationWeeks VÀ nhận thẳng sourceObjectiveId
+// trong cùng 1 lệnh gọi/transaction; generator không còn tự lặp gọi
+// createWeeklyPlanAuthorized N lần hay UPDATE sourceObjectiveId tách rời sau
+// khi cycle đã commit (2 bước cũ để lộ khoảng hở cycle tồn tại mà thiếu
+// tuần/chưa gắn objective).
 import { APIError } from "encore.dev/api";
 import { eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import type { TenantContext } from "../../shared/types/tenant_context";
-import {
-  createCycleAuthorized,
-  createWeeklyPlanAuthorized,
-  CycleDto,
-} from "./project-operating-loop.service";
+import { createCycleAuthorized, CycleDto } from "./project-operating-loop.service";
 
-const { okrObjectives, twelveWeekCycles } = schema;
+const { okrObjectives } = schema;
 
 export async function generateCycleFromObjective(
   ctx: TenantContext,
@@ -37,23 +40,9 @@ export async function generateCycleFromObjective(
     throw APIError.failedPrecondition("Objective must be published before generating a weekly cycle");
   }
 
-  const cycle = await createCycleAuthorized(ctx, {
+  return createCycleAuthorized(ctx, {
     projectId: objective.projectId.toString(),
     durationWeeks,
+    sourceObjectiveId: objectiveId,
   });
-
-  await db
-    .update(twelveWeekCycles)
-    .set({ sourceObjectiveId: objId })
-    .where(eq(twelveWeekCycles.id, BigInt(cycle.id)));
-
-  for (let weekNo = 1; weekNo <= durationWeeks; weekNo++) {
-    await createWeeklyPlanAuthorized(ctx, {
-      projectId: objective.projectId.toString(),
-      cycleId: cycle.id,
-      weekNo,
-    });
-  }
-
-  return { ...cycle, sourceObjectiveId: objectiveId };
 }

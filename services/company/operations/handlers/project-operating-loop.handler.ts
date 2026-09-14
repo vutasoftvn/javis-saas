@@ -9,6 +9,7 @@ import {
   WeeklyPlanDto,
   WeeklyCommitmentDto,
   TaskDto,
+  AdvanceCycleWeekResultDto,
   getProjectOperatingLoop,
   createObjectiveAuthorized,
   createKeyResultAuthorized,
@@ -18,6 +19,7 @@ import {
   createWeeklyCommitmentAuthorized,
   createTaskAuthorized,
   advanceTaskService,
+  advanceCycleWeekAuthorized,
   verifyProjectInWorkspace,
 } from "../services/project-operating-loop.service";
 
@@ -94,6 +96,20 @@ export interface AdvanceTaskParams {
   projectId: string;
   taskId: string;
   status: string;
+}
+
+export interface AdvanceCycleWeekBody {
+  expectedCurrentWeek: number;
+  reflection: string;
+  executionScore?: number;
+  outcomeScore?: number;
+}
+
+export interface AdvanceCycleWeekParams {
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
+  projectId: string;
+  cycleId: string;
 }
 
 export const getProjectOperatingLoopApi = api(
@@ -223,6 +239,21 @@ export const advanceTaskApi = api(
       projectId: params.projectId,
       taskId: params.taskId,
       status: params.status,
+    });
+  }
+);
+
+export const advanceCycleWeekApi = api(
+  { expose: true, method: "PATCH", path: "/operations/projects/:projectId/operating-loop/cycles/:cycleId/week" },
+  async (params: AdvanceCycleWeekParams & AdvanceCycleWeekBody): Promise<AdvanceCycleWeekResultDto> => {
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    return advanceCycleWeekAuthorized(ctx, {
+      projectId: params.projectId,
+      cycleId: params.cycleId,
+      expectedCurrentWeek: params.expectedCurrentWeek,
+      reflection: params.reflection,
+      executionScore: params.executionScore,
+      outcomeScore: params.outcomeScore,
     });
   }
 );

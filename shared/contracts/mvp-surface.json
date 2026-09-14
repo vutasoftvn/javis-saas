@@ -434,6 +434,22 @@
       "integration_test": "tests/e2e/test_founder_trial_http.py"
     },
     {
+      "id": "project.cycle.week.advance",
+      "enabled": true,
+      "owner": "company-operations",
+      "plane": "company",
+      "method": "PATCH",
+      "path": "/operations/projects/:projectId/operating-loop/cycles/:cycleId/week",
+      "schema": "project.cycle.week.advance.v1",
+      "source_kind": "company_db",
+      "requires_workspace": true,
+      "requires_project": true,
+      "frontend_symbol": "ProjectOperatingLoopCommands.advanceCycleWeek",
+      "backend_test": "services/company/operations/tests/project-operating-loop.handler.test.ts",
+      "flutter_test": "frontend/test/modules/projects/project_operating_loop_service_test.dart",
+      "integration_test": "tests/e2e/test_founder_trial_http.py"
+    },
+    {
       "id": "project.startup_team.activate",
       "enabled": true,
       "owner": "company-operations",

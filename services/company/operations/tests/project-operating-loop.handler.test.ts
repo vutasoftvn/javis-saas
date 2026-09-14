@@ -12,6 +12,7 @@ import {
   createWeeklyCommitmentApi,
   createTaskApi,
   advanceTaskApi,
+  advanceCycleWeekApi,
 } from "../handlers/project-operating-loop.handler";
 
 // Step 3 — mọi route thật handler đã export (key-results, initiatives,
@@ -40,6 +41,14 @@ describe("project-operating-loop contract completeness (mvp-surface registration
     expect(cap).toBeDefined();
     expect(cap?.method).toBe("PATCH");
     expect(cap?.path).toBe("/operations/projects/:projectId/operating-loop/tasks/:taskId/status");
+    expect(cap?.requiresProject).toBe(true);
+  });
+
+  it("registers PATCH .../operating-loop/cycles/:cycleId/week as a canonical capability (Task 5)", () => {
+    const cap = MVP_CAPABILITY_BY_ID.get("project.cycle.week.advance");
+    expect(cap).toBeDefined();
+    expect(cap?.method).toBe("PATCH");
+    expect(cap?.path).toBe("/operations/projects/:projectId/operating-loop/cycles/:cycleId/week");
     expect(cap?.requiresProject).toBe(true);
   });
 });
@@ -452,5 +461,130 @@ describe("project-operating-loop handler authorization & tenant boundaries", () 
 
     expect(commitment.plannedEffort).toBe("HIGH");
     expect((commitment as any).targetConfidence).toBeUndefined();
+  });
+});
+
+// Task 5 (2026-09-14 remediation) — advanceCycleWeekApi HTTP-shaped tests,
+// following the cross-project negative-test pattern already used above for
+// the other operating-loop endpoints.
+describe("advanceCycleWeekApi (PATCH .../operating-loop/cycles/:cycleId/week)", () => {
+  async function setupActiveCycle(title: string, durationWeeks = 3) {
+    const ws = await createTestWorkspaceWithMember({ role: "founder" });
+    const project = await createProjectService(
+      {
+        workspaceId: ws.workspaceId,
+        userId: ws.userId,
+        membershipRole: "admin",
+        permissions: [],
+        correlationId: "test",
+      } as any,
+      { title }
+    );
+    const cycle = await createCycleApi({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      projectId: project.id,
+      durationWeeks,
+    });
+    return { ws, project, cycle };
+  }
+
+  it("closes week 1 and advances currentWeek to 2 through the public endpoint", async () => {
+    const { ws, project, cycle } = await setupActiveCycle("Advance Week HTTP Project");
+
+    const result = await advanceCycleWeekApi({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      projectId: project.id,
+      cycleId: cycle.id,
+      expectedCurrentWeek: 1,
+      reflection: "Week 1 shipped",
+      executionScore: 90,
+      outcomeScore: 85,
+    });
+
+    expect(result.cycle.currentWeek).toBe(2);
+    expect(result.event.eventType).toBe("WEEK_ADVANCED");
+  });
+
+  it("rejects advancing a cycle belonging to a different Project in the same workspace (cross-project guard)", async () => {
+    const ws = await createTestWorkspaceWithMember({ role: "founder" });
+    const projectA = await createProjectService(
+      {
+        workspaceId: ws.workspaceId,
+        userId: ws.userId,
+        membershipRole: "admin",
+        permissions: [],
+        correlationId: "test",
+      } as any,
+      { title: "Project A (HTTP cross-project guard)" }
+    );
+    const projectB = await createProjectService(
+      {
+        workspaceId: ws.workspaceId,
+        userId: ws.userId,
+        membershipRole: "admin",
+        permissions: [],
+        correlationId: "test",
+      } as any,
+      { title: "Project B (HTTP cross-project guard)" }
+    );
+    const cycleB = await createCycleApi({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      projectId: projectB.id,
+      durationWeeks: 3,
+    });
+
+    await expect(
+      advanceCycleWeekApi({
+        authorization: ws.bearerToken,
+        workspaceId: ws.workspaceId,
+        projectId: projectA.id,
+        cycleId: cycleB.id,
+        expectedCurrentWeek: 1,
+        reflection: "Must be rejected via Project A's route",
+      })
+    ).rejects.toThrow(/not found/i);
+  });
+
+  it("rejects a stale expectedCurrentWeek on the second call after a successful advance", async () => {
+    const { ws, project, cycle } = await setupActiveCycle("Stale CAS HTTP Project");
+
+    await advanceCycleWeekApi({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      projectId: project.id,
+      cycleId: cycle.id,
+      expectedCurrentWeek: 1,
+      reflection: "Week 1 shipped",
+    });
+
+    await expect(
+      advanceCycleWeekApi({
+        authorization: ws.bearerToken,
+        workspaceId: ws.workspaceId,
+        projectId: project.id,
+        cycleId: cycle.id,
+        expectedCurrentWeek: 1,
+        reflection: "Stale retry",
+      })
+    ).rejects.toThrow();
+  });
+
+  it("completes the cycle and appends CYCLE_COMPLETED when closing the final week", async () => {
+    const { ws, project, cycle } = await setupActiveCycle("Final Week HTTP Project", 1);
+
+    const result = await advanceCycleWeekApi({
+      authorization: ws.bearerToken,
+      workspaceId: ws.workspaceId,
+      projectId: project.id,
+      cycleId: cycle.id,
+      expectedCurrentWeek: 1,
+      reflection: "Final week shipped",
+    });
+
+    expect(result.cycle.status).toBe("COMPLETED");
+    expect(result.event.eventType).toBe("CYCLE_COMPLETED");
   });
 });

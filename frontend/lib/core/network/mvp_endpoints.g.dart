@@ -482,6 +482,15 @@ enum MvpEndpoint {
     requiresWorkspace: true,
     requiresProject: true,
   ),
+  projectCycleWeekAdvance(
+    id: 'project.cycle.week.advance',
+    enabled: true,
+    plane: ApiPlane.company,
+    method: 'PATCH',
+    path: '/operations/projects/:projectId/operating-loop/cycles/:cycleId/week',
+    requiresWorkspace: true,
+    requiresProject: true,
+  ),
   projectCycleWrite(
     id: 'project.cycle.write',
     enabled: true,

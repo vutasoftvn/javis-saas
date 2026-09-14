@@ -14,6 +14,7 @@ const {
   weeklyPlans,
   weeklyCommitments,
   tasks,
+  cycleWeekEvents,
 } = schema;
 
 export interface OkrObjectiveDto {
@@ -98,6 +99,29 @@ export interface WeeklyPlanDto {
   endDate?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+// Task 5 (2026-09-14 remediation) — 1 entry timeline append-only cho state
+// machine Weekly. `payload` chỉ mang dữ liệu mô tả (vd. reflection/scores lúc
+// WEEK_CLOSED); không phải nguồn sự thật cho currentWeek/status — nguồn sự
+// thật luôn là row `twelveWeekCycles`/`weeklyPlans` hiện tại.
+export interface CycleWeekEventDto {
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  cycleId: string;
+  weekNo: number;
+  eventType: string;
+  actorId?: string | null;
+  expectedCurrentWeek: number;
+  payload?: unknown;
+  occurredAt: string;
+}
+
+export interface AdvanceCycleWeekResultDto {
+  cycle: CycleDto;
+  week: WeeklyPlanDto;
+  event: CycleWeekEventDto;
 }
 
 export interface WeeklyCommitmentDto {
@@ -265,6 +289,21 @@ function toWeeklyPlan(row: typeof weeklyPlans.$inferSelect): WeeklyPlanDto {
     endDate: row.endDate ? row.endDate.toISOString() : null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+function toCycleWeekEvent(row: typeof cycleWeekEvents.$inferSelect): CycleWeekEventDto {
+  return {
+    id: row.id.toString(),
+    workspaceId: row.workspaceId.toString(),
+    projectId: row.projectId.toString(),
+    cycleId: row.cycleId.toString(),
+    weekNo: row.weekNo,
+    eventType: row.eventType,
+    actorId: row.actorId ? row.actorId.toString() : null,
+    expectedCurrentWeek: row.expectedCurrentWeek,
+    payload: row.payload ?? null,
+    occurredAt: row.occurredAt.toISOString(),
   };
 }
 
@@ -462,6 +501,10 @@ export async function createCycleAuthorized(
     startLocalDate?: string;
     startDate?: string;
     endDate?: string;
+    // Task 5 (2026-09-14 remediation) — cho phép gắn sourceObjectiveId ngay
+    // lúc tạo, thay vì tạo-rồi-update riêng lẻ như okr-weekly-generator cũ
+    // (2 bước đó tạo ra 1 khoảng hở nơi cycle tồn tại mà chưa gắn objective).
+    sourceObjectiveId?: string | null;
   }
 ): Promise<CycleDto> {
   const wsId = BigInt(ctx.workspaceId);
@@ -489,25 +532,44 @@ export async function createCycleAuthorized(
     throw APIError.failedPrecondition("Project already has an active operating cycle");
   }
 
-  const [row] = await db
-    .insert(twelveWeekCycles)
-    .values({
-      id: generateSnowflake(),
-      workspaceId: wsId,
-      projectId: pId,
-      theme: req.theme || null,
-      visionStatement: req.visionStatement || "",
-      durationWeeks,
-      timezone: req.timezone || "UTC",
-      status: "ACTIVE",
-      startLocalDate: req.startLocalDate || null,
-      startDate: req.startDate ? new Date(req.startDate) : null,
-      endDate: req.endDate ? new Date(req.endDate) : null,
-    })
-    .returning();
+  // Task 5 — cycle + toàn bộ weekly_plans rỗng (tuần 1..durationWeeks) phải
+  // xuất hiện cùng lúc trong 1 transaction: không có trạng thái quan sát được
+  // từ bên ngoài nơi cycle tồn tại nhưng thiếu tuần nào. Trước đây caller
+  // (vd. okr-weekly-generator) tự lặp gọi createWeeklyPlanAuthorized N lần
+  // sau khi cycle đã commit — 2 bước tách rời, không atomic.
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(twelveWeekCycles)
+      .values({
+        id: generateSnowflake(),
+        workspaceId: wsId,
+        projectId: pId,
+        theme: req.theme || null,
+        visionStatement: req.visionStatement || "",
+        durationWeeks,
+        timezone: req.timezone || "UTC",
+        status: "ACTIVE",
+        startLocalDate: req.startLocalDate || null,
+        startDate: req.startDate ? new Date(req.startDate) : null,
+        endDate: req.endDate ? new Date(req.endDate) : null,
+        sourceObjectiveId: req.sourceObjectiveId ? BigInt(req.sourceObjectiveId) : null,
+      })
+      .returning();
 
-  if (!row) throw APIError.internal("Failed to create operating cycle");
-  return toCycle(row);
+    if (!row) throw APIError.internal("Failed to create operating cycle");
+
+    await tx.insert(weeklyPlans).values(
+      Array.from({ length: durationWeeks }, (_unused, i) => ({
+        id: generateSnowflake(),
+        workspaceId: wsId,
+        projectId: pId,
+        cycleId: row.id,
+        weekNo: i + 1,
+      }))
+    );
+
+    return toCycle(row);
+  });
 }
 
 export async function createWeeklyPlanAuthorized(
@@ -546,6 +608,41 @@ export async function createWeeklyPlanAuthorized(
     throw APIError.invalidArgument("week_no must be within cycle duration");
   }
 
+  // Task 5 (2026-09-14 remediation) — createCycleAuthorized giờ tự
+  // materialize toàn bộ weekly_plans 1..durationWeeks lúc tạo cycle, nên tại
+  // đây hầu như luôn có sẵn đúng 1 row cho (cycleId, weekNo). Đổi ngữ nghĩa
+  // hàm này từ "tạo mới" sang "upsert nội dung tuần" (set focus/mission) —
+  // tránh tạo row trùng cho cùng tuần. `uix_weekly_plans_cycle_week_alive`
+  // (migration 027) là lớp chặn cứng ở DB nếu có code path nào khác lỡ cố
+  // insert lần 2.
+  const [existing] = await db
+    .select()
+    .from(weeklyPlans)
+    .where(
+      and(
+        eq(weeklyPlans.cycleId, cycleId),
+        eq(weeklyPlans.weekNo, req.weekNo),
+        isNull(weeklyPlans.deletedAt)
+      )
+    );
+
+  if (existing) {
+    const [updated] = await db
+      .update(weeklyPlans)
+      .set({
+        focus: req.focus !== undefined ? req.focus : existing.focus,
+        mission: req.mission !== undefined ? req.mission : existing.mission,
+        startDate: req.startDate ? new Date(req.startDate) : existing.startDate,
+        endDate: req.endDate ? new Date(req.endDate) : existing.endDate,
+        updatedAt: new Date(),
+      })
+      .where(eq(weeklyPlans.id, existing.id))
+      .returning();
+
+    if (!updated) throw APIError.internal("Failed to update weekly plan");
+    return toWeeklyPlan(updated);
+  }
+
   const [row] = await db
     .insert(weeklyPlans)
     .values({
@@ -563,6 +660,176 @@ export async function createWeeklyPlanAuthorized(
 
   if (!row) throw APIError.internal("Failed to create weekly plan");
   return toWeeklyPlan(row);
+}
+
+/**
+ * Task 5 (2026-09-14 remediation) — đóng tuần hiện tại của 1 Operating Cycle
+ * và tiến state machine, có optimistic-concurrency control (CAS) trên
+ * `twelveWeekCycles.currentWeek` + `status`.
+ *
+ * Trong 1 transaction:
+ *   1. Đọc cycle theo (workspace, project, cycle) — sai bất kỳ vế nào ⇒
+ *      notFound, KHÔNG ghi gì.
+ *   2. Kiểm tra `status === 'ACTIVE'` và `currentWeek === expectedCurrentWeek`
+ *      — sai ⇒ aborted, KHÔNG ghi gì (chưa có UPDATE/INSERT nào chạy trước
+ *      điểm này).
+ *   3. UPDATE có điều kiện (CAS thật, giống transitionProjectLifecycle) trên
+ *      `twelveWeekCycles` — nếu đây là tuần cuối (`currentWeek ===
+ *      durationWeeks`) thì set `status = 'COMPLETED'` và GIỮ NGUYÊN
+ *      `currentWeek` ở N (quyết định: không tăng currentWeek vượt quá N vì
+ *      sẽ trỏ tới 1 weekNo không có weekly_plans nào); ngược lại tăng
+ *      `currentWeek + 1`. `updated.length !== 1` ⇒ race đã xảy ra, abort —
+ *      TOÀN BỘ transaction rollback, không có weekly_plans nào bị sửa, không
+ *      event nào được tạo.
+ *   4. Chỉ sau khi CAS ở bước 3 thành công mới UPDATE review fields của đúng
+ *      weekly_plans của tuần đang đóng, rồi append đúng 2 event:
+ *      `WEEK_CLOSED` (luôn luôn) + `WEEK_ADVANCED` hoặc `CYCLE_COMPLETED`.
+ *   Hàm này KHÔNG bao giờ đụng tới `projects.lifecycleStage` — lifecycle
+ *   Project (P0..P6) là 1 trục hoàn toàn khác, transition riêng qua
+ *   `transitionProjectLifecycle`.
+ */
+export async function advanceCycleWeekAuthorized(
+  ctx: TenantContext,
+  req: {
+    projectId: string;
+    cycleId: string;
+    expectedCurrentWeek: number;
+    reflection: string;
+    executionScore?: number | null;
+    outcomeScore?: number | null;
+  }
+): Promise<AdvanceCycleWeekResultDto> {
+  const wsId = BigInt(ctx.workspaceId);
+  const pId = BigInt(req.projectId);
+  const cycleId = BigInt(req.cycleId);
+  await verifyProjectInWorkspace(wsId, pId);
+
+  if (!req.reflection || !req.reflection.trim()) {
+    throw APIError.invalidArgument("reflection is required");
+  }
+
+  const actorId = ctx.workforceMemberId ? BigInt(ctx.workforceMemberId) : null;
+
+  return db.transaction(async (tx) => {
+    // Đọc trước để biết durationWeeks/weekNo hiện tại — đây chỉ là read,
+    // không phải nguồn CAS thật (CAS thật nằm ở UPDATE...WHERE bên dưới).
+    const [cycle] = await tx
+      .select()
+      .from(twelveWeekCycles)
+      .where(
+        and(
+          eq(twelveWeekCycles.id, cycleId),
+          eq(twelveWeekCycles.workspaceId, wsId),
+          eq(twelveWeekCycles.projectId, pId),
+          isNull(twelveWeekCycles.deletedAt)
+        )
+      );
+
+    if (!cycle) {
+      throw APIError.notFound("Operating cycle not found in project/workspace");
+    }
+    if (cycle.status !== "ACTIVE") {
+      throw APIError.aborted("Operating cycle is not ACTIVE");
+    }
+    if (cycle.currentWeek !== req.expectedCurrentWeek) {
+      throw APIError.aborted("Cycle currentWeek changed; reload before retrying");
+    }
+
+    const [currentWeekPlan] = await tx
+      .select()
+      .from(weeklyPlans)
+      .where(
+        and(
+          eq(weeklyPlans.cycleId, cycleId),
+          eq(weeklyPlans.weekNo, cycle.currentWeek),
+          isNull(weeklyPlans.deletedAt)
+        )
+      );
+
+    if (!currentWeekPlan) {
+      throw APIError.internal("Current week plan missing for cycle");
+    }
+
+    const isLastWeek = cycle.currentWeek >= cycle.durationWeeks;
+    const casWhere = and(
+      eq(twelveWeekCycles.id, cycleId),
+      eq(twelveWeekCycles.workspaceId, wsId),
+      eq(twelveWeekCycles.projectId, pId),
+      eq(twelveWeekCycles.status, "ACTIVE"),
+      eq(twelveWeekCycles.currentWeek, req.expectedCurrentWeek)
+    );
+
+    // Bước CAS thật — chạy TRƯỚC mọi write khác. Nếu update.length !== 1,
+    // ném lỗi ngay để transaction rollback trước khi weekly_plans hay
+    // cycle_week_events bị đụng tới, đảm bảo 1 CAS thất bại không bao giờ để
+    // lại event mồ côi.
+    const updatedCycleRows = await tx
+      .update(twelveWeekCycles)
+      .set(
+        isLastWeek
+          ? { status: "COMPLETED", updatedAt: new Date() }
+          : { currentWeek: cycle.currentWeek + 1, updatedAt: new Date() }
+      )
+      .where(casWhere)
+      .returning();
+
+    if (updatedCycleRows.length !== 1) {
+      throw APIError.aborted("Operating cycle changed; reload before retrying");
+    }
+    const updatedCycleRow = updatedCycleRows[0];
+
+    const [updatedWeek] = await tx
+      .update(weeklyPlans)
+      .set({
+        reflection: req.reflection.trim(),
+        executionScore: req.executionScore ?? currentWeekPlan.executionScore,
+        outcomeScore: req.outcomeScore ?? currentWeekPlan.outcomeScore,
+        updatedAt: new Date(),
+      })
+      .where(eq(weeklyPlans.id, currentWeekPlan.id))
+      .returning();
+
+    if (!updatedWeek) throw APIError.internal("Failed to update weekly plan");
+
+    await tx.insert(cycleWeekEvents).values({
+      id: generateSnowflake(),
+      workspaceId: wsId,
+      projectId: pId,
+      cycleId,
+      weekNo: cycle.currentWeek,
+      eventType: "WEEK_CLOSED",
+      actorId,
+      expectedCurrentWeek: req.expectedCurrentWeek,
+      payload: {
+        reflection: req.reflection.trim(),
+        executionScore: req.executionScore ?? null,
+        outcomeScore: req.outcomeScore ?? null,
+      },
+    });
+
+    const [advanceEvent] = await tx
+      .insert(cycleWeekEvents)
+      .values({
+        id: generateSnowflake(),
+        workspaceId: wsId,
+        projectId: pId,
+        cycleId,
+        weekNo: cycle.currentWeek,
+        eventType: isLastWeek ? "CYCLE_COMPLETED" : "WEEK_ADVANCED",
+        actorId,
+        expectedCurrentWeek: req.expectedCurrentWeek,
+        payload: null,
+      })
+      .returning();
+
+    if (!advanceEvent) throw APIError.internal("Failed to append cycle week event");
+
+    return {
+      cycle: toCycle(updatedCycleRow),
+      week: toWeeklyPlan(updatedWeek),
+      event: toCycleWeekEvent(advanceEvent),
+    };
+  });
 }
 
 export async function createWeeklyCommitmentAuthorized(

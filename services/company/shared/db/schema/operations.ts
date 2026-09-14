@@ -439,6 +439,31 @@ export const weeklyPlans = operatingSchema.table("weekly_plans", {
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
+// Task 5 (2026-09-14 remediation) — timeline append-only cho state machine
+// Weekly (WEEK_CLOSED / WEEK_ADVANCED / CYCLE_COMPLETED). Không có
+// UPDATE/DELETE path ở tầng service — CAS thất bại (sai expectedCurrentWeek
+// hoặc cycle không ACTIVE) phải rollback toàn bộ transaction và KHÔNG được
+// tạo event nào (xem advanceCycleWeekAuthorized).
+export const cycleWeekEvents = operatingSchema.table("cycle_week_events", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull().references(() => projects.id, { onDelete: "cascade" }),
+  cycleId: bigint("cycle_id", { mode: "bigint" }).notNull().references(() => twelveWeekCycles.id, { onDelete: "cascade" }),
+  weekNo: integer("week_no").notNull(),
+  eventType: varchar("event_type", { length: 32 }).notNull(),
+  actorId: bigint("actor_id", { mode: "bigint" }),
+  expectedCurrentWeek: integer("expected_current_week").notNull(),
+  payload: jsonb("payload"),
+  occurredAt: timestamp("occurred_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  ixWsProjectCycleOccurred: index("ix_cycle_week_events_ws_project_cycle_occurred").on(
+    t.workspaceId,
+    t.projectId,
+    t.cycleId,
+    t.occurredAt
+  ),
+}));
+
 export const weeklyCommitments = operatingSchema.table("weekly_commitments", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
