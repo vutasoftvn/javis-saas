@@ -232,6 +232,47 @@ cosa 40 / workspace 181, Gate D green.
 spec `2026-09-10-cosa-startup-core-clean-slate-design.md` from
 `ACCEPTED (implementation IN PROGRESS)` to `VERIFIED`.
 
+## Update 2026-09-14 — Phase C/D/E confirmed done in later, unlogged sessions
+
+Re-verified from scratch against current `main` (this doc's last entry was
+2026-09-11). The `phase-c-wip-155to13-errors` stash referenced below no
+longer exists (`git stash list` shows 2 unrelated stashes) — Phase C landed
+for real in a later session, not from that stash: `git log` shows
+`7caf4d89 refactor(frontend): Phase C - remove framework strategy surfaces`
+and follow-ups. Verified directly, not from doc claims:
+
+- `flutter analyze` → "No issues found!" (`frontend/lib/modules/strategy`
+  is down to 10 files, `hologram_hub` has no `HubStageMixin`/`HubLensesMixin`/
+  `HubGateMixin`/`HubTwelveWyMixin` — only comments mentioning the old name).
+- `docs/academy/`, `docs/archive/` — deleted, don't exist.
+- `pytest tests/quality/test_removed_startup_core_surfaces.py` → 1 passed.
+- `make mvp-contracts-check route-inventory-check frontend-api-contract-check`
+  → all green.
+- `pytest tests/e2e/test_startup_core_clean_baseline.py` → 2 passed.
+- `make check-docs` → was red on 2 unrelated stale links in
+  `docs/architecture/plans/2026-08-29-cosa-workspace-canonical/` (old
+  `coordination/supervisor.py` / `approval_gate.py` paths, pre-dating this
+  plan) — fixed, now green.
+- `make verify` → full run green **after** fixing 2 pre-existing regressions
+  found in the same pass, unrelated to Task 9/10 itself:
+  1. `apps/cosa/assets/*` + `packages/agent/assets/*` (the founder-configurable-
+     assets feature, landed after this doc's last update) imported itself as
+     `packages.agent.assets.X` instead of the repo-wide `agent.assets.X`
+     convention, which made mypy see the same file under two module names and
+     crash `typecheck-py` before it could check anything — `make verify` had
+     been silently red on `main` since those commits landed. Fixed.
+  2. 72 pre-existing `ruff check` errors (unrelated files) — fixed, mechanical.
+  `ruff format --check` still fails on ~71 pre-existing files repo-wide
+  (format-only, not lint-rule violations) — left alone as out-of-scope
+  formatting debt, not touched by this pass to avoid an unrelated mass diff.
+
+**Design spec status:** still `ACCEPTED (implementation IN PROGRESS)`, not
+bumped to `VERIFIED` yet — `make e2e-cross-plane-smoke` still fails on the
+pre-existing, separately-tracked bug B5 (`company-service-500` instead of
+`policy_snapshot_unavailable`), which is a different plan's fix, not this one.
+Bump to `VERIFIED` once that's resolved and `make e2e-cross-plane-smoke` is
+fully green.
+
 ## Phased execution (each phase = its own green commit + checkpoint)
 
 - **Phase A — Company backend clean-slate.** Reconcile Drizzle schema ↔ baseline migration to the retained set; strip `tows` / `strategic_objective` / `stage` coupling from `okr` / `initiative` / `twelve-week-year` / `task` services + handlers + tests; delete framework services/handlers/tests (`stage-*`, `gate-evaluation`, `pmf-scoreboard`, `maturity-assessment`, `workspace-strategy-settings`, `strategic-objective`, `strategy-analysis`, `tows-option`, `strategy-copilot`, `venture-*`, `discovery-signal`, `founder-*`, `pilot-run`); fix `permission-catalog` + `autonomy-classifier`. Green: `cd services/company && npm run typecheck && npx vitest run` + `make company-boundary-check` + schema-fingerprint regen + `tests/db_baseline_candidate`.
