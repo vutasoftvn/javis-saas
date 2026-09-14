@@ -107,6 +107,8 @@ async def create_schedule(
             next_run_at=data.get("nextRunAt"),
             last_run_at=data.get("lastRunAt"),
             created_at=data["createdAt"],
+            project_id=data.get("projectId"),
+            is_legacy_unscoped=data.get("isLegacyUnscoped", False),
         )
 
 
@@ -141,6 +143,8 @@ async def list_schedules(
                 next_run_at=d.get("nextRunAt"),
                 last_run_at=d.get("lastRunAt"),
                 created_at=d["createdAt"],
+                project_id=d.get("projectId"),
+                is_legacy_unscoped=d.get("isLegacyUnscoped", False),
             )
             for d in data.get("items", [])
         ]

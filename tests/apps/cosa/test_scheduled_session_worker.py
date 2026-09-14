@@ -1,5 +1,5 @@
 from pathlib import Path
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 import pytest_asyncio
@@ -167,6 +167,80 @@ async def test_scheduled_session_fails_closed_when_payload_missing_project_id(wo
         workspace_id="ws_sched", project_id=None
     )
     assert total == 0
+
+
+@pytest.mark.asyncio
+async def test_fail_closed_reports_execution_failed_to_control_plane(worker_setup):
+    """Finding 1 (2026-09-14 whole-branch review): trước đây nhánh fail-closed
+    raise `ValueError` ngay mà KHÔNG báo control plane, khiến
+    `workspace_schedule_executions.state` kẹt 'queued' vĩnh viễn dù worker
+    task-tracking đã coi là failed. Giờ phải POST
+    `/cosa/schedules/executions/complete` với `state=failed` TRƯỚC khi raise,
+    dùng đúng cơ chế completion-report chung với đường thành công/thất bại
+    bình thường."""
+    plane = worker_setup["plane"]
+    stream_mgr = CosaEventStreamManager()
+
+    mock_post = AsyncMock()
+    with (
+        patch("httpx.AsyncClient.post", new=mock_post),
+        pytest.raises(ValueError, match="schedule_project_context_missing"),
+    ):
+        await execute_scheduled_session_task(
+            plane,
+            stream_mgr,
+            {
+                "task_type": "scheduled_session",
+                "schedule_execution_id": "exec_missing_project_report",
+                "workspace_id": "ws_sched",
+                "prompt_template": "Run quarterly risk review",
+                "agent_profile": "operations",
+                # project_id intentionally omitted.
+            },
+            run_id="run_missing_project_report",
+        )
+
+    assert mock_post.await_count == 1
+    _, kwargs = mock_post.call_args
+    sent = kwargs["json"]
+    assert sent["executionId"] == "exec_missing_project_report"
+    assert sent["state"] == "failed"
+    assert "schedule_project_context_missing" in sent["error"]
+    # Chưa từng tạo conversation (fail trước bước đó) -> không gửi conversationId.
+    assert "conversationId" not in sent
+
+
+@pytest.mark.asyncio
+async def test_success_completion_report_omits_null_error_key(worker_setup):
+    """Finding 3.2 (2026-09-14 whole-branch review): 1 trong 4 bug thật phát
+    hiện lúc viết E2E Task 8 — completion report cho lần chạy thành công gửi
+    `error: null` thay vì bỏ hẳn key `error`. Test này khoá lại hành vi đúng
+    bằng cách mock outbound `httpx.AsyncClient.post` và kiểm tra `json=`
+    kwarg gửi tới `/cosa/schedules/executions/complete`."""
+    plane = worker_setup["plane"]
+    stream_mgr = CosaEventStreamManager()
+
+    mock_post = AsyncMock()
+    with patch("httpx.AsyncClient.post", new=mock_post):
+        await execute_scheduled_session_task(
+            plane,
+            stream_mgr,
+            {
+                "task_type": "scheduled_session",
+                "schedule_execution_id": "exec_success_report",
+                "workspace_id": "ws_sched",
+                "prompt_template": "Run quarterly risk review",
+                "agent_profile": "operations",
+                "project_id": "proj_test_1",
+            },
+            run_id="run_success_report",
+        )
+
+    assert mock_post.await_count == 1
+    _, kwargs = mock_post.call_args
+    sent = kwargs["json"]
+    assert sent["state"] == "succeeded"
+    assert "error" not in sent
 
 
 @pytest.mark.asyncio

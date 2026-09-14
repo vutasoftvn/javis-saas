@@ -135,6 +135,34 @@ async def test_queue_removed_after_stream_ends():
 
 
 @pytest.mark.asyncio
+async def test_emit_persists_workspace_and_project_id_on_the_record():
+    """Finding 3.3 (2026-09-14 whole-branch review) — bug thật phát hiện qua
+    E2E S10: `workspace_id`/`project_id` được nhận làm tham số của `emit()`
+    (dùng để ghi Project Activity projection) nhưng trước đây KHÔNG được
+    truyền vào lúc construct `RunStreamEventRecord` — mọi run_stream_event
+    ghi ra, kể cả của run project-scoped, có 2 cột này NULL trong DB thật.
+    Test này khoá lại: record PERSIST (đọc lại qua repository, không chỉ
+    envelope trả về) phải mang đúng workspace_id/project_id đã truyền vào."""
+    repo = InMemoryRunStreamEventRepository()
+    mgr = CosaEventStreamManager()
+
+    await mgr.emit(
+        repo,
+        run_id="run_1",
+        conversation_id="conv_1",
+        event_type="run.started",
+        payload={},
+        workspace_id="ws_x",
+        project_id="proj_x",
+    )
+
+    stored = await repo.list_since("run_1")
+    assert len(stored) == 1
+    assert stored[0].workspace_id == "ws_x"
+    assert stored[0].project_id == "proj_x"
+
+
+@pytest.mark.asyncio
 async def test_emit_also_records_project_activity_when_scoped(monkeypatch):
     """Task 3 — 1 durable runtime stream event (workspace/project đã biết)
     cũng phải tạo ra đúng 1 Project Activity event idempotent TRƯỚC khi

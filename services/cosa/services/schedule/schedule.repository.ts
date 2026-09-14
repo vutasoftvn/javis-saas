@@ -1,4 +1,4 @@
-import { eq, and, lte, gte, sql, count, inArray, desc } from "drizzle-orm";
+import { eq, and, lte, gte, sql, count, inArray, desc, isNotNull } from "drizzle-orm";
 import { db, schema } from "../../models/db";
 import { ScheduleKind, ScheduleState, MAX_ENQUEUE_RETRIES } from "./schedule-types";
 import { computeEnqueueBackoffSeconds, logEnqueueRetryMetric } from "./schedule-retry.policy";
@@ -105,7 +105,13 @@ export async function findDueScheduleDefinitions(
     .where(
       and(
         eq(workspaceScheduleDefinitions.state, "enabled"),
-        lte(workspaceScheduleDefinitions.nextRunAt, now)
+        lte(workspaceScheduleDefinitions.nextRunAt, now),
+        // Finding 2 (2026-09-14 whole-branch review): schedule cũ (legacy,
+        // trước khi projectId bắt buộc) có projectId = NULL — không dispatch
+        // nữa vì worker sẽ fail-closed (schedule_project_context_missing)
+        // ngay khi chạy. Bỏ qua ở đây thay vì để dispatcher mint execution
+        // rồi fail vô ích.
+        isNotNull(workspaceScheduleDefinitions.projectId)
       )
     )
     .limit(limit);

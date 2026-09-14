@@ -281,6 +281,13 @@ class ScheduleResponse(BaseModel):
     next_run_at: datetime | None = None
     last_run_at: datetime | None = None
     created_at: datetime
+    # Finding 4 (2026-09-14 whole-branch review): project_id/is_legacy_unscoped
+    # được ghi bắt buộc lúc tạo schedule (Task 1-4) nhưng trước đây chưa bao
+    # giờ trả về qua API — client không thấy schedule đang scope vào project
+    # nào. `project_id` optional để tương thích schedule legacy (projectId
+    # NULL, bị dispatcher bỏ qua kể từ Finding 2).
+    project_id: str | None = None
+    is_legacy_unscoped: bool = False
 
 
 class ScheduleListResponse(BaseModel):

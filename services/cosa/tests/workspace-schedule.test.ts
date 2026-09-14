@@ -288,4 +288,58 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
     expect(completed?.state).toBe("succeeded");
     expect(completed?.conversationId).toBe("conv_sched_1");
   });
+
+  it("excludes legacy schedules with projectId=NULL from dispatch (Finding 2, whole-branch review)", async () => {
+    const pastDue = new Date(Date.now() - 5000);
+
+    // Schedule hợp lệ, có projectId — phải được dispatch.
+    const scoped = await scheduleSvc.createWorkspaceSchedule({
+      workspaceId: "ws_1",
+      createdBy: "user_alice",
+      scheduleKind: "daily",
+      timezone: "Asia/Ho_Chi_Minh",
+      hour: 9,
+      minute: 0,
+      promptTemplate: "Scoped scan",
+      projectId: "proj_test",
+    });
+    await db
+      .update(workspaceScheduleDefinitions)
+      .set({ nextRunAt: pastDue })
+      .where(eq(workspaceScheduleDefinitions.id, scoped.id));
+
+    // Schedule legacy (tạo trước khi projectId bắt buộc) — projectId=NULL
+    // trong DB. createWorkspaceSchedule không cho tạo kiểu này nữa nên chèn
+    // thẳng qua db.insert để mô phỏng dữ liệu cũ còn sót lại.
+    const [legacy] = await db
+      .insert(workspaceScheduleDefinitions)
+      .values({
+        id: "sched_legacy_null_project",
+        workspaceId: "ws_1",
+        createdBy: "user_alice",
+        scheduleKind: "daily",
+        timezone: "Asia/Ho_Chi_Minh",
+        hour: 9,
+        minute: 0,
+        weekdays: [],
+        promptTemplate: "Legacy unscoped scan",
+        agentProfile: "operations",
+        connectorGrantIds: [],
+        state: "enabled",
+        nextRunAt: pastDue,
+        projectId: null,
+        isLegacyUnscoped: true,
+      } as any)
+      .returning();
+    expect(legacy.projectId).toBeNull();
+
+    const dispatched = await scheduleSvc.dispatchDueWorkspaceSchedules(new Date());
+
+    // Chỉ schedule có projectId mới được dispatch — legacy null bị bỏ qua
+    // thay vì mint execution rồi fail-closed vô ích ở worker.
+    expect(dispatched).toBe(1);
+    const executions = await db.select().from(workspaceScheduleExecutions);
+    expect(executions.length).toBe(1);
+    expect(executions[0].definitionId).toBe(scoped.id);
+  });
 });

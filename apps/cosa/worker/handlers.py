@@ -1058,6 +1058,50 @@ async def execute_resume_task(
             )
 
 
+async def _report_schedule_execution_complete(
+    schedule_exec_id: str | None,
+    *,
+    state: str,
+    error: str | None,
+    conversation_id: str | None,
+    run_id: str,
+) -> None:
+    """Báo hoàn thành (succeeded/failed) 1 schedule execution về control plane.
+
+    Dùng chung cho cả đường thành công/thất bại bình thường (finally block)
+    lẫn đường fail-closed sớm khi thiếu project_id snapshot (Finding 1,
+    2026-09-14 whole-branch review) — tránh execution kẹt state='queued'
+    vĩnh viễn vì không ai báo control plane biết worker đã bỏ chạy.
+    """
+    if not schedule_exec_id:
+        return
+    try:
+        control_plane_url = resolve_platform_control_plane_url()
+        token = os.environ.get("COSA_WORKER_SERVICE_TOKEN")
+        headers: dict[str, str] = inject_trace_carrier({})
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+        complete_payload: dict[str, Any] = {
+            "executionId": schedule_exec_id,
+            "state": state,
+            "runId": run_id,
+        }
+        if conversation_id is not None:
+            complete_payload["conversationId"] = conversation_id
+        if error is not None:
+            complete_payload["error"] = error
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            await client.post(
+                f"{control_plane_url}/cosa/schedules/executions/complete",
+                json=complete_payload,
+                headers=headers,
+            )
+    except Exception as e:
+        logger.warning(
+            "Failed to report complete schedule execution %s: %s", schedule_exec_id, e
+        )
+
+
 async def execute_scheduled_session_task(
     plane: CosaAgentPlane,
     stream_mgr: CosaEventStreamManager,
@@ -1124,7 +1168,21 @@ async def execute_scheduled_session_task(
             "schedule_execution_id=%s missing project_id snapshot — refusing to guess a project",
             schedule_exec_id,
         )
-        raise ValueError(f"schedule_project_context_missing: {schedule_exec_id}")
+        missing_project_error = f"schedule_project_context_missing: {schedule_exec_id}"
+        # Finding 1 (2026-09-14 whole-branch review): fail-closed trước đây
+        # raise ngay mà không báo control plane, khiến
+        # workspace_schedule_executions.state kẹt 'queued' vĩnh viễn (worker
+        # task-tracking coi là failed nhưng control plane không biết). Báo
+        # failed về control plane bằng đúng cơ chế completion-report ở dưới
+        # trước khi raise, để operator thấy được trạng thái thật.
+        await _report_schedule_execution_complete(
+            schedule_exec_id,
+            state="failed",
+            error=missing_project_error,
+            conversation_id=None,
+            run_id=run_id,
+        )
+        raise ValueError(missing_project_error)
 
     conversation_id = f"conv_sched_{uuid.uuid4().hex[:8]}"
     conv = ConversationRecord(
@@ -1163,31 +1221,13 @@ async def execute_scheduled_session_task(
         error_msg = str(exc)
         raise
     finally:
-        if schedule_exec_id:
-            try:
-                control_plane_url = resolve_platform_control_plane_url()
-                token = os.environ.get("COSA_WORKER_SERVICE_TOKEN")
-                headers: dict[str, str] = inject_trace_carrier({})
-                if token:
-                    headers["Authorization"] = f"Bearer {token}"
-                complete_payload: dict[str, Any] = {
-                    "executionId": schedule_exec_id,
-                    "state": state,
-                    "conversationId": conversation_id,
-                    "runId": run_id,
-                }
-                if error_msg is not None:
-                    complete_payload["error"] = error_msg
-                async with httpx.AsyncClient(timeout=5.0) as client:
-                    await client.post(
-                        f"{control_plane_url}/cosa/schedules/executions/complete",
-                        json=complete_payload,
-                        headers=headers,
-                    )
-            except Exception as e:
-                logger.warning(
-                    "Failed to report complete schedule execution %s: %s", schedule_exec_id, e
-                )
+        await _report_schedule_execution_complete(
+            schedule_exec_id,
+            state=state,
+            error=error_msg,
+            conversation_id=conversation_id,
+            run_id=run_id,
+        )
 
 
 # ---------------------------------------------------------------------------
