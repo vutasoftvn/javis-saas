@@ -4,6 +4,7 @@ import '../../../core/localization/locale_controller.dart';
 import '../../../core/localization/supported_locale.dart';
 import '../../../core/network/api_client.dart';
 import '../../../data/models/stage_model.dart';
+import '../../strategy/services/okr_service.dart';
 import '../models/stage_analysis_models.dart';
 import '../services/project_operating_loop_service.dart';
 
@@ -18,7 +19,17 @@ class ProjectAnalysisFlowController extends GetxController {
     this.initialStage = ProjectStage.p0Discovery,
   });
 
-  final ProjectOperatingLoopService _loopService = ProjectOperatingLoopService();
+  ProjectOperatingLoopService _loopService = ProjectOperatingLoopService();
+  OkrService _okrService = OkrService();
+
+  /// Chỉ dùng trong test để tiêm HTTP client giả — không gọi ở code sản phẩm.
+  void debugOverrideService(
+    ProjectOperatingLoopService loopService, {
+    OkrService? okrService,
+  }) {
+    _loopService = loopService;
+    if (okrService != null) _okrService = okrService;
+  }
 
   bool get isEnglish {
     if (Get.isRegistered<LocaleController>()) {
@@ -218,112 +229,169 @@ class ProjectAnalysisFlowController extends GetxController {
     }
   }
 
-  /// Kích hoạt kế hoạch phân tích và vật lý hoá vào Project Operating Loop
+  /// Kích hoạt kế hoạch phân tích và vật lý hoá vào Project Operating Loop.
+  ///
+  /// Thứ tự bắt buộc: Objective → Key Result(s) → Publish → Cycle (gắn
+  /// `sourceObjectiveId` ngay lúc tạo) → Week → Commitment → Task. Cycle phải
+  /// được tạo SAU khi Objective đã publish, nếu không cycle sẽ vĩnh viễn
+  /// không gắn được với objective nào (bug gốc: cycle tạo trước, objective
+  /// tạo sau, không có field nào nối 2 bên).
   Future<bool> submitAndActivate() async {
     if (!validateCurrentStep()) return false;
     isSubmitting.value = true;
     errorMessage.value = null;
+    final isEn = isEnglish;
+    final warnings = <String>[];
 
     try {
-      // 1. Cập nhật lifecycleStage của Project nếu người dùng đổi stage
+      // 1. Cập nhật lifecycleStage của Project nếu người dùng đổi stage.
       if (currentStage.value != initialStage) {
         try {
           await ApiClient.put(
             '/operations/projects/$projectId',
-            body: {
-              'lifecycleStage': currentStage.value.wireValue,
-            },
+            body: {'lifecycleStage': currentStage.value.wireValue},
           );
-        } catch (_) {}
+        } catch (e) {
+          warnings.add('lifecycleStage: $e');
+        }
       }
 
-      // 2. Tạo Operating Cycle đầu tiên (tuần 1 đến durationWeeks)
+      // 2. Tạo Objective OKR nền tảng từ Problem & Stage.
+      String? objectiveId;
+      final objRes = await _loopService.createObjective(
+        projectId,
+        title: '[${currentStage.value.code}] ${guidance.focusHeadline}',
+        why: isEn
+            ? 'Customer: ${targetCustomerCtrl.text.trim()} - Problem: ${problemStatementCtrl.text.trim()}'
+            : 'Khách hàng: ${targetCustomerCtrl.text.trim()} - Vấn đề: ${problemStatementCtrl.text.trim()}',
+      );
+      objRes.when(
+        success: (data, _) => objectiveId = data['id']?.toString(),
+        failure: (f) => warnings.add('createObjective: ${f.message}'),
+      );
+
+      if (objectiveId == null) {
+        errorMessage.value = isEn
+            ? 'Could not create the strategic objective. Please try again.'
+            : 'Không thể tạo mục tiêu chiến lược (Objective). Vui lòng thử lại.';
+        return false;
+      }
+
+      // 3. Tạo 1..3 Key Result từ giả định cốt lõi đã chọn — publishObjective
+      // (bước 4) bắt buộc objective phải có 1..3 Key Result hợp lệ mới cho
+      // publish (okr.service.ts: requireStrategyGovernanceAuthority + KR
+      // validation).
+      var keyResultCount = 0;
+      for (final assumption in selectedAssumptions.take(3)) {
+        final krRes = await _loopService.createKeyResult(
+          projectId,
+          objectiveId: objectiveId!,
+          title: assumption,
+          targetValue: 1,
+          unit: isEn ? 'validated' : 'đã kiểm chứng',
+          baselineValue: 0,
+          currentValue: 0,
+        );
+        krRes.when(
+          success: (_, _) => keyResultCount++,
+          failure: (f) => warnings.add('createKeyResult: ${f.message}'),
+        );
+      }
+
+      if (keyResultCount == 0) {
+        errorMessage.value = isEn
+            ? 'Could not create any key result for the objective. Please try again.'
+            : 'Không thể tạo Key Result nào cho mục tiêu. Vui lòng thử lại.';
+        return false;
+      }
+
+      // 4. Publish Objective — nếu bỏ qua bước này, Cycle ở bước 5 sẽ liên
+      // kết tới 1 objective mãi ở trạng thái draft.
+      try {
+        await _okrService.publishObjective(objectiveId!);
+      } catch (e) {
+        errorMessage.value = isEn
+            ? 'Could not publish the objective: $e'
+            : 'Không thể công bố (publish) mục tiêu: $e';
+        return false;
+      }
+
+      // 5. Tạo Operating Cycle, gắn thẳng sourceObjectiveId ngay lúc tạo.
       final now = DateTime.now();
       final startDateStr = now.toIso8601String().split('T').first;
       String? cycleId;
-      try {
-        final cycleRes = await _loopService.createCycle(
-          projectId,
-          durationWeeks: cycleDurationWeeks.value,
-          startDate: startDateStr,
-        );
-        cycleRes.when(
-          success: (data, _) => cycleId = data['id']?.toString(),
-          failure: (f) => debugPrint('[ProjectAnalysis] createCycle: ${f.message}'),
-        );
-      } catch (e) {
-        debugPrint('[ProjectAnalysis] createCycle error: $e');
+      final cycleRes = await _loopService.createCycle(
+        projectId,
+        durationWeeks: cycleDurationWeeks.value,
+        startDate: startDateStr,
+        sourceObjectiveId: objectiveId,
+      );
+      cycleRes.when(
+        success: (data, _) => cycleId = data['id']?.toString(),
+        failure: (f) => warnings.add('createCycle: ${f.message}'),
+      );
+
+      if (cycleId == null) {
+        errorMessage.value = isEn
+            ? 'Could not create the operating cycle. Please try again.'
+            : 'Không thể tạo chu kỳ hoạt động (Operating Cycle). Vui lòng thử lại.';
+        return false;
       }
 
-      // 3. Tạo Tuần 1 (Weekly Plan)
+      // 6. Tạo Tuần 1 (Weekly Plan).
       String? weeklyPlanId;
-      if (cycleId != null) {
-        try {
-          final weekRes = await _loopService.createWeek(
-            projectId,
-            cycleId: cycleId!,
-            weekNo: 1,
-            focus: firstWeekOutcomeCtrl.text.trim(),
-          );
-          weekRes.when(
-            success: (data, _) => weeklyPlanId = data['id']?.toString(),
-            failure: (f) => debugPrint('[ProjectAnalysis] createWeek: ${f.message}'),
-          );
-        } catch (e) {
-          debugPrint('[ProjectAnalysis] createWeek error: $e');
-        }
-      }
+      final weekRes = await _loopService.createWeek(
+        projectId,
+        cycleId: cycleId!,
+        weekNo: 1,
+        focus: firstWeekOutcomeCtrl.text.trim(),
+      );
+      weekRes.when(
+        success: (data, _) => weeklyPlanId = data['id']?.toString(),
+        failure: (f) => warnings.add('createWeek: ${f.message}'),
+      );
 
-      // 4. Tạo Commitment và các Action Tasks
+      // 7. Tạo Commitment và các Action Task — không chặn submit nếu lỗi ở
+      // đây, nhưng phải báo cho founder biết thay vì debugPrint âm thầm.
       if (weeklyPlanId != null) {
         String? commitmentId;
-        try {
-          final comRes = await _loopService.createCommitment(
-            projectId,
-            weeklyPlanId: weeklyPlanId!,
-            title: firstWeekOutcomeCtrl.text.trim(),
-          );
-          comRes.when(
-            success: (data, _) => commitmentId = data['id']?.toString(),
-            failure: (f) => debugPrint('[ProjectAnalysis] createCommitment: ${f.message}'),
-          );
-        } catch (e) {
-          debugPrint('[ProjectAnalysis] createCommitment error: $e');
-        }
+        final comRes = await _loopService.createCommitment(
+          projectId,
+          weeklyPlanId: weeklyPlanId!,
+          title: firstWeekOutcomeCtrl.text.trim(),
+        );
+        comRes.when(
+          success: (data, _) => commitmentId = data['id']?.toString(),
+          failure: (f) => warnings.add('createCommitment: ${f.message}'),
+        );
 
         if (commitmentId != null) {
           for (final actionTitle in firstWeekActions) {
-            try {
-              await _loopService.createTask(
-                projectId,
-                title: actionTitle,
-                weeklyCommitmentId: commitmentId!,
-                priority: 'high',
-              );
-            } catch (e) {
-              debugPrint('[ProjectAnalysis] createTask error: $e');
-            }
+            final taskRes = await _loopService.createTask(
+              projectId,
+              title: actionTitle,
+              weeklyCommitmentId: commitmentId!,
+              priority: 'high',
+            );
+            taskRes.when(
+              success: (_, _) {},
+              failure: (f) => warnings.add('createTask($actionTitle): ${f.message}'),
+            );
           }
+        } else {
+          warnings.add('createCommitment did not return an id, skipping tasks');
         }
       }
 
-      // 5. Tạo 1 Objective OKR nền tảng từ Problem & Stage
-      try {
-        final isEn = isEnglish;
-        await _loopService.createObjective(
-          projectId,
-          title: '[${currentStage.value.code}] ${guidance.focusHeadline}',
-          why: isEn
-              ? 'Customer: ${targetCustomerCtrl.text.trim()} - Problem: ${problemStatementCtrl.text.trim()}'
-              : 'Khách hàng: ${targetCustomerCtrl.text.trim()} - Vấn đề: ${problemStatementCtrl.text.trim()}',
-        );
-      } catch (e) {
-        debugPrint('[ProjectAnalysis] createObjective error: $e');
+      if (warnings.isNotEmpty) {
+        errorMessage.value = isEn
+            ? 'Plan activated with warnings: ${warnings.join('; ')}'
+            : 'Kế hoạch đã kích hoạt nhưng có cảnh báo: ${warnings.join('; ')}';
       }
 
       return true;
     } catch (e) {
-      errorMessage.value = isEnglish ? 'Activation error: $e' : 'Lỗi kích hoạt: $e';
+      errorMessage.value = isEn ? 'Activation error: $e' : 'Lỗi kích hoạt: $e';
       return false;
     } finally {
       isSubmitting.value = false;
