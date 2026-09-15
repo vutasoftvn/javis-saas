@@ -41,6 +41,8 @@ export interface CreateKeyResultBody {
   metricId?: string | null;
   targetValue?: number | null;
   unit?: string | null;
+  baselineValue?: number | null;
+  currentValue?: number | null;
 }
 
 export interface CreateInitiativeBody {
@@ -59,6 +61,7 @@ export interface CreateCycleBody {
   startLocalDate?: string;
   startDate?: string;
   endDate?: string;
+  sourceObjectiveId?: string | null;
 }
 
 export interface CreateWeeklyPlanBody {
@@ -144,6 +147,8 @@ export const createKeyResultApi = api(
       metricId: params.metricId,
       targetValue: params.targetValue,
       unit: params.unit,
+      baselineValue: params.baselineValue,
+      currentValue: params.currentValue,
     });
   }
 );
@@ -176,6 +181,7 @@ export const createCycleApi = api(
       startLocalDate: params.startLocalDate,
       startDate: params.startDate,
       endDate: params.endDate,
+      sourceObjectiveId: params.sourceObjectiveId,
     });
   }
 );

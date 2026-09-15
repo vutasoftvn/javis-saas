@@ -403,6 +403,12 @@ export async function createKeyResultAuthorized(
     metricId?: string | null;
     targetValue?: number | null;
     unit?: string | null;
+    // Fix (2026-09-15) — trước đây 2 field này không có cách nào set qua API
+    // công khai, khiến publishObjectiveService (yêu cầu cả 2 non-null) luôn
+    // reject bất kỳ Key Result nào tạo qua endpoint này. Default 0 khi không
+    // truyền, giống cách `scoringType` đã default "LINEAR_INCREASE" ở dưới.
+    baselineValue?: number | null;
+    currentValue?: number | null;
   }
 ): Promise<KeyResultDto> {
   const wsId = BigInt(ctx.workspaceId);
@@ -429,6 +435,8 @@ export async function createKeyResultAuthorized(
       metricId: req.metricId ? BigInt(req.metricId) : null,
       targetValue: req.targetValue ?? null,
       unit: req.unit || null,
+      baselineValue: req.baselineValue ?? 0,
+      currentValue: req.currentValue ?? 0,
       scoringType: "LINEAR_INCREASE",
       status: "draft",
     })
