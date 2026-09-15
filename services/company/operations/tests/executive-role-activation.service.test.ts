@@ -1,30 +1,32 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { APIError } from "encore.dev/api";
 import {
   createTestWorkspaceWithMember,
   addMemberToWorkspace,
   createSecondWorkspace,
   makeTestTenantContext,
+  deployWorkspaceAgentForProfile,
 } from "./_helpers";
 import { db, schema } from "../models/db";
 import { and, eq } from "drizzle-orm";
 import { TenantContext } from "../../shared/types/tenant_context";
 import {
   getProjectExecutiveRoleStates,
-  selectStartupCorePreset,
-  activateExecutiveRole,
-  ProjectExecutiveRoleState,
+  ProjectExecutiveRoleView,
 } from "../services/executive-role-activation.service";
-import {
-  activateProjectStartupTeamMember,
-} from "../services/project-startup-team.service";
 import {
   activateWorkspaceExecutiveRole,
   disableWorkspaceExecutiveRole,
 } from "../services/workspace-executive-role-activation.service";
 import { createProjectService } from "../services/project.service";
 
-describe("Executive Role Activation Service", () => {
+function roleOf(
+  roles: ProjectExecutiveRoleView[],
+  roleKey: string
+): ProjectExecutiveRoleView | undefined {
+  return roles.find((r) => r.roleKey === roleKey);
+}
+
+describe("Executive Role Activation Service (Project-scoped read model)", () => {
   let founderCtx: TenantContext;
   let memberCtx: TenantContext;
   let aiCtx: TenantContext;
@@ -63,164 +65,116 @@ describe("Executive Role Activation Service", () => {
     foreignProjectId = secondWs.projectId;
   });
 
-  it("permits only a human Founder to activate CFO", async () => {
-    await expect(
-      activateExecutiveRole(memberCtx, projectId, "cfo", { expectedVersion: 1 })
-    ).rejects.toThrow(/FOUNDER_AUTHORITY_REQUIRED|FOUNDER_AUTHORIZATION_REQUIRED/);
+  it("lists all 13 roles with the new effective-state shape", async () => {
+    const states = await getProjectExecutiveRoleStates(founderCtx, projectId);
+    expect(states.projectId).toBe(projectId);
+    expect(states.roles).toHaveLength(13);
 
-    await expect(
-      activateExecutiveRole(aiCtx, projectId, "cfo", { expectedVersion: 1 })
-    ).rejects.toThrow(/FOUNDER_AUTHORITY_REQUIRED|FOUNDER_AUTHORIZATION_REQUIRED/);
+    const cfo = roleOf(states.roles, "cfo");
+    expect(cfo).toBeDefined();
+    // Chưa bật office → officeState UNAVAILABLE, không thể EFFECTIVE.
+    expect(cfo?.officeState).toBe("UNAVAILABLE");
+    expect(cfo?.effectiveState).toBe("OFFICE_DISABLED");
+    expect(cfo?.stageEligibility).toBe("ALLOWED"); // cfo là persistent role
+    expect(cfo?.workspaceOfficeVersion).toBe(1);
   });
 
-  it("refuses CFO when Finance assignment is not ACTIVE", async () => {
-    // Finance assignment starts as TEMPLATE, not ACTIVE
+  it("does not disclose a foreign Project", async () => {
     await expect(
-      activateExecutiveRole(founderCtx, projectId, "cfo", { expectedVersion: 1 })
-    ).rejects.toThrow(/EXECUTIVE_ROLE_NOT_AVAILABLE/);
-  });
-
-  it("rejects action on a foreign Project with not found", async () => {
-    await expect(
-      activateExecutiveRole(founderCtx, foreignProjectId, "cfo", { expectedVersion: 1 })
+      getProjectExecutiveRoleStates(founderCtx, foreignProjectId)
     ).rejects.toThrow(/Project not found/);
   });
 
-  it("activates CFO when Finance is ACTIVE, and enforces CAS versioning", async () => {
-    // 1. Activate finance profile in startup team
-    await activateProjectStartupTeamMember(founderCtx, projectId, "finance", { expectedVersion: 1 });
+  it("permits only a human Founder to activate a Workspace office role", async () => {
+    await deployWorkspaceAgentForProfile(founderCtx, projectId, "finance");
 
-    // 2. Initial state: CFO should be AVAILABLE_NOT_ACTIVATED
-    const statesBefore = await getProjectExecutiveRoleStates(founderCtx, projectId);
-    const cfoBefore = statesBefore.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "cfo");
-    expect(cfoBefore).toBeDefined();
-    expect(cfoBefore?.displayState).toBe("AVAILABLE_NOT_ACTIVATED");
-
-    // 3. Founder activates CFO
-    const activated = await activateExecutiveRole(founderCtx, projectId, "cfo", {
-      expectedVersion: cfoBefore!.version,
-      idempotencyKey: "act-cfo-1",
-    });
-    expect(activated.state).toBe("ACTIVE");
-    expect(activated.roleKey).toBe("cfo");
-
-    // 4. Stale expectedVersion throws CAS conflict
     await expect(
-      activateExecutiveRole(founderCtx, projectId, "cfo", {
-        expectedVersion: 999, // stale
-      })
-    ).rejects.toThrow(/CAS_CONFLICT|stale/i);
+      activateWorkspaceExecutiveRole(memberCtx, "cfo", { expectedVersion: 1 })
+    ).rejects.toThrow(/FOUNDER_AUTHORITY_REQUIRED|FOUNDER_AUTHORIZATION_REQUIRED/);
 
-    // 5. Duplicate idempotency key returns existing state
-    const dup = await activateExecutiveRole(founderCtx, projectId, "cfo", {
-      expectedVersion: activated.version,
-      idempotencyKey: "act-cfo-1",
-    });
-    expect(dup.state).toBe("ACTIVE");
-  });
-
-  it("activates CCO when Customer Support is ACTIVE, and enforces CAS versioning", async () => {
-    await activateProjectStartupTeamMember(founderCtx, projectId, "customer_support", { expectedVersion: 1 });
-    const statesBefore = await getProjectExecutiveRoleStates(founderCtx, projectId);
-    const ccoBefore = statesBefore.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "cco");
-    expect(ccoBefore?.displayState).toBe("AVAILABLE_NOT_ACTIVATED");
-    const activated = await activateExecutiveRole(founderCtx, projectId, "cco", {
-      expectedVersion: ccoBefore!.version,
-      idempotencyKey: "act-cco-1",
-    });
-    expect(activated.state).toBe("ACTIVE");
-  });
-
-  it("refuses CCO when Customer Support assignment is not ACTIVE", async () => {
-    const statesBefore = await getProjectExecutiveRoleStates(founderCtx, projectId);
-    const ccoBefore = statesBefore.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "cco");
     await expect(
-      activateExecutiveRole(founderCtx, projectId, "cco", {
-        expectedVersion: ccoBefore!.version,
-        idempotencyKey: "act-cco-2",
-      })
-    ).rejects.toThrow(/EXECUTIVE_ROLE_NOT_AVAILABLE/);
+      activateWorkspaceExecutiveRole(aiCtx, "cfo", { expectedVersion: 1 })
+    ).rejects.toThrow(/FOUNDER_AUTHORITY_REQUIRED|FOUNDER_AUTHORIZATION_REQUIRED/);
   });
 
-  it("selectStartupCorePreset no longer drives the board — preset must not auto-activate anything", async () => {
-    // 2026-09-14: activation chuyển sang cấp Workspace và chỉ xảy ra khi
-    // Founder gọi tường minh. Preset (đường cũ, đã deprecate ở tầng handler)
-    // KHÔNG được phép tự bật role nào trên board nữa — đây là guard chống
-    // auto-activation lén quay lại (CLAUDE.md quy tắc #5).
-    await activateProjectStartupTeamMember(founderCtx, projectId, "marketing", { expectedVersion: 1 });
-
-    const result = await selectStartupCorePreset(founderCtx, projectId, {
-      presetKey: "startup-discovery",
-      expectedVersion: 1,
-      idempotencyKey: "preset-disc-1",
-    });
-    expect(result.presetKey).toBe("startup-discovery");
+  it("reports office ACTIVE but DEPLOYMENT_INACTIVE until the Workspace Agent is deployed to the Project", async () => {
+    await deployWorkspaceAgentForProfile(founderCtx, projectId, "finance");
+    await activateWorkspaceExecutiveRole(founderCtx, "cfo", {});
 
     const states = await getProjectExecutiveRoleStates(founderCtx, projectId);
-    const cmo = states.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "cmo");
-    const cfo = states.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "cfo");
-    const cos = states.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "chief_of_staff");
-
-    // marketing ACTIVE → cmo khả dụng, nhưng KHÔNG được tự activate.
-    expect(cmo?.displayState).toBe("AVAILABLE_NOT_ACTIVATED");
-    // finance/operations vẫn TEMPLATE ở mọi Project → gate UNAVAILABLE giữ nguyên.
-    expect(cfo?.displayState).toBe("UNAVAILABLE");
-    expect(cos?.displayState).toBe("UNAVAILABLE");
-    // Preset cũng không còn được phản ánh trong board projection.
-    expect(states.settings).toBeUndefined();
+    const cfo = roleOf(states.roles, "cfo");
+    expect(cfo?.officeState).toBe("ACTIVE");
+    expect(cfo?.projectDeploymentState).toBe("ACTIVE");
+    expect(cfo?.effectiveState).toBe("EFFECTIVE");
+    expect(cfo?.projectAgentDeploymentId).toBeDefined();
   });
 
-  it("disabling a workspace-activated role is reflected in the project projection", async () => {
-    await activateProjectStartupTeamMember(founderCtx, projectId, "marketing", { expectedVersion: 1 });
-    const cmoBefore = (await getProjectExecutiveRoleStates(founderCtx, projectId)).roles.find(
-      (r: ProjectExecutiveRoleState) => r.roleKey === "cmo"
-    );
-    expect(cmoBefore?.displayState).toBe("AVAILABLE_NOT_ACTIVATED");
+  it("deploying only to Project A keeps Project B at DEPLOYMENT_INACTIVE (no cross-Project leak)", async () => {
+    // Workspace office ACTIVE + Agent chỉ deploy vào Project A (projectId).
+    await deployWorkspaceAgentForProfile(founderCtx, projectId, "finance");
+    await activateWorkspaceExecutiveRole(founderCtx, "cfo", {});
 
+    const projectB = await createProjectService(founderCtx, { title: "Project B" });
+
+    const statesA = await getProjectExecutiveRoleStates(founderCtx, projectId);
+    const cfoA = roleOf(statesA.roles, "cfo");
+    expect(cfoA?.officeState).toBe("ACTIVE");
+    expect(cfoA?.projectDeploymentState).toBe("ACTIVE");
+    expect(cfoA?.effectiveState).toBe("EFFECTIVE");
+
+    const statesB = await getProjectExecutiveRoleStates(founderCtx, projectB.id);
+    const cfoB = roleOf(statesB.roles, "cfo");
+    expect(cfoB?.officeState).toBe("ACTIVE"); // office dùng chung Workspace
+    expect(cfoB?.projectDeploymentState).toBe("INACTIVE");
+    expect(cfoB?.effectiveState).toBe("DEPLOYMENT_INACTIVE");
+    expect(cfoB?.projectAgentDeploymentId).toBeUndefined();
+  });
+
+  it("reports STAGE_FORBIDDEN for a non-persistent role at a disallowed stage", async () => {
+    // cco (customer_support) chỉ được gợi ý từ P4; Project mặc định ở P0_DISCOVERY.
+    await deployWorkspaceAgentForProfile(founderCtx, projectId, "customer_support");
+    await activateWorkspaceExecutiveRole(founderCtx, "cco", {});
+
+    const states = await getProjectExecutiveRoleStates(founderCtx, projectId);
+    const cco = roleOf(states.roles, "cco");
+    expect(cco?.officeState).toBe("ACTIVE");
+    expect(cco?.projectDeploymentState).toBe("ACTIVE");
+    expect(cco?.stageEligibility).toBe("NOT_SUGGESTED");
+    expect(cco?.effectiveState).toBe("STAGE_FORBIDDEN");
+  });
+
+  it("disabling the Workspace office flips the Project projection to OFFICE_DISABLED", async () => {
+    await deployWorkspaceAgentForProfile(founderCtx, projectId, "marketing");
     const act = await activateWorkspaceExecutiveRole(founderCtx, "cmo", {});
-    expect(act.state).toBe("ACTIVE");
-    expect(
-      (await getProjectExecutiveRoleStates(founderCtx, projectId)).roles.find(
-        (r: ProjectExecutiveRoleState) => r.roleKey === "cmo"
-      )?.displayState
-    ).toBe("ACTIVE");
 
-    const disabled = await disableWorkspaceExecutiveRole(founderCtx, "cmo", {
+    const before = roleOf(
+      (await getProjectExecutiveRoleStates(founderCtx, projectId)).roles,
+      "cmo"
+    );
+    expect(before?.effectiveState).toBe("EFFECTIVE");
+
+    await disableWorkspaceExecutiveRole(founderCtx, "cmo", {
       expectedVersion: act.version,
-      reason: "No longer needed for discovery phase",
+      reason: "No longer needed for discovery",
     });
-    expect(disabled.state).toBe("DISABLED");
 
-    const statesAfter = await getProjectExecutiveRoleStates(founderCtx, projectId);
-    const cmoAfter = statesAfter.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "cmo");
-    expect(cmoAfter?.displayState).toBe("DISABLED");
+    const after = roleOf(
+      (await getProjectExecutiveRoleStates(founderCtx, projectId)).roles,
+      "cmo"
+    );
+    expect(after?.officeState).toBe("DISABLED");
+    expect(after?.effectiveState).toBe("OFFICE_DISABLED");
   });
 
-  it("proves operations lifecycle: UNAVAILABLE -> AVAILABLE_NOT_ACTIVATED (no auto-activation) -> ACTIVE with CAS", async () => {
-    // 1. Before operations active, both chief_of_staff and coo are UNAVAILABLE
-    const beforeStates = await getProjectExecutiveRoleStates(founderCtx, projectId);
-    const cosBefore = beforeStates.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "chief_of_staff");
-    const cooBefore = beforeStates.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "coo");
-    expect(cosBefore?.displayState).toBe("UNAVAILABLE");
-    expect(cooBefore?.displayState).toBe("UNAVAILABLE");
+  it("never reads or writes the deprecated project_executive_role_activations table", async () => {
+    // Bảo vệ quyết định kiến trúc: read model mới phải KHÔNG phụ thuộc bảng
+    // role-activation cấp Project cũ (bảng đó giữ lại chỉ vì migration expand).
+    await deployWorkspaceAgentForProfile(founderCtx, projectId, "finance");
+    await activateWorkspaceExecutiveRole(founderCtx, "cfo", {});
 
-    // Attempting to activate coo or chief_of_staff before operations is active fails
-    await expect(
-      activateExecutiveRole(founderCtx, projectId, "coo", { expectedVersion: cooBefore!.version })
-    ).rejects.toThrow(/EXECUTIVE_ROLE_NOT_AVAILABLE/);
+    await getProjectExecutiveRoleStates(founderCtx, projectId);
 
-    // 2. Activate ONLY operations profile in startup team
-    await activateProjectStartupTeamMember(founderCtx, projectId, "operations", { expectedVersion: 1 });
-
-    // 3. Both roles become AVAILABLE_NOT_ACTIVATED
-    const midStates = await getProjectExecutiveRoleStates(founderCtx, projectId);
-    const cosMid = midStates.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "chief_of_staff");
-    const cooMid = midStates.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === "coo");
-    expect(cosMid?.displayState).toBe("AVAILABLE_NOT_ACTIVATED");
-    expect(cooMid?.displayState).toBe("AVAILABLE_NOT_ACTIVATED");
-
-    // Profile activation MUST NOT insert any executive role activations into the DB
-    const existingActs = await db
+    const legacyRows = await db
       .select()
       .from(schema.projectExecutiveRoleActivations)
       .where(
@@ -229,55 +183,6 @@ describe("Executive Role Activation Service", () => {
           eq(schema.projectExecutiveRoleActivations.projectId, BigInt(projectId))
         )
       );
-    const opsRoleActs = existingActs.filter((a) => a.roleKey === "chief_of_staff" || a.roleKey === "coo");
-    expect(opsRoleActs).toHaveLength(0);
-
-    // 4. Direct Founder activation reaches ACTIVE with CAS
-    const cosAct = await activateExecutiveRole(founderCtx, projectId, "chief_of_staff", {
-      expectedVersion: cosMid!.version,
-      idempotencyKey: "act-cos-1",
-    });
-    expect(cosAct.state).toBe("ACTIVE");
-    expect(cosAct.roleKey).toBe("chief_of_staff");
-
-    const cooAct = await activateExecutiveRole(founderCtx, projectId, "coo", {
-      expectedVersion: cooMid!.version,
-      idempotencyKey: "act-coo-1",
-    });
-    expect(cooAct.state).toBe("ACTIVE");
-    expect(cooAct.roleKey).toBe("coo");
-
-    // Verify CAS conflict on stale version
-    await expect(
-      activateExecutiveRole(founderCtx, projectId, "coo", {
-        expectedVersion: 999,
-      })
-    ).rejects.toThrow(/CAS_CONFLICT|stale/i);
-  });
-
-  it("workspace activation is shared across every Project in the workspace", async () => {
-    // Operations and Marketing are ACTIVE; Finance remains TEMPLATE
-    await activateProjectStartupTeamMember(founderCtx, projectId, "operations", { expectedVersion: 1 });
-    await activateProjectStartupTeamMember(founderCtx, projectId, "marketing", { expectedVersion: 1 });
-
-    await activateWorkspaceExecutiveRole(founderCtx, "cmo", {});
-    await activateWorkspaceExecutiveRole(founderCtx, "chief_of_staff", {});
-    await activateWorkspaceExecutiveRole(founderCtx, "coo", {});
-
-    // Project thứ 2 trong cùng workspace thấy ngay cùng một bộ role ACTIVE —
-    // đây chính là điểm khác biệt cốt lõi so với activation cấp Project cũ.
-    const secondProject = await createProjectService(founderCtx, { title: "Shared Board Project" });
-
-    for (const targetProjectId of [projectId, secondProject.id]) {
-      const states = await getProjectExecutiveRoleStates(founderCtx, targetProjectId);
-      const byKey = (k: string) =>
-        states.roles.find((r: ProjectExecutiveRoleState) => r.roleKey === k)?.displayState;
-
-      expect(byKey("cmo")).toBe("ACTIVE");
-      expect(byKey("chief_of_staff")).toBe("ACTIVE");
-      expect(byKey("coo")).toBe("ACTIVE");
-      // finance chưa ACTIVE ở Project nào → gate UNAVAILABLE vẫn giữ.
-      expect(byKey("cfo")).toBe("UNAVAILABLE");
-    }
+    expect(legacyRows).toHaveLength(0);
   });
 });

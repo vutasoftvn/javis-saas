@@ -604,6 +604,20 @@
       "backend_test": "services/company/operations/tests/executive-role-activation.handler.test.ts"
     },
     {
+      "id": "project.agent_deployments.create",
+      "enabled": true,
+      "owner": "company-operations",
+      "plane": "company",
+      "method": "POST",
+      "path": "/operations/projects/:projectId/agent-deployments",
+      "schema": "project.agent_deployments.create.v1",
+      "source_kind": "company_db",
+      "requires_workspace": true,
+      "requires_project": true,
+      "frontend_symbol": "ProjectAgentDeploymentService.deploy",
+      "backend_test": "services/company/operations/tests/executive-role-activation.handler.test.ts"
+    },
+    {
       "id": "project.deliberations.draft",
       "enabled": true,
       "owner": "company-operations",

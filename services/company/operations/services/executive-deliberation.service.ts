@@ -13,14 +13,24 @@ import {
 } from "../../shared/events/event-types";
 import {
   EXECUTIVE_ROLE_CATALOG,
-  ExecutiveRoleKey,
   isExecutiveRoleKey,
+  ExecutiveAdvisorRoleDef,
 } from "../../shared/contracts/executive-advisor-roles.generated";
 import { requireExecutiveBoardFounderAuthority } from "./executive-role-activation.service";
+import { resolveProjectAgentAuthorityV2 } from "./founder-agent-compatibility.service";
+import {
+  roleKeysForStage,
+  PERSISTENT_EXECUTIVE_ROLES,
+} from "./executive-board-stage-presets";
+import {
+  AGENT_PROFILE_SPEC_ID,
+  AGENT_PROFILE_SPEC_VERSION,
+  AGENT_PROFILE_SPEC_HASH,
+  OwnerAgentProfile,
+} from "./ai-member.service";
 
 const {
   projects,
-  projectAgentAssignments,
   workspaceExecutiveRoleActivations,
   projectExecutiveDeliberations,
   projectExecutiveDeliberationFrames,
@@ -168,6 +178,108 @@ export async function createDraftDeliberation(
 }
 
 /**
+ * Resolve + tái kiểm tra quyền tư vấn của MỘT Executive Role cho ĐÚNG một
+ * Project (2026-09-14). Role thuộc Workspace, Project chỉ deploy Workspace
+ * Agent — nên điều kiện để role tư vấn được Project này là hội đủ:
+ *   1. Workspace office ACTIVE;
+ *   2. stage policy cho phép role ở stage hiện tại;
+ *   3. Project có ACTIVE `project_agent_deployments` cho required profile
+ *      (resolve qua `resolveProjectAgentAuthorityV2`, nhánh V2 thật);
+ *   4. deployment spec id/version/hash khớp đúng catalog profile pin.
+ * Trả về pin snapshot cho frame; vi phạm điều kiện nào thì ném lỗi tương ứng,
+ * không bao giờ fallback sang role/profile/spec khác.
+ */
+async function resolveRoleProjectPin(
+  workspaceId: string,
+  projectId: string,
+  roleKey: string,
+  roleDef: ExecutiveAdvisorRoleDef
+): Promise<SelectedRolePin> {
+  const wsId = BigInt(workspaceId);
+  const projId = BigInt(projectId);
+
+  // 1. Office phải ACTIVE ở phạm vi Workspace (một office duy nhất, không
+  // có bản sao Role theo Project).
+  const [act] = await db
+    .select({ state: workspaceExecutiveRoleActivations.state })
+    .from(workspaceExecutiveRoleActivations)
+    .where(
+      and(
+        eq(workspaceExecutiveRoleActivations.workspaceId, wsId),
+        eq(workspaceExecutiveRoleActivations.roleKey, roleKey)
+      )
+    )
+    .limit(1);
+
+  if (!act || act.state !== "ACTIVE") {
+    throw APIError.failedPrecondition(
+      `EXECUTIVE_ROLE_OFFICE_DISABLED: Role '${roleKey}' is not ACTIVE in workspace`
+    );
+  }
+
+  // 2. Stage policy: role non-persistent chỉ được tư vấn khi stage hiện tại
+  // gợi ý role đó (persistent role luôn ALLOWED).
+  const [project] = await db
+    .select({ lifecycleStage: projects.lifecycleStage })
+    .from(projects)
+    .where(and(eq(projects.id, projId), eq(projects.workspaceId, wsId)))
+    .limit(1);
+
+  if (!project) {
+    throw APIError.notFound("Project not found");
+  }
+
+  const stageAllowed =
+    (PERSISTENT_EXECUTIVE_ROLES as readonly string[]).includes(roleKey) ||
+    (roleKeysForStage(project.lifecycleStage) as readonly string[]).includes(roleKey);
+
+  if (!stageAllowed) {
+    throw APIError.failedPrecondition(
+      `EXECUTIVE_ROLE_STAGE_FORBIDDEN: Role '${roleKey}' is not eligible at stage '${project.lifecycleStage}'`
+    );
+  }
+
+  // 3. Project phải có ACTIVE project_agent_deployment cho required profile.
+  const authority = await resolveProjectAgentAuthorityV2(
+    { workspaceId, projectId },
+    { projectId, profileKey: roleDef.requiredProfileKey }
+  );
+
+  const deployment = authority.v2Deployment;
+  if (deployment.state !== "ACTIVE" || !deployment.deploymentId) {
+    throw APIError.failedPrecondition(
+      `EXECUTIVE_ROLE_PROJECT_DEPLOYMENT_INACTIVE: Role '${roleKey}' has no active project agent deployment`
+    );
+  }
+
+  // 4. Pin drift check: deployment spec phải khớp đúng catalog profile pin.
+  const expectedSpecId = AGENT_PROFILE_SPEC_ID[roleDef.requiredProfileKey as OwnerAgentProfile];
+  const expectedSpecVersion = AGENT_PROFILE_SPEC_VERSION[roleDef.requiredProfileKey as OwnerAgentProfile];
+  const expectedSpecHash = AGENT_PROFILE_SPEC_HASH[roleDef.requiredProfileKey as OwnerAgentProfile];
+
+  const spec = deployment.spec;
+  if (
+    !spec ||
+    (expectedSpecId && spec.id !== expectedSpecId) ||
+    (expectedSpecVersion && spec.version !== expectedSpecVersion) ||
+    (expectedSpecHash && spec.hash !== expectedSpecHash)
+  ) {
+    throw APIError.failedPrecondition(
+      `EXECUTIVE_ROLE_PIN_DRIFT: Role '${roleKey}' deployment spec does not match catalog pin`
+    );
+  }
+
+  return {
+    roleKey,
+    assignmentId: deployment.deploymentId,
+    specId: spec.id,
+    specVersion: spec.version,
+    specHash: spec.hash,
+    skillPins: roleDef.requiredSkillPins,
+  };
+}
+
+/**
  * Frame Deliberation: xác nhận câu hỏi, phạm vi role, snapshot spec/skill/policy và outbox dispatch.
  */
 export async function frameDeliberation(
@@ -216,7 +328,8 @@ export async function frameDeliberation(
     }
   }
 
-  // 1. Verify every role is ACTIVE and fetch underlying pins
+  // 1. Verify every role và resolve pin từ Workspace office + Project V2
+  // deployment (không còn tra legacy `project_agent_assignments`).
   const rolePins: SelectedRolePin[] = [];
 
   for (const roleKey of input.roleKeys) {
@@ -231,58 +344,9 @@ export async function frameDeliberation(
       );
     }
 
-    // Check activation ở cấp Workspace (2026-09-14) — activation dùng chung cho
-    // mọi Project, không còn tra theo projectId.
-    const [act] = await db
-      .select()
-      .from(workspaceExecutiveRoleActivations)
-      .where(
-        and(
-          eq(workspaceExecutiveRoleActivations.workspaceId, wsId),
-          eq(workspaceExecutiveRoleActivations.roleKey, roleKey)
-        )
-      )
-      .limit(1);
-
-    if (!act || act.state !== "ACTIVE") {
-      throw APIError.failedPrecondition(
-        `EXECUTIVE_ROLE_NOT_ACTIVE: Role '${roleKey}' is not ACTIVE in workspace`
-      );
-    }
-
-    // Check underlying assignment
-    const [assignment] = await db
-      .select({
-        id: projectAgentAssignments.id,
-        state: projectAgentAssignments.state,
-        specId: projectAgentAssignments.specId,
-        specVersion: projectAgentAssignments.specVersion,
-        specHash: projectAgentAssignments.specHash,
-      })
-      .from(projectAgentAssignments)
-      .where(
-        and(
-          eq(projectAgentAssignments.workspaceId, wsId),
-          eq(projectAgentAssignments.projectId, projId),
-          eq(projectAgentAssignments.profileKey, roleDef.requiredProfileKey)
-        )
-      )
-      .limit(1);
-
-    if (!assignment || assignment.state !== "ACTIVE" || !assignment.specHash) {
-      throw APIError.failedPrecondition(
-        `EXECUTIVE_ROLE_NOT_AVAILABLE: Required profile '${roleDef.requiredProfileKey}' assignment is not active`
-      );
-    }
-
-    rolePins.push({
-      roleKey,
-      assignmentId: assignment.id.toString(),
-      specId: assignment.specId ?? roleDef.requiredAgentSpec,
-      specVersion: assignment.specVersion ?? "1.0.0",
-      specHash: assignment.specHash,
-      skillPins: roleDef.requiredSkillPins,
-    });
+    rolePins.push(
+      await resolveRoleProjectPin(ctx.workspaceId, projectId, roleKey, roleDef)
+    );
   }
 
   // 2. Transaction: advance state, insert frame, and atomically write outbox
@@ -943,45 +1007,12 @@ export async function getDeliberationAuthority(
     );
   }
 
-  // Verify role vẫn đang ACTIVE ở cấp Workspace.
-  const [roleAct] = await db
-    .select({ state: workspaceExecutiveRoleActivations.state })
-    .from(workspaceExecutiveRoleActivations)
-    .where(
-      and(
-        eq(workspaceExecutiveRoleActivations.workspaceId, wsId),
-        eq(workspaceExecutiveRoleActivations.roleKey, roleKey)
-      )
-    )
-    .limit(1);
-
-  if (!roleAct || roleAct.state !== "ACTIVE") {
-    throw APIError.failedPrecondition(
-      `Role '${roleKey}' is no longer ACTIVE or has been disabled`
-    );
-  }
-
-  // Verify underlying startup team assignment is still active
+  // Runtime re-check: office + Project deployment + stage + pins phải còn hiệu
+  // lực ngay tại thời điểm dùng — không chỉ dựa vào pin đã snapshot lúc frame.
   if (isExecutiveRoleKey(roleKey)) {
     const roleDef = EXECUTIVE_ROLE_CATALOG[roleKey];
     if (roleDef) {
-      const [assignment] = await db
-        .select({ state: projectAgentAssignments.state })
-        .from(projectAgentAssignments)
-        .where(
-          and(
-            eq(projectAgentAssignments.workspaceId, wsId),
-            eq(projectAgentAssignments.projectId, projId),
-            eq(projectAgentAssignments.profileKey, roleDef.requiredProfileKey)
-          )
-        )
-        .limit(1);
-
-      if (!assignment || assignment.state !== "ACTIVE") {
-        throw APIError.failedPrecondition(
-          `Underlying assignment for role '${roleKey}' is no longer ACTIVE`
-        );
-      }
+      await resolveRoleProjectPin(workspaceId, projectId, roleKey, roleDef);
     }
   }
 

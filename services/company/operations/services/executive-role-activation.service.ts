@@ -1,75 +1,16 @@
 import { APIError } from "encore.dev/api";
 import { and, eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
-import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { TenantContext } from "../../shared/types/tenant_context";
 import {
   EXECUTIVE_ROLE_CATALOG,
-  STARTUP_CORE_PRESETS,
   ExecutiveRoleKey,
-  StartupCorePresetKey,
-  isExecutiveRoleKey,
-  isStartupCorePresetKey,
 } from "../../shared/contracts/executive-advisor-roles.generated";
-import { verifyUnderlyingAgentActive } from "./founder-agent-compatibility.service";
+import { resolveProjectAgentAuthorityV2 } from "./founder-agent-compatibility.service";
 import { getWorkspaceExecutiveRoleStates } from "./workspace-executive-role-activation.service";
 import { roleKeysForStage, PERSISTENT_EXECUTIVE_ROLES } from "./executive-board-stage-presets";
 
-const {
-  projects,
-  projectAgentAssignments,
-  projectExecutiveBoardSettings,
-  projectExecutiveRoleActivations,
-  projectExecutiveRoleActivationEvents,
-} = schema;
-
-export type ExecutiveRoleDisplayState =
-  | "UNAVAILABLE"
-  | "AVAILABLE_NOT_ACTIVATED"
-  | "ACTIVE"
-  | "DISABLED";
-
-export interface ProjectExecutiveRoleState {
-  roleKey: ExecutiveRoleKey;
-  label: string;
-  advisoryRemit: string;
-  displayState: ExecutiveRoleDisplayState;
-  runtimeReadiness: string;
-  requiredProfileKey: string;
-  activationSource?: string;
-  version: number;
-  activatedAt?: string;
-  actorId?: string;
-  disabledReason?: string;
-}
-
-export interface ProjectExecutiveBoardState {
-  projectId: string;
-  settings?: {
-    presetKey: StartupCorePresetKey;
-    version: number;
-    selectedBy: string;
-    updatedAt: string;
-  };
-  roles: ProjectExecutiveRoleState[];
-}
-
-export interface SelectPresetInput {
-  presetKey: StartupCorePresetKey;
-  expectedVersion?: number;
-  idempotencyKey?: string;
-}
-
-export interface RoleActivationOptions {
-  expectedVersion?: number;
-  idempotencyKey?: string;
-}
-
-export interface RoleDisableOptions {
-  expectedVersion?: number;
-  reason?: string;
-  idempotencyKey?: string;
-}
+const { projects, workspaceExecutiveRoleActivations } = schema;
 
 /**
  * Guard quyền Founder cho Hội đồng Cố vấn Điều hành.
@@ -139,14 +80,52 @@ export async function requireExecutiveBoardFounderAuthorityForWorkspace(
 }
 
 /**
- * Lấy trạng thái hiển thị trung thực của toàn bộ Executive Roles cho một
- * Project.
+ * Trạng thái Hội đồng Cố vấn Điều hành CHIẾU theo một Project cụ thể
+ * (2026-09-14 — thay cho activation cấp Project cũ, xem
+ * docs/superpowers/specs/2026-09-14-foundation-correctness-remediation-design.md).
  *
- * Từ 2026-09-14, nguồn activation duy nhất là bảng cấp Workspace
- * (`workspace_executive_role_activations`) — 1 công ty chỉ có 1 CFO/CRO/COO
- * thật, dùng chung cho mọi Project. Hàm này giữ lại vì client cũ vẫn đọc theo
- * Project, nhưng chỉ còn là projection của board cấp Workspace; `settings`
- * (preset) không còn ý nghĩa nên luôn trả `undefined`.
+ * Role (CFO/CMO/…) vẫn là Workspace Role duy nhất — KHÔNG có bản ghi Role
+ * riêng theo Project. Project chỉ deploy Workspace Agent tương ứng
+ * (`project_agent_deployments`, xem founder-asset-deployment.service.ts).
+ * View này compose 3 tín hiệu độc lập để trả lời "role này có thể tư vấn cho
+ * ĐÚNG Project này ngay bây giờ không":
+ *   1. officeState  — activation cấp Workspace có ACTIVE không (nguồn sự thật
+ *      duy nhất, đọc trực tiếp từ `workspace_executive_role_activations`,
+ *      KHÔNG dùng lại phép OR-toàn-workspace của board hiển thị chung).
+ *   2. projectDeploymentState — agent nền có đang deploy ACTIVE vào ĐÚNG
+ *      Project này không (`resolveProjectAgentAuthorityV2`, nhánh V2 thật —
+ *      không suy diễn từ bảng legacy `project_agent_assignments`).
+ *   3. stageEligibility — stage hiện tại của Project có "gợi ý" role này
+ *      không (role persistent luôn ALLOWED).
+ */
+export type ProjectExecutiveOfficeState = "ACTIVE" | "DISABLED" | "UNAVAILABLE";
+export type ProjectExecutiveDeploymentState = "ACTIVE" | "INACTIVE" | "PAUSED" | "RETIRED";
+export type ProjectExecutiveStageEligibility = "ALLOWED" | "NOT_SUGGESTED";
+export type ProjectExecutiveEffectiveState =
+  | "EFFECTIVE"
+  | "OFFICE_DISABLED"
+  | "DEPLOYMENT_INACTIVE"
+  | "STAGE_FORBIDDEN";
+
+export interface ProjectExecutiveRoleView {
+  roleKey: ExecutiveRoleKey;
+  officeState: ProjectExecutiveOfficeState;
+  projectDeploymentState: ProjectExecutiveDeploymentState;
+  stageEligibility: ProjectExecutiveStageEligibility;
+  effectiveState: ProjectExecutiveEffectiveState;
+  workspaceOfficeVersion: number;
+  projectAgentDeploymentId?: string;
+}
+
+export interface ProjectExecutiveBoardState {
+  projectId: string;
+  roles: ProjectExecutiveRoleView[];
+}
+
+/**
+ * Lấy trạng thái tư vấn hiệu lực (effective) của toàn bộ 13 Executive Role
+ * cho MỘT Project cụ thể. KHÔNG đọc/ghi `project_executive_role_activations`
+ * — bảng đó không còn là nguồn sự thật (xem module doc ở trên).
  */
 export async function getProjectExecutiveRoleStates(
   ctx: TenantContext,
@@ -155,9 +134,9 @@ export async function getProjectExecutiveRoleStates(
   const wsId = BigInt(ctx.workspaceId);
   const projId = BigInt(projectId);
 
-  // Vẫn xác nhận Project thuộc đúng Workspace (chống cross-tenant enumeration).
+  // Xác nhận Project thuộc đúng Workspace (chống cross-tenant enumeration).
   const [project] = await db
-    .select({ id: projects.id })
+    .select({ id: projects.id, lifecycleStage: projects.lifecycleStage })
     .from(projects)
     .where(and(eq(projects.id, projId), eq(projects.workspaceId, wsId)))
     .limit(1);
@@ -166,36 +145,83 @@ export async function getProjectExecutiveRoleStates(
     throw APIError.notFound("Project not found");
   }
 
-  const workspaceBoard = await getWorkspaceExecutiveRoleStates(ctx);
+  const activations = await db
+    .select()
+    .from(workspaceExecutiveRoleActivations)
+    .where(eq(workspaceExecutiveRoleActivations.workspaceId, wsId));
+  const activationByRole = new Map(activations.map((a) => [a.roleKey, a]));
 
-  return {
-    projectId,
-    settings: undefined,
-    roles: workspaceBoard.roles.map((r) => ({
-      roleKey: r.roleKey,
-      label: r.label,
-      advisoryRemit: r.advisoryRemit,
-      displayState: r.displayState,
-      runtimeReadiness: r.runtimeReadiness,
-      requiredProfileKey: r.requiredProfileKey,
-      version: r.version,
-      activatedAt: r.activatedAt,
-      actorId: r.actorId,
-      disabledReason: r.disabledReason,
-    })),
-  };
+  const stageEligibleSet = new Set(roleKeysForStage(project.lifecycleStage));
+  const persistentSet = new Set(PERSISTENT_EXECUTIVE_ROLES);
+
+  // N+1 truy vấn có chủ đích: chỉ 13 role/Project, quy mô MVP hiện tại chưa
+  // cần batch hoá — `resolveProjectAgentAuthorityV2` là nguồn sự thật duy
+  // nhất cho "agent V2 có đang deploy ACTIVE vào Project này" nên không nhân
+  // bản logic đó ở đây (cùng lý do đã ghi ở
+  // workspace-executive-role-activation.service.ts::resolveAvailableProfileKeys).
+  const roles: ProjectExecutiveRoleView[] = [];
+  for (const roleDef of Object.values(EXECUTIVE_ROLE_CATALOG)) {
+    const activation = activationByRole.get(roleDef.key);
+
+    let officeState: ProjectExecutiveOfficeState;
+    if (roleDef.runtimeReadiness !== "READY" || !activation) {
+      officeState = "UNAVAILABLE";
+    } else {
+      officeState = activation.state === "ACTIVE" ? "ACTIVE" : "DISABLED";
+    }
+
+    const authority = await resolveProjectAgentAuthorityV2(
+      { workspaceId: ctx.workspaceId, projectId },
+      { projectId, profileKey: roleDef.requiredProfileKey }
+    );
+    const projectDeploymentState = authority.v2Deployment.state;
+
+    const stageEligibility: ProjectExecutiveStageEligibility =
+      persistentSet.has(roleDef.key) || stageEligibleSet.has(roleDef.key)
+        ? "ALLOWED"
+        : "NOT_SUGGESTED";
+
+    let effectiveState: ProjectExecutiveEffectiveState;
+    if (officeState !== "ACTIVE") {
+      effectiveState = "OFFICE_DISABLED";
+    } else if (projectDeploymentState !== "ACTIVE") {
+      effectiveState = "DEPLOYMENT_INACTIVE";
+    } else if (stageEligibility !== "ALLOWED") {
+      effectiveState = "STAGE_FORBIDDEN";
+    } else {
+      effectiveState = "EFFECTIVE";
+    }
+
+    roles.push({
+      roleKey: roleDef.key,
+      officeState,
+      projectDeploymentState,
+      stageEligibility,
+      effectiveState,
+      workspaceOfficeVersion: activation?.version ?? 1,
+      projectAgentDeploymentId: authority.v2Deployment.deploymentId,
+    });
+  }
+
+  return { projectId, roles };
 }
 
 export interface StageSuggestion {
   stage: string;
-  toActivate: ExecutiveRoleKey[];
-  toSuggestDeactivate: ExecutiveRoleKey[];
+  /** Role đã đủ điều kiện eligible theo stage nhưng Workspace office CHƯA bật — Founder cần gọi activate ở cấp Workspace. */
+  workspaceOfficeToEnable: ExecutiveRoleKey[];
+  /** Role đã ACTIVE ở cấp Workspace nhưng CHƯA có agent deploy vào ĐÚNG Project này — Founder cần gọi POST .../agent-deployments. */
+  projectAgentsToDeploy: ExecutiveRoleKey[];
+  /** Toàn bộ role được gợi ý cho stage hiện tại của Project (bất kể đã bật/deploy hay chưa). */
+  stageEligibleRoles: ExecutiveRoleKey[];
 }
 
 /**
  * Tính diff gợi ý Executive Board theo stage hiện tại của Project — CHỈ gợi ý,
- * KHÔNG tự activate/deactivate bất cứ gì (CLAUDE.md quy tắc #5). Activation
- * thật sự là hành động Workspace-scoped do Founder chủ động gọi.
+ * KHÔNG tự activate Workspace office, KHÔNG tự deploy Project agent (CLAUDE.md
+ * quy tắc #5). Trả về 2 hành động Founder tách biệt vì chúng là 2 endpoint
+ * khác nhau với phạm vi tác động khác nhau (activate = toàn Workspace, deploy
+ * = 1 Project cụ thể) — không được gộp làm 1 danh sách như bản cũ.
  */
 export async function getStageSuggestion(
   ctx: TenantContext,
@@ -215,470 +241,37 @@ export async function getStageSuggestion(
   }
 
   const stage = project.lifecycleStage;
-  const presetRoles = new Set(roleKeysForStage(stage));
-  const persistent = new Set(PERSISTENT_EXECUTIVE_ROLES);
-
-  // Activation dùng chung cả Workspace, nên gợi ý TẮT cũng phải xét cả
-  // Workspace: một role Project này không cần vẫn có thể đang là chỗ dựa của
-  // Project khác ở stage khác. Chỉ gợi ý tắt khi KHÔNG Project nào trong
-  // workspace còn cần role đó theo stage hiện tại của nó — nếu không, làm theo
-  // gợi ý sẽ rút mất role của Project khác.
-  const workspaceProjects = await db
-    .select({ lifecycleStage: projects.lifecycleStage })
-    .from(projects)
-    .where(eq(projects.workspaceId, wsId));
-
-  const neededByAnyProject = new Set<ExecutiveRoleKey>();
-  for (const p of workspaceProjects) {
-    for (const roleKey of roleKeysForStage(p.lifecycleStage)) {
-      neededByAnyProject.add(roleKey);
-    }
-  }
+  const stageEligibleRoles = [...roleKeysForStage(stage)];
 
   const board = await getWorkspaceExecutiveRoleStates(ctx);
+  const boardByRole = new Map(board.roles.map((r) => [r.roleKey, r]));
 
-  const toActivate: ExecutiveRoleKey[] = [];
-  const toSuggestDeactivate: ExecutiveRoleKey[] = [];
+  const workspaceOfficeToEnable: ExecutiveRoleKey[] = [];
+  const projectAgentsToDeploy: ExecutiveRoleKey[] = [];
 
-  for (const role of board.roles) {
-    const inPreset = presetRoles.has(role.roleKey);
+  for (const roleKey of stageEligibleRoles) {
+    const boardRole = boardByRole.get(roleKey);
 
-    // Chỉ gợi ý bật role thật sự bật được — role UNAVAILABLE (agent nền chưa
-    // chạy ở Project nào) không bao giờ được gợi ý.
-    if (inPreset && role.displayState === "AVAILABLE_NOT_ACTIVATED") {
-      toActivate.push(role.roleKey);
+    if (boardRole?.displayState === "AVAILABLE_NOT_ACTIVATED") {
+      workspaceOfficeToEnable.push(roleKey);
+      continue;
     }
 
-    if (
-      !inPreset &&
-      role.displayState === "ACTIVE" &&
-      !persistent.has(role.roleKey) &&
-      !neededByAnyProject.has(role.roleKey)
-    ) {
-      toSuggestDeactivate.push(role.roleKey);
-    }
-  }
-
-  return { stage, toActivate, toSuggestDeactivate };
-}
-
-/**
- * Founder chọn Startup Core preset cho Project.
- * Chỉ kích hoạt các role default đủ điều kiện (underlying assignment đang ACTIVE).
- */
-export async function selectStartupCorePreset(
-  ctx: TenantContext,
-  projectId: string,
-  input: SelectPresetInput
-): Promise<{ presetKey: StartupCorePresetKey; version: number }> {
-  await requireExecutiveBoardFounderAuthority(ctx, projectId);
-
-  if (!isStartupCorePresetKey(input.presetKey)) {
-    throw APIError.invalidArgument(`Invalid presetKey: ${input.presetKey}`);
-  }
-
-  const wsId = BigInt(ctx.workspaceId);
-  const projId = BigInt(projectId);
-  const actorId = BigInt(ctx.userId);
-  const preset = STARTUP_CORE_PRESETS[input.presetKey];
-
-  return await db.transaction(async (tx) => {
-    // 1. Check existing settings
-    const [existingSettings] = await tx
-      .select()
-      .from(projectExecutiveBoardSettings)
-      .where(
-        and(
-          eq(projectExecutiveBoardSettings.workspaceId, wsId),
-          eq(projectExecutiveBoardSettings.projectId, projId)
-        )
-      )
-      .limit(1);
-
-    if (
-      existingSettings &&
-      input.expectedVersion !== undefined &&
-      existingSettings.version !== input.expectedVersion
-    ) {
-      throw APIError.aborted(
-        `CAS_CONFLICT: Stale settings version (expected ${input.expectedVersion}, got ${existingSettings.version})`
-      );
-    }
-
-    const nextSettingsVersion = existingSettings ? existingSettings.version + 1 : 1;
-
-    if (existingSettings) {
-      await tx
-        .update(projectExecutiveBoardSettings)
-        .set({
-          presetKey: input.presetKey,
-          version: nextSettingsVersion,
-          selectedBy: actorId,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(projectExecutiveBoardSettings.workspaceId, wsId),
-            eq(projectExecutiveBoardSettings.projectId, projId)
-          )
-        );
-    } else {
-      await tx.insert(projectExecutiveBoardSettings).values({
-        workspaceId: wsId,
-        projectId: projId,
-        presetKey: input.presetKey,
-        version: nextSettingsVersion,
-        selectedBy: actorId,
-      });
-    }
-
-    // 2. Fetch active assignments in startup team
-    const assignments = await tx
-      .select({
-        profileKey: projectAgentAssignments.profileKey,
-        state: projectAgentAssignments.state,
-        specHash: projectAgentAssignments.specHash,
-      })
-      .from(projectAgentAssignments)
-      .where(
-        and(
-          eq(projectAgentAssignments.workspaceId, wsId),
-          eq(projectAgentAssignments.projectId, projId)
-        )
-      );
-
-    const activeProfiles = new Set(
-      assignments
-        .filter((a) => a.state === "ACTIVE" && Boolean(a.specHash))
-        .map((a) => a.profileKey)
-    );
-
-    // 3. Activate eligible default roles
-    for (const roleKey of preset.defaultRoleKeys) {
+    if (boardRole?.displayState === "ACTIVE") {
       const roleDef = EXECUTIVE_ROLE_CATALOG[roleKey];
-      if (
-        roleDef &&
-        roleDef.runtimeReadiness === "READY" &&
-        activeProfiles.has(roleDef.requiredProfileKey)
-      ) {
-        const [existingAct] = await tx
-          .select()
-          .from(projectExecutiveRoleActivations)
-          .where(
-            and(
-              eq(projectExecutiveRoleActivations.workspaceId, wsId),
-              eq(projectExecutiveRoleActivations.projectId, projId),
-              eq(projectExecutiveRoleActivations.roleKey, roleKey)
-            )
-          )
-          .limit(1);
-
-        if (!existingAct) {
-          const actId = generateSnowflake();
-          await tx.insert(projectExecutiveRoleActivations).values({
-            id: actId,
-            workspaceId: wsId,
-            projectId: projId,
-            roleKey,
-            state: "ACTIVE",
-            activationSource: "STARTUP_CORE_PRESET",
-            version: 1,
-            actorId,
-          });
-
-          await tx.insert(projectExecutiveRoleActivationEvents).values({
-            id: generateSnowflake(),
-            workspaceId: wsId,
-            projectId: projId,
-            roleKey,
-            activationId: actId,
-            fromState: null,
-            toState: "ACTIVE",
-            actorId,
-            version: 1,
-            payload: {
-              source: "STARTUP_CORE_PRESET",
-              presetKey: input.presetKey,
-              idempotencyKey: input.idempotencyKey,
-            },
-          });
-        } else if (existingAct.state !== "ACTIVE") {
-          const nextVersion = existingAct.version + 1;
-          await tx
-            .update(projectExecutiveRoleActivations)
-            .set({
-              state: "ACTIVE",
-              activationSource: "STARTUP_CORE_PRESET",
-              version: nextVersion,
-              actorId,
-              updatedAt: new Date(),
-            })
-            .where(eq(projectExecutiveRoleActivations.id, existingAct.id));
-
-          await tx.insert(projectExecutiveRoleActivationEvents).values({
-            id: generateSnowflake(),
-            workspaceId: wsId,
-            projectId: projId,
-            roleKey,
-            activationId: existingAct.id,
-            fromState: existingAct.state,
-            toState: "ACTIVE",
-            actorId,
-            version: nextVersion,
-            payload: {
-              source: "STARTUP_CORE_PRESET",
-              presetKey: input.presetKey,
-              idempotencyKey: input.idempotencyKey,
-            },
-          });
-        }
-      }
-    }
-
-    return {
-      presetKey: input.presetKey,
-      version: nextSettingsVersion,
-    };
-  });
-}
-
-/**
- * Founder kích hoạt một Executive Role theo Project.
- * Bắt buộc profile nền phải ACTIVE và có spec pin.
- */
-export async function activateExecutiveRole(
-  ctx: TenantContext,
-  projectId: string,
-  roleKey: string,
-  opts?: RoleActivationOptions
-): Promise<{ id: string; roleKey: string; state: string; version: number }> {
-  await requireExecutiveBoardFounderAuthority(ctx, projectId);
-
-  if (!isExecutiveRoleKey(roleKey)) {
-    throw APIError.invalidArgument(`Invalid roleKey: ${roleKey}`);
-  }
-
-  const roleDef = EXECUTIVE_ROLE_CATALOG[roleKey];
-  if (roleDef.runtimeReadiness !== "READY") {
-    throw APIError.failedPrecondition(
-      `EXECUTIVE_ROLE_NOT_AVAILABLE: Role ${roleKey} has readiness ${roleDef.runtimeReadiness}`
-    );
-  }
-
-  const wsId = BigInt(ctx.workspaceId);
-  const projId = BigInt(projectId);
-  const actorId = BigInt(ctx.userId);
-
-  // Verify underlying profile assignment or V2 deployment is ACTIVE
-  const isUnderlyingActive = await verifyUnderlyingAgentActive(
-    ctx.workspaceId,
-    projectId,
-    roleDef.requiredProfileKey
-  );
-
-  if (!isUnderlyingActive) {
-    throw APIError.failedPrecondition(
-      `EXECUTIVE_ROLE_NOT_AVAILABLE: Required profile ${roleDef.requiredProfileKey} is not active in startup team`
-    );
-  }
-
-  return await db.transaction(async (tx) => {
-    const [existing] = await tx
-      .select()
-      .from(projectExecutiveRoleActivations)
-      .where(
-        and(
-          eq(projectExecutiveRoleActivations.workspaceId, wsId),
-          eq(projectExecutiveRoleActivations.projectId, projId),
-          eq(projectExecutiveRoleActivations.roleKey, roleKey)
-        )
-      )
-      .limit(1);
-
-    if (existing) {
-      // Check CAS
-      if (
-        opts?.expectedVersion !== undefined &&
-        existing.version !== opts.expectedVersion
-      ) {
-        throw APIError.aborted(
-          `CAS_CONFLICT: Stale executive role version (expected ${opts.expectedVersion}, got ${existing.version})`
-        );
-      }
-
-      if (existing.state === "ACTIVE") {
-        return {
-          id: existing.id.toString(),
-          roleKey: existing.roleKey,
-          state: existing.state,
-          version: existing.version,
-        };
-      }
-
-      const nextVersion = existing.version + 1;
-      await tx
-        .update(projectExecutiveRoleActivations)
-        .set({
-          state: "ACTIVE",
-          activationSource: "FOUNDER",
-          version: nextVersion,
-          actorId,
-          updatedAt: new Date(),
-        })
-        .where(eq(projectExecutiveRoleActivations.id, existing.id));
-
-      await tx.insert(projectExecutiveRoleActivationEvents).values({
-        id: generateSnowflake(),
-        workspaceId: wsId,
-        projectId: projId,
-        roleKey,
-        activationId: existing.id,
-        fromState: existing.state,
-        toState: "ACTIVE",
-        actorId,
-        version: nextVersion,
-        payload: { source: "FOUNDER", idempotencyKey: opts?.idempotencyKey },
-      });
-
-      return {
-        id: existing.id.toString(),
-        roleKey,
-        state: "ACTIVE",
-        version: nextVersion,
-      };
-    } else {
-      // Creating new activation row
-      if (
-        opts?.expectedVersion !== undefined &&
-        opts.expectedVersion > 1
-      ) {
-        throw APIError.aborted(
-          `CAS_CONFLICT: Stale executive role version (expected ${opts.expectedVersion}, got 1)`
-        );
-      }
-
-      const actId = generateSnowflake();
-      await tx.insert(projectExecutiveRoleActivations).values({
-        id: actId,
-        workspaceId: wsId,
-        projectId: projId,
-        roleKey,
-        state: "ACTIVE",
-        activationSource: "FOUNDER",
-        version: 1,
-        actorId,
-      });
-
-      await tx.insert(projectExecutiveRoleActivationEvents).values({
-        id: generateSnowflake(),
-        workspaceId: wsId,
-        projectId: projId,
-        roleKey,
-        activationId: actId,
-        fromState: null,
-        toState: "ACTIVE",
-        actorId,
-        version: 1,
-        payload: { source: "FOUNDER", idempotencyKey: opts?.idempotencyKey },
-      });
-
-      return {
-        id: actId.toString(),
-        roleKey,
-        state: "ACTIVE",
-        version: 1,
-      };
-    }
-  });
-}
-
-/**
- * Founder vô hiệu hoá một Executive Role đang hoạt động.
- * Lưu lại lịch sử và đổi state sang DISABLED.
- */
-export async function disableExecutiveRole(
-  ctx: TenantContext,
-  projectId: string,
-  roleKey: string,
-  opts?: RoleDisableOptions
-): Promise<{ id: string; roleKey: string; state: string; version: number }> {
-  await requireExecutiveBoardFounderAuthority(ctx, projectId);
-
-  if (!isExecutiveRoleKey(roleKey)) {
-    throw APIError.invalidArgument(`Invalid roleKey: ${roleKey}`);
-  }
-
-  const wsId = BigInt(ctx.workspaceId);
-  const projId = BigInt(projectId);
-  const actorId = BigInt(ctx.userId);
-
-  return await db.transaction(async (tx) => {
-    const [existing] = await tx
-      .select()
-      .from(projectExecutiveRoleActivations)
-      .where(
-        and(
-          eq(projectExecutiveRoleActivations.workspaceId, wsId),
-          eq(projectExecutiveRoleActivations.projectId, projId),
-          eq(projectExecutiveRoleActivations.roleKey, roleKey)
-        )
-      )
-      .limit(1);
-
-    if (!existing) {
-      throw APIError.notFound(`Executive role activation for ${roleKey} not found`);
-    }
-
-    if (
-      opts?.expectedVersion !== undefined &&
-      existing.version !== opts.expectedVersion
-    ) {
-      throw APIError.aborted(
-        `CAS_CONFLICT: Stale executive role version (expected ${opts.expectedVersion}, got ${existing.version})`
+      const authority = await resolveProjectAgentAuthorityV2(
+        { workspaceId: ctx.workspaceId, projectId },
+        { projectId, profileKey: roleDef.requiredProfileKey }
       );
+      if (authority.v2Deployment.state !== "ACTIVE") {
+        projectAgentsToDeploy.push(roleKey);
+      }
     }
 
-    if (existing.state === "DISABLED") {
-      return {
-        id: existing.id.toString(),
-        roleKey: existing.roleKey,
-        state: existing.state,
-        version: existing.version,
-      };
-    }
+    // UNAVAILABLE (agent nền chưa chạy ở project nào) hoặc DISABLED (Founder
+    // đã tắt tường minh) → không gợi ý gì, để tránh gợi ý bật lại thứ Founder
+    // vừa chủ động tắt.
+  }
 
-    const nextVersion = existing.version + 1;
-    await tx
-      .update(projectExecutiveRoleActivations)
-      .set({
-        state: "DISABLED",
-        version: nextVersion,
-        actorId,
-        updatedAt: new Date(),
-      })
-      .where(eq(projectExecutiveRoleActivations.id, existing.id));
-
-    await tx.insert(projectExecutiveRoleActivationEvents).values({
-      id: generateSnowflake(),
-      workspaceId: wsId,
-      projectId: projId,
-      roleKey,
-      activationId: existing.id,
-      fromState: existing.state,
-      toState: "DISABLED",
-      actorId,
-      version: nextVersion,
-      payload: {
-        reason: opts?.reason,
-        idempotencyKey: opts?.idempotencyKey,
-      },
-    });
-
-    return {
-      id: existing.id.toString(),
-      roleKey,
-      state: "DISABLED",
-      version: nextVersion,
-    };
-  });
+  return { stage, workspaceOfficeToEnable, projectAgentsToDeploy, stageEligibleRoles };
 }

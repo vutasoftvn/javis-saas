@@ -6,6 +6,7 @@ import {
   addMemberToWorkspace,
   createSecondWorkspace,
   makeTestTenantContext,
+  deployWorkspaceAgentForProfile,
 } from "./_helpers";
 import { db, schema } from "../models/db";
 import { TenantContext } from "../../shared/types/tenant_context";
@@ -19,9 +20,8 @@ import {
 import {
   activateWorkspaceExecutiveRole,
 } from "../services/workspace-executive-role-activation.service";
-import {
-  activateProjectStartupTeamMember,
-} from "../services/project-startup-team.service";
+import { createProjectService } from "../services/project.service";
+import { transitionProjectLifecycle } from "../services/project-lifecycle.service";
 import { AGENT_PROFILE_SPEC_HASH } from "../services/ai-member.service";
 
 const { eventOutbox } = schema;
@@ -56,12 +56,14 @@ describe("Executive Deliberation Service", () => {
     foreignProjectId = secondWs.projectId;
 
     // Activate finance, marketing, and customer_support in startup team, then activate CFO, CMO, and CCO
-    await activateProjectStartupTeamMember(founderCtx, projectId, "finance", { expectedVersion: 1 });
-    await activateProjectStartupTeamMember(founderCtx, projectId, "marketing", { expectedVersion: 1 });
-    await activateProjectStartupTeamMember(founderCtx, projectId, "customer_support", { expectedVersion: 1 });
+    await deployWorkspaceAgentForProfile(founderCtx, projectId, "finance");
+    await deployWorkspaceAgentForProfile(founderCtx, projectId, "marketing");
+    await deployWorkspaceAgentForProfile(founderCtx, projectId, "customer_support");
+    await deployWorkspaceAgentForProfile(founderCtx, projectId, "product");
     await activateWorkspaceExecutiveRole(founderCtx, "cfo", {});
     await activateWorkspaceExecutiveRole(founderCtx, "cmo", {});
     await activateWorkspaceExecutiveRole(founderCtx, "cco", {});
+    await activateWorkspaceExecutiveRole(founderCtx, "cpo", {});
   });
 
   it("creates a draft deliberation only with human founder authority", async () => {
@@ -107,13 +109,13 @@ describe("Executive Deliberation Service", () => {
     expect(outboxRows[0].status).toBe("pending");
   });
 
-  it("frames cco alongside cfo and atomically writes the outbox", async () => {
+  it("frames cpo alongside cfo and atomically writes the outbox", async () => {
     const draft = await createDraftDeliberation(founderCtx, projectId, {
       title: "Pricing Strategy",
     });
     const framed = await frameDeliberation(founderCtx, projectId, draft.id, {
       expectedVersion: 1,
-      roleKeys: ["cfo", "cco"],
+      roleKeys: ["cfo", "cpo"],
       question: "Có nên tăng giá gói Pro không?",
     });
     expect(framed.state).toBe("ANALYSIS_QUEUED");
@@ -130,7 +132,7 @@ describe("Executive Deliberation Service", () => {
       );
     expect(outboxRows).toHaveLength(1);
     const envelope = outboxRows[0].envelope as { payload: { selectedRoles: Array<{ roleKey: string }> } };
-    expect(envelope.payload.selectedRoles.map((r) => r.roleKey).sort()).toEqual(["cco", "cfo"]);
+    expect(envelope.payload.selectedRoles.map((r) => r.roleKey).sort()).toEqual(["cfo", "cpo"]);
   });
 
   it("refuses framing when a requested role is not ACTIVE", async () => {
@@ -138,14 +140,14 @@ describe("Executive Deliberation Service", () => {
       title: "Unready Role Test",
     });
 
-    // coo is not active
+    // coo office chưa bật → EXECUTIVE_ROLE_OFFICE_DISABLED.
     await expect(
       frameDeliberation(founderCtx, projectId, draft.id, {
         expectedVersion: 1,
         question: "Operations question",
         roleKeys: ["cfo", "coo"],
       })
-    ).rejects.toThrow(/EXECUTIVE_ROLE_NOT_ACTIVE|EXECUTIVE_ROLE_NOT_AVAILABLE/);
+    ).rejects.toThrow(/EXECUTIVE_ROLE_OFFICE_DISABLED|EXECUTIVE_ROLE_NOT_ACTIVE|EXECUTIVE_ROLE_NOT_AVAILABLE/);
   });
 
   it("enforces CAS versioning on frameDeliberation", async () => {
@@ -219,12 +221,21 @@ describe("Executive Deliberation Service", () => {
   });
 
   it("frames chief_of_staff and coo with exact operations spec and role-specific pins", async () => {
-    // 1. Activate operations profile in startup team
-    await activateProjectStartupTeamMember(founderCtx, projectId, "operations", { expectedVersion: 1 });
-
-    // 2. Activate chief_of_staff and coo
+    // 1. Deploy operations profile (V2) và kích hoạt office chief_of_staff + coo.
+    await deployWorkspaceAgentForProfile(founderCtx, projectId, "operations");
     await activateWorkspaceExecutiveRole(founderCtx, "chief_of_staff", {});
     await activateWorkspaceExecutiveRole(founderCtx, "coo", {});
+
+    // 2. coo chỉ eligible từ P2 — chuyển Project sang P2 trước khi frame
+    // (stage policy chặn role non-persistent ở stage không phù hợp).
+    await transitionProjectLifecycle(founderCtx, projectId, {
+      toStage: "P1_PROBLEM_VALIDATION",
+      expectedStageVersion: 0,
+    });
+    await transitionProjectLifecycle(founderCtx, projectId, {
+      toStage: "P2_SOLUTION_VALIDATION",
+      expectedStageVersion: 1,
+    });
 
     // 3. Create draft and frame with chief_of_staff and coo
     const draft = await createDraftDeliberation(founderCtx, projectId, {
@@ -282,5 +293,38 @@ describe("Executive Deliberation Service", () => {
     expect(cooRole?.skillPins).toEqual([
       "skillpack:executive/coo-advisor@1.0.0",
     ]);
+  });
+
+  it("frame deliberation for Project B fails EXECUTIVE_ROLE_PROJECT_DEPLOYMENT_INACTIVE when agent is only deployed to Project A", async () => {
+    // finance Agent chỉ deploy vào Project A (projectId); Project B chưa có deployment.
+    const projectB = await createProjectService(founderCtx, { title: "Deliberation Project B" });
+
+    const draft = await createDraftDeliberation(founderCtx, projectB.id, {
+      title: "Project B Runway Review",
+    });
+
+    await expect(
+      frameDeliberation(founderCtx, projectB.id, draft.id, {
+        expectedVersion: 1,
+        question: "Should Project B extend runway?",
+        roleKeys: ["cfo"],
+      })
+    ).rejects.toThrow(/EXECUTIVE_ROLE_PROJECT_DEPLOYMENT_INACTIVE/);
+  });
+
+  it("frame deliberation fails EXECUTIVE_ROLE_STAGE_FORBIDDEN for a non-persistent role at a disallowed stage", async () => {
+    // cco office ACTIVE + customer_support deployed, nhưng Project vẫn ở P0
+    // (cco chỉ eligible từ P4) → stage policy chặn.
+    const draft = await createDraftDeliberation(founderCtx, projectId, {
+      title: "Customer Advisory at P0",
+    });
+
+    await expect(
+      frameDeliberation(founderCtx, projectId, draft.id, {
+        expectedVersion: 1,
+        question: "How should we support early users?",
+        roleKeys: ["cco"],
+      })
+    ).rejects.toThrow(/EXECUTIVE_ROLE_STAGE_FORBIDDEN/);
   });
 });

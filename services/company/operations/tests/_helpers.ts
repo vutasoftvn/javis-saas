@@ -6,6 +6,17 @@ import { sql } from "drizzle-orm";
 import { db, schema } from "../../identity/models/db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { signAccessToken } from "../../identity/services/token.service";
+import { TenantContext } from "../../shared/types/tenant_context";
+import {
+  AGENT_PROFILE_SPEC_ID,
+  AGENT_PROFILE_SPEC_VERSION,
+  AGENT_PROFILE_SPEC_HASH,
+  OwnerAgentProfile,
+} from "../services/ai-member.service";
+import {
+  createWorkspaceAgent,
+  deployAgentToProject,
+} from "../services/founder-asset-deployment.service";
 
 const { identityUserProjections, identityWorkspaces, identityWorkspaceMemberships } = schema;
 
@@ -168,8 +179,6 @@ export async function seedObjectiveWithKeyResult(
   return { objectiveId: objectiveId.toString(), keyResultId: keyResultId.toString() };
 }
 
-import { TenantContext } from "../../shared/types/tenant_context";
-
 export function makeTestTenantContext(params: {
   workspaceId: string;
   userId: string;
@@ -186,4 +195,57 @@ export function makeTestTenantContext(params: {
     correlationId: "test-corr-" + generateSnowflake().toString(),
     isAiAgent: params.isAiAgent ?? false,
   };
+}
+
+/**
+ * Seed một Workspace Agent (V2) cho profile — CHƯA deploy vào Project nào.
+ * Dùng profileKey như "finance", "operations"… để map sang exact AgentSpec pin
+ * (`cosa.agents.*`) của catalog.
+ */
+export async function createWorkspaceAgentForProfile(
+  ctx: TenantContext,
+  profileKey: string
+): Promise<{ workspaceAgentId: string }> {
+  const specId = AGENT_PROFILE_SPEC_ID[profileKey as OwnerAgentProfile];
+  const specVersion = AGENT_PROFILE_SPEC_VERSION[profileKey as OwnerAgentProfile];
+  const specHash = AGENT_PROFILE_SPEC_HASH[profileKey as OwnerAgentProfile];
+
+  const memberId = generateSnowflake();
+  await db.execute(sql`
+    INSERT INTO core.workforce_members (id, workspace_id, member_type, role_title, agent_spec_id, agent_spec_version, status)
+    VALUES (${memberId}, ${BigInt(ctx.workspaceId)}, 'AI_AGENT', ${`AI ${profileKey}`}, ${specId}, ${specVersion}, 'active')
+  `);
+
+  const agent = await createWorkspaceAgent(ctx, {
+    agentAssetId: specId,
+    agentAssetVersion: specVersion,
+    agentDefinitionHash: specHash,
+    workforceMemberId: memberId.toString(),
+    originKind: "BUILTIN",
+    reason: "Test V2 deployment",
+    idempotencyKey: `test-agent-${profileKey}`,
+  });
+
+  return { workspaceAgentId: agent.id };
+}
+
+/**
+ * Seed một Workspace Agent (V2) + deploy vào Project — đường authority chính
+ * thức của Executive Board (2026-09-14). Tái sử dụng cho test hai-Project
+ * isolation và deliberation frame.
+ */
+export async function deployWorkspaceAgentForProfile(
+  ctx: TenantContext,
+  projectId: string,
+  profileKey: string
+): Promise<{ workspaceAgentId: string; deploymentId: string }> {
+  const { workspaceAgentId } = await createWorkspaceAgentForProfile(ctx, profileKey);
+  const deployment = await deployAgentToProject(ctx, {
+    projectId,
+    workspaceAgentId,
+    reason: "Test V2 deployment",
+    idempotencyKey: `test-deploy-${profileKey}`,
+  });
+
+  return { workspaceAgentId, deploymentId: deployment.id };
 }

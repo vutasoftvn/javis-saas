@@ -473,6 +473,15 @@ enum MvpEndpoint {
     requiresWorkspace: true,
     requiresProject: false,
   ),
+  projectAgentDeploymentsCreate(
+    id: 'project.agent_deployments.create',
+    enabled: true,
+    plane: ApiPlane.company,
+    method: 'POST',
+    path: '/operations/projects/:projectId/agent-deployments',
+    requiresWorkspace: true,
+    requiresProject: true,
+  ),
   projectCommitmentWrite(
     id: 'project.commitment.write',
     enabled: true,

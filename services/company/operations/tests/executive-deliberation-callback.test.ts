@@ -3,6 +3,7 @@ import {
   createTestWorkspaceWithMember,
   createSecondWorkspace,
   makeTestTenantContext,
+  deployWorkspaceAgentForProfile,
 } from "./_helpers";
 import { TenantContext } from "../../shared/types/tenant_context";
 import {
@@ -14,9 +15,6 @@ import {
 import {
   activateWorkspaceExecutiveRole,
 } from "../services/workspace-executive-role-activation.service";
-import {
-  activateProjectStartupTeamMember,
-} from "../services/project-startup-team.service";
 
 describe("Executive Deliberation Callback & Transitions", () => {
   let founderCtx: TenantContext;
@@ -37,9 +35,9 @@ describe("Executive Deliberation Callback & Transitions", () => {
     const secondWs = await createSecondWorkspace();
     foreignProjectId = secondWs.projectId;
 
-    // Activate finance and marketing in startup team, then activate CFO and CMO
-    await activateProjectStartupTeamMember(founderCtx, projectId, "finance", { expectedVersion: 1 });
-    await activateProjectStartupTeamMember(founderCtx, projectId, "marketing", { expectedVersion: 1 });
+    // Deploy finance and marketing agents (V2), then activate CFO and CMO office
+    await deployWorkspaceAgentForProfile(founderCtx, projectId, "finance");
+    await deployWorkspaceAgentForProfile(founderCtx, projectId, "marketing");
     await activateWorkspaceExecutiveRole(founderCtx, "cfo", {});
     await activateWorkspaceExecutiveRole(founderCtx, "cmo", {});
   });

@@ -3,6 +3,7 @@ import {
   createTestWorkspaceWithMember,
   addMemberToWorkspace,
   createSecondWorkspace,
+  deployWorkspaceAgentForProfile,
 } from "./_helpers";
 import {
   createDraftDeliberationApi,
@@ -11,7 +12,6 @@ import {
   appendFounderDecisionApi,
   getDeliberationApi,
 } from "../handlers/executive-deliberation.handler";
-import { activateProjectStartupTeamMember } from "../services/project-startup-team.service";
 import { activateWorkspaceExecutiveRole } from "../services/workspace-executive-role-activation.service";
 import { TenantContext } from "../../shared/types/tenant_context";
 
@@ -43,7 +43,7 @@ describe("Executive Deliberation Handler", () => {
       isAiAgent: false,
     };
 
-    await activateProjectStartupTeamMember(founderCtx, projectId, "finance", { expectedVersion: 1 });
+    await deployWorkspaceAgentForProfile(founderCtx, projectId, "finance");
     await activateWorkspaceExecutiveRole(founderCtx, "cfo", {});
   });
 

@@ -41,6 +41,24 @@ export interface ProjectAgentAuthorityV2Result {
   policySnapshot: Record<string, unknown>;
   deploymentId?: string;
   workspaceAgentId?: string;
+  /**
+   * Tín hiệu THẬT của riêng nhánh V2 (`project_agent_deployments`), tách biệt
+   * khỏi `source`/`spec` ở trên — những field đó có thể ưu tiên trả legacy
+   * ngay cả khi V2 tồn tại (chế độ SHADOW). Caller nào cần biết chính xác
+   * agent đã được deploy vào ĐÚNG Project này chưa (vd. read-model Executive
+   * Board theo Project — 2026-09-14) phải đọc field này, không suy diễn từ
+   * `source`.
+   */
+  v2Deployment: {
+    state: "ACTIVE" | "PAUSED" | "RETIRED" | "INACTIVE";
+    deploymentId?: string;
+    workspaceAgentId?: string;
+    spec?: {
+      id: string;
+      version: string;
+      hash: string;
+    };
+  };
 }
 
 export interface ResolveAuthorityContext {
@@ -111,6 +129,70 @@ export async function resolveProjectAgentAuthorityV2(
     )
     .limit(1);
 
+  // 1b. Tín hiệu V2 THẬT (tách biệt khỏi ưu tiên legacy ở chế độ SHADOW).
+  // Query filtered ở trên chỉ khớp deployment+agent đang ACTIVE; nếu không
+  // khớp, cần 1 lượt truy vấn không lọc state để phân biệt PAUSED/RETIRED với
+  // "chưa từng deploy vào Project này" (INACTIVE).
+  let v2Deployment: ProjectAgentAuthorityV2Result["v2Deployment"];
+  if (deployment) {
+    v2Deployment = {
+      state: "ACTIVE",
+      deploymentId: deployment.deploymentId.toString(),
+      workspaceAgentId: deployment.workspaceAgentId.toString(),
+      spec: {
+        id: deployment.agentAssetId,
+        version: deployment.agentAssetVersion,
+        hash: deployment.agentDefinitionHash,
+      },
+    };
+  } else {
+    const [anyDeployment] = await db
+      .select({
+        deploymentId: projectAgentDeployments.id,
+        workspaceAgentId: projectAgentDeployments.workspaceAgentId,
+        state: projectAgentDeployments.state,
+        agentAssetId: workspaceAgents.agentAssetId,
+        agentAssetVersion: workspaceAgents.agentAssetVersion,
+        agentDefinitionHash: workspaceAgents.agentDefinitionHash,
+        agentState: workspaceAgents.state,
+      })
+      .from(projectAgentDeployments)
+      .innerJoin(workspaceAgents, eq(workspaceAgents.id, projectAgentDeployments.workspaceAgentId))
+      .where(
+        and(
+          eq(projectAgentDeployments.workspaceId, wsId),
+          eq(projectAgentDeployments.projectId, projId),
+          or(
+            eq(workspaceAgents.agentAssetId, targetProfileKey),
+            eq(workspaceAgents.agentAssetId, mappedBuiltinSpecId)
+          )
+        )
+      )
+      .limit(1);
+
+    if (!anyDeployment) {
+      v2Deployment = { state: "INACTIVE" };
+    } else {
+      const state: "PAUSED" | "RETIRED" | "INACTIVE" =
+        anyDeployment.state === "RETIRED" || anyDeployment.agentState === "RETIRED"
+          ? "RETIRED"
+          : anyDeployment.state === "PAUSED"
+          ? "PAUSED"
+          : "INACTIVE";
+
+      v2Deployment = {
+        state,
+        deploymentId: anyDeployment.deploymentId.toString(),
+        workspaceAgentId: anyDeployment.workspaceAgentId.toString(),
+        spec: {
+          id: anyDeployment.agentAssetId,
+          version: anyDeployment.agentAssetVersion,
+          hash: anyDeployment.agentDefinitionHash,
+        },
+      };
+    }
+  }
+
   // 2. ENFORCED mode
   if (mode === "ENFORCED") {
     if (!deployment) {
@@ -135,6 +217,7 @@ export async function resolveProjectAgentAuthorityV2(
       policySnapshot: (deployment.capabilityOverrides as Record<string, unknown>) ?? {},
       deploymentId: deployment.deploymentId.toString(),
       workspaceAgentId: deployment.workspaceAgentId.toString(),
+      v2Deployment,
     };
   }
 
@@ -175,10 +258,17 @@ export async function resolveProjectAgentAuthorityV2(
       agentWorkforceMemberId: legacy.agentWorkforceMemberId,
       spec: legacy.spec,
       policySnapshot: legacy.policySnapshot,
+      v2Deployment,
     };
   }
 
-  if (legacyError && !deployment) {
+  // LEGACY mode: nếu không có legacy assignment (và cũng không có V2
+  // deployment) thì vẫn phải fail-closed như hành vi legacy cũ.
+  // SHADOW mode: read-model mới (vd. getProjectExecutiveRoleStates) cần biết
+  // chính xác "agent chưa từng deploy vào Project này" thay vì nhận exception —
+  // nên chỉ throw khi mode thực sự là LEGACY. v2Deployment ở dưới đã chính xác
+  // (INACTIVE / PAUSED / RETIRED), caller chỉ cần đọc field đó.
+  if (legacyError && !deployment && mode === "LEGACY") {
     throw legacyError;
   }
 
@@ -197,13 +287,18 @@ export async function resolveProjectAgentAuthorityV2(
       hash: "legacy_compat_hash",
     },
     policySnapshot: {},
+    v2Deployment,
   };
 }
 
 /**
- * Checks whether an underlying agent deployment/assignment is active for an Executive Board role.
- * In ENFORCED mode: verifies project_agent_deployments.
- * In SHADOW mode: verifies project_agent_assignments.
+ * Checks whether an underlying agent deployment/assignment is active for an
+ * Executive Board role (2026-09-14).
+ *
+ * V2 `project_agent_deployments` là authority chính thức — kiểm tra TRƯỚC ở
+ * mọi mode. Ở SHADOW/LEGACY mode, nếu không có V2 deployment ACTIVE thì
+ * fallback sang legacy `project_agent_assignments` để giữ hành vi cũ
+ * (activateProjectStartupTeamMember vẫn còn được các test legacy dùng).
  */
 export async function verifyUnderlyingAgentActive(
   workspaceId: string,
@@ -214,30 +309,30 @@ export async function verifyUnderlyingAgentActive(
   const wsId = BigInt(workspaceId);
   const projId = BigInt(projectId);
 
-  if (mode === "ENFORCED") {
-    const mappedSpec =
-      (AGENT_PROFILE_SPEC_ID as Record<string, string>)[requiredProfileKey] || requiredProfileKey;
+  const mappedSpec =
+    (AGENT_PROFILE_SPEC_ID as Record<string, string>)[requiredProfileKey] || requiredProfileKey;
 
-    const [dep] = await db
-      .select({ id: projectAgentDeployments.id })
-      .from(projectAgentDeployments)
-      .innerJoin(workspaceAgents, eq(workspaceAgents.id, projectAgentDeployments.workspaceAgentId))
-      .where(
-        and(
-          eq(projectAgentDeployments.workspaceId, wsId),
-          eq(projectAgentDeployments.projectId, projId),
-          eq(projectAgentDeployments.state, "ACTIVE"),
-          eq(workspaceAgents.state, "ACTIVE"),
-          or(
-            eq(workspaceAgents.agentAssetId, requiredProfileKey),
-            eq(workspaceAgents.agentAssetId, mappedSpec)
-          )
+  const [dep] = await db
+    .select({ id: projectAgentDeployments.id })
+    .from(projectAgentDeployments)
+    .innerJoin(workspaceAgents, eq(workspaceAgents.id, projectAgentDeployments.workspaceAgentId))
+    .where(
+      and(
+        eq(projectAgentDeployments.workspaceId, wsId),
+        eq(projectAgentDeployments.projectId, projId),
+        eq(projectAgentDeployments.state, "ACTIVE"),
+        eq(workspaceAgents.state, "ACTIVE"),
+        or(
+          eq(workspaceAgents.agentAssetId, requiredProfileKey),
+          eq(workspaceAgents.agentAssetId, mappedSpec)
         )
       )
-      .limit(1);
+    )
+    .limit(1);
 
-    return Boolean(dep);
-  }
+  if (dep) return true;
+
+  if (mode === "ENFORCED") return false;
 
   const [assign] = await db
     .select({ id: projectAgentAssignments.id, state: projectAgentAssignments.state })
