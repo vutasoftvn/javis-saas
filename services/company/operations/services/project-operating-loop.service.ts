@@ -524,6 +524,37 @@ export async function createCycleAuthorized(
     throw APIError.invalidArgument("duration_weeks must be between 1 and 12");
   }
 
+  // Fix (2026-09-15 final review) — sourceObjectiveId trước đây bị BigInt(...)
+  // và lưu thẳng, không kiểm tra tenancy: một member workspace A có thể POST
+  // cycle tham chiếu objective của workspace B (FK objective là global, không
+  // scope theo workspace), và accept/reject trở thành oracle dò tồn tại
+  // cross-workspace. Giá trị rác (không phải số) còn khiến BigInt(...) ném
+  // SyntaxError trần thay vì APIError, vi phạm rule "lỗi public request phải
+  // qua APIError". Validate y hệt pattern đã có ở createKeyResultAuthorized.
+  let sourceObjectiveId: bigint | null = null;
+  if (req.sourceObjectiveId) {
+    let objId: bigint;
+    try {
+      objId = BigInt(req.sourceObjectiveId);
+    } catch {
+      throw APIError.invalidArgument("Objective does not belong to project/workspace");
+    }
+    const [sourceObj] = await db
+      .select()
+      .from(okrObjectives)
+      .where(
+        and(
+          eq(okrObjectives.id, objId),
+          eq(okrObjectives.workspaceId, wsId),
+          eq(okrObjectives.projectId, pId)
+        )
+      );
+    if (!sourceObj) {
+      throw APIError.invalidArgument("Objective does not belong to project/workspace");
+    }
+    sourceObjectiveId = objId;
+  }
+
   const [existingActive] = await db
     .select()
     .from(twelveWeekCycles)
@@ -560,7 +591,7 @@ export async function createCycleAuthorized(
         startLocalDate: req.startLocalDate || null,
         startDate: req.startDate ? new Date(req.startDate) : null,
         endDate: req.endDate ? new Date(req.endDate) : null,
-        sourceObjectiveId: req.sourceObjectiveId ? BigInt(req.sourceObjectiveId) : null,
+        sourceObjectiveId,
       })
       .returning();
 

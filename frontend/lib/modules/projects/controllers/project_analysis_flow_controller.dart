@@ -20,15 +20,18 @@ class ProjectAnalysisFlowController extends GetxController {
   });
 
   ProjectOperatingLoopService _loopService = ProjectOperatingLoopService();
-  OkrService _okrService = OkrService();
+  final OkrService _okrService = OkrService();
 
   /// Chỉ dùng trong test để tiêm HTTP client giả — không gọi ở code sản phẩm.
-  void debugOverrideService(
-    ProjectOperatingLoopService loopService, {
-    OkrService? okrService,
-  }) {
+  ///
+  /// `OkrService` không có constructor nhận client tiêm được (nó gọi thẳng
+  /// `ApiClient.post` static), nên trước đây tham số `okrService` ở đây không
+  /// bao giờ thay đổi được hành vi test thật — việc mock `OkrService` diễn ra
+  /// bằng cách ghi đè `ApiClient.client` tĩnh, tách biệt hoàn toàn khỏi hàm
+  /// này. Đã bỏ tham số đó để không gây hiểu lầm rằng `OkrService` mock được
+  /// độc lập qua đây.
+  void debugOverrideService(ProjectOperatingLoopService loopService) {
     _loopService = loopService;
-    if (okrService != null) _okrService = okrService;
   }
 
   bool get isEnglish {
@@ -244,6 +247,22 @@ class ProjectAnalysisFlowController extends GetxController {
     final warnings = <String>[];
 
     try {
+      // 0. Pre-flight: từ chối tạo mới nếu Project đã có Operating Cycle
+      // ACTIVE. `createCycleAuthorized` (backend) reject bất kỳ cycle thứ 2
+      // nào bằng failedPrecondition — nhưng lúc đó Objective + tới 3 Key
+      // Result đã được tạo VÀ publish rồi, nên nếu không chặn sớm ở đây, mỗi
+      // lần founder bấm "Kích hoạt" lại sau 1 lần fail giữa chừng (hoặc với
+      // 1 project đã có cycle từ wizard cũ) sẽ đẻ thêm 1 bộ Objective/KR mồ
+      // côi mới — đúng loại rác mà cả kế hoạch fix này cố loại bỏ.
+      final loopRes = await _loopService.get(projectId);
+      final activeCycle = loopRes.dataOrNull?.activeCycle;
+      if (activeCycle != null) {
+        errorMessage.value = isEn
+            ? 'This project already has an active operating cycle.'
+            : 'Dự án này đã có chu kỳ hoạt động đang chạy.';
+        return false;
+      }
+
       // 1. Cập nhật lifecycleStage của Project nếu người dùng đổi stage.
       if (currentStage.value != initialStage) {
         try {

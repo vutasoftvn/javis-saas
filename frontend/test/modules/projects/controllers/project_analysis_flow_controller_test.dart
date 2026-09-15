@@ -127,4 +127,90 @@ void main() {
     expect(ok, isFalse);
     expect(controller.errorMessage.value, isNotNull);
   });
+
+  test('submitAndActivate returns true but surfaces a non-blocking warning when a later step fails', () async {
+    final controller = buildController((request) async {
+      if (request.url.path.endsWith('/operating-loop')) {
+        // Preflight GET — chưa có active cycle nào.
+        return http.Response(jsonEncode(_envelope({'project': {}})), 200);
+      }
+      if (request.url.path.endsWith('/operating-loop/objectives')) {
+        return http.Response(jsonEncode(_envelope({'id': 'obj_1', 'status': 'draft'})), 200);
+      }
+      if (request.url.path.endsWith('/operating-loop/key-results')) {
+        return http.Response(jsonEncode(_envelope({'id': 'kr_1'})), 200);
+      }
+      if (request.url.path.endsWith('/publish')) {
+        return http.Response(jsonEncode({'id': 'obj_1', 'status': 'published'}), 200);
+      }
+      if (request.url.path.endsWith('/operating-loop/cycles')) {
+        return http.Response(jsonEncode(_envelope({'id': 'cycle_1'})), 200);
+      }
+      if (request.url.path.endsWith('/operating-loop/weeks')) {
+        return http.Response(jsonEncode(_envelope({'id': 'week_1'})), 200);
+      }
+      if (request.url.path.endsWith('/operating-loop/commitments')) {
+        // Bước non-blocking bị lỗi — không được chặn submit nhưng phải bị
+        // thu thập vào `errorMessage` để view hiện cảnh báo cho founder.
+        return http.Response(jsonEncode({'error': 'commitment service down'}), 500);
+      }
+      return http.Response(jsonEncode(_envelope({})), 200);
+    });
+
+    controller.targetCustomerCtrl.text = 'Founder gặp khó khăn pháp lý';
+    controller.problemStatementCtrl.text = 'Không nắm vững pháp lý';
+    controller.selectedAssumptions.assignAll(['Giả định 1']);
+    controller.firstWeekOutcomeCtrl.text = 'Xác thực giải pháp';
+    controller.addFirstWeekAction('Hành động 1');
+
+    final ok = await controller.submitAndActivate();
+
+    expect(ok, isTrue);
+    expect(controller.errorMessage.value, isNotNull);
+    expect(controller.errorMessage.value, contains('createCommitment'));
+  });
+
+  test('submitAndActivate refuses to create anything when project already has an active cycle', () async {
+    final calls = <String>[];
+    final controller = buildController((request) async {
+      calls.add('${request.method} ${request.url.path}');
+      if (request.url.path.endsWith('/operating-loop')) {
+        return http.Response(
+          jsonEncode(_envelope({
+            'project': {},
+            'activeCycle': {
+              'id': 'cycle_existing',
+              'workspaceId': '1001',
+              'projectId': '42',
+              'currentWeek': 1,
+              'durationWeeks': 2,
+              'visionStatement': '',
+              'status': 'ACTIVE',
+              'timezone': 'UTC',
+              'createdAt': '2026-09-01T00:00:00Z',
+              'updatedAt': '2026-09-01T00:00:00Z',
+            },
+          })),
+          200,
+        );
+      }
+      return http.Response(jsonEncode(_envelope({'id': 'should-not-be-called'})), 200);
+    });
+
+    controller.targetCustomerCtrl.text = 'Founder';
+    controller.problemStatementCtrl.text = 'Problem';
+    controller.selectedAssumptions.assignAll(['Giả định 1']);
+    controller.firstWeekOutcomeCtrl.text = 'Outcome';
+    controller.addFirstWeekAction('Action 1');
+
+    final ok = await controller.submitAndActivate();
+
+    expect(ok, isFalse);
+    expect(controller.errorMessage.value, isNotNull);
+    expect(
+      calls.any((c) => c.endsWith('/operating-loop/objectives')),
+      isFalse,
+      reason: 'guard must short-circuit before creating any Objective',
+    );
+  });
 }

@@ -117,7 +117,7 @@ class ProjectAnalysisFlowView extends StatelessWidget {
                 ),
 
                 // Bottom Action Navigation Bar
-                _buildBottomBar(controller, isEn),
+                _buildBottomBar(context, controller, isEn),
               ],
             );
           }),
@@ -671,7 +671,7 @@ class ProjectAnalysisFlowView extends StatelessWidget {
     );
   }
 
-  Widget _buildBottomBar(ProjectAnalysisFlowController controller, bool isEn) {
+  Widget _buildBottomBar(BuildContext context, ProjectAnalysisFlowController controller, bool isEn) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
       decoration: const BoxDecoration(
@@ -711,9 +711,31 @@ class ProjectAnalysisFlowView extends StatelessWidget {
                   ? null
                   : () async {
                       final success = await controller.submitAndActivate();
-                      if (success) {
-                        Get.offAllNamed(AppRoutes.hub);
+                      if (!success) return;
+                      // Task 3 để lại 1 lỗ hổng: `errorMessage` mang cảnh báo
+                      // non-blocking (vd. createWeek/createCommitment/
+                      // createTask/lifecycleStage fail) dù `submitAndActivate`
+                      // vẫn trả `true` — nhưng điều hướng ngay bằng
+                      // `Get.offAllNamed` phá huỷ trang trước khi banner cảnh
+                      // báo (bind theo `errorMessage`) kịp render. Founder vẫn
+                      // không thấy cảnh báo, chỉ khác cơ chế so với
+                      // `debugPrint` cũ. Hiện cảnh báo qua SnackBar (đúng
+                      // pattern `ScaffoldMessenger` đã dùng ở
+                      // executive_board_stage_suggestion_dialog.dart) và đợi
+                      // đủ thời gian để founder đọc được trước khi rời trang.
+                      final warning = controller.errorMessage.value;
+                      if (warning != null) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(warning),
+                            duration: const Duration(seconds: 4),
+                          ),
+                        );
+                        await Future.delayed(const Duration(seconds: 4));
                       }
+                      if (!context.mounted) return;
+                      Get.offAllNamed(AppRoutes.hub);
                     },
               icon: controller.isSubmitting.value
                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
