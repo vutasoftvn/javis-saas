@@ -162,7 +162,7 @@ contracts-gen:            ## Sinh mã enum canonical cho 3 runtime từ shared/c
 contracts-check:          ## CI: fail nếu mã enum generated lệch nguồn
 	node scripts/gen-contracts.mjs --check
 	$(MAKE) startup-team-profiles-regression-check
-	node scripts/gen-executive-advisor-roles.mjs --check
+	$(MAKE) executive-advisor-roles-regression-check
 
 startup-team-profiles-gen: ## Sinh mã startup team catalog cho TS và Python từ shared/contracts/startup-team-profiles.json
 	node scripts/gen-startup-team-profiles.mjs
@@ -181,6 +181,12 @@ startup-team-profiles-regression-check: ## Regression: verify round-trip generat
 		git diff -- apps/cosa/agents/startup_team_profiles_generated.py; \
 		exit 1; \
 	fi
+
+executive-advisor-roles-regression-check: ## Regression: verify Executive Role generator → ruff format → --check determinism
+	node scripts/gen-executive-advisor-roles.mjs
+	$(PYTHON) -m ruff format --check apps/cosa/agents/executive_advisor_roles_generated.py
+	node scripts/gen-executive-advisor-roles.mjs --check
+	@echo "✓ Executive Role catalog is deterministic and ruff-compliant"
 
 mvp-contracts-gen:        ## Sinh mã route/capability MVP cho 3 runtime từ shared/contracts/mvp-surface.json
 	node scripts/gen-mvp-contracts.mjs

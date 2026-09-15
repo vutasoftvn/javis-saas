@@ -233,6 +233,7 @@ EXECUTIVE_ROLE_CATALOG: Final[dict[ExecutiveRoleKey, ExecutiveAdvisorRoleDef]] =
     ),
 }
 
+
 STARTUP_CORE_PRESETS: Final[dict[StartupCorePresetKey, StartupCorePresetDef]] = {
     "startup-discovery": StartupCorePresetDef(
         key="startup-discovery",

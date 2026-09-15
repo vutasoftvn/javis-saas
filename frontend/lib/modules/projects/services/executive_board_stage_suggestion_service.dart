@@ -1,28 +1,71 @@
-import 'dart:convert';
-import '../../../core/network/api_client.dart';
-import '../../../core/network/workspace_scoped_service.dart';
+import 'package:frontend/core/network/api_result.dart';
+import 'package:frontend/core/network/mvp_endpoints.g.dart';
+import 'package:frontend/core/network/mvp_request_client.dart';
 
-/// Task 11 — gợi ý kích hoạt Executive Board theo lifecycle stage của Project
-/// (Task 9: `GET .../executive-board/stage-suggestion`), nhưng activation
-/// thật vẫn đi qua endpoint workspace-scoped (Task 9/10) vì mỗi workspace chỉ
-/// có một CFO/CRO/... dùng chung cho mọi Project.
-class ExecutiveBoardStageSuggestionService extends WorkspaceService {
-  Future<Map<String, dynamic>> getSuggestion(String projectId) async {
-    final response = await ApiClient.get('/operations/projects/$projectId/executive-board/stage-suggestion');
-    if (response.statusCode == 200) {
-      return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+/// Kết quả gợi ý Executive Board theo lifecycle stage của Project (2026-09-14).
+/// CHỈ gợi ý — hai hành động Founder là 2 endpoint khác nhau:
+///   - bật/tắt office → Workspace (`activateRole` ở ExecutiveAdvisoryBoardService);
+///   - deploy Workspace Agent → Project (`ProjectAgentDeploymentService.deploy`).
+/// Không bao giờ tự kích hoạt office hay tự deploy agent ở đây.
+class ExecutiveBoardStageSuggestion {
+  final String stage;
+  final List<String> workspaceOfficeToEnable;
+  final List<String> projectAgentsToDeploy;
+  final List<String> stageEligibleRoles;
+
+  const ExecutiveBoardStageSuggestion({
+    required this.stage,
+    required this.workspaceOfficeToEnable,
+    required this.projectAgentsToDeploy,
+    required this.stageEligibleRoles,
+  });
+
+  factory ExecutiveBoardStageSuggestion.fromJson(Map<String, dynamic> json) {
+    final stage = json['stage'];
+    if (stage is! String || stage.isEmpty) {
+      throw const FormatException('Missing stage in executive board suggestion');
     }
-    throw StateError('Failed to load stage suggestion: ${response.statusCode} ${response.body}');
-  }
 
-  /// Kích hoạt role — Workspace-scoped (Task 9), ảnh hưởng mọi Project cùng workspace.
-  Future<void> activateRole(String workspaceId, String roleKey) async {
-    final response = await ApiClient.post(
-      '/operations/workspaces/$workspaceId/executive-roles/$roleKey/activate',
-      body: const {},
+    List<String> readList(String key) {
+      final raw = json[key];
+      if (raw is! List) {
+        throw FormatException('Missing $key in executive board suggestion');
+      }
+      if (raw.any((value) => value is! String || value.isEmpty)) {
+        throw FormatException('Invalid $key in executive board suggestion');
+      }
+      return raw.cast<String>();
+    }
+
+    return ExecutiveBoardStageSuggestion(
+      stage: stage,
+      workspaceOfficeToEnable: readList('workspaceOfficeToEnable'),
+      projectAgentsToDeploy: readList('projectAgentsToDeploy'),
+      stageEligibleRoles: readList('stageEligibleRoles'),
     );
-    if (response.statusCode != 200) {
-      throw StateError('Failed to activate $roleKey: ${response.statusCode} ${response.body}');
-    }
+  }
+}
+
+/// Gợi ý kích hoạt Executive Board theo lifecycle stage của Project.
+/// Dùng contract-generated endpoint (không gọi `ApiClient` thô).
+class ExecutiveBoardStageSuggestionService {
+  final MvpRequestClient _client;
+
+  ExecutiveBoardStageSuggestionService({MvpRequestClient? client})
+      : _client = client ?? MvpRequestClient();
+
+  Future<ApiResult<ExecutiveBoardStageSuggestion>> getSuggestion(
+    String projectId,
+  ) async {
+    return _client.request<ExecutiveBoardStageSuggestion>(
+      MvpEndpoint.operationsExecutiveBoardStageSuggestion,
+      pathParams: {'projectId': projectId},
+      decode: (raw) {
+        if (raw is Map<String, dynamic>) {
+          return ExecutiveBoardStageSuggestion.fromJson(raw);
+        }
+        throw const FormatException('Invalid response format for stage suggestion');
+      },
+    );
   }
 }

@@ -173,6 +173,12 @@ function genTs() {
   return lines.join("\n");
 }
 
+function pyTuple(values, indent = 0) {
+  const pad = " ".repeat(indent);
+  if (values.length === 1) return `(${JSON.stringify(values[0])},)`;
+  return `(\n${values.map((value) => `${pad}    ${JSON.stringify(value)},`).join("\n")}\n${pad})`;
+}
+
 function genPy() {
   const lines = [
     `# ${HEADER_LINES.join("\n# ")}`,
@@ -182,8 +188,8 @@ function genPy() {
     "from typing import Final, Literal",
     "",
     "StartupCorePresetKey = Literal[",
-    "    'startup-discovery',",
-    "    'startup-build-launch',",
+    '    "startup-discovery",',
+    '    "startup-build-launch",',
     "]",
     "",
     "ExecutiveRoleKey = Literal[",
@@ -191,17 +197,17 @@ function genPy() {
     "]",
     "",
     "ExecutiveRuntimeReadiness = Literal[",
-    "    'READY',",
-    "    'PENDING_OPERATIONS_PROFILE',",
-    "    'PENDING_SALES_PROFILE',",
-    "    'PENDING_PRODUCT_PROFILE',",
-    "    'PENDING_CUSTOMER_SUPPORT_PROFILE',",
-    "    'PENDING_PEOPLE_PROFILE',",
-    "    'PENDING_SECURITY_PROFILE',",
-    "    'PENDING_LEGAL_PROFILE',",
-    "    'PENDING_DATA_PROFILE',",
-    "    'PENDING_AI_GOVERNANCE_PROFILE',",
-    "    'PENDING_ENGINEERING_PROFILE',",
+    '    "READY",',
+    '    "PENDING_OPERATIONS_PROFILE",',
+    '    "PENDING_SALES_PROFILE",',
+    '    "PENDING_PRODUCT_PROFILE",',
+    '    "PENDING_CUSTOMER_SUPPORT_PROFILE",',
+    '    "PENDING_PEOPLE_PROFILE",',
+    '    "PENDING_SECURITY_PROFILE",',
+    '    "PENDING_LEGAL_PROFILE",',
+    '    "PENDING_DATA_PROFILE",',
+    '    "PENDING_AI_GOVERNANCE_PROFILE",',
+    '    "PENDING_ENGINEERING_PROFILE",',
     "]",
     "",
     "EXECUTIVE_ROLE_KEYS: Final[tuple[ExecutiveRoleKey, ...]] = (",
@@ -211,6 +217,7 @@ function genPy() {
     "STARTUP_CORE_PRESET_KEYS: Final[tuple[StartupCorePresetKey, ...]] = (",
     ...spec.presets.map((p) => `    ${JSON.stringify(p.key)},`),
     ")",
+    "",
     "",
     "@dataclass(frozen=True)",
     "class ExecutiveAdvisorRoleDef:",
@@ -224,6 +231,7 @@ function genPy() {
     "    runtime_readiness: ExecutiveRuntimeReadiness",
     "    source_provenance: str",
     "",
+    "",
     "@dataclass(frozen=True)",
     "class StartupCorePresetDef:",
     "    key: StartupCorePresetKey",
@@ -231,35 +239,39 @@ function genPy() {
     "    description: str",
     "    default_role_keys: tuple[ExecutiveRoleKey, ...]",
     "",
+    "",
     "EXECUTIVE_ROLE_CATALOG: Final[dict[ExecutiveRoleKey, ExecutiveAdvisorRoleDef]] = {",
-    ...spec.roles.map(
-      (r) =>
-        `    ${JSON.stringify(r.key)}: ExecutiveAdvisorRoleDef(`
-        + `key=${JSON.stringify(r.key)}, `
-        + `label=${JSON.stringify(r.label)}, `
-        + `advisory_remit=${JSON.stringify(r.advisoryRemit)}, `
-        + `required_profile_key=${JSON.stringify(r.requiredProfileKey)}, `
-        + `required_agent_spec=${JSON.stringify(r.requiredAgentSpec)}, `
-        + `required_skill_pins=(${r.requiredSkillPins.map((s) => JSON.stringify(s)).join(", ")},), `
-        + `advisory_only=${r.advisoryOnly ? "True" : "False"}, `
-        + `runtime_readiness=${JSON.stringify(r.runtimeReadiness)}, `
-        + `source_provenance=${JSON.stringify(r.sourceProvenance)}),`
-    ),
+    ...spec.roles.flatMap((r) => [
+      `    ${JSON.stringify(r.key)}: ExecutiveAdvisorRoleDef(`,
+      `        key=${JSON.stringify(r.key)},`,
+      `        label=${JSON.stringify(r.label)},`,
+      `        advisory_remit=${JSON.stringify(r.advisoryRemit)},`,
+      `        required_profile_key=${JSON.stringify(r.requiredProfileKey)},`,
+      `        required_agent_spec=${JSON.stringify(r.requiredAgentSpec)},`,
+      `        required_skill_pins=${pyTuple(r.requiredSkillPins, 8)},`,
+      `        advisory_only=${r.advisoryOnly ? "True" : "False"},`,
+      `        runtime_readiness=${JSON.stringify(r.runtimeReadiness)},`,
+      `        source_provenance=${JSON.stringify(r.sourceProvenance)},`,
+      "    ),",
+    ]),
     "}",
     "",
+    "",
     "STARTUP_CORE_PRESETS: Final[dict[StartupCorePresetKey, StartupCorePresetDef]] = {",
-    ...spec.presets.map(
-      (p) =>
-        `    ${JSON.stringify(p.key)}: StartupCorePresetDef(`
-        + `key=${JSON.stringify(p.key)}, `
-        + `label=${JSON.stringify(p.label)}, `
-        + `description=${JSON.stringify(p.description)}, `
-        + `default_role_keys=(${p.defaultRoleKeys.map((k) => JSON.stringify(k)).join(", ")},)),`
-    ),
+    ...spec.presets.flatMap((p) => [
+      `    ${JSON.stringify(p.key)}: StartupCorePresetDef(`,
+      `        key=${JSON.stringify(p.key)},`,
+      `        label=${JSON.stringify(p.label)},`,
+      `        description=${JSON.stringify(p.description)},`,
+      `        default_role_keys=${pyTuple(p.defaultRoleKeys, 8)},`,
+      "    ),",
+    ]),
     "}",
+    "",
     "",
     "def is_executive_role_key(val: object) -> bool:",
     "    return isinstance(val, str) and val in EXECUTIVE_ROLE_KEYS",
+    "",
     "",
     "def is_startup_core_preset_key(val: object) -> bool:",
     "    return isinstance(val, str) and val in STARTUP_CORE_PRESET_KEYS",

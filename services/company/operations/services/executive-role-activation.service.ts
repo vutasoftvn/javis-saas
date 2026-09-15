@@ -10,7 +10,7 @@ import { resolveProjectAgentAuthorityV2 } from "./founder-agent-compatibility.se
 import { getWorkspaceExecutiveRoleStates } from "./workspace-executive-role-activation.service";
 import { roleKeysForStage, PERSISTENT_EXECUTIVE_ROLES } from "./executive-board-stage-presets";
 
-const { projects, workspaceExecutiveRoleActivations } = schema;
+const { projects } = schema;
 
 /**
  * Guard quyền Founder cho Hội đồng Cố vấn Điều hành.
@@ -98,7 +98,11 @@ export async function requireExecutiveBoardFounderAuthorityForWorkspace(
  *   3. stageEligibility — stage hiện tại của Project có "gợi ý" role này
  *      không (role persistent luôn ALLOWED).
  */
-export type ProjectExecutiveOfficeState = "ACTIVE" | "DISABLED" | "UNAVAILABLE";
+export type ProjectExecutiveOfficeState =
+  | "ACTIVE"
+  | "DISABLED"
+  | "AVAILABLE_NOT_ACTIVATED"
+  | "UNAVAILABLE";
 export type ProjectExecutiveDeploymentState = "ACTIVE" | "INACTIVE" | "PAUSED" | "RETIRED";
 export type ProjectExecutiveStageEligibility = "ALLOWED" | "NOT_SUGGESTED";
 export type ProjectExecutiveEffectiveState =
@@ -109,12 +113,17 @@ export type ProjectExecutiveEffectiveState =
 
 export interface ProjectExecutiveRoleView {
   roleKey: ExecutiveRoleKey;
+  /** Metadata từ catalog built-in — để client hiển thị mà không cần tự nhân bản catalog. */
+  label: string;
+  advisoryRemit: string;
+  requiredProfileKey: string;
   officeState: ProjectExecutiveOfficeState;
   projectDeploymentState: ProjectExecutiveDeploymentState;
   stageEligibility: ProjectExecutiveStageEligibility;
   effectiveState: ProjectExecutiveEffectiveState;
   workspaceOfficeVersion: number;
   projectAgentDeploymentId?: string;
+  disabledReason?: string;
 }
 
 export interface ProjectExecutiveBoardState {
@@ -145,11 +154,14 @@ export async function getProjectExecutiveRoleStates(
     throw APIError.notFound("Project not found");
   }
 
-  const activations = await db
-    .select()
-    .from(workspaceExecutiveRoleActivations)
-    .where(eq(workspaceExecutiveRoleActivations.workspaceId, wsId));
-  const activationByRole = new Map(activations.map((a) => [a.roleKey, a]));
+  // Giữ cùng semantics với Workspace Board: chỉ `AVAILABLE_NOT_ACTIVATED`
+  // là tín hiệu server xác nhận Founder có thể bật Office. Không suy luận từ
+  // việc thiếu activation row vì `UNAVAILABLE` còn có thể là profile/catalog
+  // chưa sẵn sàng và endpoint activation sẽ fail closed.
+  const workspaceBoard = await getWorkspaceExecutiveRoleStates(ctx);
+  const workspaceRoleByKey = new Map(
+    workspaceBoard.roles.map((role) => [role.roleKey, role])
+  );
 
   const stageEligibleSet = new Set(roleKeysForStage(project.lifecycleStage));
   const persistentSet = new Set(PERSISTENT_EXECUTIVE_ROLES);
@@ -161,14 +173,9 @@ export async function getProjectExecutiveRoleStates(
   // workspace-executive-role-activation.service.ts::resolveAvailableProfileKeys).
   const roles: ProjectExecutiveRoleView[] = [];
   for (const roleDef of Object.values(EXECUTIVE_ROLE_CATALOG)) {
-    const activation = activationByRole.get(roleDef.key);
-
-    let officeState: ProjectExecutiveOfficeState;
-    if (roleDef.runtimeReadiness !== "READY" || !activation) {
-      officeState = "UNAVAILABLE";
-    } else {
-      officeState = activation.state === "ACTIVE" ? "ACTIVE" : "DISABLED";
-    }
+    const workspaceRole = workspaceRoleByKey.get(roleDef.key);
+    const officeState: ProjectExecutiveOfficeState =
+      workspaceRole?.displayState ?? "UNAVAILABLE";
 
     const authority = await resolveProjectAgentAuthorityV2(
       { workspaceId: ctx.workspaceId, projectId },
@@ -194,12 +201,16 @@ export async function getProjectExecutiveRoleStates(
 
     roles.push({
       roleKey: roleDef.key,
+      label: roleDef.label,
+      advisoryRemit: roleDef.advisoryRemit,
+      requiredProfileKey: roleDef.requiredProfileKey,
       officeState,
       projectDeploymentState,
       stageEligibility,
       effectiveState,
-      workspaceOfficeVersion: activation?.version ?? 1,
+      workspaceOfficeVersion: workspaceRole?.version ?? 1,
       projectAgentDeploymentId: authority.v2Deployment.deploymentId,
+      disabledReason: workspaceRole?.disabledReason,
     });
   }
 

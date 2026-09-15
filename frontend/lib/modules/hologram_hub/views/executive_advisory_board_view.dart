@@ -320,13 +320,14 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
   }
 
   Widget _buildRoleCard(BuildContext context, ExecutiveAdvisorRole role) {
+    final isEn = _isEnglish();
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0xFF1E293B),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: role.activationState == ExecutiveActivationState.active
+          color: role.effectiveState == ExecutiveEffectiveState.effective
               ? Colors.indigoAccent.withValues(alpha: 0.4)
               : Colors.white.withValues(alpha: 0.06),
         ),
@@ -339,7 +340,7 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  role.title,
+                  role.label,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 15,
@@ -348,12 +349,12 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              _buildRoleBadge(role.activationState),
+              _buildRoleBadge(role.effectiveState),
             ],
           ),
           const SizedBox(height: 4),
           Text(
-            role.domain,
+            role.requiredProfileKey,
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.5),
               fontSize: 12,
@@ -362,7 +363,7 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
           const SizedBox(height: 8),
           Expanded(
             child: Text(
-              role.description,
+              role.advisoryRemit,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.7),
                 fontSize: 12,
@@ -371,6 +372,16 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
+          if (role.officeState == ExecutiveOfficeState.active &&
+              role.projectDeploymentState != ExecutiveProjectDeploymentState.active) ...[
+            const SizedBox(height: 8),
+            Text(
+              isEn
+                  ? 'Role is enabled at the Workspace — deploy its Agent into this Project'
+                  : 'Role đã bật ở Workspace — cần deploy Agent vào Project',
+              style: const TextStyle(color: Colors.amberAccent, fontSize: 11),
+            ),
+          ],
           if (role.disabledReason != null) ...[
             Text(
               role.disabledReason!,
@@ -386,26 +397,26 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
     );
   }
 
-  Widget _buildRoleBadge(ExecutiveActivationState state) {
+  Widget _buildRoleBadge(ExecutiveEffectiveState state) {
     final isEn = _isEnglish();
     String text;
     Color color;
     switch (state) {
-      case ExecutiveActivationState.active:
-        text = isEn ? 'Active' : 'Đang hoạt động';
+      case ExecutiveEffectiveState.effective:
+        text = isEn ? 'Effective' : 'Hiệu lực';
         color = Colors.green;
         break;
-      case ExecutiveActivationState.availableNotActivated:
-        text = isEn ? 'Inactive' : 'Chưa kích hoạt';
+      case ExecutiveEffectiveState.deploymentInactive:
+        text = isEn ? 'Deploy Agent' : 'Cần deploy Agent';
         color = Colors.amber;
         break;
-      case ExecutiveActivationState.disabled:
-        text = isEn ? 'Disabled' : 'Đã dừng';
-        color = Colors.grey;
+      case ExecutiveEffectiveState.stageForbidden:
+        text = isEn ? 'Wrong stage' : 'Không đúng giai đoạn';
+        color = Colors.orange;
         break;
-      case ExecutiveActivationState.unavailable:
-        text = isEn ? 'Unavailable' : 'Chưa sẵn sàng';
-        color = Colors.redAccent;
+      case ExecutiveEffectiveState.officeDisabled:
+        text = isEn ? 'Office off' : 'Office chưa bật';
+        color = Colors.grey;
         break;
     }
 
@@ -425,7 +436,11 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
 
   Widget _buildActionRow(ExecutiveAdvisorRole role) {
     final isEn = _isEnglish();
-    if (role.activationState == ExecutiveActivationState.availableNotActivated) {
+    // Chỉ server-confirmed AVAILABLE_NOT_ACTIVATED hoặc DISABLED mới cho phép
+    // bật Office. UNAVAILABLE có thể là catalog/profile chưa sẵn sàng nên phải
+    // giữ fail closed, không suy diễn từ việc thiếu activation row.
+    if (role.officeState == ExecutiveOfficeState.availableNotActivated ||
+        role.officeState == ExecutiveOfficeState.disabled) {
       return SizedBox(
         width: double.infinity,
         child: ElevatedButton(
@@ -433,17 +448,20 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
             workspaceId: workspaceId,
             projectId: projectId,
             roleKey: role.roleKey,
-            expectedVersion: role.assignmentVersion ?? 1,
+            expectedVersion: role.workspaceOfficeVersion,
           ),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.indigoAccent,
             padding: const EdgeInsets.symmetric(vertical: 8),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
           ),
-          child: Text(isEn ? 'Activate' : 'Kích hoạt', style: const TextStyle(fontSize: 12)),
+          child: Text(
+            isEn ? 'Enable Office' : 'Bật Office',
+            style: const TextStyle(fontSize: 12),
+          ),
         ),
       );
-    } else if (role.activationState == ExecutiveActivationState.active) {
+    } else if (role.officeState == ExecutiveOfficeState.active) {
       return SizedBox(
         width: double.infinity,
         child: OutlinedButton(
@@ -451,7 +469,7 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
             workspaceId: workspaceId,
             projectId: projectId,
             roleKey: role.roleKey,
-            expectedVersion: role.assignmentVersion ?? 1,
+            expectedVersion: role.workspaceOfficeVersion,
           ),
           style: OutlinedButton.styleFrom(
             foregroundColor: Colors.white70,
@@ -459,12 +477,14 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 8),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
           ),
-          child: Text(isEn ? 'Pause' : 'Tạm dừng', style: const TextStyle(fontSize: 12)),
+          child: Text(
+            isEn ? 'Disable Office' : 'Tắt Office',
+            style: const TextStyle(fontSize: 12),
+          ),
         ),
       );
     }
 
-    // Khi UNAVAILABLE hoặc DISABLED: không hiển thị nút Kích hoạt!
     return const SizedBox(height: 32);
   }
 

@@ -1,85 +1,57 @@
 import 'dart:convert';
-
 import 'package:flutter_test/flutter_test.dart';
-import 'package:frontend/core/network/api_client.dart';
-import 'package:frontend/modules/projects/services/executive_board_stage_suggestion_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:frontend/core/network/api_result.dart';
+import 'package:frontend/core/network/mvp_request_client.dart';
+import 'package:frontend/modules/projects/services/executive_board_stage_suggestion_service.dart';
+import 'package:frontend/modules/projects/widgets/executive_board_stage_suggestion_dialog.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:frontend/core/services/secure_storage_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-
-  late http.Client realClient;
-
-  setUp(() {
-    realClient = ApiClient.client;
-    SharedPreferences.setMockInitialValues({'workspace_id': 'workspace-1'});
+  setUp(() async { SharedPreferences.setMockInitialValues({'workspace_id': 'ws'}); await SecureStorageService.write('auth_token', 'token'); });
+  test('reads stage suggestion through generated endpoint without any mutation', () async {
+    final httpClient = MockClient((request) async {
+      expect(request.method, 'GET');
+      expect(request.url.path, '/operations/projects/proj-1/executive-board/stage-suggestion');
+      return http.Response(jsonEncode({'data': {'stage': 'P1', 'workspaceOfficeToEnable': ['cfo'], 'projectAgentsToDeploy': [], 'stageEligibleRoles': ['cfo']}, 'meta': {'dataState': 'populated', 'observedAt': '2026-09-15T00:00:00Z', 'sources': []}}), 200, headers: {'content-type': 'application/json'});
+    });
+    final result = await ExecutiveBoardStageSuggestionService(client: MvpRequestClient(httpClient: httpClient)).getSuggestion('proj-1');
+    expect(result, isA<ApiSuccess<ExecutiveBoardStageSuggestion>>());
+    expect((result as ApiSuccess).data.workspaceOfficeToEnable, ['cfo']);
   });
-
-  tearDown(() {
-    ApiClient.client = realClient;
+  test('rejects a malformed suggestion instead of converting it to empty guidance', () async {
+    final httpClient = MockClient((request) async => http.Response(jsonEncode({
+      'data': {},
+      'meta': {'dataState': 'populated', 'observedAt': '2026-09-15T00:00:00Z', 'sources': []},
+    }), 200, headers: {'content-type': 'application/json'}));
+    final result = await ExecutiveBoardStageSuggestionService(
+      client: MvpRequestClient(httpClient: httpClient),
+    ).getSuggestion('proj-1');
+    expect(result.isFailure, isTrue);
+    expect(result.failureOrNull?.code, ApiFailureCode.malformedResponse);
   });
-
-  group('getSuggestion', () {
-    test('calls Task 9 project-scoped stage-suggestion endpoint and decodes body', () async {
-      ApiClient.client = MockClient((request) async {
-        expect(request.method, 'GET');
-        expect(request.url.path, '/operations/projects/proj-1/executive-board/stage-suggestion');
-        return http.Response(
-          jsonEncode({
-            'stage': 'P2_BUILD',
-            'toActivate': ['cfo', 'coo'],
-            'toSuggestDeactivate': ['ciso'],
-          }),
-          200,
-          headers: {'content-type': 'application/json'},
-        );
-      });
-
-      final result = await ExecutiveBoardStageSuggestionService().getSuggestion('proj-1');
-
-      expect(result['stage'], 'P2_BUILD');
-      expect(result['toActivate'], ['cfo', 'coo']);
-      expect(result['toSuggestDeactivate'], ['ciso']);
-    });
-
-    test('throws StateError when backend reports non-200', () async {
-      ApiClient.client = MockClient((request) async {
-        return http.Response('boom', 500);
-      });
-
-      expect(
-        () => ExecutiveBoardStageSuggestionService().getSuggestion('proj-1'),
-        throwsA(isA<StateError>()),
-      );
-    });
-  });
-
-  group('activateRole', () {
-    test('calls workspace-scoped activation endpoint (Task 9/10), not project-scoped', () async {
-      ApiClient.client = MockClient((request) async {
-        expect(request.method, 'POST');
-        expect(
-          request.url.path,
-          '/operations/workspaces/ws-1/executive-roles/cfo/activate',
-        );
-        return http.Response('{}', 200, headers: {'content-type': 'application/json'});
-      });
-
-      await ExecutiveBoardStageSuggestionService().activateRole('ws-1', 'cfo');
-      // Không throw nghĩa là request đã đi đúng endpoint workspace-scoped ở trên.
-    });
-
-    test('throws StateError when activation fails', () async {
-      ApiClient.client = MockClient((request) async {
-        return http.Response('nope', 412);
-      });
-
-      expect(
-        () => ExecutiveBoardStageSuggestionService().activateRole('ws-1', 'cfo'),
-        throwsA(isA<StateError>()),
-      );
-    });
+  testWidgets('reports suggestion failure without blocking the completed lifecycle transition', (tester) async {
+    final httpClient = MockClient((request) async => http.Response('unavailable', 503));
+    final service = ExecutiveBoardStageSuggestionService(
+      client: MvpRequestClient(httpClient: httpClient),
+    );
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: Builder(
+      builder: (context) => ElevatedButton(
+        onPressed: () => showExecutiveBoardStageSuggestionDialog(
+          context,
+          projectId: 'proj-1',
+          workspaceId: 'ws',
+          service: service,
+        ),
+        child: const Text('done'),
+      ),
+    ))));
+    await tester.tap(find.text('done'));
+    await tester.pumpAndSettle();
+    expect(find.text('Không thể tải gợi ý Executive Board'), findsOneWidget);
   });
 }

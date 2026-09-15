@@ -102,7 +102,7 @@ describe("Executive Role Activation Handler", () => {
       projectId,
     });
     const cfoBefore = listBefore.roles.find((r: ProjectExecutiveRoleView) => r.roleKey === "cfo");
-    expect(cfoBefore?.officeState).toBe("UNAVAILABLE");
+    expect(cfoBefore?.officeState).toBe("AVAILABLE_NOT_ACTIVATED");
     expect(cfoBefore?.effectiveState).toBe("OFFICE_DISABLED");
 
     // 3. Founder activates CFO ở cấp Workspace
