@@ -54,6 +54,8 @@ class ProjectOperatingLoopService {
     String? metricId,
     double? targetValue,
     String? unit,
+    double? baselineValue,
+    double? currentValue,
   }) async {
     return _client.request<Map<String, dynamic>>(
       MvpEndpoint.projectKeyResultWrite,
@@ -64,6 +66,8 @@ class ProjectOperatingLoopService {
         'metricId': ?metricId,
         'targetValue': ?targetValue,
         'unit': ?unit,
+        'baselineValue': ?baselineValue,
+        'currentValue': ?currentValue,
       },
       decode: (raw) => raw is Map<String, dynamic> ? raw : {},
     );
@@ -96,6 +100,7 @@ class ProjectOperatingLoopService {
     String projectId, {
     required int durationWeeks,
     required String startDate,
+    String? sourceObjectiveId,
   }) async {
     return _client.request<Map<String, dynamic>>(
       MvpEndpoint.projectCycleWrite,
@@ -103,6 +108,7 @@ class ProjectOperatingLoopService {
       body: {
         'durationWeeks': durationWeeks,
         'startDate': startDate,
+        'sourceObjectiveId': ?sourceObjectiveId,
       },
       decode: (raw) => raw is Map<String, dynamic> ? raw : {},
     );

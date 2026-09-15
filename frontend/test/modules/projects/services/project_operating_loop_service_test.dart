@@ -295,4 +295,64 @@ void main() {
     expect(result, isA<ApiFailure<Map<String, dynamic>>>());
     expect((result as ApiFailure<Map<String, dynamic>>).failure.code, ApiFailureCode.conflict);
   });
+
+  test('createCycle sends sourceObjectiveId when provided', () async {
+    Map<String, dynamic>? capturedBody;
+    final mockHttp = MockClient((request) async {
+      capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+      return http.Response(
+        jsonEncode({'data': {'id': 'cycle_1'}, 'meta': _testMeta()}),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+    final service = ProjectOperatingLoopService(client: MvpRequestClient(httpClient: mockHttp));
+
+    final result = await service.createCycle(
+      '42',
+      durationWeeks: 2,
+      startDate: '2026-09-15',
+      sourceObjectiveId: 'obj_1',
+    );
+
+    expect(capturedBody?['sourceObjectiveId'], 'obj_1');
+    result.when(
+      success: (data, _) => expect(data['id'], 'cycle_1'),
+      failure: (f) => fail('expected success, got failure: ${f.message}'),
+    );
+  });
+
+  test('createKeyResult sends baselineValue and currentValue when provided', () async {
+    Map<String, dynamic>? capturedBody;
+    final mockHttp = MockClient((request) async {
+      capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+      return http.Response(
+        jsonEncode({'data': {'id': 'kr_1'}, 'meta': _testMeta()}),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+    final service = ProjectOperatingLoopService(client: MvpRequestClient(httpClient: mockHttp));
+
+    await service.createKeyResult(
+      '42',
+      objectiveId: 'obj_1',
+      title: 'Giả định #1',
+      targetValue: 1,
+      unit: 'validated',
+      baselineValue: 0,
+      currentValue: 0,
+    );
+
+    expect(capturedBody?['baselineValue'], 0);
+    expect(capturedBody?['currentValue'], 0);
+  });
+}
+
+Map<String, dynamic> _testMeta() {
+  return {
+    'dataState': 'populated',
+    'observedAt': '2026-09-10T12:00:00Z',
+    'sources': [{'kind': 'company_db', 'ref': 'operating'}],
+  };
 }
