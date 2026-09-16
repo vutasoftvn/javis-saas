@@ -10,6 +10,7 @@ import {
   activateWorkspaceExecutiveRole,
   disableWorkspaceExecutiveRole,
 } from "../services/workspace-executive-role-activation.service";
+import { bootstrapP0CoreForProject, P0CoreBootstrapResult } from "../services/p0-core-bootstrap.service";
 import {
   StartupCorePresetKey,
 } from "../../shared/contracts/executive-advisor-roles.generated";
@@ -180,5 +181,28 @@ export const getProjectExecutiveStageSuggestionApi = api(
   async (params: ListProjectExecutiveRolesParams): Promise<StageSuggestion> => {
     const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
     return await getStageSuggestion(ctx, params.projectId);
+  }
+);
+
+interface BootstrapProjectP0CoreParams {
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
+  projectId: string;
+}
+
+/**
+ * Repair/retry tường minh cho Project P0 có sẵn. Đây không phải action khi
+ * chỉ mở Board: chỉ human Founder mới gọi được, và service hội tụ idempotent
+ * bốn P0 Core roles thành trạng thái EFFECTIVE trên đúng Project này.
+ */
+export const bootstrapProjectP0CoreApi = api(
+  {
+    expose: true,
+    method: "POST",
+    path: "/operations/projects/:projectId/executive-board/bootstrap-p0-core",
+  },
+  async (params: BootstrapProjectP0CoreParams): Promise<P0CoreBootstrapResult> => {
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    return await bootstrapP0CoreForProject(ctx, params.projectId);
   }
 );

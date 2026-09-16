@@ -16,6 +16,7 @@ import {
   activateWorkspaceExecutiveRoleApi,
   disableWorkspaceExecutiveRoleApi,
   getProjectExecutiveStageSuggestionApi,
+  bootstrapProjectP0CoreApi,
 } from "../handlers/executive-role-activation.handler";
 import { deployAgentToProjectApi } from "../handlers/founder-asset-deployment.handler";
 import { ProjectExecutiveRoleView } from "../services/executive-role-activation.service";
@@ -180,6 +181,33 @@ describe("Executive Role Activation Handler", () => {
       "cpo",
     ]);
     expect(suggestion.projectAgentsToDeploy).toEqual([]);
+  });
+
+  it("lets a Founder explicitly bootstrap P0 Core for an existing P0 Project", async () => {
+    const bootstrapped = await bootstrapProjectP0CoreApi({
+      authorization: founderToken,
+      workspaceId,
+      projectId,
+    });
+    expect(bootstrapped.roleKeys).toEqual(["chief_of_staff", "cfo", "cmo", "cpo"]);
+
+    const board = await listProjectExecutiveRolesApi({
+      authorization: founderToken,
+      workspaceId,
+      projectId,
+    });
+    for (const roleKey of bootstrapped.roleKeys) {
+      expect(board.roles.find((role) => role.roleKey === roleKey)).toMatchObject({
+        officeState: "ACTIVE",
+        projectDeploymentState: "ACTIVE",
+        effectiveState: "EFFECTIVE",
+      });
+    }
+
+    // Retry cùng lệnh không tạo thêm Workforce/Agent/deployment.
+    await expect(
+      bootstrapProjectP0CoreApi({ authorization: founderToken, workspaceId, projectId })
+    ).resolves.toMatchObject({ projectId });
   });
 
   it("deploys a Workspace Agent to a Project through the public endpoint", async () => {

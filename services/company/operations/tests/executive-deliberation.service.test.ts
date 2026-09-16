@@ -297,7 +297,12 @@ describe("Executive Deliberation Service", () => {
 
   it("frame deliberation for Project B fails EXECUTIVE_ROLE_PROJECT_DEPLOYMENT_INACTIVE when agent is only deployed to Project A", async () => {
     // finance Agent chỉ deploy vào Project A (projectId); Project B chưa có deployment.
-    const projectB = await createProjectService(founderCtx, { title: "Deliberation Project B" });
+    const projectB = await createProjectService(founderCtx, {
+      title: "Deliberation Project B",
+      creationMode: "ONBOARD_EXISTING",
+      initialLifecycleStage: "P0_DISCOVERY",
+      initializationRationale: "Test Project B deliberately has no P0 Core bootstrap",
+    });
 
     const draft = await createDraftDeliberation(founderCtx, projectB.id, {
       title: "Project B Runway Review",

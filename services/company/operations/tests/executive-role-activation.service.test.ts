@@ -79,6 +79,28 @@ describe("Executive Role Activation Service (Project-scoped read model)", () => 
     expect(cfo?.workspaceOfficeVersion).toBe(1);
   });
 
+  it("automatically makes the four P0 Core roles effective for a new Founder project", async () => {
+    const project = await createProjectService(founderCtx, {
+      title: "New P0 Core project",
+      creationMode: "NEW",
+    });
+
+    const board = await getProjectExecutiveRoleStates(founderCtx, project.id);
+    for (const roleKey of ["chief_of_staff", "cfo", "cmo", "cpo"]) {
+      const role = roleOf(board.roles, roleKey);
+      expect(role).toMatchObject({
+        officeState: "ACTIVE",
+        projectDeploymentState: "ACTIVE",
+        effectiveState: "EFFECTIVE",
+      });
+      expect(role?.workspaceAgentId).toBeDefined();
+      expect(role?.projectAgentDeploymentId).toBeDefined();
+    }
+
+    // Không mở rộng ngầm quyền lực sang các Office ngoài P0 Core.
+    expect(roleOf(board.roles, "coo")?.officeState).toBe("UNAVAILABLE");
+  });
+
   it("does not disclose a foreign Project", async () => {
     await expect(
       getProjectExecutiveRoleStates(founderCtx, foreignProjectId)
@@ -109,12 +131,17 @@ describe("Executive Role Activation Service (Project-scoped read model)", () => 
     expect(cfo?.projectAgentDeploymentId).toBeDefined();
   });
 
-  it("deploying only to Project A keeps Project B at DEPLOYMENT_INACTIVE (no cross-Project leak)", async () => {
+  it("deploying only to Project A keeps an onboarded P0 Project B at DEPLOYMENT_INACTIVE (no cross-Project leak)", async () => {
     // Workspace office ACTIVE + Agent chỉ deploy vào Project A (projectId).
     await deployWorkspaceAgentForProfile(founderCtx, projectId, "finance");
     await activateWorkspaceExecutiveRole(founderCtx, "cfo", {});
 
-    const projectB = await createProjectService(founderCtx, { title: "Project B" });
+    const projectB = await createProjectService(founderCtx, {
+      title: "Project B",
+      creationMode: "ONBOARD_EXISTING",
+      initialLifecycleStage: "P0_DISCOVERY",
+      initializationRationale: "Test Project B deliberately has no P0 Core bootstrap",
+    });
 
     const statesA = await getProjectExecutiveRoleStates(founderCtx, projectId);
     const cfoA = roleOf(statesA.roles, "cfo");

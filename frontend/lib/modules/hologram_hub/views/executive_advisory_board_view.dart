@@ -5,7 +5,7 @@ import '../../../core/localization/supported_locale.dart';
 import '../controllers/executive_advisory_board_controller.dart';
 import '../models/executive_advisory_board.dart';
 
-class ExecutiveAdvisoryBoardView extends StatelessWidget {
+class ExecutiveAdvisoryBoardView extends StatefulWidget {
   final String projectId;
   final String workspaceId;
   final ExecutiveAdvisoryBoardController controller;
@@ -15,10 +15,28 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
     required this.projectId,
     required this.workspaceId,
     ExecutiveAdvisoryBoardController? controller,
-  }) : controller = controller ??
-            (Get.isRegistered<ExecutiveAdvisoryBoardController>()
-                ? Get.find<ExecutiveAdvisoryBoardController>()
-                : Get.put(ExecutiveAdvisoryBoardController()));
+  }) : controller =
+           controller ??
+           (Get.isRegistered<ExecutiveAdvisoryBoardController>()
+               ? Get.find<ExecutiveAdvisoryBoardController>()
+               : Get.put(ExecutiveAdvisoryBoardController()));
+
+  @override
+  State<ExecutiveAdvisoryBoardView> createState() =>
+      _ExecutiveAdvisoryBoardViewState();
+}
+
+class _ExecutiveAdvisoryBoardViewState
+    extends State<ExecutiveAdvisoryBoardView> {
+  String get projectId => widget.projectId;
+  String get workspaceId => widget.workspaceId;
+  ExecutiveAdvisoryBoardController get controller => widget.controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller.loadBoard(projectId);
+  }
 
   bool _isEnglish() {
     if (Get.isRegistered<LocaleController>()) {
@@ -95,14 +113,38 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
           spacing: 12,
           runSpacing: 8,
           children: [
+            if (controller.roles.any((role) => role.p0CoreBootstrapAvailable))
+              OutlinedButton.icon(
+                onPressed: controller.isMutating.value
+                    ? null
+                    : () => controller.bootstrapP0Core(projectId: projectId),
+                icon: const Icon(Icons.rocket_launch_outlined, size: 16),
+                label: Text(isEn ? 'Initialize P0 Core' : 'Khởi tạo P0 Core'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.tealAccent,
+                  side: const BorderSide(color: Colors.tealAccent),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
             ElevatedButton.icon(
               onPressed: () => _showCreateDeliberationDialog(context),
               icon: const Icon(Icons.add, size: 16, color: Colors.white),
               label: Text(isEn ? 'New Deliberation' : 'Tạo Phiên Nghị sự'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.indigoAccent,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
             ),
           ],
@@ -216,7 +258,9 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
                     deliberationId: delib.id,
                     decisionType: 'APPROVE',
                   ),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                  ),
                   child: Text(isEn ? 'Approve' : 'Phê duyệt (Approve)'),
                 ),
               ],
@@ -229,9 +273,11 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
 
   Widget _buildAnalysisRow(DeliberationAnalysis analysis) {
     final isEn = _isEnglish();
-    final conclusion = analysis.descriptor['conclusion']?.toString() ??
+    final conclusion =
+        analysis.descriptor['conclusion']?.toString() ??
         (isEn ? 'Analysis completed' : 'Đã hoàn tất phân tích');
-    final confidence = analysis.descriptor['confidence']?.toString() ?? 'UNKNOWN';
+    final confidence =
+        analysis.descriptor['confidence']?.toString() ?? 'UNKNOWN';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -271,7 +317,10 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   'Độ tin cậy: $confidence',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.5),
+                    fontSize: 11,
+                  ),
                 ),
               ],
             ),
@@ -283,6 +332,18 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
 
   Widget _buildRolesSection(BuildContext context) {
     final isEn = _isEnglish();
+    final recommendedRoles = controller.roles
+        .where(
+          (role) => role.stageEligibility == ExecutiveStageEligibility.allowed,
+        )
+        .toList(growable: false);
+    final otherRoles = controller.roles
+        .where(
+          (role) =>
+              role.stageEligibility == ExecutiveStageEligibility.notSuggested,
+        )
+        .toList(growable: false);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -295,27 +356,72 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final crossAxisCount = constraints.maxWidth > 900 ? 3 : (constraints.maxWidth > 600 ? 2 : 1);
-            return GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: crossAxisCount,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 1.4,
+        if (controller.roles.isEmpty)
+          Text(
+            isEn
+                ? 'There are no advisor roles to display.'
+                : 'Chưa có role cố vấn nào để hiển thị.',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.6),
+              fontSize: 14,
+            ),
+          )
+        else ...[
+          if (recommendedRoles.isNotEmpty) ...[
+            Text(
+              isEn
+                  ? 'Recommended for the current stage'
+                  : 'Đề xuất cho giai đoạn hiện tại',
+              style: const TextStyle(
+                color: Colors.indigoAccent,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
               ),
-              itemCount: controller.roles.length,
-              itemBuilder: (context, index) {
-                final role = controller.roles[index];
-                return _buildRoleCard(context, role);
-              },
-            );
-          },
-        ),
+            ),
+            const SizedBox(height: 12),
+            _buildRoleGrid(context, recommendedRoles),
+          ],
+          if (otherRoles.isNotEmpty) ...[
+            if (recommendedRoles.isNotEmpty) const SizedBox(height: 24),
+            Text(
+              isEn ? 'Other roles' : 'Các role khác',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.7),
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _buildRoleGrid(context, otherRoles),
+          ],
+        ],
       ],
+    );
+  }
+
+  Widget _buildRoleGrid(
+    BuildContext context,
+    List<ExecutiveAdvisorRole> roles,
+  ) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = constraints.maxWidth > 900
+            ? 3
+            : (constraints.maxWidth > 600 ? 2 : 1);
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            childAspectRatio: 1.4,
+          ),
+          itemCount: roles.length,
+          itemBuilder: (context, index) =>
+              _buildRoleCard(context, roles[index]),
+        );
+      },
     );
   }
 
@@ -373,7 +479,8 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
             ),
           ),
           if (role.officeState == ExecutiveOfficeState.active &&
-              role.projectDeploymentState != ExecutiveProjectDeploymentState.active) ...[
+              role.projectDeploymentState !=
+                  ExecutiveProjectDeploymentState.active) ...[
             const SizedBox(height: 8),
             Text(
               isEn
@@ -399,37 +506,41 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
 
   Widget _buildRoleBadge(ExecutiveEffectiveState state) {
     final isEn = _isEnglish();
-    String text;
+    String message;
     Color color;
+    IconData icon;
     switch (state) {
       case ExecutiveEffectiveState.effective:
-        text = isEn ? 'Effective' : 'Hiệu lực';
+        message = isEn ? 'Ready for advisory' : 'Sẵn sàng tư vấn';
         color = Colors.green;
+        icon = Icons.check_circle_outline;
         break;
       case ExecutiveEffectiveState.deploymentInactive:
-        text = isEn ? 'Deploy Agent' : 'Cần deploy Agent';
+        message = isEn
+            ? 'Deploy Agent to this Project'
+            : 'Cần deploy Agent vào Project';
         color = Colors.amber;
+        icon = Icons.cloud_upload_outlined;
         break;
       case ExecutiveEffectiveState.stageForbidden:
-        text = isEn ? 'Wrong stage' : 'Không đúng giai đoạn';
+        message = isEn
+            ? 'Not recommended at this stage'
+            : 'Chưa phù hợp giai đoạn';
         color = Colors.orange;
+        icon = Icons.schedule_outlined;
         break;
       case ExecutiveEffectiveState.officeDisabled:
-        text = isEn ? 'Office off' : 'Office chưa bật';
+        message = isEn ? 'Office is not enabled' : 'Office chưa bật';
         color = Colors.grey;
+        icon = Icons.power_settings_new;
         break;
     }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600),
+    return Tooltip(
+      message: message,
+      child: Semantics(
+        label: message,
+        child: Icon(icon, color: color, size: 20),
       ),
     );
   }
@@ -453,7 +564,9 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.indigoAccent,
             padding: const EdgeInsets.symmetric(vertical: 8),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(6),
+            ),
           ),
           child: Text(
             isEn ? 'Enable Office' : 'Bật Office',
@@ -461,7 +574,82 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
           ),
         ),
       );
+    } else if (role.officeState == ExecutiveOfficeState.unavailable &&
+        role.disabledReason == 'UNDERLYING_PROFILE_UNAVAILABLE') {
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: controller.isMutating.value
+              ? null
+              : () => controller.activateUnderlyingProfile(
+                  projectId: projectId,
+                  profileKey: role.requiredProfileKey,
+                ),
+          icon: const Icon(Icons.play_circle_outline, size: 16),
+          label: Text(
+            isEn ? 'Activate underlying Agent' : 'Kích hoạt agent nền',
+            style: const TextStyle(fontSize: 12),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.teal,
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(6),
+            ),
+          ),
+        ),
+      );
     } else if (role.officeState == ExecutiveOfficeState.active) {
+      if (role.workspaceAgentId == null) {
+        return SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: controller.isMutating.value
+                ? null
+                : () => controller.activateUnderlyingProfile(
+                      projectId: projectId,
+                      profileKey: role.requiredProfileKey,
+                    ),
+            icon: const Icon(Icons.memory_outlined, size: 16),
+            label: Text(
+              isEn ? 'Provision Workspace Agent' : 'Khởi tạo Workspace Agent',
+              style: const TextStyle(fontSize: 12),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            ),
+          ),
+        );
+      }
+      if (role.projectDeploymentState !=
+              ExecutiveProjectDeploymentState.active &&
+          role.workspaceAgentId != null) {
+        return SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: controller.isMutating.value
+                ? null
+                : () => controller.deployRoleAgent(
+                    projectId: projectId,
+                    workspaceAgentId: role.workspaceAgentId!,
+                  ),
+            icon: const Icon(Icons.cloud_upload_outlined, size: 16),
+            label: Text(
+              isEn ? 'Deploy Agent' : 'Deploy Agent',
+              style: const TextStyle(fontSize: 12),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.indigoAccent,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+          ),
+        );
+      }
       return SizedBox(
         width: double.infinity,
         child: OutlinedButton(
@@ -475,7 +663,9 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
             foregroundColor: Colors.white70,
             side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
             padding: const EdgeInsets.symmetric(vertical: 8),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(6),
+            ),
           ),
           child: Text(
             isEn ? 'Disable Office' : 'Tắt Office',
@@ -503,7 +693,11 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
       ),
       child: Text(
         state,
-        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
@@ -527,14 +721,19 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
                 ? 'Topic / Consultation Subject'
                 : 'Chủ đề / Vấn đề cần tham vấn',
             labelStyle: const TextStyle(color: Colors.white60),
-            hintText: isEn ? 'e.g. Q3 Capital Allocation Plan' : 'VD: Kế hoạch phân bổ vốn Q3',
+            hintText: isEn
+                ? 'e.g. Q3 Capital Allocation Plan'
+                : 'VD: Kế hoạch phân bổ vốn Q3',
             hintStyle: const TextStyle(color: Colors.white30),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text(isEn ? 'Cancel' : 'Huỷ', style: const TextStyle(color: Colors.white54)),
+            child: Text(
+              isEn ? 'Cancel' : 'Huỷ',
+              style: const TextStyle(color: Colors.white54),
+            ),
           ),
           ElevatedButton(
             onPressed: () {
@@ -544,7 +743,9 @@ class ExecutiveAdvisoryBoardView extends StatelessWidget {
                 controller.createDraft(projectId: projectId, title: title);
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.indigoAccent),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.indigoAccent,
+            ),
             child: Text(isEn ? 'Create' : 'Tạo'),
           ),
         ],

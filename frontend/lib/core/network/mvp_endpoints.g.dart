@@ -311,6 +311,15 @@ enum MvpEndpoint {
     requiresWorkspace: true,
     requiresProject: false,
   ),
+  operationsExecutiveBoardBootstrapP0Core(
+    id: 'operations.executive_board.bootstrap_p0_core',
+    enabled: true,
+    plane: ApiPlane.company,
+    method: 'POST',
+    path: '/operations/projects/:projectId/executive-board/bootstrap-p0-core',
+    requiresWorkspace: true,
+    requiresProject: true,
+  ),
   operationsExecutiveBoardStageSuggestion(
     id: 'operations.executive_board.stage_suggestion',
     enabled: true,

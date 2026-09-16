@@ -96,6 +96,9 @@ class ExecutiveAdvisorRole {
   final ExecutiveStageEligibility stageEligibility;
   final ExecutiveEffectiveState effectiveState;
   final int workspaceOfficeVersion;
+  /// Chỉ server mới quyết định có hiển thị lệnh repair P0 Core hay không.
+  final bool p0CoreBootstrapAvailable;
+  final String? workspaceAgentId;
   final String? projectAgentDeploymentId;
   final String? disabledReason;
 
@@ -109,6 +112,8 @@ class ExecutiveAdvisorRole {
     required this.stageEligibility,
     required this.effectiveState,
     required this.workspaceOfficeVersion,
+    this.p0CoreBootstrapAvailable = false,
+    this.workspaceAgentId,
     this.projectAgentDeploymentId,
     this.disabledReason,
   });
@@ -149,6 +154,8 @@ class ExecutiveAdvisorRole {
         requiredString('effectiveState'),
       ),
       workspaceOfficeVersion: officeVersion.toInt(),
+      p0CoreBootstrapAvailable: json['p0CoreBootstrapAvailable'] == true,
+      workspaceAgentId: json['workspaceAgentId'] as String?,
       projectAgentDeploymentId: json['projectAgentDeploymentId'] as String?,
       disabledReason: json['disabledReason'] as String?,
     );

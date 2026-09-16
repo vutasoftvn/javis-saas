@@ -9,6 +9,7 @@ import {
 } from "../services/workspace-executive-role-activation.service";
 import { createProjectService } from "../services/project.service";
 import { activateProjectStartupTeamMember } from "../services/project-startup-team.service";
+import { getProjectExecutiveRoleStates } from "../services/executive-role-activation.service";
 
 function roleOf(
   roles: WorkspaceExecutiveRoleState[],
@@ -73,10 +74,24 @@ describe("Workspace Executive Role Activation Service", () => {
     expect(roleOf(board.roles, "cfo")?.displayState).toBe("AVAILABLE_NOT_ACTIVATED");
   });
 
+  it("provisions a deployable Workspace Agent when Founder activates the underlying profile", async () => {
+    await activateProjectStartupTeamMember(founderCtx, defaultProjectId, "finance", {
+      expectedVersion: 1,
+    });
+
+    const board = await getProjectExecutiveRoleStates(founderCtx, defaultProjectId);
+    expect(board.roles.find((role) => role.roleKey === "cfo")?.workspaceAgentId).toMatch(/^\d+$/);
+  });
+
   it("aggregates availability across Projects — agent ACTIVE in ANY project makes the role available", async () => {
     // Bật finance ở project thứ 2, KHÔNG phải project mặc định. Gate cấp
     // Workspace là OR trên toàn bộ Project nên cfo vẫn phải khả dụng.
-    const projectB = await createProjectService(founderCtx, { title: "Aggregate Project B" });
+    const projectB = await createProjectService(founderCtx, {
+      title: "Aggregate Project B",
+      creationMode: "ONBOARD_EXISTING",
+      initialLifecycleStage: "P0_DISCOVERY",
+      initializationRationale: "Test Project B deliberately has no P0 Core bootstrap",
+    });
     await activateProjectStartupTeamMember(founderCtx, projectB.id, "finance", {
       expectedVersion: 1,
     });

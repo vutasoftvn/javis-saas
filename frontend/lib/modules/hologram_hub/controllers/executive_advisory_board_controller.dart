@@ -1,20 +1,31 @@
 import 'package:get/get.dart';
 import '../models/executive_advisory_board.dart';
 import '../services/executive_advisory_board_service.dart';
+import '../services/project_startup_team_service.dart';
+import '../../projects/services/project_agent_deployment_service.dart';
 
 class ExecutiveAdvisoryBoardController extends GetxController {
   final ExecutiveAdvisoryBoardService _service;
+  final ProjectStartupTeamService _startupTeamService;
+  final ProjectAgentDeploymentService _deploymentService;
 
   final RxList<ExecutiveAdvisorRole> roles = <ExecutiveAdvisorRole>[].obs;
-  final Rxn<ExecutiveDeliberation> currentDeliberation = Rxn<ExecutiveDeliberation>();
+  final Rxn<ExecutiveDeliberation> currentDeliberation =
+      Rxn<ExecutiveDeliberation>();
   final RxBool isLoading = false.obs;
   final RxBool isMutating = false.obs;
   final RxnString errorMessage = RxnString();
 
   String? currentProjectId;
 
-  ExecutiveAdvisoryBoardController({ExecutiveAdvisoryBoardService? service})
-      : _service = service ?? ExecutiveAdvisoryBoardService();
+  ExecutiveAdvisoryBoardController({
+    ExecutiveAdvisoryBoardService? service,
+    ProjectStartupTeamService? startupTeamService,
+    ProjectAgentDeploymentService? deploymentService,
+  }) : _service = service ?? ExecutiveAdvisoryBoardService(),
+       _startupTeamService = startupTeamService ?? ProjectStartupTeamService(),
+       _deploymentService =
+           deploymentService ?? ProjectAgentDeploymentService();
 
   /// Tải danh sách roles của hội đồng cố vấn theo Project.
   Future<void> loadBoard(String projectId) async {
@@ -28,7 +39,8 @@ class ExecutiveAdvisoryBoardController extends GetxController {
     if (result.isSuccess && result.dataOrNull != null) {
       roles.assignAll(result.dataOrNull!);
     } else {
-      errorMessage.value = result.failureOrNull?.message ?? 'Không thể tải danh sách ban cố vấn';
+      errorMessage.value =
+          result.failureOrNull?.message ?? 'Không thể tải danh sách ban cố vấn';
     }
   }
 
@@ -61,9 +73,84 @@ class ExecutiveAdvisoryBoardController extends GetxController {
       }
       return true;
     } else {
-      errorMessage.value = result.failureOrNull?.message ?? 'Không thể kích hoạt vai trò';
+      errorMessage.value =
+          result.failureOrNull?.message ?? 'Không thể kích hoạt vai trò';
       return false;
     }
+  }
+
+  /// Kích hoạt agent nền của role trong Project trước khi Founder bật Office.
+  Future<bool> activateUnderlyingProfile({
+    required String projectId,
+    required String profileKey,
+  }) async {
+    isMutating.value = true;
+    errorMessage.value = null;
+    final team = await _startupTeamService.fetchTeam(projectId);
+    if (!team.isSuccess || team.dataOrNull == null) {
+      isMutating.value = false;
+      errorMessage.value =
+          team.failureOrNull?.message ?? 'Không thể tải agent nền';
+      return false;
+    }
+
+    final member = team.dataOrNull!.firstWhereOrNull(
+      (item) => item.profileKey == profileKey,
+    );
+    if (member == null || member.assignmentVersion == null) {
+      isMutating.value = false;
+      errorMessage.value = 'Không tìm thấy agent nền cho role này';
+      return false;
+    }
+    final activation = await _startupTeamService.activateMember(
+      projectId: projectId,
+      profileKey: profileKey,
+      expectedVersion: member.assignmentVersion!,
+    );
+    isMutating.value = false;
+    if (!activation.isSuccess || activation.dataOrNull == null) {
+      errorMessage.value =
+          activation.failureOrNull?.message ?? 'Không thể kích hoạt agent nền';
+      return false;
+    }
+    await loadBoard(projectId);
+    return errorMessage.value == null;
+  }
+
+  Future<bool> deployRoleAgent({
+    required String projectId,
+    required String workspaceAgentId,
+  }) async {
+    isMutating.value = true;
+    errorMessage.value = null;
+    final result = await _deploymentService.deploy(
+      projectId,
+      workspaceAgentId: workspaceAgentId,
+    );
+    isMutating.value = false;
+    if (!result.isSuccess || result.dataOrNull == null) {
+      errorMessage.value =
+          result.failureOrNull?.message ?? 'Không thể deploy Agent vào Project';
+      return false;
+    }
+    await loadBoard(projectId);
+    return errorMessage.value == null;
+  }
+
+  /// Repair/retry có chủ đích cho Project P0 cũ. Server là nguồn sự thật cho
+  /// stage, quyền Founder và trạng thái idempotent của cả bốn role.
+  Future<bool> bootstrapP0Core({required String projectId}) async {
+    isMutating.value = true;
+    errorMessage.value = null;
+    final result = await _service.bootstrapP0Core(projectId: projectId);
+    isMutating.value = false;
+    if (!result.isSuccess || result.dataOrNull != true) {
+      errorMessage.value =
+          result.failureOrNull?.message ?? 'Không thể khởi tạo P0 Core';
+      return false;
+    }
+    await loadBoard(projectId);
+    return errorMessage.value == null;
   }
 
   /// Tạm dừng / vô hiệu hoá vai trò cố vấn — Workspace-scoped. Reload lại
@@ -95,7 +182,8 @@ class ExecutiveAdvisoryBoardController extends GetxController {
       }
       return true;
     } else {
-      errorMessage.value = result.failureOrNull?.message ?? 'Không thể tạm dừng vai trò';
+      errorMessage.value =
+          result.failureOrNull?.message ?? 'Không thể tạm dừng vai trò';
       return false;
     }
   }
@@ -118,7 +206,8 @@ class ExecutiveAdvisoryBoardController extends GetxController {
       currentDeliberation.value = result.dataOrNull;
       return result.dataOrNull;
     } else {
-      errorMessage.value = result.failureOrNull?.message ?? 'Không thể tạo bản nháp nghị sự';
+      errorMessage.value =
+          result.failureOrNull?.message ?? 'Không thể tạo bản nháp nghị sự';
       return null;
     }
   }
@@ -149,7 +238,8 @@ class ExecutiveAdvisoryBoardController extends GetxController {
       currentDeliberation.value = result.dataOrNull;
       return true;
     } else {
-      errorMessage.value = result.failureOrNull?.message ?? 'Không thể đóng khung nghị sự';
+      errorMessage.value =
+          result.failureOrNull?.message ?? 'Không thể đóng khung nghị sự';
       return false;
     }
   }
@@ -171,7 +261,8 @@ class ExecutiveAdvisoryBoardController extends GetxController {
     if (result.isSuccess && result.dataOrNull != null) {
       currentDeliberation.value = result.dataOrNull;
     } else {
-      errorMessage.value = result.failureOrNull?.message ?? 'Không thể tải phiên nghị sự';
+      errorMessage.value =
+          result.failureOrNull?.message ?? 'Không thể tải phiên nghị sự';
     }
   }
 
@@ -197,7 +288,8 @@ class ExecutiveAdvisoryBoardController extends GetxController {
       currentDeliberation.value = result.dataOrNull;
       return true;
     } else {
-      errorMessage.value = result.failureOrNull?.message ?? 'Không thể ghi nhận quyết định';
+      errorMessage.value =
+          result.failureOrNull?.message ?? 'Không thể ghi nhận quyết định';
       return false;
     }
   }
@@ -222,7 +314,8 @@ class ExecutiveAdvisoryBoardController extends GetxController {
       currentDeliberation.value = result.dataOrNull;
       return true;
     } else {
-      errorMessage.value = result.failureOrNull?.message ?? 'Không thể huỷ phiên nghị sự';
+      errorMessage.value =
+          result.failureOrNull?.message ?? 'Không thể huỷ phiên nghị sự';
       return false;
     }
   }

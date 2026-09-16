@@ -82,6 +82,24 @@ class ExecutiveAdvisoryBoardService {
     );
   }
 
+  /// Hội tụ bốn role P0 Core cho Project P0 có sẵn. Server giữ quyền quyết
+  /// định availability và idempotency; client chỉ phát lệnh Founder explicit.
+  Future<ApiResult<bool>> bootstrapP0Core({
+    required String projectId,
+  }) async {
+    return _client.request<bool>(
+      MvpEndpoint.operationsExecutiveBoardBootstrapP0Core,
+      pathParams: {'projectId': projectId},
+      body: const {},
+      decode: (raw) {
+        if (raw is Map<String, dynamic> && raw['projectId'] == projectId) {
+          return true;
+        }
+        throw const FormatException('Invalid response format for P0 Core bootstrap');
+      },
+    );
+  }
+
   /// Tạo bản nháp Deliberation.
   Future<ApiResult<ExecutiveDeliberation>> createDraft({
     required String projectId,

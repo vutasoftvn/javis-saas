@@ -28,7 +28,13 @@ import {
 
 export type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-const { projects, projectAgentAssignments, projectAgentAssignmentEvents } = schema;
+const {
+  projects,
+  projectAgentAssignments,
+  projectAgentAssignmentEvents,
+  workspaceAgents,
+  founderAssetEvents,
+} = schema;
 
 /**
  * Guard quyền Founder/Admin cho việc quản trị Project Startup Team.
@@ -338,6 +344,48 @@ export async function activateProjectStartupTeamMember(
       readiness: profileDef.runtimeReadiness,
     };
 
+    // Một profile nền đã được Founder kích hoạt cần có Workspace Agent V2
+    // tương ứng để Founder có thể deploy nó vào chính Project ở bước tiếp
+    // theo. Giữ cùng transaction với assignment để không tạo nửa trạng thái.
+    const [workspaceAgent] = await tx
+      .select({ id: workspaceAgents.id })
+      .from(workspaceAgents)
+      .where(
+        and(
+          eq(workspaceAgents.workspaceId, wsId),
+          eq(workspaceAgents.agentAssetId, specId)
+        )
+      )
+      .limit(1);
+    if (!workspaceAgent) {
+      const workspaceAgentId = generateSnowflake();
+      await tx.insert(workspaceAgents).values({
+        id: workspaceAgentId,
+        workspaceId: wsId,
+        agentAssetId: specId,
+        agentAssetVersion: specVersion,
+        agentDefinitionHash: specHash,
+        workforceMemberId: BigInt(workforceMemberId),
+        state: "ACTIVE",
+        originKind: "STARTUP_TEAM",
+        createdBy: actorId,
+        version: 1,
+      });
+      await tx.insert(founderAssetEvents).values({
+        id: generateSnowflake(),
+        workspaceId: wsId,
+        projectId: projId,
+        actorId,
+        command: "createWorkspaceAgent",
+        targetKind: "AGENT",
+        targetRef: { workspaceAgentId: workspaceAgentId.toString(), agentAssetId: specId },
+        afterHash: specHash,
+        reason: "Activate startup-team agent",
+        correlationId: ctx.correlationId || randomUUID(),
+        metadata: { source: "STARTUP_TEAM_ACTIVATION", profileKey },
+      });
+    }
+
     await tx
       .update(projectAgentAssignments)
       .set({
@@ -646,4 +694,3 @@ export async function getProjectAgentRunAuthority(
     policySnapshot: (row.activationPolicySnapshot as Record<string, unknown>) ?? {},
   };
 }
-

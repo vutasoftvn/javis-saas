@@ -88,6 +88,25 @@ void main() {
     expect(result.isSuccess, isTrue);
   });
 
+  test('P0 Core bootstrap calls the Project-scoped Founder command', () async {
+    final httpClient = MockClient((request) async {
+      expect(request.url.path, '/operations/projects/project/executive-board/bootstrap-p0-core');
+      return http.Response(
+        jsonEncode({
+          'data': {'projectId': 'project', 'roleKeys': ['chief_of_staff', 'cfo', 'cmo', 'cpo']},
+          'meta': {'dataState': 'populated', 'observedAt': '2026-09-15T00:00:00Z', 'sources': []},
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+
+    final result = await ExecutiveAdvisoryBoardService(
+      client: MvpRequestClient(httpClient: httpClient),
+    ).bootstrapP0Core(projectId: 'project');
+    expect(result.isSuccess, isTrue);
+  });
+
   test(
     'rejects a legacy or incomplete role shape instead of inventing effective state',
     () async {

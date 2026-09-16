@@ -604,6 +604,22 @@
       "backend_test": "services/company/operations/tests/executive-role-activation.handler.test.ts"
     },
     {
+      "id": "operations.executive_board.bootstrap_p0_core",
+      "enabled": true,
+      "owner": "company-operations",
+      "plane": "company",
+      "method": "POST",
+      "path": "/operations/projects/:projectId/executive-board/bootstrap-p0-core",
+      "schema": "operations.executive_board.bootstrap_p0_core.v1",
+      "source_kind": "company_db",
+      "requires_workspace": true,
+      "requires_project": true,
+      "frontend_symbol": "ExecutiveAdvisoryBoardService.bootstrapP0Core",
+      "backend_test": "services/company/operations/tests/executive-role-activation.handler.test.ts",
+      "flutter_test": "frontend/test/modules/hologram_hub/services/executive_advisory_board_service_test.dart",
+      "integration_test": ""
+    },
+    {
       "id": "project.agent_deployments.create",
       "enabled": true,
       "owner": "company-operations",
@@ -1183,4 +1199,3 @@
     }
   ]
 }
-

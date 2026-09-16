@@ -9,8 +9,9 @@ import {
 import { resolveProjectAgentAuthorityV2 } from "./founder-agent-compatibility.service";
 import { getWorkspaceExecutiveRoleStates } from "./workspace-executive-role-activation.service";
 import { roleKeysForStage, PERSISTENT_EXECUTIVE_ROLES } from "./executive-board-stage-presets";
+import { AGENT_PROFILE_SPEC_ID, OwnerAgentProfile } from "./ai-member.service";
 
-const { projects } = schema;
+const { projects, workspaceAgents } = schema;
 
 /**
  * Guard quyền Founder cho Hội đồng Cố vấn Điều hành.
@@ -122,6 +123,9 @@ export interface ProjectExecutiveRoleView {
   stageEligibility: ProjectExecutiveStageEligibility;
   effectiveState: ProjectExecutiveEffectiveState;
   workspaceOfficeVersion: number;
+  /** Server-authorized repair action: chỉ true với Project P0 chưa đủ P0 Core. */
+  p0CoreBootstrapAvailable: boolean;
+  workspaceAgentId?: string;
   projectAgentDeploymentId?: string;
   disabledReason?: string;
 }
@@ -165,6 +169,13 @@ export async function getProjectExecutiveRoleStates(
 
   const stageEligibleSet = new Set(roleKeysForStage(project.lifecycleStage));
   const persistentSet = new Set(PERSISTENT_EXECUTIVE_ROLES);
+  const activeWorkspaceAgents = await db
+    .select({ id: workspaceAgents.id, agentAssetId: workspaceAgents.agentAssetId })
+    .from(workspaceAgents)
+    .where(and(eq(workspaceAgents.workspaceId, wsId), eq(workspaceAgents.state, "ACTIVE")));
+  const workspaceAgentByAssetId = new Map(
+    activeWorkspaceAgents.map((agent) => [agent.agentAssetId, agent.id.toString()])
+  );
 
   // N+1 truy vấn có chủ đích: chỉ 13 role/Project, quy mô MVP hiện tại chưa
   // cần batch hoá — `resolveProjectAgentAuthorityV2` là nguồn sự thật duy
@@ -209,12 +220,26 @@ export async function getProjectExecutiveRoleStates(
       stageEligibility,
       effectiveState,
       workspaceOfficeVersion: workspaceRole?.version ?? 1,
+      p0CoreBootstrapAvailable: false,
+      workspaceAgentId:
+        workspaceAgentByAssetId.get(
+          AGENT_PROFILE_SPEC_ID[roleDef.requiredProfileKey as OwnerAgentProfile]
+        ),
       projectAgentDeploymentId: authority.v2Deployment.deploymentId,
       disabledReason: workspaceRole?.disabledReason,
     });
   }
 
-  return { projectId, roles };
+  const p0CoreBootstrapAvailable =
+    project.lifecycleStage === "P0_DISCOVERY" &&
+    PERSISTENT_EXECUTIVE_ROLES.some(
+      (roleKey) => roles.find((role) => role.roleKey === roleKey)?.effectiveState !== "EFFECTIVE"
+    );
+
+  return {
+    projectId,
+    roles: roles.map((role) => ({ ...role, p0CoreBootstrapAvailable })),
+  };
 }
 
 export interface StageSuggestion {

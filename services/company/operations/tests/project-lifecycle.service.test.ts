@@ -7,6 +7,7 @@ import {
   transitionProjectLifecycle,
   listProjectLifecycleEvents,
 } from "../services/project-lifecycle.service";
+import { getProjectExecutiveRoleStates } from "../services/executive-role-activation.service";
 
 function ctxFor(
   workspaceId: string,
@@ -152,6 +153,18 @@ describe("createProjectService onboarding modes (2026-09-14 remediation)", () =>
     const project = await createProjectService(ctx, { title: "No mode given" });
     expect(project.lifecycleStage).toBe("P0_DISCOVERY");
     expect(project.stageVersion).toBe(0);
+  });
+
+  it("keeps a member-created P0 Project compatible without silently activating P0 Core", async () => {
+    const ws = await createTestWorkspaceWithMember();
+    const founderCtx = ctxFor(ws.workspaceId, ws.userId);
+    const memberCtx = ctxFor(ws.workspaceId, ws.userId, "member");
+
+    const project = await createProjectService(memberCtx, { title: "Member-created P0" });
+    const board = await getProjectExecutiveRoleStates(founderCtx, project.id);
+    expect(board.roles.find((role) => role.roleKey === "cfo")?.effectiveState).toBe(
+      "OFFICE_DISABLED"
+    );
   });
 
   it("ONBOARD_EXISTING lets a Founder state the real current stage exactly once, with an honest PROJECT_INITIALIZED event", async () => {

@@ -5,6 +5,8 @@ import { TenantContext } from "../../shared/types/tenant_context";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { assertLifecyclePrivileged } from "../strategy/services/lifecycle-authorization.service";
 import { PROJECT_LIFECYCLE_STAGES } from "./project-lifecycle.service";
+import { ensureProjectStartupTeam } from "./project-startup-team.service";
+import { bootstrapP0CoreForProject } from "./p0-core-bootstrap.service";
 
 const { projects, projectLifecycleEvents } = schema;
 
@@ -74,14 +76,21 @@ function toProject(row: typeof projects.$inferSelect): Project {
   };
 }
 
-import { ensureProjectStartupTeam } from "./project-startup-team.service";
-
 export async function createProjectService(ctx: TenantContext, req: CreateProjectRequest): Promise<Project> {
   if (!req.title) {
     throw APIError.invalidArgument("title is required");
   }
 
   const creationMode: ProjectCreationMode = req.creationMode ?? "NEW";
+
+  // P0 Core chỉ tự materialize khi người tạo là Founder/co-founder; đường tạo
+  // Project hiện hữu cho member được giữ tương thích và không vô tình cấp
+  // quyền Workspace Office. Founder có thể repair P0 project cũ bằng lệnh
+  // tường minh trên Board.
+  const shouldBootstrapP0Core =
+    creationMode === "NEW" &&
+    !ctx.isAiAgent &&
+    ["founder", "co-founder"].includes((ctx.membershipRole || "").toLowerCase());
 
   // "ONBOARD_EXISTING" là hành động Founder xác nhận baseline P thật cho một
   // công ty đã hoạt động — validate ĐẦY ĐỦ trước khi ghi bất cứ gì (Founder/
@@ -159,6 +168,14 @@ export async function createProjectService(ctx: TenantContext, req: CreateProjec
 
     return p;
   });
+
+  // NEW luôn bắt đầu P0 và có bốn role P0 Core hoạt động ngay. Hàm bootstrap
+  // hội tụ/idempotent: nếu một lỗi hạ tầng xảy ra sau khi Project đã commit,
+  // Founder có thể chạy lại lệnh explicit trên Board để hoàn tất đúng phần còn
+  // thiếu, không cần tạo một Project khác.
+  if (shouldBootstrapP0Core) {
+    await bootstrapP0CoreForProject(ctx, row.id.toString());
+  }
 
   return toProject(row);
 }
