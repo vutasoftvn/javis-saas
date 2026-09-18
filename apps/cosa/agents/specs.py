@@ -21,12 +21,16 @@ __all__ = [
     "COSA_EXECUTIVE_CAIO_PROMPT",
     "COSA_EXECUTIVE_CDO_AGENT_SPEC",
     "COSA_EXECUTIVE_CDO_PROMPT",
+    "COSA_EXECUTIVE_CEO_AGENT_SPEC",
+    "COSA_EXECUTIVE_CEO_PROMPT",
     "COSA_EXECUTIVE_CHRO_AGENT_SPEC",
     "COSA_EXECUTIVE_CHRO_PROMPT",
     "COSA_EXECUTIVE_CPO_AGENT_SPEC",
     "COSA_EXECUTIVE_CPO_PROMPT",
     "COSA_EXECUTIVE_CRO_AGENT_SPEC",
     "COSA_EXECUTIVE_CRO_PROMPT",
+    "COSA_EXECUTIVE_CTO_AGENT_SPEC",
+    "COSA_EXECUTIVE_CTO_PROMPT",
     "COSA_EXECUTIVE_GC_AGENT_SPEC",
     "COSA_EXECUTIVE_GC_PROMPT",
     "COSA_FINANCE_AGENT_SPEC",
@@ -868,7 +872,63 @@ COSA_EXECUTIVE_CAIO_AGENT_SPEC = AgentSpec(
     metadata={"display_name": "COSA CAIO Advisor", "advisory_only": True},
 )
 
+COSA_EXECUTIVE_CEO_PROMPT = PromptSpec(
+    id="cosa.executive.ceo.prompt",
+    version="1.0.0",
+    text=(
+        "Cố vấn Giám đốc Điều hành & Chiến lược (CEO Advisor). "
+        "Đánh giá tính nhất quán của tầm nhìn, mô hình hóa kịch bản đa chiều "
+        "(Tree of Thought), tối ưu hóa phân bổ nguồn vốn và quan hệ với Hội đồng "
+        "Quản trị trong các phiên thảo luận của Ban điều hành (L1_PROPOSE, advisory-only). "
+        "Tuyệt đối không có quyền tự ý phê duyệt ngân sách, ban hành mục tiêu, xoay trục "
+        "chiến lược, ký kết hợp đồng hay thay đổi chính sách vận hành công ty — "
+        "Founder con người luôn là người duy nhất nắm quyền quyết định cuối cùng."
+    ),
+).with_hash()
+
+COSA_EXECUTIVE_CEO_AGENT_SPEC = AgentSpec(
+    id="cosa.executive.ceo",
+    version="1.0.0",
+    autonomy_level=AutonomyLevel.L1_PROPOSE,
+    instructions=COSA_EXECUTIVE_CEO_PROMPT.text,
+    capability_refs=[],
+    model_input_capability_ref="model.input.direct-user-message",
+    pinned_skills=[],
+    prompt_ref=COSA_EXECUTIVE_CEO_PROMPT.to_pinned_identity(),
+    model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    metadata={"display_name": "COSA CEO Advisor", "advisory_only": True},
+)
+
+COSA_EXECUTIVE_CTO_PROMPT = PromptSpec(
+    id="cosa.executive.cto.prompt",
+    version="1.0.0",
+    text=(
+        "Cố vấn Giám đốc Công nghệ & Chiến lược Kỹ thuật (CTO Advisor). "
+        "Định hình tầm nhìn công nghệ 3-5 năm, quản trị kiến trúc hệ thống (ADRs), "
+        "danh mục nợ kỹ thuật (Tech Debt Governance), thẩm định Make vs Buy vs Agentize "
+        "và lãnh đạo đội ngũ kỹ thuật lai (kỹ sư con người kết hợp AI Coding Agents). "
+        "Hoạt động nghiêm ngặt ở mức trần tự trị L1_PROPOSE (advisory-only). "
+        "Tuyệt đối không có quyền tự ý thay đổi hạ tầng production, cam kết hợp đồng nhà cung cấp "
+        "hay sửa đổi codebase mà không có sự phê duyệt từ Founder hoặc Tech Lead con người."
+    ),
+).with_hash()
+
+COSA_EXECUTIVE_CTO_AGENT_SPEC = AgentSpec(
+    id="cosa.executive.cto",
+    version="1.0.0",
+    autonomy_level=AutonomyLevel.L1_PROPOSE,
+    instructions=COSA_EXECUTIVE_CTO_PROMPT.text,
+    capability_refs=[],
+    model_input_capability_ref="model.input.direct-user-message",
+    pinned_skills=[],
+    prompt_ref=COSA_EXECUTIVE_CTO_PROMPT.to_pinned_identity(),
+    model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    metadata={"display_name": "COSA CTO Advisor", "advisory_only": True},
+)
+
 EXECUTIVE_AGENT_SPECS: dict[str, AgentSpec] = {
+    "cosa.executive.ceo": COSA_EXECUTIVE_CEO_AGENT_SPEC,
+    "cosa.executive.cto": COSA_EXECUTIVE_CTO_AGENT_SPEC,
     "cosa.executive.vpe": COSA_EXECUTIVE_VPE_AGENT_SPEC,
     "cosa.executive.cpo": COSA_EXECUTIVE_CPO_AGENT_SPEC,
     "cosa.executive.cro": COSA_EXECUTIVE_CRO_AGENT_SPEC,

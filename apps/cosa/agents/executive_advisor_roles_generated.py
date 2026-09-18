@@ -13,6 +13,8 @@ StartupCorePresetKey = Literal[
 
 ExecutiveRoleKey = Literal[
     "chief_of_staff",
+    "ceo",
+    "cto",
     "cfo",
     "cmo",
     "coo",
@@ -43,6 +45,8 @@ ExecutiveRuntimeReadiness = Literal[
 
 EXECUTIVE_ROLE_KEYS: Final[tuple[ExecutiveRoleKey, ...]] = (
     "chief_of_staff",
+    "ceo",
+    "cto",
     "cfo",
     "cmo",
     "coo",
@@ -94,6 +98,31 @@ EXECUTIVE_ROLE_CATALOG: Final[dict[ExecutiveRoleKey, ExecutiveAdvisorRoleDef]] =
         required_skill_pins=(
             "skillpack:executive/board-protocol@1.0.0",
             "skillpack:executive/chief-of-staff@1.0.0",
+        ),
+        advisory_only=True,
+        runtime_readiness="READY",
+        source_provenance="superpowers:executive-advisory-board",
+    ),
+    "ceo": ExecutiveAdvisorRoleDef(
+        key="ceo",
+        label="Chief Executive Officer / Strategic Advisor",
+        advisory_remit="Vision alignment, capital allocation, strategic trade-offs, board governance, stage-adaptive growth",
+        required_profile_key="operations",
+        required_agent_spec="cosa.executive.ceo",
+        required_skill_pins=("skillpack:executive/ceo-advisor@1.0.0",),
+        advisory_only=True,
+        runtime_readiness="READY",
+        source_provenance="superpowers:executive-advisory-board",
+    ),
+    "cto": ExecutiveAdvisorRoleDef(
+        key="cto",
+        label="Chief Technology Officer / Technical Strategy Advisor",
+        advisory_remit="Technology vision, system architecture, hybrid engineering workforce, tech debt governance, build vs buy evaluation",
+        required_profile_key="coding",
+        required_agent_spec="cosa.executive.cto",
+        required_skill_pins=(
+            "skillpack:executive/cto-advisor@1.0.0",
+            "skillpack:engineering/workspace-site-builder@1.0.0",
         ),
         advisory_only=True,
         runtime_readiness="READY",

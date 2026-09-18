@@ -29,3 +29,5 @@ export * from "./founder-asset-deployment.handler";
 export * from "./founder-asset-authoring.handler";
 export * from "./founder-asset-query.handler";
 export * from "./okr-weekly-generator.handler";
+export * from "./onboard.handler";
+export * from "./goals.handler";

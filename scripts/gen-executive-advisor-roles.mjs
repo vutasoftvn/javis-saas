@@ -61,7 +61,7 @@ for (const r of spec.roles) {
     }
   }
 
-  if (["chief_of_staff", "coo"].includes(r.key)) {
+  if (["chief_of_staff", "coo", "ceo"].includes(r.key)) {
     if (r.requiredProfileKey !== "operations") {
       console.error(`${r.key} must require 'operations' profile`);
       process.exit(1);

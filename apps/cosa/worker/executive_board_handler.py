@@ -62,10 +62,10 @@ async def execute_executive_deliberation_framed_task(
     raw_evidence = payload.get("evidence_refs") or []
     evidence_refs = tuple(
         EvidenceRef(
-            source_ref=ev.get("source_ref", ev.get("id", "")),
-            source_hash=ev.get("source_hash", ev.get("hash", "")),
-            classification=ev.get("classification", "internal"),
-            project_id=ev.get("project_id") or project_id,
+            source_ref=str(ev.get("source_ref") or ev.get("id") or ""),
+            source_hash=str(ev.get("source_hash") or ev.get("hash") or ""),
+            classification=str(ev.get("classification") or "internal"),
+            project_id=str(ev.get("project_id") or project_id),
         )
         for ev in raw_evidence
         if isinstance(ev, dict)

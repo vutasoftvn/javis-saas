@@ -570,6 +570,10 @@ export const projects = strategySchema.table("projects", {
   portfolioId: bigint("portfolio_id", { mode: "bigint" }),
   startDate: timestamp("start_date", { withTimezone: true }),
   endDate: timestamp("end_date", { withTimezone: true }),
+  // Startup OS (COSA v1.0)
+  objectiveId: bigint("objective_id", { mode: "bigint" }),
+  origin: text("origin"), // 'okr_driven' | 'discovery' | 'maintenance' | 'reactive'
+  linkStatus: text("link_status").default("linked"), // 'linked' | 'pending_review' | 'intentionally_unlinked'
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),

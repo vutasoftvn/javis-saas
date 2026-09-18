@@ -38,6 +38,36 @@ class ExecutiveAnalysisRequest(BaseModel):
     evidence_refs: tuple[EvidenceRef, ...] = Field(default_factory=tuple)
     peer_drafts: list[dict[str, Any]] | None = None
     mock_model_output: dict[str, Any] | None = None
+    context_snapshot_age_weeks: int = 0
+
+
+
+class DissentRecord(BaseModel):
+    role_key: str
+    advisor_name: str
+    unresolved_concern: str
+    recommended_alternative: str | None = None
+    preserved_at_week: int | None = None
+
+
+class BindingCriteria(BaseModel):
+    success_criteria: list[str] = Field(default_factory=list)
+    kill_criteria: list[str] = Field(default_factory=list)
+    review_checkpoint_week: int | None = None
+
+
+class BoardroomMemo(BaseModel):
+    deliberation_id: str
+    question: str
+    recommended_option: str
+    vote_tally: dict[str, str] = Field(default_factory=dict)  # role_key -> option_title
+    preserved_dissent: list[DissentRecord] = Field(default_factory=list)
+    devils_advocate_concerns: list[str] = Field(default_factory=list)
+    binding_criteria: BindingCriteria = Field(default_factory=BindingCriteria)
+    status: Literal["AWAITING_FOUNDER_DECISION", "APPROVED", "REJECTED"] = "AWAITING_FOUNDER_DECISION"
+    context_snapshot_id: str | None = None
+    context_snapshot_age_weeks: int = 0
+    evidence_tag: str | None = None
 
 
 class ExecutiveAnalysisOutcome(BaseModel):
@@ -47,6 +77,9 @@ class ExecutiveAnalysisOutcome(BaseModel):
     role_key: str
     descriptor: dict[str, Any] | None = None
     error_detail: str | None = None
+    context_snapshot_age_weeks: int | None = None
+    evidence_tag: str | None = None
+
 
 
 EXECUTIVE_ANALYSIS_OUTPUT_SCHEMA: dict[str, Any] = {

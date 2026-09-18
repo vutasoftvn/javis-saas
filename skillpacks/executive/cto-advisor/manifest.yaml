@@ -1,0 +1,68 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: executive.cto-advisor
+  name: CTO Technical Strategy, System Architecture & Hybrid Engineering Governance
+  version: 1.0.0
+  description: Cố vấn công nghệ chiến lược cấp cao cho Founder về tầm nhìn kiến trúc, đội ngũ kỹ thuật lai (con người + AI coding agents), quản trị nợ kỹ thuật và phân tích Build vs Buy.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/executive/cto-advisor
+capability:
+  domain: executive
+  category: advisory
+  intents:
+  - cto advisory
+  - technology strategy
+  - architecture decision
+  - tech debt governance
+  - build vs buy
+  - hybrid engineering workforce
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0
+applicability:
+  project_stages:
+  - P0_DISCOVERY
+  - P1_PROBLEM_VALIDATION
+  - P2_SOLUTION_VALIDATION
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  - P6_SCALE_GOVERN
+  gates:
+  - G0
+  - G1
+  - G2
+  - G3
+  - G4
+  - G5
+  - G6
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - proposal
+  - artifact
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/executive/cto-advisor.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - peer-draft-forbidden

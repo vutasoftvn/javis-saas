@@ -39,6 +39,33 @@
       "sourceProvenance": "superpowers:executive-advisory-board"
     },
     {
+      "key": "ceo",
+      "label": "Chief Executive Officer / Strategic Advisor",
+      "advisoryRemit": "Vision alignment, capital allocation, strategic trade-offs, board governance, stage-adaptive growth",
+      "requiredProfileKey": "operations",
+      "requiredAgentSpec": "cosa.executive.ceo",
+      "requiredSkillPins": [
+        "skillpack:executive/ceo-advisor@1.0.0"
+      ],
+      "advisoryOnly": true,
+      "runtimeReadiness": "READY",
+      "sourceProvenance": "superpowers:executive-advisory-board"
+    },
+    {
+      "key": "cto",
+      "label": "Chief Technology Officer / Technical Strategy Advisor",
+      "advisoryRemit": "Technology vision, system architecture, hybrid engineering workforce, tech debt governance, build vs buy evaluation",
+      "requiredProfileKey": "coding",
+      "requiredAgentSpec": "cosa.executive.cto",
+      "requiredSkillPins": [
+        "skillpack:executive/cto-advisor@1.0.0",
+        "skillpack:engineering/workspace-site-builder@1.0.0"
+      ],
+      "advisoryOnly": true,
+      "runtimeReadiness": "READY",
+      "sourceProvenance": "superpowers:executive-advisory-board"
+    },
+    {
       "key": "cfo",
       "label": "Chief Financial Officer",
       "advisoryRemit": "Cash runway, scenario modeling, budget guardrails, unit economics",

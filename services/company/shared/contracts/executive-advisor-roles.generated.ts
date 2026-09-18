@@ -8,6 +8,8 @@ export type StartupCorePresetKey = 'startup-discovery' | 'startup-build-launch';
 
 export type ExecutiveRoleKey =
   | "chief_of_staff"
+  | "ceo"
+  | "cto"
   | "cfo"
   | "cmo"
   | "coo"
@@ -36,6 +38,8 @@ export type ExecutiveRuntimeReadiness =
 
 export const EXECUTIVE_ROLE_KEYS = [
   "chief_of_staff",
+  "ceo",
+  "cto",
   "cfo",
   "cmo",
   "coo",
@@ -76,6 +80,8 @@ export interface StartupCorePresetDef {
 
 export const EXECUTIVE_ROLE_CATALOG: Readonly<Record<ExecutiveRoleKey, ExecutiveAdvisorRoleDef>> = Object.freeze({
   "chief_of_staff": Object.freeze({"key":"chief_of_staff","label":"Chief of Staff","advisoryRemit":"Deliberation framing, cross-functional routing, synthesis, decision-log hygiene","requiredProfileKey":"operations","requiredAgentSpec":"cosa.executive.chief_of_staff","requiredSkillPins":["skillpack:executive/board-protocol@1.0.0","skillpack:executive/chief-of-staff@1.0.0"],"advisoryOnly":true,"runtimeReadiness":"READY","sourceProvenance":"superpowers:executive-advisory-board"} as unknown as ExecutiveAdvisorRoleDef),
+  "ceo": Object.freeze({"key":"ceo","label":"Chief Executive Officer / Strategic Advisor","advisoryRemit":"Vision alignment, capital allocation, strategic trade-offs, board governance, stage-adaptive growth","requiredProfileKey":"operations","requiredAgentSpec":"cosa.executive.ceo","requiredSkillPins":["skillpack:executive/ceo-advisor@1.0.0"],"advisoryOnly":true,"runtimeReadiness":"READY","sourceProvenance":"superpowers:executive-advisory-board"} as unknown as ExecutiveAdvisorRoleDef),
+  "cto": Object.freeze({"key":"cto","label":"Chief Technology Officer / Technical Strategy Advisor","advisoryRemit":"Technology vision, system architecture, hybrid engineering workforce, tech debt governance, build vs buy evaluation","requiredProfileKey":"coding","requiredAgentSpec":"cosa.executive.cto","requiredSkillPins":["skillpack:executive/cto-advisor@1.0.0","skillpack:engineering/workspace-site-builder@1.0.0"],"advisoryOnly":true,"runtimeReadiness":"READY","sourceProvenance":"superpowers:executive-advisory-board"} as unknown as ExecutiveAdvisorRoleDef),
   "cfo": Object.freeze({"key":"cfo","label":"Chief Financial Officer","advisoryRemit":"Cash runway, scenario modeling, budget guardrails, unit economics","requiredProfileKey":"finance","requiredAgentSpec":"cosa.executive.cfo","requiredSkillPins":["skillpack:executive/cfo-advisor@1.0.0"],"advisoryOnly":true,"runtimeReadiness":"READY","sourceProvenance":"superpowers:executive-advisory-board"} as unknown as ExecutiveAdvisorRoleDef),
   "cmo": Object.freeze({"key":"cmo","label":"Chief Marketing Officer","advisoryRemit":"Positioning, demand generation, messaging, growth experiment strategy","requiredProfileKey":"marketing","requiredAgentSpec":"cosa.executive.cmo","requiredSkillPins":["skillpack:executive/cmo-advisor@1.0.0"],"advisoryOnly":true,"runtimeReadiness":"READY","sourceProvenance":"superpowers:executive-advisory-board"} as unknown as ExecutiveAdvisorRoleDef),
   "coo": Object.freeze({"key":"coo","label":"Chief Operating Officer","advisoryRemit":"Operational cadence, process constraints, delivery dependency mapping","requiredProfileKey":"operations","requiredAgentSpec":"cosa.executive.coo","requiredSkillPins":["skillpack:executive/coo-advisor@1.0.0"],"advisoryOnly":true,"runtimeReadiness":"READY","sourceProvenance":"superpowers:executive-advisory-board"} as unknown as ExecutiveAdvisorRoleDef),

@@ -1,0 +1,35 @@
+apiVersion: cosa.ai/skill-eval/v1
+kind: SkillEvalSuite
+skill:
+  id: executive.ceo-advisor
+  version: 1.0.0
+cases:
+- id: accepts-governed-context
+  input:
+    workspace_id: ws-eval
+    project_id: project-eval
+  expected:
+    outcome: accept
+- id: missing-workspace
+  input:
+    project_id: project-eval
+  expected:
+    outcome: reject
+    reason: missing-workspace
+- id: cross-workspace
+  input:
+    workspace_id: ws-other
+    project_id: project-eval
+  expected:
+    outcome: reject
+    reason: cross-workspace
+- id: peer-draft-forbidden
+  input:
+    workspace_id: ws-eval
+    project_id: project-eval
+    peer_drafts:
+      - role_key: cfo
+        draft_text: "sample"
+  expected:
+    outcome: reject
+    reason: peer-draft-forbidden

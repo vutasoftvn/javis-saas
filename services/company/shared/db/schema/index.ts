@@ -6,6 +6,5 @@ export * from "./legal";
 export * from "./strategy";
 export * from "./integration";
 export * from "./customer-engagement";
-
-
-
+export * from "./onboard";
+export * from "./goals";

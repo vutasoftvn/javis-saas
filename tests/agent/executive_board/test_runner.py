@@ -221,3 +221,91 @@ async def test_run_fails_when_kernel_status_not_completed():
     assert outcome.kind == "executive.analysis.failed.v1"
     assert "KERNEL_RUN_FAILED" in outcome.error_detail
 
+
+@pytest.mark.asyncio
+async def test_runner_evidence_tag_freshness():
+    runner = make_runner()
+    # Case 1: Fresh snapshot <= 2 weeks
+    req_fresh = make_request(
+        context_snapshot_age_weeks=1,
+        mock_model_output={
+            "conclusion": "Ok",
+            "options": [{"title": "Opt 1", "trade_off": "none"}],
+            "evidence_claims": [{"claim": "c", "source_ref": "r"}],
+        },
+    )
+    outcome_fresh = await runner.run(req_fresh)
+    assert outcome_fresh.kind == "executive.analysis.completed.v1"
+    assert "Fresh" in outcome_fresh.evidence_tag
+
+    # Case 2: Stale snapshot > 2 weeks (deferred by founder)
+    req_stale = make_request(
+        context_snapshot_age_weeks=4,
+        mock_model_output={
+            "conclusion": "Ok",
+            "options": [{"title": "Opt 1", "trade_off": "none"}],
+            "evidence_claims": [{"claim": "c", "source_ref": "r"}],
+        },
+    )
+    outcome_stale = await runner.run(req_stale)
+    assert outcome_stale.kind == "executive.analysis.completed.v1"
+    assert "Founder deferred review" in outcome_stale.evidence_tag
+
+
+def test_synthesize_boardroom_deliberation_with_preserved_dissent():
+    from agent.executive_board.models import BindingCriteria, ExecutiveAnalysisOutcome
+
+    outcomes = [
+        ExecutiveAnalysisOutcome(
+            kind="executive.analysis.completed.v1",
+            deliberation_id="delib-1",
+            frame_version=1,
+            role_key="ceo",
+            descriptor={
+                "conclusion": "Expand to US market",
+                "options": [{"title": "Option A: Aggressive US Expansion", "trade_off": "High burn"}],
+                "risks_and_unknowns": ["Runway pressure"],
+                "confidence": 0.85,
+            },
+        ),
+        ExecutiveAnalysisOutcome(
+            kind="executive.analysis.completed.v1",
+            deliberation_id="delib-1",
+            frame_version=1,
+            role_key="cfo",
+            descriptor={
+                "conclusion": "Delay US expansion until Series B",
+                "options": [{"title": "Option B: Protect Cash & Expand Domestic", "trade_off": "Slower growth"}],
+                "risks_and_unknowns": ["Runway will drop below 12 weeks"],
+                "confidence": 0.9,
+            },
+        ),
+    ]
+
+    memo = ExecutiveBoardRunner.synthesize_boardroom_deliberation(
+        deliberation_id="delib-1",
+        question="Should we expand to US in Q3?",
+        outcomes=outcomes,
+        favored_option="Option A: Aggressive US Expansion",
+        context_snapshot_age_weeks=2,
+        binding_criteria=BindingCriteria(
+            success_criteria=["$50k ARR in 12 weeks"],
+            kill_criteria=["Burn > $30k/week without traction"],
+            review_checkpoint_week=6,
+        ),
+    )
+
+    assert memo.deliberation_id == "delib-1"
+    assert memo.recommended_option == "Option A: Aggressive US Expansion"
+    assert memo.vote_tally["ceo"] == "Option A: Aggressive US Expansion"
+    assert memo.vote_tally["cfo"] == "Option B: Protect Cash & Expand Domestic"
+
+    # Preserved Dissent: CFO voted for Option B while top option was Option A
+    assert len(memo.preserved_dissent) == 1
+    dissent = memo.preserved_dissent[0]
+    assert dissent.role_key == "cfo"
+    assert dissent.recommended_alternative == "Option B: Protect Cash & Expand Domestic"
+    assert "Runway will drop below 12 weeks" in dissent.unresolved_concern
+    assert memo.binding_criteria.review_checkpoint_week == 6
+
+

@@ -4,6 +4,8 @@ import * as strategySchema from "../shared/db/schema/strategy";
 import * as integrationSchema from "../shared/db/schema/integration";
 import * as financeLegalSchema from "../shared/db/schema/finance-legal";
 import * as legalSchema from "../shared/db/schema/legal";
+import * as onboardSchema from "../shared/db/schema/onboard";
+import * as goalsSchema from "../shared/db/schema/goals";
 
 export const schema = {
   ...operationsSchema,
@@ -11,6 +13,8 @@ export const schema = {
   ...integrationSchema,
   ...financeLegalSchema,
   ...legalSchema,
+  ...onboardSchema,
+  ...goalsSchema,
 };
 
 const conn = process.env.WORKSPACE_DATABASE_URL || DEFAULT_WORKSPACE_DB_URL;
