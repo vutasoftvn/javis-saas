@@ -106,3 +106,17 @@ def test_catalog_keys_sorted_and_nonempty():
     keys = catalog_keys()
     assert keys == sorted(keys)
     assert "founder_office_orchestrator" in keys
+    assert "product_spec_specialist" in keys
+
+
+def test_product_spec_specialist_catalog_entry():
+    spec = build_functional_spec("product_spec_specialist")
+    assert spec.id == "functional.product_spec_specialist"
+    assert spec.metadata["title"] == "Product Specification Specialist"
+    assert spec.metadata["default_department"] == "Product"
+    assert "CPO" in spec.metadata["suggested_personas"]
+    assert spec.capability_refs == [
+        "product.decision.read",
+        "knowledge.document.read",
+    ]
+

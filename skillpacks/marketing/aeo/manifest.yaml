@@ -1,0 +1,60 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: marketing.aeo
+  name: Answer Engine Optimization & LLM Search Citation
+  version: 1.0.0
+  description: Tối ưu hóa nội dung để được Perplexity, ChatGPT Search, Claude và Gemini trích dẫn làm nguồn thẩm quyền cao qua E-E-A-T và Fact-First Lede.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/marketing/aeo
+capability:
+  domain: marketing
+  category: aeo
+  intents:
+  - aeo audit
+  - optimize for chatgpt
+  - perplexity citation
+  - answer engine optimization
+  - llm search optimization
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0
+applicability:
+  project_stages:
+  - P2_SOLUTION_VALIDATION
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  gates:
+  - G2
+  - G3
+  - G4
+  - G5
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L0_OBSERVE
+  side_effect_class: R
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/marketing/aeo.yaml
+  required_negative_cases:
+  - missing-workspace
+  - unverified-claims

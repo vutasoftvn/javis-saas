@@ -1,0 +1,61 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: marketing.marketing-loops
+  name: Recurring Always-On Marketing Loops
+  version: 1.0.0
+  description: Thiết lập các vòng lặp tiếp thị định kỳ tự hành có giới hạn (SEO scan, ad fatigue refresh, churn watch) theo cấu trúc 9 thành phần và 6 terminal states.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/marketing/marketing-loops
+capability:
+  domain: marketing
+  category: operations
+  intents:
+  - marketing loops
+  - recurring marketing workflow
+  - always on marketing
+  - weekly seo review
+  - ad fatigue monitor
+  - churn watch loop
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0
+applicability:
+  project_stages:
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  - P6_SCALE_GOVERN
+  gates:
+  - G3
+  - G4
+  - G5
+  - G6
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L0_OBSERVE
+  side_effect_class: R
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/marketing/marketing-loops.yaml
+  required_negative_cases:
+  - missing-workspace
+  - unbounded-loop-attempt

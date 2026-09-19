@@ -1,0 +1,78 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: research.dossier
+  name: Decision-Grade Entity Research & Hypothesis Testing Dossier
+  version: 1.0.0
+  description: Thẩm định chuyên sâu thực thể (công ty, đối tác, khách hàng lớn, nhà đầu tư) dựa trên kiểm chứng giả thuyết, kiểm soát tỷ lệ phản biện và tạo móc nối đối thoại đàm phán.
+
+publisher:
+  name: cosa
+  type: official
+
+source:
+  type: local
+  path: skillpacks/research/dossier
+
+capability:
+  domain: research
+  category: entity-intelligence
+  intents:
+    - entity dossier
+    - due diligence
+    - partner background check
+    - investor diligence
+    - competitor deep dive
+    - meeting prep dossier
+    - thẩm định đối tác
+
+runtime:
+  entrypoint: SKILL.md
+  tools:
+    - web.search
+
+applicability:
+  project_stages:
+    - P1_PROBLEM_VALIDATION
+    - P2_SOLUTION_VALIDATION
+    - P3_BUILD_VALIDATE
+    - P4_GO_TO_MARKET
+    - P5_OPERATE_GROWTH
+  gates:
+    - G1
+    - G2
+    - G3
+    - G4
+    - G5
+  required_context:
+    - workspace
+    - project
+  outputs:
+    - artifact
+    - proposal
+
+autonomy:
+  ceiling: L0_OBSERVE
+  side_effect_class: R
+
+evidence:
+  min_source_refs: 3
+  self_validation_forbidden: true
+
+quality:
+  eval_suite: evals/research/dossier.yaml
+  required_negative_cases:
+    - missing-workspace
+    - missing-hypothesis
+    - confirmation-bias-unbalanced
+
+permissions:
+  required:
+    - READ_LOCAL
+
+risk:
+  level: low
+
+trust:
+  tier: T0

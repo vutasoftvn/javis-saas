@@ -3,9 +3,9 @@ kind: Skill
 
 metadata:
   id: research.deep-research
-  name: Deep Research, Evidence Synthesis & Citation Brief
-  version: 1.0.0
-  description: Nghiên cứu chuyên sâu đa nguồn, tổng hợp trích dẫn có kiểm chứng, phân tích mâu thuẫn thông tin và nhận diện khoảng trống nghiên cứu.
+  name: Deep Research, Evidence Synthesis & Source Tiering
+  version: 1.2.0
+  description: Nghiên cứu chuyên sâu đa nguồn, tổng hợp trích dẫn có kiểm chứng, phân tầng độ tin cậy nguồn tin (Primary/Secondary/Tertiary), kiểm soát cân bằng phản biện và nhận diện khoảng trống nghiên cứu.
 
 publisher:
   name: cosa
@@ -25,6 +25,8 @@ capability:
     - citation synthesis
     - contradiction analysis
     - knowledge gap analysis
+    - source tiering
+    - three count tracking
 
 runtime:
   entrypoint: SKILL.md
@@ -51,7 +53,7 @@ autonomy:
   side_effect_class: R
 
 evidence:
-  min_source_refs: 0
+  min_source_refs: 2
   self_validation_forbidden: true
 
 quality:
@@ -59,6 +61,7 @@ quality:
   required_negative_cases:
     - missing-workspace
     - cross-workspace
+    - unverified-citations
 
 permissions:
   required:

@@ -13,6 +13,7 @@ from agent.registry.repository import InMemorySpecRegistryRepository
 from agent.runs.leases import RunLeaseManager
 from agent.runs.repository import InMemoryRunRepository
 from agent.runs.stream_events import InMemoryRunStreamEventRepository
+from agent.workforce.catalog import FUNCTIONAL_AGENT_CATALOG
 from agent.workforce.repository import InMemoryWorkforceRepository
 from agent_testkit.fake_sdk_model import FakeSDKModel
 
@@ -504,7 +505,7 @@ async def test_roster_lists_functional_catalog_with_default_available_status(tes
         res = await client.get("/agent/workforce/roster")
         assert res.status_code == 200
         data = res.json()["data"]
-        assert len(data) == 6  # FUNCTIONAL_AGENT_CATALOG has 6 entries today
+        assert len(data) == len(FUNCTIONAL_AGENT_CATALOG)
         cashflow = next(e for e in data if e["key"] == "cashflow_planner")
         assert cashflow["name"] == "Cashflow Planner"
         assert cashflow["department"] == "Finance"

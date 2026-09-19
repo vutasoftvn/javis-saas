@@ -45,8 +45,9 @@ description: Hướng dẫn review hiệu quả chiến dịch marketing hoàn t
 5. **Phân Tích Khoảng Trống & Độ Tin Cậy Dữ Liệu (Confidence & Gap Analysis)**:
    - Xác định nguyên nhân chênh lệch (tại sao vượt hoặc không đạt mục tiêu) dựa trên bằng chứng số liệu.
    - Nhận diện các điểm mù trong dữ liệu (ví dụ: thiếu tracking sự kiện ở bước thanh toán, tỷ lệ unassigned traffic cao).
-6. **Đề Xuất Hành Động Cải Tiến (Actionable Recommendations)**:
+6. **Đề Xuất Hành Động Cải Tiến & Thiết Lập Vòng Lặp Định Kỳ (Actionable Recommendations & Loops)**:
    - Rút ra tối đa 2-3 đề xuất hành động cụ thể cho chiến dịch tiếp theo (ví dụ: tối ưu trang đích, thay đổi kênh phân phối, điều chỉnh ngân sách).
+   - Chuyển giao các tác vụ giám sát định kỳ sang `marketing.marketing-loops` (ví dụ: vòng lặp kiểm tra hao mòn mẫu quảng cáo Ad Fatigue Check mỗi 3 ngày hoặc vòng lặp kiểm toán sụt giảm SEO hàng tuần).
 
 ## 5. Tool Calls Được Phép (Allowed Tool Calls)
 Không có tool call runtime nào được khai báo cho skillpack này.

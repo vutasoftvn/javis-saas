@@ -3,7 +3,7 @@ kind: Skill
 metadata:
   id: marketing.seo-plan
   name: SEO Strategy, Content Architecture & AI Visibility
-  version: 1.1.1
+  version: 1.2.0
   description: Xây dựng chiến lược SEO toàn diện, phân nhóm cụm từ khóa theo ý định
     tìm kiếm, tối ưu khả năng hiển thị AI-Search, checklist kiểm toán kỹ thuật và
     cấu trúc dữ liệu schema.

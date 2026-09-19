@@ -82,7 +82,7 @@ _ENTRIES: tuple[FunctionalAgentEntry, ...] = (
             "knowledge.document.read",
         ),
         allowed_capability_prefixes=("research.", "knowledge.document.read"),
-        suggested_personas=("CMO", "Chief of Staff"),
+        suggested_personas=("CMO", "Chief of Staff", "Growth Marketer"),
         default_department="Strategy",
     ),
     FunctionalAgentEntry(
@@ -95,7 +95,7 @@ _ENTRIES: tuple[FunctionalAgentEntry, ...] = (
             "marketing.audience.analyze",
         ),
         allowed_capability_prefixes=("marketing.campaign.plan", "marketing.audience."),
-        suggested_personas=("CMO",),
+        suggested_personas=("CMO", "Growth Marketer"),
         default_department="Marketing",
     ),
     FunctionalAgentEntry(
@@ -127,8 +127,42 @@ _ENTRIES: tuple[FunctionalAgentEntry, ...] = (
             "knowledge.document.read",
         ),
         allowed_capability_prefixes=("orchestration.", "knowledge.document.read"),
-        suggested_personas=("Chief of Staff", "Founder Copilot"),
+        suggested_personas=("Chief of Staff", "Founder Copilot", "Solo Founder"),
         default_department="Founder Office",
+    ),
+    FunctionalAgentEntry(
+        functional_key="executive_presence_specialist",
+        version="1.0.0",
+        title="Executive Presence Specialist",
+        description="Cố vấn định vị thương hiệu cá nhân lãnh đạo, phỏng vấn Story Bank và soạn thảo nội dung LinkedIn hữu cơ có kiểm định thuật toán 2026.",
+        capability_refs=(
+            "marketing.campaign.plan",
+            "marketing.audience.analyze",
+            "knowledge.document.read",
+        ),
+        allowed_capability_prefixes=(
+            "marketing.campaign.plan",
+            "marketing.audience.",
+            "knowledge.document.read",
+        ),
+        suggested_personas=("Founder Copilot", "CMO", "Chief of Staff"),
+        default_department="Marketing",
+    ),
+    FunctionalAgentEntry(
+        functional_key="product_spec_specialist",
+        version="1.0.0",
+        title="Product Specification Specialist",
+        description="Đọc quyết định sản phẩm, phân tích bài toán, soạn thảo PRD 10 mục chuẩn và phân rã User Stories dọc.",
+        capability_refs=(
+            "product.decision.read",
+            "knowledge.document.read",
+        ),
+        allowed_capability_prefixes=(
+            "product.decision.read",
+            "knowledge.document.read",
+        ),
+        suggested_personas=("CPO", "Founder Copilot", "Solo Founder"),
+        default_department="Product",
     ),
 )
 

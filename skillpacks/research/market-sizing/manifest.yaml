@@ -2,10 +2,9 @@ apiVersion: agentos.ai/v1
 kind: Skill
 metadata:
   id: research.market-sizing
-  name: TAM SAM SOM Market Sizing
-  version: 1.0.0
-  description: Tính toán quy mô thị trường tổng thể (TAM), thị trường phục vụ được
-    (SAM) và thị trường mục tiêu đạt được (SOM) từ dữ liệu thực nghiệm.
+  name: TAM SAM SOM Market Sizing & Triangulation
+  version: 1.2.0
+  description: Tính toán quy mô thị trường TAM, SAM, SOM theo phương pháp kép (Top-down và Bottoms-up), đo lường độ lệch tam giác và lập kế hoạch khảo sát định lượng Cochran.
 publisher:
   name: cosa
   type: official
@@ -14,15 +13,20 @@ source:
   path: skillpacks/research/market-sizing
 capability:
   domain: research
-  category: research
+  category: market-analysis
   intents:
   - tam sam som market sizing
   - research.market-sizing
+  - market sizing triangulation
+  - survey sample size planning
+  - cochran survey design
 applicability:
   project_stages:
   - P1_PROBLEM_VALIDATION
+  - P2_SOLUTION_VALIDATION
   gates:
   - G1
+  - G2
   required_context:
   - workspace
   - project
@@ -33,13 +37,14 @@ autonomy:
   ceiling: L0_OBSERVE
   side_effect_class: R
 evidence:
-  min_source_refs: 0
+  min_source_refs: 2
   self_validation_forbidden: true
 quality:
   eval_suite: evals/research/market-sizing.yaml
   required_negative_cases:
   - missing-workspace
   - cross-workspace
+  - single-unsourced-number
 runtime:
   entrypoint: SKILL.md
   tools:

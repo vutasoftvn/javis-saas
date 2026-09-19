@@ -1,0 +1,73 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: product.research-ops
+  name: Product Research Operations & Insight Repository Synthesis
+  version: 1.0.0
+  description: Chuẩn hóa quy trình vận hành nghiên cứu sản phẩm, lập kế hoạch cỡ mẫu bão hòa theo Nielsen và Guest, chuyển hóa quan sát thực nghiệm thành kho lưu trữ Insight có kiểm chứng.
+
+publisher:
+  name: cosa
+  type: official
+
+source:
+  type: local
+  path: skillpacks/product/research-ops
+
+capability:
+  domain: product
+  category: research-operations
+  intents:
+    - product research ops
+    - usability test sample size
+    - interview saturation planning
+    - research repository
+    - insight synthesis
+    - quy trình nghiên cứu sản phẩm
+
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+
+applicability:
+  project_stages:
+    - P0_DISCOVERY
+    - P1_PROBLEM_VALIDATION
+    - P2_SOLUTION_VALIDATION
+    - P3_BUILD_VALIDATE
+  gates:
+    - G0
+    - G1
+    - G2
+    - G3
+  required_context:
+    - workspace
+    - project
+  outputs:
+    - artifact
+    - proposal
+
+autonomy:
+  ceiling: L0_OBSERVE
+  side_effect_class: R
+
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+
+quality:
+  eval_suite: evals/product/research-ops.yaml
+  required_negative_cases:
+    - missing-workspace
+    - single-user-generalization
+
+permissions:
+  required:
+    - READ_LOCAL
+
+risk:
+  level: low
+
+trust:
+  tier: T0

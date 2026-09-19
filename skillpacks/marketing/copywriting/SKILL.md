@@ -34,12 +34,17 @@ Soạn thảo các bản copy tiếp thị tập trung vào chuyển đổi (lan
 3. **Biên soạn các biến thể Tiêu đề & Lời kêu gọi hành động (Headlines & CTAs)**:
    - Viết 3-5 biến thể tiêu đề theo các góc tiếp cận: (1) Trực diện vào lợi ích (Benefit-driven), (2) Nêu giải pháp cho nỗi đau (Pain-solution), (3) Câu hỏi gợi mở/Thách thức hiện trạng (Provocative), (4) Số liệu bằng chứng (Proof-led).
    - Thiết kế CTA cụ thể, phản ánh giá trị nhận được (ví dụ: *"Bắt đầu dùng thử miễn phí trong 5 phút"*, tránh *"Bấm vào đây"* mơ hồ).
-4. **Biên soạn nội dung thân bài (Body Copy)**:
+4. **Biên soạn nội dung thân bài (Body Copy) & Message-Market Fit**:
    - Cấu trúc PAS (Problem - Agitation - Solution) hoặc BAB (Before - After - Bridge).
+   - Kiểm tra Message-Market Fit theo 3 bài test từ Corey Haines (v2.0.2):
+     * *"Now you can"* test: Điền vào mẫu *"Giờ đây bạn có thể [lợi ích cụ thể] mà không cần [nỗi đau quen thuộc]"*.
+     * *Human Action Model*: Nỗi bất an hiện tại (Discomfort) ➔ Tầm nhìn giải pháp (Vision) ➔ Lộ trình thực hiện đơn giản (Path).
+     * *Perception Gap*: Đóng lại khoảng cách giữa những gì khách hàng nghĩ họ cần và giải pháp thực sự.
    - Tối ưu khả năng quét mắt: Đoạn văn ngắn (2-3 dòng), bullet points súc tích, in đậm từ khóa quan trọng.
-5. **Đánh giá chất lượng bản copy (Review-Copy Rubric)**:
-   - Rõ ràng > Thông minh (Clarity over cleverness): Tránh chơi chữ phức tạp gây khó hiểu.
+5. **Đánh giá chất lượng bản copy & Thanh lọc văn phong (Review-Copy & Brand Voice)**:
+   - Rõ ràng > Thông minh (Clarity over cleverness): Rõ ràng giúp tăng +81% chuyển đổi so với chơi chữ tối nghĩa.
    - Customer language: Sử dụng đúng từ ngữ khách hàng thực tế sử dụng.
+   - Chạy qua `BrandVoiceAnalyzer`: Đảm bảo Flesch Reading Ease $\ge 60$, tỷ lệ câu bị động $\le 15\%$ và 0 từ sáo rỗng AI. Phối hợp với `marketing.content-humanizer` nếu cần làm mượt.
    - Proof completeness: Mọi tuyên bố lớn đều phải có dẫn chứng đi kèm.
 6. **Lập danh sách thử nghiệm (Backlog Experiment)**:
    - Ghi lại các cặp giả thuyết A/B test (Headline A vs B, CTA A vs B) để đưa vào `strategy.experiment-design`.
@@ -94,15 +99,17 @@ upstream:
   repository: coreyhaines31/marketingskills
   commit: b1aaa3619e747f4a836c61e03084c4a531de1262
   skill: copywriting, copy-editing, cro, signup, onboarding, paywalls, popups
-  upstream_version: 1.0.0
+  upstream_version: 2.0.2
   license: MIT
 adaptation:
   kept:
     - Nguyên tắc Rule of One, Cấu trúc Headline/CTA variants, Rubric đánh giá copy, Page & Form audit
+    - Kiểm tra Message-Market Fit ("Now you can" test, Human Action Model, Perception Gap)
   changed:
     - Chuẩn hóa thuật ngữ COSA
     - Thêm cấu trúc 10 mục bắt buộc và định dạng markdown tiếng Việt
   added:
+    - Tích hợp công cụ BrandVoiceAnalyzer và phối hợp với marketing.content-humanizer
     - Liên kết trực tiếp với hồ sơ định vị và backlog thử nghiệm A/B
     - Giới hạn nghiêm ngặt không tự động publish trang
   excluded:

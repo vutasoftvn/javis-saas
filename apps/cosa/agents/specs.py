@@ -9,6 +9,8 @@ from agent.governance.contracts import AutonomyLevel
 __all__ = [
     "COSA_AI_GOVERNANCE_AGENT_SPEC",
     "COSA_AI_GOVERNANCE_PROMPT",
+    "COSA_COFOUNDER_ASSISTANT_AGENT_SPEC",
+    "COSA_COFOUNDER_ASSISTANT_PROMPT",
     "COSA_CUSTOMER_SUPPORT_AGENT_SPEC",
     "COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC",
     "COSA_CUSTOMER_SUPPORT_AUTOPILOT_PROMPT",
@@ -71,6 +73,20 @@ COSA_OPERATIONS_PROMPT = PromptSpec(
     id="cosa.agents.operations.prompt",
     version="1.0.0",
     text="Chuyên viên quản lý vận hành công việc, theo dõi tiến độ task và OKRs của doanh nghiệp.",
+).with_hash()
+
+COSA_COFOUNDER_ASSISTANT_PROMPT = PromptSpec(
+    id="cosa.agents.founder_assistant.prompt",
+    version="1.0.0",
+    text=(
+        "Trợ lý Đồng sáng lập AI (AI Co-Founder & Thinking Partner) của Founder. "
+        "Bảo vệ thời gian và sự tập trung của Founder như tài nguyên quý giá nhất: kỷ luật 1 mục tiêu duy nhất mỗi tuần (1 goal/week), "
+        "duy trì nhịp giao hàng thứ Sáu (Ship every Friday), phân bổ sáng tập trung xây dựng (Build), chiều phân phối và bán hàng (Market/Sell). "
+        "Phản biện sắc sảo chống phình phạm vi (anti-scope creep), hỏi thẳng 'Tính năng này ai đã yêu cầu?' trước khi cho phép lập trình. "
+        "Thúc đẩy MVP kiểm chứng trong 2 tuần, nói chuyện với 10 người dùng thay vì viết 10 tính năng mới. "
+        "Cảnh báo số tuần runway sinh tồn và bảo toàn năng lượng, chống kiệt sức cho Founder. "
+        "Hoạt động nghiêm ngặt ở mức trần tự trị L0_OBSERVE (gợi ý, phân tích và đồng hành hội thoại; không tự ý thực thi các tác vụ nền có rủi ro)."
+    ),
 ).with_hash()
 
 COSA_FINANCE_PROMPT = PromptSpec(
@@ -147,6 +163,51 @@ COSA_OPERATIONS_AGENT_SPEC = AgentSpec(
 )
 
 
+COSA_COFOUNDER_ASSISTANT_AGENT_SPEC = AgentSpec(
+    id="cosa.agents.founder_assistant",
+    version="1.0.0",
+    autonomy_level=AutonomyLevel.L0_OBSERVE,
+    instructions=COSA_COFOUNDER_ASSISTANT_PROMPT.text,
+    capability_refs=[
+        "operations.task.list",
+        "operations.task.read",
+        "operations.task.create_draft",
+        "strategy.project.get",
+        "strategy.next_best_action.get",
+        "strategy.evidence.list",
+        "analytics.metric_contract.get",
+        "knowledge.profile.read",
+        "workspace.context.read",
+    ],
+    model_input_capability_ref="model.input.direct-user-message",
+    pinned_skills=[
+        PinnedSkillRef(
+            skill_id="lifecycle.context-resolver",
+            version="1.0.0",
+            definition_hash="d2cd448f9012ae55f12d20b40315b79f517136fc8b55577f651dd4e36d2bcb98",
+        ),
+        PinnedSkillRef(
+            skill_id="lifecycle.next-best-action",
+            version="1.0.0",
+            definition_hash="4f554c271dcd05e47dfcb4480f10e760dc02c24e0b510046b220afe415527ab9",
+        ),
+        PinnedSkillRef(
+            skill_id="operations.weekly-review",
+            version="1.0.0",
+            definition_hash="cd5f56dfdc6178f0fadafbcdf585a9787eeee8393a783d9f01393a771d761f56",
+        ),
+        PinnedSkillRef(
+            skill_id="marketing.founder-story-bank",
+            version="1.0.0",
+            definition_hash="ffe03957f3e4bc0170fee4fac0305e5c9e06623e84981a0d021e7872a14563de",
+        ),
+    ],
+    prompt_ref=COSA_COFOUNDER_ASSISTANT_PROMPT.to_pinned_identity(),
+    model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    metadata={"display_name": "COSA Co-Founder Assistant Agent", "role": "founder_assistant"},
+)
+
+
 COSA_FINANCE_AGENT_SPEC = AgentSpec(
     id="cosa.agents.finance",
     version="1.1.0",
@@ -210,8 +271,13 @@ COSA_MARKETING_AGENT_SPEC = AgentSpec(
         ),
         PinnedSkillRef(
             skill_id="research.deep-research",
+            version="1.2.0",
+            definition_hash="fc85683dbb87b9ff1b9c0e25004f42269d20a8c5369bf4e3139550ed7f403625",
+        ),
+        PinnedSkillRef(
+            skill_id="growth.bootstrapped-engine",
             version="1.0.0",
-            definition_hash="e84d6dbfbf4d6d1f868fcdfb9287e1a6b11187a4db0f3fba32076f1be1034619",
+            definition_hash="d0684c24766b577a1628aaf874778fdbc8ebb07d4bc2908c04de485b835b3020",
         ),
         PinnedSkillRef(
             skill_id="strategy.competitor-profiling",
@@ -255,6 +321,26 @@ COSA_MARKETING_AGENT_SPEC = AgentSpec(
             skill_id="marketing.reputation-monitoring",
             version="1.0.0",
             definition_hash="2a35c36a8890cdf6bee3a4fe0be922caa185c02603a3128c47a959db607f76e0",
+        ),
+        PinnedSkillRef(
+            skill_id="marketing.linkedin-presence",
+            version="1.1.0",
+            definition_hash="1f1be5ece1ce1a08add18eca458423cddfd7ea6a602e7b50512e408218f7da5f",
+        ),
+        PinnedSkillRef(
+            skill_id="marketing.content-humanizer",
+            version="1.1.0",
+            definition_hash="878b384d55584b74eacee386963d242746d33301635f41230fa29cd27e7090d0",
+        ),
+        PinnedSkillRef(
+            skill_id="marketing.founder-story-bank",
+            version="1.0.0",
+            definition_hash="ffe03957f3e4bc0170fee4fac0305e5c9e06623e84981a0d021e7872a14563de",
+        ),
+        PinnedSkillRef(
+            skill_id="marketing.linkedin-engagement-ops",
+            version="1.0.0",
+            definition_hash="bfc69a93d6e18e3a4056cc3151a06b9f58bdcfb6e0ecbd87a60836f5b55417e1",
         ),
     ],
     prompt_ref=COSA_MARKETING_PROMPT.to_pinned_identity(),
@@ -477,19 +563,23 @@ COSA_CODING_AGENT_SPEC = AgentSpec(
 
 COSA_PRODUCT_PROMPT = PromptSpec(
     id="cosa.agents.product.prompt",
-    version="1.0.0",
+    version="1.1.0",
     text=(
         "Chuyên viên sản phẩm (Product Specialist). "
-        "Chỉ đọc snapshot Product Decision Dossier (evidence_refs, assumptions, status) đã được "
-        "Founder/thành viên xác nhận, phân tích và đề xuất quyết định sản phẩm dựa trên bằng chứng "
-        "hiện có (L1_PROPOSE). Tuyệt đối không tự tạo hay xác nhận (append/confirm) Product Decision "
-        "Dossier — quyết định sản phẩm luôn thuộc về con người."
+        "Định hướng kết quả (Outcome > Output), bảo vệ sản phẩm khỏi bẫy gia công tính năng (Feature Factory) "
+        "và số liệu hình thức (Metrics Theater). "
+        "Kiểm soát bài toán qua Framing Gate: loại bỏ giải pháp áp đặt sẵn (solution smuggling), "
+        "yêu cầu chỉ số thành công đo lường được (baseline -> target -> timeline), và ngăn phình phạm vi. "
+        "Chỉ đọc snapshot Product Decision Dossier và tài liệu tri thức để phân tích, lập PRD 10 mục chuẩn, "
+        "phân rã User Stories theo lát cắt dọc (Vertical Slicing), và đề xuất quyết định sản phẩm dựa trên bằng chứng (L1_PROPOSE). "
+        "Luôn nêu rõ các giả định [assumption], chỉ ra sự đánh đổi (trade-offs) và đề xuất bước hành động tiếp theo. "
+        "Tuyệt đối không tự tạo hay xác nhận Product Decision Dossier — quyết định sản phẩm luôn thuộc về con người."
     ),
 ).with_hash()
 
 COSA_PRODUCT_AGENT_SPEC = AgentSpec(
     id="cosa.agents.product",
-    version="1.0.0",
+    version="1.1.0",
     autonomy_level=AutonomyLevel.L1_PROPOSE,
     instructions=COSA_PRODUCT_PROMPT.text,
     capability_refs=[
@@ -506,19 +596,20 @@ COSA_PRODUCT_AGENT_SPEC = AgentSpec(
 
 COSA_EXECUTIVE_CPO_PROMPT = PromptSpec(
     id="cosa.executive.cpo.prompt",
-    version="1.0.0",
+    version="1.1.0",
     text=(
         "Cố vấn Giám đốc Sản phẩm (Chief Product Officer Advisor). "
-        "Đánh giá quyết định sản phẩm, câu hỏi về bằng chứng còn thiếu và đề xuất cân nhắc trong các "
-        "phiên thảo luận của Ban điều hành (L1_PROPOSE, advisory-only). "
-        "Tuyệt đối không có quyền phát hành sản phẩm, chỉnh sửa roadmap, khởi chạy experiment hay "
-        "giao tiếp trực tiếp với khách hàng."
+        "Quản trị danh mục sản phẩm theo khung 3P (Product, Practice, People) và tư duy P&L kinh doanh: "
+        "bảo vệ Product-Market Fit, tối ưu NRR, LTV/CAC, Time-to-Value và chuyển ngữ chiến lược cấp cao (Cascading Context Map). "
+        "Kỷ luật Product Bets theo chu kỳ 12-Week Year (tối đa 2-3 cược lớn/chu kỳ) và thực thi Kill Criteria dứt khoát sau 6 tuần. "
+        "Đánh giá quyết định sản phẩm, câu hỏi về bằng chứng còn thiếu và đề xuất cân nhắc trong các phiên thảo luận của Ban điều hành (L1_PROPOSE, advisory-only). "
+        "Tuyệt đối không có quyền phát hành sản phẩm, chỉnh sửa roadmap, khởi chạy experiment hay giao tiếp trực tiếp với khách hàng."
     ),
 ).with_hash()
 
 COSA_EXECUTIVE_CPO_AGENT_SPEC = AgentSpec(
     id="cosa.executive.cpo",
-    version="1.0.0",
+    version="1.1.0",
     autonomy_level=AutonomyLevel.L1_PROPOSE,
     instructions=COSA_EXECUTIVE_CPO_PROMPT.text,
     capability_refs=[],
@@ -901,12 +992,15 @@ COSA_EXECUTIVE_CEO_AGENT_SPEC = AgentSpec(
 
 COSA_EXECUTIVE_CTO_PROMPT = PromptSpec(
     id="cosa.executive.cto.prompt",
-    version="1.0.0",
+    version="1.1.0",
     text=(
         "Cố vấn Giám đốc Công nghệ & Chiến lược Kỹ thuật (CTO Advisor). "
-        "Định hình tầm nhìn công nghệ 3-5 năm, quản trị kiến trúc hệ thống (ADRs), "
-        "danh mục nợ kỹ thuật (Tech Debt Governance), thẩm định Make vs Buy vs Agentize "
-        "và lãnh đạo đội ngũ kỹ thuật lai (kỹ sư con người kết hợp AI Coding Agents). "
+        "Lãnh đạo kỹ thuật theo mô hình Thích ứng Giai đoạn (Stage-Adaptive CTO): "
+        "Ở giai đoạn Discovery/MVP (P0-P2), kiên quyết giữ tư duy Startup CTO thực dụng — chọn Boring Technology, "
+        "mặc định Monolith, dùng Managed DB/Auth/Payments (không tự code DBA/Auth/Payments), chống over-engineering "
+        "và kiến trúc làm đẹp CV (resume-driven architecture), duy trì nhịp MVP 2 tuần và tư thế sẵn sàng Due Diligence 30 phút. "
+        "Ở giai đoạn mở rộng quy mô (P3-P6), quản trị kiến trúc hệ thống (ADRs), danh mục nợ kỹ thuật (Tech Debt Governance), "
+        "thẩm định Make vs Buy vs Agentize, đo lường DORA metrics và dẫn dắt Đội ngũ Kỹ thuật Lai (Hybrid Engineering Fleet). "
         "Hoạt động nghiêm ngặt ở mức trần tự trị L1_PROPOSE (advisory-only). "
         "Tuyệt đối không có quyền tự ý thay đổi hạ tầng production, cam kết hợp đồng nhà cung cấp "
         "hay sửa đổi codebase mà không có sự phê duyệt từ Founder hoặc Tech Lead con người."
@@ -915,12 +1009,18 @@ COSA_EXECUTIVE_CTO_PROMPT = PromptSpec(
 
 COSA_EXECUTIVE_CTO_AGENT_SPEC = AgentSpec(
     id="cosa.executive.cto",
-    version="1.0.0",
+    version="1.1.0",
     autonomy_level=AutonomyLevel.L1_PROPOSE,
     instructions=COSA_EXECUTIVE_CTO_PROMPT.text,
     capability_refs=[],
     model_input_capability_ref="model.input.direct-user-message",
-    pinned_skills=[],
+    pinned_skills=[
+        PinnedSkillRef(
+            skill_id="executive.cto-advisor",
+            version="1.0.0",
+            definition_hash="021076c53f5be56aa07e1edbdb49afe173b6cd5368f15c4392e3aac4dd742667",
+        ),
+    ],
     prompt_ref=COSA_EXECUTIVE_CTO_PROMPT.to_pinned_identity(),
     model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
     metadata={"display_name": "COSA CTO Advisor", "advisory_only": True},
@@ -943,6 +1043,7 @@ EXECUTIVE_AGENT_SPECS: dict[str, AgentSpec] = {
 # runtime specs (skillpacks + prompts/model_policy/agent) và verify mọi
 # pinned_skills resolve được trước khi phục vụ traffic (Wave M2b).
 COSA_DEPLOYED_AGENT_SPECS = (
+    COSA_COFOUNDER_ASSISTANT_AGENT_SPEC,
     COSA_OPERATIONS_AGENT_SPEC,
     COSA_FINANCE_AGENT_SPEC,
     COSA_MARKETING_AGENT_SPEC,
@@ -959,4 +1060,5 @@ COSA_DEPLOYED_AGENT_SPECS = (
     COSA_LEGAL_AGENT_SPEC,
     COSA_DATA_AGENT_SPEC,
     COSA_AI_GOVERNANCE_AGENT_SPEC,
+    COSA_EXECUTIVE_CTO_AGENT_SPEC,
 )

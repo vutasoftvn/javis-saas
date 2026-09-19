@@ -556,6 +556,274 @@ def calculate_feature_adoption_rate(
     }
 
 
+def calculate_compounded_churn(monthly_churn_pct: float) -> dict[str, Any]:
+    """Tính Annual Churn chính xác qua công thức lãi kép: 1 - (1 - monthly_churn)^12.
+    Tránh lỗi nhân 12 thông thường (3% tháng = ~31% năm chứ không phải 36%).
+    """
+    if monthly_churn_pct < 0 or monthly_churn_pct > 100:
+        raise ValueError("monthly_churn_pct phải nằm trong khoảng [0, 100]")
+    monthly_rate = monthly_churn_pct / 100.0
+    annual_rate = 1.0 - ((1.0 - monthly_rate) ** 12)
+    annual_churn_pct = round(annual_rate * 100.0, 2)
+    simple_multiplication_pct = round(monthly_churn_pct * 12, 2)
+    compounding_difference_pp = round(simple_multiplication_pct - annual_churn_pct, 2)
+
+    if annual_churn_pct < 10.0:
+        status = "great"
+    elif annual_churn_pct <= 30.0:
+        status = "ok"
+    else:
+        status = "crisis"
+
+    return {
+        "monthly_churn_pct": monthly_churn_pct,
+        "annual_churn_pct": annual_churn_pct,
+        "simple_multiplication_pct": simple_multiplication_pct,
+        "compounding_difference_pp": compounding_difference_pp,
+        "status": status,
+    }
+
+
+def diagnose_saas_health_scorecard(
+    metrics: dict[str, Any], stage: str = "early"
+) -> dict[str, Any]:
+    """Chẩn đoán sức khỏe doanh nghiệp SaaS 4 chiều:
+    1. Growth & Retention (Doanh thu YoY, NRR, Churn, Quick Ratio)
+    2. Unit Economics (CAC, LTV, LTV:CAC, Payback, Gross Margin)
+    3. Capital Efficiency (Burn, Runway, Rule of 40, Magic Number)
+    4. Strategic Position (Top 10 concentration)
+
+    Gắn cờ cảnh báo Red Flags phân cấp: Critical, High, Medium.
+    """
+    red_flags: list[dict[str, str]] = []
+
+    # 1. Growth & Retention checks
+    nrr = metrics.get("nrr_pct")
+    if nrr is not None and nrr < 90.0:
+        red_flags.append(
+            {
+                "severity": "critical",
+                "metric": "nrr_pct",
+                "issue": "NRR < 90%: Tổn thất doanh thu từ khách hàng hiện hữu",
+            }
+        )
+    elif nrr is not None and nrr < 100.0:
+        red_flags.append(
+            {
+                "severity": "medium",
+                "metric": "nrr_pct",
+                "issue": "NRR 90-100%: Chưa có động lực mở rộng doanh thu (Expansion)",
+            }
+        )
+
+    quick_ratio = metrics.get("quick_ratio")
+    if quick_ratio is not None and quick_ratio < 2.0:
+        red_flags.append(
+            {
+                "severity": "high",
+                "metric": "quick_ratio",
+                "issue": "Quick Ratio < 2.0: Tốc độ tăng trưởng không bù đắp kịp lượng khách rời bỏ (leaky bucket)",
+            }
+        )
+
+    monthly_churn = metrics.get("monthly_churn_pct")
+    if monthly_churn is not None and monthly_churn > 5.0:
+        red_flags.append(
+            {
+                "severity": "medium",
+                "metric": "monthly_churn_pct",
+                "issue": "Monthly Churn > 5%: Tỷ lệ rời bỏ hàng tháng ở mức báo động",
+            }
+        )
+
+    # 2. Unit Economics checks
+    ltv_cac = metrics.get("ltv_to_cac")
+    if ltv_cac is not None and ltv_cac < 1.5:
+        red_flags.append(
+            {
+                "severity": "critical",
+                "metric": "ltv_to_cac",
+                "issue": "LTV:CAC < 1.5: Đơn vị kinh tế không bền vững, đốt tiền không hoàn vốn",
+            }
+        )
+    elif ltv_cac is not None and ltv_cac < 3.0:
+        red_flags.append(
+            {
+                "severity": "medium",
+                "metric": "ltv_to_cac",
+                "issue": "LTV:CAC 1.5 - 3.0: Biên lợi nhuận cận biên, cần tối ưu CAC hoặc nâng LTV",
+            }
+        )
+
+    payback_months = metrics.get("cac_payback_months")
+    if payback_months is not None and payback_months > 24.0:
+        red_flags.append(
+            {
+                "severity": "high",
+                "metric": "cac_payback_months",
+                "issue": "Payback > 24 tháng: Thu hồi vốn CAC quá chậm gây áp lực dòng tiền lớn",
+            }
+        )
+
+    gross_margin = metrics.get("gross_margin_pct")
+    if gross_margin is not None and gross_margin < 60.0:
+        red_flags.append(
+            {
+                "severity": "high",
+                "metric": "gross_margin_pct",
+                "issue": "Gross Margin < 60%: Biên lợi nhuận gộp dưới chuẩn SaaS (chuẩn 70-85%)",
+            }
+        )
+
+    # 3. Capital Efficiency checks
+    runway_months = metrics.get("runway_months")
+    if runway_months is not None and runway_months < 6.0:
+        red_flags.append(
+            {
+                "severity": "critical",
+                "metric": "runway_months",
+                "issue": "Runway < 6 tháng: Nguy cơ cạn tiền khẩn cấp, cần gọi vốn hoặc cắt giảm burn",
+            }
+        )
+    elif runway_months is not None and runway_months < 12.0:
+        red_flags.append(
+            {
+                "severity": "medium",
+                "metric": "runway_months",
+                "issue": "Runway 6 - 12 tháng: Vùng cần chuẩn bị kế hoạch tài chính",
+            }
+        )
+
+    rule_of_40 = metrics.get("rule_of_40")
+    if rule_of_40 is not None and rule_of_40 < 25.0:
+        red_flags.append(
+            {
+                "severity": "high",
+                "metric": "rule_of_40",
+                "issue": "Rule of 40 < 25: Tăng trưởng và biên lợi nhuận cộng gộp kém hiệu quả",
+            }
+        )
+
+    magic_number = metrics.get("magic_number")
+    if magic_number is not None and magic_number < 0.3:
+        red_flags.append(
+            {
+                "severity": "critical",
+                "metric": "magic_number",
+                "issue": "Magic Number < 0.3: Hiệu quả chi tiêu S&M rất thấp, ngừng scale để sửa GTM",
+            }
+        )
+    elif magic_number is not None and magic_number < 0.5:
+        red_flags.append(
+            {
+                "severity": "medium",
+                "metric": "magic_number",
+                "issue": "Magic Number 0.3 - 0.5: Cần tối ưu hóa chuyển đổi trước khi rót thêm ngân sách",
+            }
+        )
+
+    # Phân loại trạng thái tổng thể
+    has_critical = any(f["severity"] == "critical" for f in red_flags)
+    high_count = sum(1 for f in red_flags if f["severity"] == "high")
+    if has_critical:
+        overall_status = "critical"
+    elif high_count >= 2:
+        overall_status = "concerning"
+    elif high_count == 1 or len(red_flags) >= 2:
+        overall_status = "moderate"
+    else:
+        overall_status = "healthy"
+
+    return {
+        "stage": stage,
+        "overall_status": overall_status,
+        "red_flags": red_flags,
+        "red_flag_count": len(red_flags),
+    }
+
+
+def score_growth_experiment_ice(impact: float, confidence: float, ease: float) -> float:
+    """Chấm điểm ưu tiên thử nghiệm tăng trưởng theo khung ICE: (Impact + Confidence + Ease) / 3.
+    Thang điểm: 1 đến 10 cho mỗi yếu tố.
+    """
+    for val, name in [(impact, "impact"), (confidence, "confidence"), (ease, "ease")]:
+        if val < 1.0 or val > 10.0:
+            raise ValueError(f"{name} phải nằm trong khoảng từ 1.0 đến 10.0")
+    return round((impact + confidence + ease) / 3.0, 2)
+
+
+def calculate_viral_k_factor(
+    invites_sent_per_user: float, invite_conversion_rate_pct: float
+) -> dict[str, Any]:
+    """Tính hệ số lan truyền K-factor = (số lời mời gửi trên mỗi user) * (tỷ lệ chuyển đổi lời mời).
+    K > 1.0: Tăng trưởng theo cấp số nhân (hiếm có).
+    0.3 <= K <= 0.7: Viral-assisted (giúp giảm CAC 30-70%).
+    """
+    if invites_sent_per_user < 0 or invite_conversion_rate_pct < 0 or invite_conversion_rate_pct > 100:
+        raise ValueError("Thông số lời mời hoặc tỷ lệ chuyển đổi không hợp lệ")
+    k = round(invites_sent_per_user * (invite_conversion_rate_pct / 100.0), 3)
+    if k > 1.0:
+        tier = "exponential"
+    elif k == 1.0:
+        tier = "sustainable"
+    elif k >= 0.3:
+        tier = "viral_assisted"
+    else:
+        tier = "non_viral"
+
+    cac_reduction_pct = round(min(1.0, k) * 100.0, 1)
+    return {
+        "k_factor": k,
+        "tier": tier,
+        "estimated_cac_reduction_pct": cac_reduction_pct,
+    }
+
+
+def analyze_feature_investment_roi(
+    dev_cost: float,
+    expected_annual_value: float,
+    cogs_annual: float = 0.0,
+    feature_type: str = "direct_monetization",
+) -> dict[str, Any]:
+    """Phân tích hiệu quả đầu tư tính năng (ROI) và kiểm tra tính bền vững biên lợi nhuận.
+    feature_type: 'direct_monetization', 'retention', 'conversion', 'strategic'.
+    """
+    if dev_cost <= 0:
+        raise ValueError("dev_cost phải lớn hơn 0")
+    if expected_annual_value < 0 or cogs_annual < 0:
+        raise ValueError("expected_annual_value và cogs_annual không được âm")
+
+    net_annual_value = expected_annual_value - cogs_annual
+    roi = round(net_annual_value / dev_cost, 2)
+    contribution_margin_pct = (
+        round((net_annual_value / expected_annual_value) * 100.0, 1)
+        if expected_annual_value > 0
+        else 0.0
+    )
+
+    if (feature_type == "direct_monetization" and roi >= 3.0 and contribution_margin_pct >= 50.0) or (
+        feature_type == "retention" and roi >= 5.0
+    ):
+        decision = "build_now"
+    elif feature_type == "strategic" or roi >= 1.5:
+        decision = "build_with_governance"
+    elif roi >= 1.0:
+        decision = "validate_further"
+    else:
+        decision = "dont_build"
+
+    return {
+        "feature_type": feature_type,
+        "dev_cost": dev_cost,
+        "expected_annual_value": expected_annual_value,
+        "cogs_annual": cogs_annual,
+        "net_annual_value": net_annual_value,
+        "roi": roi,
+        "contribution_margin_pct": contribution_margin_pct,
+        "decision": decision,
+    }
+
+
 # --- 3. CMO Analyzers (Tiếp thị & Kênh tăng trưởng) ---
 
 

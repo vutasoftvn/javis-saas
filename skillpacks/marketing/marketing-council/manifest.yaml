@@ -1,0 +1,62 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: marketing.marketing-council
+  name: Simulated Marketing Council & Dissent Debate
+  version: 1.0.0
+  description: Giả lập hội đồng cố vấn tiếp thị đa góc nhìn (Dunford, Ogilvy, Schwartz, Hormozi, Sutherland, Sharp) với quy tắc bắt buộc có người phản biện để chống thiên vị xác nhận.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/marketing/marketing-council
+capability:
+  domain: marketing
+  category: strategy
+  intents:
+  - marketing council
+  - marketing advisory board
+  - marketing debate
+  - positioning review
+  - marketing strategy evaluation
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0
+applicability:
+  project_stages:
+  - P1_PROBLEM_VALIDATION
+  - P2_SOLUTION_VALIDATION
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  gates:
+  - G1
+  - G2
+  - G3
+  - G4
+  - G5
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L0_OBSERVE
+  side_effect_class: R
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/marketing/marketing-council.yaml
+  required_negative_cases:
+  - missing-workspace
+  - missing-dissenter

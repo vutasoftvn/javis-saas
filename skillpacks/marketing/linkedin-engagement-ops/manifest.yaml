@@ -1,0 +1,58 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: marketing.linkedin-engagement-ops
+  name: LinkedIn Organic Engagement Ops & ICP Conversations
+  version: 1.0.0
+  description: Hướng dẫn tác nghiệp tương tác hữu cơ LinkedIn sau khi đăng bài, tối ưu cửa sổ động lực 60-90 phút, kỹ thuật phản hồi 2 tầng và phân loại tệp tương tác ICP.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/marketing/linkedin-engagement-ops
+capability:
+  domain: marketing
+  category: social
+  intents:
+  - linkedin engagement
+  - reply handler
+  - comment operations
+  - icp classification
+  - momentum window
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0
+applicability:
+  project_stages:
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  gates:
+  - G3
+  - G4
+  - G5
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L0_OBSERVE
+  side_effect_class: R
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/marketing/linkedin-engagement-ops.yaml
+  required_negative_cases:
+  - missing-workspace
+  - automation-bot-request

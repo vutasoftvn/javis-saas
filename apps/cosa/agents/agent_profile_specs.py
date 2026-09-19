@@ -20,6 +20,7 @@ from agent.contracts.spec import AgentSpec
 from apps.cosa.agents.specs import (
     COSA_AI_GOVERNANCE_AGENT_SPEC,
     COSA_CODING_AGENT_SPEC,
+    COSA_COFOUNDER_ASSISTANT_AGENT_SPEC,
     COSA_CUSTOMER_SUPPORT_AGENT_SPEC,
     COSA_DATA_AGENT_SPEC,
     COSA_EXECUTIVE_CAIO_AGENT_SPEC,
@@ -28,6 +29,7 @@ from apps.cosa.agents.specs import (
     COSA_EXECUTIVE_CISO_AGENT_SPEC,
     COSA_EXECUTIVE_CPO_AGENT_SPEC,
     COSA_EXECUTIVE_CRO_AGENT_SPEC,
+    COSA_EXECUTIVE_CTO_AGENT_SPEC,
     COSA_EXECUTIVE_GC_AGENT_SPEC,
     COSA_EXECUTIVE_VPE_AGENT_SPEC,
     COSA_FINANCE_AGENT_SPEC,
@@ -46,11 +48,11 @@ __all__ = ["AGENT_PROFILE_SPECS"]
 
 # "founder_assistant" là default thật đang được Flutter gửi cho MỌI
 # conversation mới (chat_controller.dart createNewConversation() không truyền
-# agentProfile) — alias sang Operations để giữ đúng hành vi hiện tại, không
-# phải bug cần sửa.
+# agentProfile) — trỏ tới COSA_COFOUNDER_ASSISTANT_AGENT_SPEC (AI Co-Founder &
+# Thinking Partner).
 AGENT_PROFILE_SPECS: dict[str, AgentSpec] = {
     "operations": COSA_OPERATIONS_AGENT_SPEC,
-    "founder_assistant": COSA_OPERATIONS_AGENT_SPEC,
+    "founder_assistant": COSA_COFOUNDER_ASSISTANT_AGENT_SPEC,
     "finance": COSA_FINANCE_AGENT_SPEC,
     "marketing": COSA_MARKETING_AGENT_SPEC,
     "research_intelligence": COSA_RESEARCH_INTELLIGENCE_AGENT_SPEC,
@@ -59,6 +61,7 @@ AGENT_PROFILE_SPECS: dict[str, AgentSpec] = {
     "sales": COSA_SALES_AGENT_SPEC,
     "cro": COSA_EXECUTIVE_CRO_AGENT_SPEC,
     "coding": COSA_CODING_AGENT_SPEC,
+    "cto": COSA_EXECUTIVE_CTO_AGENT_SPEC,
     "vpe": COSA_EXECUTIVE_VPE_AGENT_SPEC,
     "product": COSA_PRODUCT_AGENT_SPEC,
     "cpo": COSA_EXECUTIVE_CPO_AGENT_SPEC,

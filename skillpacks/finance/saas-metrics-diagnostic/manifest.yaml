@@ -1,0 +1,63 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: finance.saas-metrics-diagnostic
+  name: SaaS Financial Health Diagnostic & Metrics Framework
+  version: 1.0.0
+  description: Chẩn đoán sức khỏe tài chính SaaS 4 chiều, tính toán Churn kép chuẩn xác, đánh giá LTV/CAC vs Payback, phân bổ chi phí COGS/OpEx và phân tích ROI đầu tư tính năng.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/finance/saas-metrics-diagnostic
+capability:
+  domain: finance
+  category: diagnostics
+  intents:
+  - saas metrics
+  - business health diagnostic
+  - compounded churn
+  - unit economics
+  - rule of 40
+  - magic number
+  - feature roi
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0
+applicability:
+  project_stages:
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  - P6_SCALE_GOVERN
+  gates:
+  - G3
+  - G4
+  - G5
+  - G6
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - proposal
+  - artifact
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/finance/saas-metrics-diagnostic.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - uncalculated-scale-rejected

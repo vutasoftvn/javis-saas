@@ -1,0 +1,38 @@
+apiVersion: cosa.ai/skill-eval/v1
+kind: SkillEvalSuite
+skill:
+  id: research.patent-intelligence
+  version: 1.0.0
+cases:
+- id: accepts-governed-context
+  input:
+    workspace_id: ws-eval
+    project_id: project-eval
+    invention_description: "Deterministic cache invalidation protocol using merkle trees"
+    sub_use_case: "novelty"
+  expected:
+    outcome: accept
+- id: missing-workspace
+  input:
+    project_id: project-eval
+    invention_description: "Deterministic cache invalidation protocol"
+  expected:
+    outcome: reject
+    reason: missing-workspace
+- id: missing-legal-disclaimer
+  input:
+    workspace_id: ws-eval
+    project_id: project-eval
+    invention_description: "Deterministic cache invalidation protocol"
+    legal_advice_requested: true
+  expected:
+    outcome: reject
+    reason: missing-legal-disclaimer
+- id: out-of-scope-trademark
+  input:
+    workspace_id: ws-eval
+    project_id: project-eval
+    invention_description: "Check if company logo or brand name COSA is available"
+  expected:
+    outcome: reject
+    reason: out-of-scope-trademark

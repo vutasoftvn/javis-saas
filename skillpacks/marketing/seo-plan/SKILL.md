@@ -32,9 +32,10 @@ Xây dựng chiến lược SEO bài bản, phân nhóm từ khóa theo hành tr
 2. **Ma trận Ưu tiên Nội dung (Content Prioritization Matrix)**:
    - Đánh giá từng chủ đề trên 2 trục: Giá trị kinh doanh (Business Value: High/Medium/Low) vs Độ khó xếp hạng (Ranking Difficulty / Search Competition).
    - Ưu tiên cao nhất cho cụm từ có Business Value cao và phục vụ trực tiếp cho ICP.
-3. **Tối ưu khả năng hiển thị AI-Search (AI-Search Visibility / Answer Engine Optimization)**:
-   - Cấu trúc nội dung dạng Hỏi - Đáp trực diện (Direct Answer format) trong 40-60 từ đầu tiên của mỗi mục.
+3. **Tối ưu khả năng hiển thị AI-Search & Programmatic SEO Architecture**:
+   - Cấu trúc nội dung dạng Hỏi - Đáp trực diện (Direct Answer format) trong 40-60 từ đầu tiên của mỗi mục. Phối hợp với `marketing.aeo` để kiểm định Fact-First Lede và điểm E-E-A-T.
    - Bổ sung bảng so sánh có cấu trúc rõ ràng, định nghĩa thuật ngữ chuẩn xác, và số liệu kèm nguồn trích dẫn uy tín.
+   - *Khung Programmatic SEO (pSEO)*: Với các trang có tính nhân bản (ví dụ: Trang so sánh công cụ theo cặp, Trang tích hợp phần mềm theo ngành), định nghĩa Schema cơ sở dữ liệu mẫu: Template URL (`/compare/{competitor-a}-vs-{competitor-b}`), bộ thuộc tính động (Tính năng, Giá, Điểm đánh giá), và rào chắn chống nội dung rác mỏng (Thin-content guardrail: mỗi trang tối thiểu 300 từ phân tích độc bản).
    - Thêm phần FAQ trả lời các câu hỏi phụ thường gặp.
 4. **Checklist Kiểm toán SEO Kỹ thuật (Technical SEO Audit Checklist)**:
    - *Crawlability & Indexability*: Kiểm tra file `robots.txt`, XML sitemap, mã phản hồi HTTP 200/301/404, thẻ `canonical`.
@@ -107,7 +108,8 @@ adaptation:
     - Chuẩn hóa thuật ngữ COSA
     - Thêm cấu trúc 10 mục bắt buộc và định dạng markdown tiếng Việt
   added:
-    - Chiến lược tối ưu cho công cụ tìm kiếm AI (AI-search visibility / direct answers)
+    - Chiến lược tối ưu cho công cụ tìm kiếm AI (AI-search visibility / direct answers) và liên kết với marketing.aeo
+    - Khung Programmatic SEO (Template URL, thuộc tính động, rào chắn chống thin-content)
     - Phòng vệ Prompt Injection từ kết quả tìm kiếm web
     - Safe fallback cho web.search và giới hạn non-deployment
   excluded:

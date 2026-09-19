@@ -2,10 +2,9 @@ apiVersion: agentos.ai/v1
 kind: Skill
 metadata:
   id: research.industry-trends
-  name: Industry Trends & Market Signals Scan
-  version: 1.0.0
-  description: Khảo sát xu hướng ngành, báo cáo thị trường và các tín hiệu công nghệ
-    mới hỗ trợ luận điểm khám phá.
+  name: Industry Trends & Multi-Source Recency Pulse
+  version: 1.2.0
+  description: Khảo sát xu hướng ngành, tín hiệu công nghệ mới nổi và đo lường xung lực thảo luận thời gian thực qua 5 góc nhìn phân tích và các cửa sổ thời gian recency.
 publisher:
   name: cosa
   type: official
@@ -14,15 +13,22 @@ source:
   path: skillpacks/research/industry-trends
 capability:
   domain: research
-  category: research
+  category: market-intelligence
   intents:
   - industry trends & market signals scan
   - research.industry-trends
+  - market pulse
+  - tech signals radar
+  - topic recency analysis
 applicability:
   project_stages:
   - P0_DISCOVERY
+  - P1_PROBLEM_VALIDATION
+  - P2_SOLUTION_VALIDATION
   gates:
   - G0
+  - G1
+  - G2
   required_context:
   - workspace
   - project
@@ -33,13 +39,14 @@ autonomy:
   ceiling: L0_OBSERVE
   side_effect_class: R
 evidence:
-  min_source_refs: 0
+  min_source_refs: 2
   self_validation_forbidden: true
 quality:
   eval_suite: evals/research/industry-trends.yaml
   required_negative_cases:
   - missing-workspace
   - cross-workspace
+  - stale-recency-window
 runtime:
   entrypoint: SKILL.md
   tools:

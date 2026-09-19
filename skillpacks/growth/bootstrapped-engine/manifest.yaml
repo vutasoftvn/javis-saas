@@ -1,0 +1,78 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+
+metadata:
+  id: growth.bootstrapped-engine
+  name: Bootstrapped Growth Engine & Scrappy Launch Sequences ($0 - $1M ARR)
+  version: 1.0.0
+  description: Quy trình tăng trưởng tự thân thực chiến cho startup giai đoạn $0 - $1M ARR. Xây dựng cỗ máy nội dung cộng dồn 90 ngày, kịch bản ra mắt sản phẩm Product Hunt/HN/Reddit, kiểm toán rò rỉ phễu chuyển đổi và kỷ luật ngân sách CAC < 1/3 LTV.
+
+publisher:
+  name: cosa
+  type: official
+
+source:
+  type: local
+  path: skillpacks/growth/bootstrapped-engine
+
+capability:
+  domain: growth
+  category: marketing-execution
+  intents:
+  - bootstrapped growth
+  - launch sequence
+  - content engine
+  - conversion audit
+  - product hunt launch
+  - cac ltv guardrail
+
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+
+permissions:
+  required:
+  - READ_LOCAL
+
+risk:
+  level: low
+
+trust:
+  tier: T0
+
+applicability:
+  project_stages:
+  - P0_DISCOVERY
+  - P1_PROBLEM_VALIDATION
+  - P2_SOLUTION_VALIDATION
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  gates:
+  - G0
+  - G1
+  - G2
+  - G3
+  - G4
+  - G5
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - proposal
+  - artifact
+
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+
+quality:
+  eval_suite: evals/growth/bootstrapped-engine.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - unsourced-claim

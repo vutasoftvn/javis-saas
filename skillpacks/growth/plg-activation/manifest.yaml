@@ -1,0 +1,67 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: growth.plg-activation
+  name: PLG Activation, Onboarding & Viral Loops
+  version: 1.0.0
+  description: Chiến lược tăng trưởng dựa trên sản phẩm (PLG), phương pháp tìm kiếm Activation Event (Aha Moment), chẩn đoán điểm rơi phễu Onboarding 4 tầng, thiết kế Viral Loop và chuyển đổi Freemium.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/growth/plg-activation
+capability:
+  domain: growth
+  category: plg
+  intents:
+  - plg readiness
+  - activation event
+  - aha moment
+  - onboarding funnel
+  - viral loop
+  - freemium conversion
+  - ice experimentation
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0
+applicability:
+  project_stages:
+  - P1_PROBLEM_VALIDATION
+  - P2_SOLUTION_VALIDATION
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  - P6_SCALE_GOVERN
+  gates:
+  - G1
+  - G2
+  - G3
+  - G4
+  - G5
+  - G6
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - proposal
+  - artifact
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/growth/plg-activation.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - unmeasured-freemium-rejected

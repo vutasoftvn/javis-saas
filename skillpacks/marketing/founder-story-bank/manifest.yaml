@@ -1,0 +1,60 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: marketing.founder-story-bank
+  name: Founder Story Bank & Empirical Receipts Interviewer
+  version: 1.0.0
+  description: Kỹ năng phỏng vấn chuyên sâu Founder để xây dựng và cập nhật Ngân hàng câu chuyện (Story Bank) với số liệu thực chứng, bước ngoặt tư duy và bài học thất bại.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/marketing/founder-story-bank
+capability:
+  domain: marketing
+  category: content
+  intents:
+  - founder interview
+  - build story bank
+  - extract receipts
+  - turning points
+  - failure lessons
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0
+applicability:
+  project_stages:
+  - P2_SOLUTION_VALIDATION
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  gates:
+  - G2
+  - G3
+  - G4
+  - G5
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L0_OBSERVE
+  side_effect_class: R
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/marketing/founder-story-bank.yaml
+  required_negative_cases:
+  - missing-workspace
+  - unverified-claims
