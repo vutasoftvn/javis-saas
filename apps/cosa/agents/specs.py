@@ -132,8 +132,8 @@ COSA_OPERATIONS_AGENT_SPEC = AgentSpec(
         # registry acceptance"). Acceptance: tests/apps/cosa/test_lifecycle_tranche_c_acceptance.py.
         PinnedSkillRef(
             skill_id="operations.sop-builder",
-            version="1.0.0",
-            definition_hash="c5afab97b0fa930e1f02f6e23a114aa8a617a59516a727d9c149c0d302913d02",
+            version="1.1.0",
+            definition_hash="a7a5ec52145df786eee769d37b8e7d90a9dbb6f00abc2c4e84a8d6d83428d824",
         ),
         PinnedSkillRef(
             skill_id="operations.automation-design",

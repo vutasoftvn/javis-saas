@@ -41,7 +41,6 @@ class ExecutiveAnalysisRequest(BaseModel):
     context_snapshot_age_weeks: int = 0
 
 
-
 class DissentRecord(BaseModel):
     role_key: str
     advisor_name: str
@@ -64,7 +63,9 @@ class BoardroomMemo(BaseModel):
     preserved_dissent: list[DissentRecord] = Field(default_factory=list)
     devils_advocate_concerns: list[str] = Field(default_factory=list)
     binding_criteria: BindingCriteria = Field(default_factory=BindingCriteria)
-    status: Literal["AWAITING_FOUNDER_DECISION", "APPROVED", "REJECTED"] = "AWAITING_FOUNDER_DECISION"
+    status: Literal["AWAITING_FOUNDER_DECISION", "APPROVED", "REJECTED"] = (
+        "AWAITING_FOUNDER_DECISION"
+    )
     context_snapshot_id: str | None = None
     context_snapshot_age_weeks: int = 0
     evidence_tag: str | None = None
@@ -79,7 +80,6 @@ class ExecutiveAnalysisOutcome(BaseModel):
     error_detail: str | None = None
     context_snapshot_age_weeks: int | None = None
     evidence_tag: str | None = None
-
 
 
 EXECUTIVE_ANALYSIS_OUTPUT_SCHEMA: dict[str, Any] = {

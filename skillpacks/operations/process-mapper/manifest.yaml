@@ -1,0 +1,60 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: operations.process-mapper
+  name: Process Flow Mapping & Theory of Constraints Bottleneck Analysis
+  version: 1.0.0
+  description: Lập bản đồ dòng chảy quy trình, phân tích tỷ lệ thời gian sinh giá trị so với thời gian chờ, và phát hiện điểm nghẽn theo Theory of Constraints (TOC).
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/operations/process-mapper
+capability:
+  domain: operations
+  category: process
+  intents:
+  - process mapper
+  - operations.process-mapper
+  - bottleneck detection
+  - cycle time analysis
+applicability:
+  project_stages:
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  - P6_SCALE_GOVERN
+  gates:
+  - G3
+  - G4
+  - G5
+  - G6
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/operations/process-mapper.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - autonomous-automation-execution
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

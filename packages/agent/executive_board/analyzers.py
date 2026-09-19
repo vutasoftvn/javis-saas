@@ -131,7 +131,9 @@ class FinancialScenarioAnalyzer:
                 "ending_cash": round(max(0.0, cash), 2),
                 "fundraising_trigger_week": fundraising_trigger_week,
                 "cycle_12w_burn": round(max(0.0, burn - weekly_revenue) * 12, 2),
-                "weekly_balances_sample": [weekly_balances[i] for i in range(0, min(len(weekly_balances), 48), 4)],
+                "weekly_balances_sample": [
+                    weekly_balances[i] for i in range(0, min(len(weekly_balances), 48), 4)
+                ],
             }
 
         return {
@@ -388,7 +390,9 @@ class TeamScalingPlan:
     current_headcount: int
     target_headcount: int
     ramp_weeks_per_hire: int = 12  # Thời gian hòa nhập đạt 100% capacity (mặc định 1 chu kỳ 12WY)
-    weekly_cost_per_head: float = 1250.0  # Chi phí lương/thưởng tuần/nhân sự ($5000/tháng ~ $1250/tuần)
+    weekly_cost_per_head: float = (
+        1250.0  # Chi phí lương/thưởng tuần/nhân sự ($5000/tháng ~ $1250/tuần)
+    )
     hiring_fee_per_head: float = 3000.0  # Phí tuyển dụng và setup thiết bị mỗi nhân sự
 
 
@@ -416,7 +420,11 @@ class TeamScalingCalculator:
         cumulative_cost = 0.0
 
         for c in range(1, cycles_count + 1):
-            new_hires_this_cycle = round(hires_per_cycle) if c < cycles_count else (plan.target_headcount - int(running_headcount))
+            new_hires_this_cycle = (
+                round(hires_per_cycle)
+                if c < cycles_count
+                else (plan.target_headcount - int(running_headcount))
+            )
             # Nhân sự mới gia nhập giữa chu kỳ đóng góp trung bình 50% capacity trong chu kỳ đầu
             effective_capacity = running_headcount + (new_hires_this_cycle * 0.5)
             cycle_payroll = effective_capacity * plan.weekly_cost_per_head * 12
@@ -455,6 +463,7 @@ class TeamScalingCalculator:
 
 # --- 1. CFO Analyzers (Tài chính & Dòng tiền) ---
 
+
 def calculate_cac_payback_weeks(cac: float, arpu_weekly: float, gross_margin_pct: float) -> float:
     """Tính số tuần hoàn vốn chi phí thu hút khách hàng (CAC Payback Weeks)."""
     if cac <= 0:
@@ -480,23 +489,33 @@ def model_cash_runway_stress_test(
     stressed_net_burn = (weekly_cogs + weekly_opex) - stressed_revenue
     stressed_runway = calculate_weeks_of_runway(cash, stressed_net_burn)
 
-    emergency_cost_cut_needed = max(0.0, stressed_net_burn - (cash / 16.0)) if cash > 0 else stressed_net_burn
+    emergency_cost_cut_needed = (
+        max(0.0, stressed_net_burn - (cash / 16.0)) if cash > 0 else stressed_net_burn
+    )
 
     return {
         "cash_in_bank": cash,
         "base_runway_weeks": base_runway,
         "shock_factor_pct": round(shock_factor * 100, 1),
         "stressed_runway_weeks": stressed_runway,
-        "runway_reduction_weeks": round(base_runway - stressed_runway, 1) if base_runway != float("inf") else 0.0,
+        "runway_reduction_weeks": round(base_runway - stressed_runway, 1)
+        if base_runway != float("inf")
+        else 0.0,
         "emergency_weekly_cut_target": round(emergency_cost_cut_needed, 2),
         "status": "critical" if stressed_runway < 16.0 else "safe",
     }
 
 
-def calculate_unit_economics_health(cac: float, ltv: float, weekly_churn_rate: float) -> dict[str, Any]:
+def calculate_unit_economics_health(
+    cac: float, ltv: float, weekly_churn_rate: float
+) -> dict[str, Any]:
     """Đánh giá sức khỏe kinh tế đơn vị (LTV/CAC và Churn Rate)."""
     ratio = round(ltv / cac, 2) if cac > 0 else 0.0
-    status = "healthy" if ratio >= 3.0 and weekly_churn_rate <= 0.01 else ("warning" if ratio >= 2.0 else "underwater")
+    status = (
+        "healthy"
+        if ratio >= 3.0 and weekly_churn_rate <= 0.01
+        else ("warning" if ratio >= 2.0 else "underwater")
+    )
     return {
         "ltv_to_cac_ratio": ratio,
         "weekly_churn_rate_pct": round(weekly_churn_rate * 100, 2),
@@ -507,7 +526,10 @@ def calculate_unit_economics_health(cac: float, ltv: float, weekly_churn_rate: f
 
 # --- 2. CPO Analyzers (Sản phẩm & Feature Bets) ---
 
-def score_product_bets_rice(reach_weekly: int, impact: float, confidence: float, effort_weeks: float) -> float:
+
+def score_product_bets_rice(
+    reach_weekly: int, impact: float, confidence: float, effort_weeks: float
+) -> float:
     """Chấm điểm RICE chuẩn hóa theo tuần công kỹ sư (Effort in Weeks).
     Impact: 3 (Massive), 2 (High), 1 (Medium), 0.5 (Low).
     Confidence: 1.0 (High), 0.8 (Medium), 0.5 (Low).
@@ -518,7 +540,9 @@ def score_product_bets_rice(reach_weekly: int, impact: float, confidence: float,
     return round(raw_score, 2)
 
 
-def calculate_feature_adoption_rate(active_users: int, total_target_users: int, weeks_since_launch: int) -> dict[str, Any]:
+def calculate_feature_adoption_rate(
+    active_users: int, total_target_users: int, weeks_since_launch: int
+) -> dict[str, Any]:
     """Tính tỷ lệ đón nhận tính năng sau N tuần ra mắt."""
     if total_target_users <= 0:
         return {"adoption_pct": 0.0, "status": "stalled"}
@@ -534,7 +558,10 @@ def calculate_feature_adoption_rate(active_users: int, total_target_users: int, 
 
 # --- 3. CMO Analyzers (Tiếp thị & Kênh tăng trưởng) ---
 
-def calculate_blended_cac(marketing_spend_weekly: float, sales_spend_weekly: float, new_customers_weekly: int) -> float:
+
+def calculate_blended_cac(
+    marketing_spend_weekly: float, sales_spend_weekly: float, new_customers_weekly: int
+) -> float:
     """Tính CAC tổng hợp hàng tuần (Blended CAC)."""
     if new_customers_weekly <= 0:
         return 0.0
@@ -548,20 +575,25 @@ def model_channel_efficiency_matrix(channels: list[dict[str, Any]]) -> list[dict
         spend = float(ch.get("spend_weekly", 0.0))
         acquired = int(ch.get("customers_acquired_weekly", 0))
         cac = round(spend / acquired, 2) if acquired > 0 else float("inf")
-        results.append({
-            "channel_name": ch.get("name", "unknown"),
-            "weekly_spend": spend,
-            "weekly_customers": acquired,
-            "cac": cac,
-            "efficiency": "high" if cac < float(ch.get("target_cac", 100.0)) else "low",
-        })
+        results.append(
+            {
+                "channel_name": ch.get("name", "unknown"),
+                "weekly_spend": spend,
+                "weekly_customers": acquired,
+                "cac": cac,
+                "efficiency": "high" if cac < float(ch.get("target_cac", 100.0)) else "low",
+            }
+        )
     results.sort(key=lambda x: x["cac"])
     return results
 
 
 # --- 4. CRO Analyzers (Doanh thu & Phễu bán hàng) ---
 
-def calculate_pipeline_velocity_weekly(qualified_deals: int, win_rate: float, acv: float, cycle_length_weeks: float) -> float:
+
+def calculate_pipeline_velocity_weekly(
+    qualified_deals: int, win_rate: float, acv: float, cycle_length_weeks: float
+) -> float:
     """Tính tốc độ dòng chảy phễu bán hàng (Pipeline Velocity $ / tuần)."""
     if cycle_length_weeks <= 0:
         raise ValueError("cycle_length_weeks phải lớn hơn 0")
@@ -569,7 +601,9 @@ def calculate_pipeline_velocity_weekly(qualified_deals: int, win_rate: float, ac
     return round(velocity, 2)
 
 
-def calculate_sales_capacity_model(reps_count: int, quota_per_rep_weekly: float, ramp_factor: float = 0.75) -> dict[str, Any]:
+def calculate_sales_capacity_model(
+    reps_count: int, quota_per_rep_weekly: float, ramp_factor: float = 0.75
+) -> dict[str, Any]:
     """Tính toán dung lượng bán hàng theo tuần có tính đến hệ số hòa nhập."""
     max_capacity = reps_count * quota_per_rep_weekly
     realistic_capacity = max_capacity * ramp_factor
@@ -582,7 +616,10 @@ def calculate_sales_capacity_model(reps_count: int, quota_per_rep_weekly: float,
 
 # --- 5. CCO Analyzers (Khách hàng & Giữ chân) ---
 
-def calculate_nrr_grr_weekly(starting_arr: float, expansion: float, contraction: float, churn: float) -> dict[str, float]:
+
+def calculate_nrr_grr_weekly(
+    starting_arr: float, expansion: float, contraction: float, churn: float
+) -> dict[str, float]:
     """Tính tỷ lệ giữ chân doanh thu ròng (NRR) và gộp (GRR)."""
     if starting_arr <= 0:
         return {"nrr_pct": 100.0, "grr_pct": 100.0}
@@ -610,7 +647,10 @@ def calculate_customer_health_distribution(accounts: list[dict[str, Any]]) -> di
 
 # --- 6. COO Analyzers (Vận hành & Kỷ luật 12WY) ---
 
-def calculate_12wy_execution_score(weekly_commitments_done: int, weekly_commitments_total: int) -> float:
+
+def calculate_12wy_execution_score(
+    weekly_commitments_done: int, weekly_commitments_total: int
+) -> float:
     """Tính điểm thực thi tuần (Weekly Execution Scorecard - Chuẩn 12WY đạt >= 85%)."""
     if weekly_commitments_total <= 0:
         return 100.0
@@ -623,16 +663,19 @@ def identify_critical_path_bottlenecks(tasks: list[dict[str, Any]]) -> list[dict
     bottlenecks = []
     for t in tasks:
         if t.get("is_blocker") or (t.get("days_delayed", 0) > 3 and t.get("is_critical_path")):
-            bottlenecks.append({
-                "task_id": t.get("id"),
-                "task_name": t.get("name"),
-                "delay_days": t.get("days_delayed", 0),
-                "impacted_stream": t.get("stream"),
-            })
+            bottlenecks.append(
+                {
+                    "task_id": t.get("id"),
+                    "task_name": t.get("name"),
+                    "delay_days": t.get("days_delayed", 0),
+                    "impacted_stream": t.get("stream"),
+                }
+            )
     return bottlenecks
 
 
 # --- 7. VPE Analyzers (Phân phối kỹ thuật & DORA Metrics) ---
+
 
 def calculate_dora_score(
     deployment_freq_weekly: float,
@@ -669,14 +712,17 @@ def calculate_team_sprint_velocity_stability(sprint_velocities: list[float]) -> 
         return {"avg_velocity": 0.0, "cv_pct": 0.0}
     avg_v = sum(sprint_velocities) / len(sprint_velocities)
     variance = sum((v - avg_v) ** 2 for v in sprint_velocities) / len(sprint_velocities)
-    std_dev = variance ** 0.5
+    std_dev = variance**0.5
     cv = (std_dev / avg_v * 100.0) if avg_v > 0 else 0.0
     return {"avg_velocity": round(avg_v, 1), "stability_cv_pct": round(cv, 1)}
 
 
 # --- 8. CHRO Analyzers (Nhân sự & Văn hóa) ---
 
-def calculate_hiring_ramp_cost(role_salary: float, recruiter_cost: float, ramp_weeks: int = 12) -> float:
+
+def calculate_hiring_ramp_cost(
+    role_salary: float, recruiter_cost: float, ramp_weeks: int = 12
+) -> float:
     """Tính tổng chi phí đưa một nhân sự mới đạt năng suất 100% (Ramp Cost)."""
     weekly_salary = role_salary / 52.0
     unproductive_salary = weekly_salary * ramp_weeks * 0.5
@@ -690,16 +736,19 @@ def calculate_talent_retention_risk(key_personnel: list[dict[str, Any]]) -> list
         risk_score = p.get("flight_risk_score", 0.0)  # 0.0 to 1.0
         is_spof = p.get("is_single_point_of_failure", False)
         if risk_score >= 0.7 or (risk_score >= 0.4 and is_spof):
-            risky.append({
-                "name": p.get("name"),
-                "role": p.get("role"),
-                "risk_level": "critical" if is_spof else "elevated",
-                "recommended_action": "Retention talk & Knowledge transfer sprint",
-            })
+            risky.append(
+                {
+                    "name": p.get("name"),
+                    "role": p.get("role"),
+                    "risk_level": "critical" if is_spof else "elevated",
+                    "recommended_action": "Retention talk & Knowledge transfer sprint",
+                }
+            )
     return risky
 
 
 # --- 9. CISO Analyzers (Bảo mật & Rủi ro) ---
+
 
 def calculate_security_posture_score(
     critical_cves: int,
@@ -715,7 +764,9 @@ def calculate_security_posture_score(
     return {"posture_score": round(score, 1), "status": status}
 
 
-def calculate_attack_surface_expansion(new_endpoints: int, third_party_integrations: int, auth_bypass_risk: bool) -> float:
+def calculate_attack_surface_expansion(
+    new_endpoints: int, third_party_integrations: int, auth_bypass_risk: bool
+) -> float:
     """Tính chỉ số gia tăng bề mặt tấn công sau thay đổi kiến trúc."""
     base = float(new_endpoints) * 1.5 + float(third_party_integrations) * 5.0
     if auth_bypass_risk:
@@ -725,7 +776,10 @@ def calculate_attack_surface_expansion(new_endpoints: int, third_party_integrati
 
 # --- 10. GC Analyzers (Pháp lý & Sở hữu trí tuệ) ---
 
-def calculate_contract_legal_risk_score(indemnity_cap: float, sla_penalty_pct: float, ip_reversion_clause: bool) -> float:
+
+def calculate_contract_legal_risk_score(
+    indemnity_cap: float, sla_penalty_pct: float, ip_reversion_clause: bool
+) -> float:
     """Chấm điểm rủi ro điều khoản hợp đồng (1.0 - 10.0)."""
     risk = 2.0
     if indemnity_cap <= 0:  # Không giới hạn bồi thường
@@ -737,7 +791,9 @@ def calculate_contract_legal_risk_score(indemnity_cap: float, sla_penalty_pct: f
     return min(10.0, risk)
 
 
-def audit_ip_assignment_coverage(employees_count: int, signed_agreements_count: int) -> dict[str, Any]:
+def audit_ip_assignment_coverage(
+    employees_count: int, signed_agreements_count: int
+) -> dict[str, Any]:
     """Kiểm tra tỷ lệ ký kết thỏa thuận chuyển nhượng sở hữu trí tuệ (IP Assignment)."""
     if employees_count <= 0:
         return {"coverage_pct": 100.0, "status": "compliant"}
@@ -751,14 +807,19 @@ def audit_ip_assignment_coverage(employees_count: int, signed_agreements_count: 
 
 # --- 11. CDO Analyzers (Dữ liệu & Pipeline) ---
 
-def calculate_data_quality_score(completeness_pct: float, accuracy_pct: float, freshness_hours: float) -> float:
+
+def calculate_data_quality_score(
+    completeness_pct: float, accuracy_pct: float, freshness_hours: float
+) -> float:
     """Tính điểm chất lượng dữ liệu tổng hợp (0 - 100)."""
     freshness_score = max(0.0, 100.0 - (freshness_hours * 2.0))
     overall = (completeness_pct * 0.4) + (accuracy_pct * 0.4) + (freshness_score * 0.2)
     return round(overall, 1)
 
 
-def calculate_data_pipeline_downtime_impact(weekly_downtime_hours: float, impacted_users: int) -> dict[str, Any]:
+def calculate_data_pipeline_downtime_impact(
+    weekly_downtime_hours: float, impacted_users: int
+) -> dict[str, Any]:
     """Ước tính thiệt hại từ thời gian chết của pipeline dữ liệu."""
     severity = "high" if weekly_downtime_hours > 4.0 or impacted_users > 1000 else "low"
     return {
@@ -770,14 +831,19 @@ def calculate_data_pipeline_downtime_impact(weekly_downtime_hours: float, impact
 
 # --- 12. CAIO Analyzers (Quản trị AI & Chi phí Token) ---
 
-def calculate_llm_cost_per_work_unit(input_tokens_weekly: int, output_tokens_weekly: int, price_per_million: float) -> float:
+
+def calculate_llm_cost_per_work_unit(
+    input_tokens_weekly: int, output_tokens_weekly: int, price_per_million: float
+) -> float:
     """Tính chi phí suy luận mô hình ngôn ngữ lớn (LLM) hàng tuần."""
     total_tokens = input_tokens_weekly + output_tokens_weekly
     cost = (total_tokens / 1_000_000.0) * price_per_million
     return round(cost, 2)
 
 
-def evaluate_agent_autonomy_risk_score(autonomy_level: str, tool_side_effects_count: int) -> dict[str, Any]:
+def evaluate_agent_autonomy_risk_score(
+    autonomy_level: str, tool_side_effects_count: int
+) -> dict[str, Any]:
     """Đánh giá mức độ rủi ro tự trị của Agent dựa trên cấp độ và số lượng side-effects."""
     level_weights = {"L1_PROPOSE": 1.0, "L2_CONFIRM": 2.5, "L3_EXECUTE": 5.0}
     weight = level_weights.get(autonomy_level, 3.0)
@@ -790,6 +856,7 @@ def evaluate_agent_autonomy_risk_score(autonomy_level: str, tool_side_effects_co
 
 
 # --- 13. Chief of Staff Analyzers (Đoàn kết phòng họp & Nghị trình) ---
+
 
 def calculate_deliberation_consensus_index(votes: dict[str, str]) -> float:
     """Tính chỉ số đồng thuận phòng họp HĐQT (0.0 đến 1.0)."""

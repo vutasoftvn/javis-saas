@@ -1,0 +1,61 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: operations.loop-lifecycle
+  name: Autonomous Loop Lifecycle, Discovery & Doctor Audit
+  version: 1.0.0
+  description: Phương pháp luận quản trị vòng đời vòng lặp tự hành (Loop Lifecycle), khám phá cơ hội lặp lại từ codebase, kiểm toán sửa chữa (Loop Doctor) và thiết kế chu trình phản hồi hữu hạn.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/operations/loop-lifecycle
+capability:
+  domain: operations
+  category: loop
+  intents:
+  - loop lifecycle
+  - operations.loop-lifecycle
+  - loop doctor
+  - loop discovery
+  - loop design interview
+applicability:
+  project_stages:
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  - P6_SCALE_GOVERN
+  gates:
+  - G3
+  - G4
+  - G5
+  - G6
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/operations/loop-lifecycle.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - autonomous-automation-execution
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

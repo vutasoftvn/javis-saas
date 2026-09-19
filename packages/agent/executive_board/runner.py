@@ -103,7 +103,9 @@ class ExecutiveBoardRunner:
 
         evidence_tag: str | None = None
         if req.context_snapshot_age_weeks > 2:
-            evidence_tag = f"🟡 Snapshot {req.context_snapshot_age_weeks}w old (Founder deferred review)"
+            evidence_tag = (
+                f"🟡 Snapshot {req.context_snapshot_age_weeks}w old (Founder deferred review)"
+            )
         elif req.context_snapshot_age_weeks > 0:
             evidence_tag = f"🟢 Snapshot {req.context_snapshot_age_weeks}w old (Fresh)"
 
@@ -140,7 +142,9 @@ class ExecutiveBoardRunner:
                 continue
             role = oc.role_key
             options = oc.descriptor.get("options", [])
-            chosen_title = options[0]["title"] if options else oc.descriptor.get("conclusion", "Unknown")
+            chosen_title = (
+                options[0]["title"] if options else oc.descriptor.get("conclusion", "Unknown")
+            )
             vote_tally[role] = chosen_title
             option_support_count[chosen_title] = option_support_count.get(chosen_title, 0) + 1
 
@@ -174,7 +178,9 @@ class ExecutiveBoardRunner:
         if context_snapshot_age_weeks <= 2:
             memo_evidence_tag = f"🟢 Fresh Snapshot (W{context_snapshot_age_weeks})"
         else:
-            memo_evidence_tag = f"🟡 Assumed from Snapshot W{context_snapshot_age_weeks} (Founder deferred review)"
+            memo_evidence_tag = (
+                f"🟡 Assumed from Snapshot W{context_snapshot_age_weeks} (Founder deferred review)"
+            )
 
         return BoardroomMemo(
             deliberation_id=deliberation_id,
@@ -189,7 +195,6 @@ class ExecutiveBoardRunner:
             context_snapshot_age_weeks=context_snapshot_age_weeks,
             evidence_tag=memo_evidence_tag,
         )
-
 
     async def _run_kernel(self, req: ExecutiveAnalysisRequest) -> dict[str, Any] | None:
         pinned_skills = await resolve_role_pin_skills(req.role_pin.skill_pins, self._spec_registry)

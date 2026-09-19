@@ -293,4 +293,3 @@ def create_startup_os_cadence_advisory_handler(client: CompanyServiceClient | No
         }
 
     return handler
-

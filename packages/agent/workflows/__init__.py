@@ -12,6 +12,10 @@ from agent.workflows.loader import (
     WorkflowDefinitionLoadError,
     load_workflow_spec,
 )
+from agent.workflows.loop_doctor import (
+    LoopDoctor,
+    LoopDoctorReport,
+)
 from agent.workflows.models import (
     InvalidWorkflowTransition,
     StepOutcome,
@@ -20,6 +24,7 @@ from agent.workflows.models import (
     WorkflowStatus,
 )
 from agent.workflows.schema import (
+    LoopTerminalState,
     StepType,
     WorkflowSpec,
     WorkflowStepSpec,
@@ -44,6 +49,9 @@ __all__ = [
     "DeterministicStep",
     "GatewayToolCallStep",
     "InvalidWorkflowTransition",
+    "LoopDoctor",
+    "LoopDoctorReport",
+    "LoopTerminalState",
     "ParallelBranch",
     "ParallelStep",
     "RetryStep",

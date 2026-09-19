@@ -8,7 +8,18 @@ from pydantic import BaseModel, Field, model_validator
 from agent.governance.contracts import PinnedSpecIdentity
 from agent.governance.hashing import definition_hash
 
-__all__ = ["StepType", "WorkflowSpec", "WorkflowStepSpec"]
+__all__ = ["LoopTerminalState", "StepType", "WorkflowSpec", "WorkflowStepSpec"]
+
+
+class LoopTerminalState(enum.StrEnum):
+    """6 Trạng thái kết thúc tất định của vòng lặp tự hành theo chuẩn Loop Library."""
+
+    SUCCESS = "SUCCESS"  # Hoàn thành mục tiêu đề ra
+    NOOP = "NOOP"  # Kiểm tra không có việc cần làm (hệ thống sạch)
+    BLOCKED = "BLOCKED"  # Tắc nghẽn do thiếu dữ liệu hoặc phụ thuộc ngoài
+    NEED_APPROVAL = "NEED_APPROVAL"  # Dừng lại chờ con người phê duyệt hành động rủi ro
+    EXHAUSTED = "EXHAUSTED"  # Chạm trần số lượt lặp hoặc ngân sách token/chi phí
+    STAGNATED = "STAGNATED"  # Không tạo ra tiến triển mới giữa 2 vòng lặp liên tiếp
 
 
 class StepType(enum.StrEnum):
@@ -42,6 +53,8 @@ class WorkflowStepSpec(BaseModel):
     autonomy_level: str | None = None
     capability_risk: str | None = None
     project_agent_deployment_id: str | None = None
+    verifier_step_id: str | None = None
+    terminal_state: LoopTerminalState | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 

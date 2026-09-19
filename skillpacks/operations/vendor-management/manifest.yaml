@@ -1,0 +1,59 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: operations.vendor-management
+  name: Vendor Management, SLA Compliance & Third-Party Risk
+  version: 1.0.0
+  description: Quản trị nhà cung cấp, chấm điểm scorecard định kỳ, giám sát vi phạm cam kết SLA và phân loại rủi ro chuỗi cung ứng theo chuẩn NIST SP 800-161 và ISO 27036.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/operations/vendor-management
+capability:
+  domain: operations
+  category: vendor
+  intents:
+  - vendor management
+  - operations.vendor-management
+  - sla tracking
+  - vendor scorecard
+  - third party risk
+applicability:
+  project_stages:
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  - P6_SCALE_GOVERN
+  gates:
+  - G4
+  - G5
+  - G6
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - artifact
+  - proposal
+autonomy:
+  ceiling: L1_PROPOSE
+  side_effect_class: A
+evidence:
+  min_source_refs: 1
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/operations/vendor-management.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - autonomous-automation-execution
+runtime:
+  entrypoint: SKILL.md
+  tools: []
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: low
+trust:
+  tier: T0

@@ -15,20 +15,20 @@ from __future__ import annotations
 import enum
 import re
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, ClassVar
 
 from apps.cosa.capabilities.client import CompanyServiceClient
 
 
-class OnboardingSessionType(str, enum.Enum):
+class OnboardingSessionType(enum.StrEnum):
     INITIAL = "initial"
     PARTIAL_UPDATE = "partial_update"
 
 
-class CadenceCategory(str, enum.Enum):
-    FAST = "fast"        # 2 weeks (Bi-weekly sprint)
-    MEDIUM = "medium"    # 8-12 weeks (12WY cycle)
-    SLOW = "slow"        # 24 weeks (2x 12WY cycles / ~6 months)
+class CadenceCategory(enum.StrEnum):
+    FAST = "fast"  # 2 weeks (Bi-weekly sprint)
+    MEDIUM = "medium"  # 8-12 weeks (12WY cycle)
+    SLOW = "slow"  # 24 weeks (2x 12WY cycles / ~6 months)
 
 
 @dataclass(frozen=True)
@@ -70,7 +70,14 @@ FULL_ONBOARD_STEPS: list[OnboardingStep] = [
             "Số tuần Runway sinh tồn còn lại ước tính là bao nhiêu tuần?",
             "Tổng số lượng nhân sự toàn thời gian và bán thời gian?",
         ],
-        expected_schema_keys=["arr", "mrr", "cash_in_bank", "burn_rate_weekly", "runway_weeks", "headcount"],
+        expected_schema_keys=[
+            "arr",
+            "mrr",
+            "cash_in_bank",
+            "burn_rate_weekly",
+            "runway_weeks",
+            "headcount",
+        ],
     ),
     # 2. Fast: challenges
     OnboardingStep(
@@ -127,9 +134,7 @@ FULL_ONBOARD_STEPS: list[OnboardingStep] = [
         dimension="team_culture",
         cadence=CadenceCategory.MEDIUM,
         title="Đội ngũ & Văn hoá thực thi (Team & Execution Culture)",
-        prompt_vi=(
-            "Cấu trúc đội ngũ hiện tại và văn hoá giao hàng của công ty như thế nào?"
-        ),
+        prompt_vi=("Cấu trúc đội ngũ hiện tại và văn hoá giao hàng của công ty như thế nào?"),
         guiding_questions=[
             "Bộ máy lãnh đạo chủ chốt (Tech, Product, Growth)?",
             "Tốc độ onboarding nhân sự kỹ thuật mới (mất bao nhiêu tuần để có PR đầu tiên)?",
@@ -143,9 +148,7 @@ FULL_ONBOARD_STEPS: list[OnboardingStep] = [
         dimension="identity",
         cadence=CadenceCategory.SLOW,
         title="Căn tính & Giá trị bất biến (Core Identity & Fireable Values)",
-        prompt_vi=(
-            "Sứ mệnh cốt lõi và những nguyên tắc bất di bất dịch của tổ chức là gì?"
-        ),
+        prompt_vi=("Sứ mệnh cốt lõi và những nguyên tắc bất di bất dịch của tổ chức là gì?"),
         guiding_questions=[
             "Sứ mệnh tồn tại dài hạn (North Star Vision) trong 144 tuần tới?",
             "Các giá trị cốt lõi mà nếu nhân viên vi phạm sẽ bị sa thải ngay lập tức (Fireable Values)?",
@@ -180,7 +183,7 @@ MICRO_INTAKE_STEPS: list[OnboardingStep] = [
 class EventTriggerDetector:
     """Detects high-impact business events from Founder messages to suggest context updates."""
 
-    PATTERNS: list[dict[str, Any]] = [
+    PATTERNS: ClassVar[list[dict[str, Any]]] = [
         {
             "event_type": "fundraising",
             "suggested_dimension": "stage_scale",

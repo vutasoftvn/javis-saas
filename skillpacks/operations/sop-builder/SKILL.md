@@ -1,48 +1,97 @@
 ---
 name: operations-sop-builder
-description: Xây dựng tài liệu Standard Operating Procedure (SOP) từ một workflow lặp lại đã tồn tại trong vận hành, cho giai đoạn Scale & Govern.
+description: Xây dựng và thẩm định tài liệu Standard Operating Procedure (SOP) và Runbook vận hành theo chuẩn 5W2H, kiểm định 6 tiêu chí an toàn bắt buộc trước khi ban hành.
 ---
 
-# SOP Builder (Operations SOP Builder)
+# Quy Trình Xây Dựng & Thẩm Định SOP / Runbook Vận Hành (5W2H Standard)
 
-## Mục đích & Giới hạn Quyền hạn
-Chuyển hoá một quy trình vận hành đã lặp lại nhiều lần (repeatable workflow) đang chạy trong thực tế thành tài liệu SOP có cấu trúc: mục tiêu, phạm vi, các bước thực hiện, vai trò/trách nhiệm, tiêu chí hoàn thành và điểm kiểm soát chất lượng, phục vụ giai đoạn P6_SCALE_GOVERN.
+## 1. Mục Tiêu (Objective)
+Chuyển hoá một quy trình vận hành đã lặp lại (repeatable workflow) thành tài liệu SOP / Runbook có cấu trúc chặt chẽ theo chuẩn **5W2H** (*Who, What, Where, When, Why, How, How much*). Bắt buộc thẩm định độ phủ của 6 tiêu chí an toàn trước khi đề xuất ban hành: Người chịu trách nhiệm cụ thể (`named_owner`), Thời lượng dự kiến (`expected_duration`), Tín hiệu thành công quan sát được (`success_signal`), Tín hiệu lỗi (`failure_signal`), Quy trình hoàn tác (`rollback_path`), và Đầu mối liên hệ khẩn cấp (`escalation_contact`).
 
-> **Quy tắc an toàn & Quản trị vòng đời:**
-> Skillpack này CHỈ tạo dự thảo tài liệu (`sop-draft`). Tuyệt đối không tự ý ban hành SOP có hiệu lực, không tự thay đổi quy trình vận hành thật, và không tự thay đổi lifecycle stage. Mọi SOP bắt buộc phải có một **process owner được nêu tên cụ thể** (named process owner) chịu trách nhiệm phê duyệt và duy trì tài liệu; thiếu process owner là lý do từ chối tạo SOP hoàn chỉnh.
+## 2. Khi Nào Dùng & Khi Nào Không Dùng (When to use & When NOT to use)
+- **Khi nào dùng**:
+  - Chuẩn hoá một quy trình vận hành thực tế đã chạy lặp lại $\ge 2$ lần thành văn bản SOP chính thức phục vụ bàn giao và đào tạo.
+  - Soạn thảo và kiểm tra độ an toàn của Runbook ứng cứu sự cố kỹ thuật hoặc tác vụ bảo trì định kỳ.
+  - Chuẩn bị tài liệu vận hành cho stage gate `G6_SCALE_GOVERN` để chứng minh năng lực kiểm soát chất lượng.
+- **Khi nào KHÔNG dùng**:
+  - Khi quy trình chưa từng được thực thi trên thực tế (dùng `operations.automation-design` để thiết kế thử nghiệm).
+  - Khi chưa xác định được cá nhân hoặc chức danh chịu trách nhiệm sở hữu quy trình (`process_owner`).
+  - Khi muốn tự động ban hành chính thức mà không qua phê duyệt của con người (vi phạm nguyên tắc `L1_PROPOSE`).
 
-## Triggers
-- Kích hoạt khi cần chuẩn hoá một workflow vận hành đã lặp lại thành tài liệu SOP chính thức trong giai đoạn P6_SCALE_GOVERN.
-- Kích hoạt khi chuẩn bị hồ sơ cho stage gate G6 nhằm chứng minh khả năng vận hành có kiểm soát khi mở rộng quy mô.
+## 3. Điều Kiện Tiên Quyết (Prerequisites)
+- Yêu cầu ngữ cảnh: `workspace_id`, `project_id` hợp lệ.
+- Yêu cầu người phụ trách: `process_owner` được chỉ định rõ danh tính hoặc chức danh, tuyệt đối không gán chung chung ("the team", "ops", "ai").
+- Hiểu rõ bộ quy tắc kiểm định của `Runbook5W2HValidator` (`agent.operations.analyzers.runbook_5w2h_validator`).
 
-## Anti-triggers
-- Không kích hoạt khi workflow chưa từng chạy thực tế (không có bằng chứng lặp lại) — trường hợp này thuộc `operations.automation-design` hoặc thiết kế quy trình mới, không phải chuẩn hoá SOP.
-- Không kích hoạt khi không xác định được `process_owner` cụ thể.
-- Không kích hoạt khi thiếu `workspace_id` hoặc `project_id`.
+## 4. Các Bước Tất Định (Deterministic Steps)
+1. **Xác định Phạm Vi & Process Owner**: Thu thập tên quy trình, phạm vi áp dụng, tần suất thực thi và Process Owner chịu trách nhiệm duy trì tài liệu.
+2. **Liệt Kê Các Bước Theo Dòng Chảy Thực Tế**: Ghi nhận tuần tự từng bước kèm thời lượng ước tính (`expected_duration_minutes`).
+3. **Thiết Lập Bộ Đôi Tín Hiệu Thẩm Định (Dual Signals)**: Với mỗi bước, bắt buộc định nghĩa:
+   - *Observable Success Signal*: Dấu hiệu xác nhận bước đã thành công (log, metric, trạng thái UI).
+   - *Observable Failure Signal*: Dấu hiệu nhận biết bước đã thất bại để lập tức dừng lại.
+4. **Xác Định Đường Hoàn Tác & Đầu Mối Khẩn Cấp**:
+   - Ghi rõ lệnh/thao tác rollback về trạng thái an toàn. Nếu bước không thể rollback, phải ghi rõ lý do và hành động giảm thiểu thiệt hại.
+   - Chỉ định rõ tên/kênh liên hệ khẩn cấp (`escalation_contact`).
+5. **Thẩm Định Tự Động Qua Runbook5W2HValidator**:
+   - Chạy hàm kiểm định vệ sinh tài liệu. Chỉ chấp nhận các SOP đạt mức `SAFE-TO-USE` (Điểm vệ sinh $\ge 80/100$ và không còn lỗi nghiêm trọng).
+6. **Đóng Gói Bản Thảo Artifact**: Kết xuất tài liệu `sop-draft` kèm báo cáo thẩm định vệ sinh để Process Owner phê duyệt.
 
-## Required Context
-- `workspace_id`: Định danh workspace bắt buộc.
-- `project_id`: Định danh dự án bắt buộc.
-- `process_owner`: Tên/vai trò người chịu trách nhiệm sở hữu quy trình — bắt buộc, không được để trống hoặc gán cho AI.
+## 5. Tool Calls Được Phép (Allowed Tool Calls)
+Không có tool call runtime nào được khai báo cho skillpack này.
+Quy trình được thực thi và kiểm thử thông qua các module chuẩn của agent.
 
-## Evidence Rules
-- Bắt buộc liên kết SOP với bằng chứng vận hành thực tế: log thực thi, runbook nội bộ, phỏng vấn người thực hiện quy trình, hoặc dữ liệu tần suất lặp lại.
-- Mọi bằng chứng trích xuất được tạo dưới dạng `candidate` và phải qua phê duyệt của process owner trước khi SOP được coi là chính thức.
+## 6. Yêu Cầu Bằng Chứng (Evidence Requirements)
+- Bản nháp SOP phải dẫn xuất từ bằng chứng vận hành: nhật ký thực thi (log), biên bản họp, phỏng vấn nhân sự hoặc tài liệu runbook cũ.
+- Mọi bản nháp phải đính kèm bảng điểm vệ sinh 5W2H với đầy đủ 6 tiêu chí.
 
-## Quy trình thực hiện (Steps)
-1. **Xác định phạm vi & Process Owner**: Ghi rõ tên workflow, tần suất chạy, và process owner chịu trách nhiệm — nếu không có process owner, dừng lại và tạo handoff.
-2. **Thu thập bước thực hiện thực tế**: Đối chiếu log/runbook/phỏng vấn để liệt kê từng bước theo đúng thứ tự thực thi thật, không suy diễn.
-3. **Cấu trúc hoá SOP**: Soạn mục tiêu, phạm vi áp dụng, vai trò/trách nhiệm (RACI tối giản), các bước, tiêu chí hoàn thành, và điểm kiểm soát chất lượng.
-4. **Đóng gói Artifact**: Tạo bản nháp `sop-draft` kèm danh sách bằng chứng nguồn để process owner xem xét và phê duyệt.
+## 7. Safe Fallback & Nghiêm Cấm Anti-Patterns
+- **CẤM TÊN PHỤ TRÁCH MƠ HỒ (Zero Vague Owners):** Cấm ghi "team", "ops", "mọi người" hay "AI" làm owner của bước.
+- **CẤM RUNBOOK CHỈ CÓ HAPPY-PATH:** Runbook không có tín hiệu lỗi hoặc không có phương án hoàn tác sẽ bị gắn nhãn NOT-SAFE và từ chối đề xuất.
+- **CẤM TỰ ĐỘNG BAN HÀNH:** Mọi tài liệu sinh ra chỉ ở trạng thái sop-draft hoặc candidate, bắt buộc phải có chữ ký duyệt của con người.
 
-## Allowed Tool Calls
-Không có tool call trực tiếp (Artifact & Proposal only).
+## 8. Định Dạng Đầu Ra (Output Format)
+```markdown
+# [Tên SOP / Runbook]
 
-## Output Format
-- **sop-draft**: Tài liệu SOP có cấu trúc gồm mục tiêu, phạm vi, process owner nêu tên, các bước thực hiện, vai trò/trách nhiệm, tiêu chí hoàn thành, điểm kiểm soát chất lượng.
+## 1. Thông Tin Chung
+- **Process Owner**: [Tên / Chức danh cụ thể]
+- **Mục Tiêu**: [Mô tả mục tiêu 5W2H]
+- **Phạm Vi**: [Hệ thống / Đội ngũ áp dụng]
+- **Điểm Vệ Sinh (5W2H Score)**: [XX/100] — [SAFE-TO-USE | USE-WITH-CAUTION]
 
-## Fallback & Handoff
-- Khi không xác định được process owner hoặc thiếu bằng chứng vận hành thực tế đủ tin cậy, tạo thông báo Handoff đề xuất Founder/quản lý vận hành chỉ định process owner và cung cấp thêm bằng chứng trước khi tiếp tục.
+## 2. Bảng Các Bước Thực Thi Chuẩn
+| Bước | Hành Động | Người Thực Hiện | Thời Lượng | Tín Hiệu Thành Công | Tín Hiệu Thất Bại | Phương Án Hoàn Tác | Đầu Mối Khẩn Cấp |
+|---|---|---|---|---|---|---|---|
+| 1 | [Tên bước] | [Named Owner] | [X phút] | [Observable signal] | [Error signal] | [Rollback path] | [Escalation contact] |
 
-## Eval Notes
-- Suite: `evals/operations/sop-builder.yaml`
+## 3. Báo Cáo Thẩm Định An Toàn (Validation Report)
+- **Trạng thái**: [SAFE-TO-USE]
+- **Số bước hợp lệ**: [N/N]
+- **Khuyến nghị cải tiến**: [Ghi chú nếu có]
+```
+
+## 9. Xử Lý Lỗi & Edge Cases (Failure & Edge Case Handling)
+- **Quy trình không thể rollback (Non-reversible action)**: Bắt buộc chèn một bước kiểm tra điều kiện tiên quyết (Pre-flight Confirmation) và yêu cầu phê duyệt 2 người (Two-person rule) trước khi thực hiện.
+- **Không tìm được Process Owner**: Tạm dừng quy trình, chuyển sang trạng thái Handoff để Founder chỉ định nhân sự sở hữu trước khi tiếp tục.
+
+## 10. Nguồn (Review Record)
+```yaml
+upstream:
+  repository: alirezarezvani/claude-skills
+  commit: 19392f7a08264ed00486a251f5b2098321771f94
+  skill: knowledge-ops
+  upstream_version: 2.8.0
+  license: MIT
+adaptation:
+  kept:
+    - 6 tiêu chuẩn vệ sinh runbook (Named owner, Expected duration, Success signal, Failure signal, Rollback path, Escalation contact)
+    - Nguyên tắc thẩm định 5W2H và chống tài liệu rác mồ côi (KB hygiene)
+  changed:
+    - Chuyển đổi sang quy chuẩn 10 mục COSA tiếng Việt
+    - Liên kết chặt chẽ với trần tự trị L1_PROPOSE và giai đoạn P6_SCALE_GOVERN
+  added:
+    - Tích hợp trực tiếp với Runbook5W2HValidator trong packages/agent/operations/analyzers
+    - Quy chuẩn hai người duyệt cho các bước không thể rollback
+  excluded:
+    - Loại bỏ các lệnh shell tùy tiện; tích hợp vào pipeline kiểm thử tĩnh của COSA
+```
