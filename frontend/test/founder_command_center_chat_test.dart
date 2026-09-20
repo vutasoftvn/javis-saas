@@ -147,4 +147,24 @@ void main() {
     // Verify only Project B conversation was stored
     expect(controller.cofounderConversationIdForTest, 'conv_b');
   });
+
+  test('loadDashboardData marks workforceState and approvalsState as unavailable when service is unavailable', () async {
+    ApiClient.client = MockClient((request) async {
+      final path = request.url.path;
+      if (path == '/identity/workspaces/ws1') {
+        return http.Response(
+          '{"data":{"id":"ws1","name":"Workspace 1","projects":[{"id":"proj_1","title":"Project 1","lifecycleStage":"P0_DISCOVERY"}]}}',
+          200,
+        );
+      }
+      return http.Response('not found', 404);
+    });
+
+    final controller = Get.put(FounderCommandCenterController());
+    await controller.loadDashboardData();
+
+    expect(controller.workforceState.value, WorkforceLoadState.unavailable);
+    expect(controller.approvalsState.value, WorkforceLoadState.unavailable);
+    expect(controller.pendingApprovals, isEmpty);
+  });
 }

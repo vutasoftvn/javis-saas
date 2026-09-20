@@ -362,7 +362,7 @@ class DurableApprovalService:
                 approval_id=approval_id, current_status=approval.status
             )
 
-        if decided:
+        if decided and decided.run_id:
             await self._repo.append_event(
                 RunEventRecord(
                     run_id=decided.run_id,

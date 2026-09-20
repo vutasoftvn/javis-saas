@@ -112,9 +112,11 @@ async def _append_message(
     content: str,
     run_id: str | None = None,
     status_: str = "completed",
+    project_id: str | None = None,
 ) -> MessageRecord:
     message = MessageRecord(
         conversation_id=conversation_id,
+        project_id=project_id,
         role=role,
         content=content,
         run_id=run_id,
@@ -373,6 +375,7 @@ async def _execute_run_task_inner(
             content="Missing user_prompt — run rejected",
             run_id=run_id,
             status_="failed",
+            project_id=project_id,
         )
         await stream_mgr.emit(
             stream_repo,
@@ -395,6 +398,7 @@ async def _execute_run_task_inner(
             content="Missing delegation token — run rejected",
             run_id=run_id,
             status_="failed",
+            project_id=project_id,
         )
         await stream_mgr.emit(
             stream_repo,
@@ -422,6 +426,7 @@ async def _execute_run_task_inner(
             content=f"Unsupported agent profile '{agent_profile}' — run rejected",
             run_id=run_id,
             status_="failed",
+            project_id=project_id,
         )
         await stream_mgr.emit(
             stream_repo,
@@ -449,6 +454,7 @@ async def _execute_run_task_inner(
                 content="Workforce assignment retired or not found — run rejected",
                 run_id=run_id,
                 status_="failed",
+                project_id=project_id,
             )
             await stream_mgr.emit(
                 stream_repo,
@@ -494,6 +500,7 @@ async def _execute_run_task_inner(
             content="Unable to verify tenant policy — run rejected",
             run_id=run_id,
             status_="failed",
+            project_id=project_id,
         )
         await stream_mgr.emit(
             stream_repo,
@@ -522,6 +529,7 @@ async def _execute_run_task_inner(
             content="Unable to resolve agent spec from registry — run rejected",
             run_id=run_id,
             status_="failed",
+            project_id=project_id,
         )
         await stream_mgr.emit(
             stream_repo,
@@ -616,6 +624,7 @@ async def _execute_run_task_inner(
                 content="AI compliance resolver not configured — run rejected",
                 run_id=run_id,
                 status_="failed",
+                project_id=project_id,
             )
             await stream_mgr.emit(
                 stream_repo,
@@ -638,6 +647,7 @@ async def _execute_run_task_inner(
                 content=f"AI compliance check failed — run rejected: {code}",
                 run_id=run_id,
                 status_="failed",
+                project_id=project_id,
             )
         await stream_mgr.emit(
             stream_repo,
@@ -691,6 +701,7 @@ async def _execute_run_task_inner(
                 content=output_text,
                 run_id=run_id,
                 status_="completed",
+                project_id=project_id,
             )
 
             if hasattr(plane, "artifact_repository") and plane.artifact_repository is not None:
@@ -751,6 +762,7 @@ async def _execute_run_task_inner(
                             ),
                             run_id=run_id,
                             status_="completed",
+                            project_id=project_id,
                         )
 
         elif run_result.status == RunStatus.WAITING_APPROVAL:
@@ -819,6 +831,7 @@ async def _execute_run_task_inner(
                 content=f"Error: {err_msg}",
                 run_id=run_id,
                 status_="failed",
+                project_id=project_id,
             )
             if plane.workforce_repository is not None:
                 await plane.workforce_repository.enqueue_runtime_signal(
@@ -857,6 +870,7 @@ async def _execute_run_task_inner(
             content="Đã xảy ra lỗi không mong muốn khi thực thi run. Vui lòng thử lại hoặc liên hệ hỗ trợ.",
             run_id=run_id,
             status_="failed",
+            project_id=project_id,
         )
         await stream_mgr.emit(
             stream_repo,
@@ -1017,6 +1031,7 @@ async def execute_resume_task(
                 content=output_text,
                 run_id=run_id,
                 status_="completed",
+                project_id=project_id,
             )
 
         await stream_mgr.emit(
@@ -1116,8 +1131,8 @@ async def execute_scheduled_session_task(
     # đó chính là bug: rủi ro chạy nhầm project).
     project_id = payload.get("project_id")
 
-    # If payload didn't carry full execution snapshot, fetch from control plane
-    if not (workspace_id and prompt_template) and schedule_exec_id:
+    # If schedule_exec_id is provided, check or fetch execution snapshot from control plane
+    if schedule_exec_id:
         control_plane_url = resolve_platform_control_plane_url()
         token = os.environ.get("COSA_WORKER_SERVICE_TOKEN")
         fetch_headers: dict[str, str] = inject_trace_carrier({})
@@ -1131,20 +1146,42 @@ async def execute_scheduled_session_task(
                 )
                 if resp.status_code == 200:
                     data = resp.json()
-                    workspace_id = data.get("workspaceId") or data.get("workspace_id")
-                    prompt_template = data.get("promptTemplateSnapshot") or data.get(
-                        "prompt_template_snapshot"
+                    workspace_id = (
+                        workspace_id or data.get("workspaceId") or data.get("workspace_id")
+                    )
+                    prompt_template = (
+                        prompt_template
+                        or data.get("promptTemplateSnapshot")
+                        or data.get("prompt_template_snapshot")
                     )
                     agent_profile = (
-                        data.get("agentProfileSnapshot")
+                        agent_profile
+                        or data.get("agentProfileSnapshot")
                         or data.get("agent_profile_snapshot")
                         or "operations"
                     )
-                    project_id = (
-                        project_id
-                        or data.get("projectIdSnapshot")
-                        or data.get("project_id_snapshot")
+                    snapshot_project_id = data.get("projectIdSnapshot") or data.get(
+                        "project_id_snapshot"
                     )
+                    if project_id and snapshot_project_id and project_id != snapshot_project_id:
+                        error_mismatch = "PROJECT_CONTEXT_MISMATCH"
+                        logger.error(
+                            "schedule_execution_id=%s project mismatch: payload=%s snapshot=%s",
+                            schedule_exec_id,
+                            project_id,
+                            snapshot_project_id,
+                        )
+                        await _report_schedule_execution_complete(
+                            schedule_exec_id,
+                            state="failed",
+                            error=error_mismatch,
+                            conversation_id=None,
+                            run_id=run_id,
+                        )
+                        raise ValueError(error_mismatch)
+                    project_id = snapshot_project_id or project_id
+        except ValueError:
+            raise
         except Exception as exc:
             logger.warning("Could not fetch execution snapshot from control plane: %s", exc)
 
@@ -1160,13 +1197,9 @@ async def execute_scheduled_session_task(
             "schedule_execution_id=%s missing project_id snapshot — refusing to guess a project",
             schedule_exec_id,
         )
-        missing_project_error = f"schedule_project_context_missing: {schedule_exec_id}"
-        # Finding 1 (2026-09-14 whole-branch review): fail-closed trước đây
-        # raise ngay mà không báo control plane, khiến
-        # workspace_schedule_executions.state kẹt 'queued' vĩnh viễn (worker
-        # task-tracking coi là failed nhưng control plane không biết). Báo
-        # failed về control plane bằng đúng cơ chế completion-report ở dưới
-        # trước khi raise, để operator thấy được trạng thái thật.
+        missing_project_error = (
+            f"PROJECT_CONTEXT_REQUIRED: schedule_project_context_missing: {schedule_exec_id}"
+        )
         await _report_schedule_execution_complete(
             schedule_exec_id,
             state="failed",
@@ -1180,13 +1213,17 @@ async def execute_scheduled_session_task(
     conv = ConversationRecord(
         conversation_id=conversation_id,
         workspace_id=workspace_id,
+        project_id=project_id,
+        scope_state="PROJECT_SCOPED",
         created_by_principal="service:scheduler",
+        active_agent_profile=agent_profile,
         title=f"Scheduled execution: {prompt_template[:30]}",
     )
     await plane.conversation_repository.create_conversation(conv)
 
     user_msg = MessageRecord(
         conversation_id=conversation_id,
+        project_id=project_id,
         role="user",
         content=prompt_template,
     )
@@ -1207,7 +1244,10 @@ async def execute_scheduled_session_task(
     error_msg = None
     state = "succeeded"
     try:
-        await execute_run_task(plane, stream_mgr, run_payload)
+        run_res = await execute_run_task(plane, stream_mgr, run_payload)
+        if run_res and run_res.status == "failed":
+            state = "failed"
+            error_msg = run_res.error
     except Exception as exc:
         state = "failed"
         error_msg = str(exc)

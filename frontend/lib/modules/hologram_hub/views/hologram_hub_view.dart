@@ -478,16 +478,13 @@ class _HologramHubViewState extends State<HologramHubView> {
               const SizedBox(height: 16),
               WaitingForYouWidget(
                 decisions: controller.pendingDecisions.toList(),
-                approvals: controller.pendingApprovals.toList(),
+                approvals: const [],
                 onResolveDecision: (decId, optKey, notes) =>
                     controller.resolveDecision(
                   decisionId: decId,
                   optionKey: optKey,
                   founderNotes: notes,
                 ),
-                onApproveTask: (appId) => controller.approveTask(appId),
-                onRejectTask: (appId, reason) =>
-                    controller.rejectTask(appId, reason),
               ),
               const SizedBox(height: 16),
               // Project Activity Timeline (replaces HubActivityTimelineCard) —

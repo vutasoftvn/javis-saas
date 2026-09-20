@@ -9,16 +9,16 @@ class WaitingForYouWidget extends StatelessWidget {
   final List<FounderDecisionModel> decisions;
   final List<Map<String, dynamic>> approvals;
   final Function(int decisionId, String optionKey, String? notes) onResolveDecision;
-  final Function(dynamic approvalId) onApproveTask;
-  final Function(dynamic approvalId, String reason) onRejectTask;
+  final Function(dynamic approvalId)? onApproveTask;
+  final Function(dynamic approvalId, String reason)? onRejectTask;
 
   const WaitingForYouWidget({
     super.key,
     required this.decisions,
-    required this.approvals,
+    this.approvals = const [],
     required this.onResolveDecision,
-    required this.onApproveTask,
-    required this.onRejectTask,
+    this.onApproveTask,
+    this.onRejectTask,
   });
 
   @override
@@ -69,7 +69,7 @@ class WaitingForYouWidget extends StatelessWidget {
           ...decisions.map((d) => _buildDecisionItem(context, d)),
         ],
 
-        // 2. Approvals Section
+        // 2. Approvals Section (Read-only neutral badge, no mutation CTAs for unavailable workforce data)
         if (approvals.isNotEmpty) ...[
           ...approvals.map((a) => _buildApprovalItem(context, a)),
         ],
@@ -126,8 +126,6 @@ class WaitingForYouWidget extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFF59E0B),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  minimumSize: Size.zero,
                 ),
                 child: Text(
                   L10nKey.hubDecisionMakeDecision.tr,
@@ -209,66 +207,16 @@ class WaitingForYouWidget extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          OutlinedButton(
-            onPressed: () => _promptRejectReason(context, a['id']),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFFF87171),
-              side: const BorderSide(color: Color(0xFFF87171)),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              minimumSize: Size.zero,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF334155),
+              borderRadius: BorderRadius.circular(6),
             ),
-            child: Text(L10nKey.hubApprovalReject.tr, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-          ),
-          const SizedBox(width: 6),
-          ElevatedButton(
-            onPressed: () => onApproveTask(a['id']),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF3B82F6),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              minimumSize: Size.zero,
+            child: const Text(
+              'Chờ phê duyệt ở cấp dự án',
+              style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
             ),
-            child: Text(L10nKey.hubApprovalApprove.tr, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _promptRejectReason(BuildContext context, dynamic approvalId) {
-    final reasonController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        title: Text(L10nKey.hubApprovalRejectDialogTitle.tr, style: const TextStyle(color: Colors.white)),
-        content: TextField(
-          controller: reasonController,
-          autofocus: true,
-          maxLines: 3,
-          style: const TextStyle(color: Colors.white),
-          decoration: InputDecoration(
-            hintText: L10nKey.hubApprovalRejectReasonHint.tr,
-            hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
-            enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-            focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xFFF87171))),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(L10nKey.commonCancel.tr, style: TextStyle(color: Colors.white.withValues(alpha: 0.6))),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final reason = reasonController.text.trim();
-              if (reason.isEmpty) return;
-              Navigator.of(dialogContext).pop();
-              onRejectTask(approvalId, reason);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
-            child: Text(L10nKey.hubApprovalReject.tr, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),

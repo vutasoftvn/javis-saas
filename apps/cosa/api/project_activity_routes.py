@@ -93,10 +93,17 @@ async def _fetch_and_verify_source_visibility(
         return True, {"type": "conversation", "id": conv.conversation_id, "title": conv.title}
 
     elif source_type == "message":
-        msg = await plane.conversation_repository.get_message(source_id)
-        if msg is None or msg.workspace_id != identity.workspace_id:
-            return False, None
-        return True, {"type": "message", "id": msg.message_id, "created_at": msg.created_at}
+        repo: Any = plane.conversation_repository
+        if hasattr(repo, "get_message"):
+            msg = await repo.get_message(source_id)
+            if msg is None or getattr(msg, "workspace_id", None) != identity.workspace_id:
+                return False, None
+            return True, {
+                "type": "message",
+                "id": getattr(msg, "message_id", source_id),
+                "created_at": getattr(msg, "created_at", None),
+            }
+        return False, None
 
     # Business facts: không query trực tiếp Company DB từ apps/cosa —
     # chỉ trust Project Activity data đã ghi sẵn, KHÔNG rehydrate source.
@@ -123,7 +130,7 @@ async def _stream_project_activity(
 
     Heartbeat every 15s để client không timeout; project_id trong payload.
     """
-    repo: ProjectActivityRepository = getattr(plane, "project_activity_repository", None)
+    repo: Any = getattr(plane, "project_activity_repository", None)
     if repo is None:
         yield 'event: error\ndata: {"error": "Project Activity repository unavailable"}\n\n'
         return
@@ -224,7 +231,7 @@ def create_project_activity_router() -> APIRouter:
         await verify_project_context(plane, identity, project_id)
 
         # Lấy repo
-        repo: ProjectActivityRepository = getattr(plane, "project_activity_repository", None)
+        repo: Any = getattr(plane, "project_activity_repository", None)
         if repo is None:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -268,7 +275,7 @@ def create_project_activity_router() -> APIRouter:
         await verify_project_context(plane, identity, project_id)
 
         # Get repo
-        repo: ProjectActivityRepository = getattr(plane, "project_activity_repository", None)
+        repo: Any = getattr(plane, "project_activity_repository", None)
         if repo is None:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -304,12 +311,12 @@ def create_project_activity_router() -> APIRouter:
             event_id=event.event_id,
             workspace_id=event.workspace_id,
             project_id=event.project_id,
-            project_sequence=event.project_sequence,
+            project_sequence=event.project_sequence or 0,
             kind=event.kind,
-            phase=event.phase,
-            status=event.status,
-            actor_kind=event.actor_kind,
-            actor_id=event.actor_id,
+            phase=event.phase or "",
+            status=event.status or "",
+            actor_kind=event.actor_kind or "",
+            actor_id=event.actor_id or "",
             correlation_id=event.correlation_id,
             source_type=event.source_type,
             source_id=event.source_id,
@@ -318,7 +325,7 @@ def create_project_activity_router() -> APIRouter:
             source_visibility="full" if is_visible else "unavailable",
             summary=event.summary or {} if is_visible else {},
             classification=event.classification,
-            payload_hash=event.payload_hash,
+            payload_hash=event.payload_hash or "",
             integrity_hash=getattr(event, "integrity_hash", None),
             occurred_at=event.occurred_at,
             recorded_at=event.recorded_at,

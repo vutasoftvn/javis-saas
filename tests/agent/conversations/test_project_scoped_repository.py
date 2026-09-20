@@ -11,7 +11,7 @@ docs/superpowers/specs/2026-09-11-project-scoped-founder-hub-design.md.
 from __future__ import annotations
 
 import pytest
-from agent.conversations.models import ConversationRecord
+from agent.conversations.models import ConversationRecord, MessageRecord
 from agent.conversations.repository import ConversationRepository, InMemoryConversationRepository
 from pydantic import ValidationError
 
@@ -122,3 +122,82 @@ async def test_get_scoped_conversation_requires_both_workspace_and_project(
         workspace_id="ws_other", conversation_id="conv_a", project_id="proj_a"
     )
     assert wrong_workspace is None
+
+
+@pytest.mark.asyncio
+async def test_add_message_rejects_project_mismatch(in_memory_repo: ConversationRepository):
+    conv_a = ConversationRecord(
+        conversation_id="conv_a",
+        workspace_id="ws_a",
+        project_id="proj_a",
+        scope_state="PROJECT_SCOPED",
+        created_by_principal="human_a",
+        title="Project A conversation",
+    )
+    await in_memory_repo.create_conversation(conv_a)
+
+    with pytest.raises(ValueError, match="message_project_scope_mismatch"):
+        await in_memory_repo.add_message(
+            MessageRecord(
+                conversation_id="conv_a",
+                project_id="proj_b",
+                role="user",
+                content="hello",
+            )
+        )
+
+    with pytest.raises(ValueError, match="message_project_scope_mismatch"):
+        await in_memory_repo.add_message(
+            MessageRecord(
+                conversation_id="conv_a",
+                project_id=None,
+                role="user",
+                content="hello",
+            )
+        )
+
+    msg = await in_memory_repo.add_message(
+        MessageRecord(
+            conversation_id="conv_a",
+            project_id="proj_a",
+            role="user",
+            content="hello",
+        )
+    )
+    assert msg.project_id == "proj_a"
+
+
+@pytest.mark.asyncio
+async def test_add_message_legacy_unscoped_rejects_project_id(
+    in_memory_repo: ConversationRepository,
+):
+    conv_legacy = ConversationRecord(
+        conversation_id="conv_legacy",
+        workspace_id="ws_a",
+        project_id=None,
+        scope_state="LEGACY_UNSCOPED",
+        created_by_principal="human_a",
+        title="Legacy conversation",
+    )
+    await in_memory_repo.create_conversation(conv_legacy)
+
+    with pytest.raises(ValueError, match="message_project_scope_mismatch"):
+        await in_memory_repo.add_message(
+            MessageRecord(
+                conversation_id="conv_legacy",
+                project_id="proj_a",
+                role="user",
+                content="hello",
+            )
+        )
+
+    msg = await in_memory_repo.add_message(
+        MessageRecord(
+            conversation_id="conv_legacy",
+            project_id=None,
+            role="user",
+            content="hello",
+        )
+    )
+    assert msg.project_id is None
+

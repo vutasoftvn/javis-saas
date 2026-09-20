@@ -302,13 +302,15 @@ def real_cosa_stack(disposable_cluster: DisposableCluster) -> Iterator[MvpStack]
         return
 
     handles = boot_subprocess_stack(disposable_cluster)
+    stack = MvpStack.from_base_urls(
+        company=handles.company_url,
+        platform=handles.cosa_url,
+        agent=handles.apps_cosa_url,
+        apps_cosa=handles.apps_cosa_url,
+        worker_health_url=handles.worker_health_url,
+    )
+    stack.handles = handles
     try:
-        yield MvpStack.from_base_urls(
-            company=handles.company_url,
-            platform=handles.cosa_url,
-            agent=handles.apps_cosa_url,
-            apps_cosa=handles.apps_cosa_url,
-            worker_health_url=handles.worker_health_url,
-        )
+        yield stack
     finally:
-        teardown_subprocess_stack(handles)
+        teardown_subprocess_stack(stack.handles or handles)

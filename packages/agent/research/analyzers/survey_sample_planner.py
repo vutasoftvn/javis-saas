@@ -25,9 +25,9 @@ import argparse
 import json
 import math
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-Z_VALUES: Dict[float, float] = {
+Z_VALUES: dict[float, float] = {
     0.90: 1.645,
     0.95: 1.960,
     0.99: 2.576,
@@ -40,16 +40,16 @@ class SurveySamplePlan:
     z_score: float
     margin_of_error: float
     proportion: float
-    population_size: Optional[int]
+    population_size: int | None
     is_finite: bool
     recommended_sample_size: int
     estimated_response_rate: float
     invites_needed: int
     segments: int
     total_invites_across_segments: int
-    notes: List[str]
+    notes: list[str]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -65,9 +65,9 @@ class SurveySamplePlanner:
     def plan_sample(
         self,
         margin_of_error: float = 0.05,
-        confidence_level: Optional[float] = None,
-        population_size: Optional[int] = None,
-        proportion: Optional[float] = None,
+        confidence_level: float | None = None,
+        population_size: int | None = None,
+        proportion: float | None = None,
         response_rate: float = 0.15,
         segments: int = 1,
     ) -> SurveySamplePlan:
@@ -104,7 +104,7 @@ class SurveySamplePlanner:
         invites_per_segment = math.ceil(final_n / response_rate)
         total_invites = invites_per_segment * segments
 
-        notes: List[str] = [
+        notes: list[str] = [
             f"Based on Cochran's formula at {conf:.0%} confidence interval (Z={z}).",
             f"Maximum variability assumed (p={p:.2f}) giving the most conservative (safe) sample size.",
         ]
@@ -134,9 +134,9 @@ class SurveySamplePlanner:
     def calculate_margin_of_error(
         self,
         sample_size: int,
-        confidence_level: Optional[float] = None,
-        population_size: Optional[int] = None,
-        proportion: Optional[float] = None,
+        confidence_level: float | None = None,
+        population_size: int | None = None,
+        proportion: float | None = None,
     ) -> float:
         if sample_size <= 0:
             raise ValueError("Sample size must be positive.")
@@ -168,7 +168,9 @@ def render_human_plan(plan: SurveySamplePlan) -> str:
     ]
     if plan.segments > 1:
         lines.append(f"   Số phân khúc khảo sát:          {plan.segments} phân khúc")
-        lines.append(f"   TỔNG SỐ LỜI MỜI CẦN GỬI TOÀN BỘ: {plan.total_invites_across_segments:,} invites")
+        lines.append(
+            f"   TỔNG SỐ LỜI MỜI CẦN GỬI TOÀN BỘ: {plan.total_invites_across_segments:,} invites"
+        )
 
     lines.append("")
     lines.append("Ghi chú phương pháp luận:")
@@ -179,11 +181,19 @@ def render_human_plan(plan: SurveySamplePlan) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Calculate statistical survey sample size using Cochran formula.")
-    parser.add_argument("--moe", type=float, default=0.05, help="Margin of error (e.g. 0.05 for 5%)")
-    parser.add_argument("--conf", type=float, default=0.95, choices=[0.90, 0.95, 0.99], help="Confidence level")
+    parser = argparse.ArgumentParser(
+        description="Calculate statistical survey sample size using Cochran formula."
+    )
+    parser.add_argument(
+        "--moe", type=float, default=0.05, help="Margin of error (e.g. 0.05 for 5%)"
+    )
+    parser.add_argument(
+        "--conf", type=float, default=0.95, choices=[0.90, 0.95, 0.99], help="Confidence level"
+    )
     parser.add_argument("--pop", type=int, default=None, help="Population size (optional)")
-    parser.add_argument("--response-rate", type=float, default=0.15, help="Expected response rate (default 15%)")
+    parser.add_argument(
+        "--response-rate", type=float, default=0.15, help="Expected response rate (default 15%)"
+    )
     parser.add_argument("--segments", type=int, default=1, help="Number of customer segments")
     parser.add_argument("--output", choices=["human", "json"], default="human")
     args = parser.parse_args()
@@ -207,4 +217,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     import sys
+
     sys.exit(main())

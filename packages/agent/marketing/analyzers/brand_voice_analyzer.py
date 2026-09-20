@@ -103,7 +103,6 @@ class BrandVoiceAnalyzer:
             cleaned = cleaned[:-1]
 
         # Đếm nhóm nguyên âm liên tiếp
-        vowels = "aeiouy"
         groups = re.findall(r"[aeiouy]+", cleaned)
         count = len(groups)
         return max(1, count)
@@ -132,11 +131,7 @@ class BrandVoiceAnalyzer:
             )
 
         # 1. Tách câu
-        sentences = [
-            s.strip()
-            for s in re.split(r"[.!?]+(?:\s+|$)", raw_text)
-            if s.strip()
-        ]
+        sentences = [s.strip() for s in re.split(r"[.!?]+(?:\s+|$)", raw_text) if s.strip()]
         sentence_count = max(1, len(sentences))
 
         # 2. Tách từ
@@ -186,14 +181,17 @@ class BrandVoiceAnalyzer:
         for p in paragraphs:
             p_lower = p.lower()
             p_density = sum(1 for c in AI_CLICHES if re.search(rf"\b{re.escape(c)}\b", p_lower))
-            if p_density > max_para_density:
-                max_para_density = p_density
+            max_para_density = max(max_para_density, p_density)
 
         # 7. Phát hiện nhịp điệu giật cục cưỡng ép (Forced Burstiness / Staccato sequences)
         staccato_runs: list[str] = []
         sentence_word_counts = [len(re.findall(r"\b[a-zA-ZÀ-ỹ0-9'-]+\b", s)) for s in sentences]
         for i in range(len(sentence_word_counts) - 2):
-            if sentence_word_counts[i] <= 4 and sentence_word_counts[i + 1] <= 4 and sentence_word_counts[i + 2] <= 4:
+            if (
+                sentence_word_counts[i] <= 4
+                and sentence_word_counts[i + 1] <= 4
+                and sentence_word_counts[i + 2] <= 4
+            ):
                 seq = " // ".join(sentences[i : i + 3])
                 staccato_runs.append(seq)
         forced_burstiness = len(staccato_runs) > 0
@@ -201,11 +199,19 @@ class BrandVoiceAnalyzer:
         # 8. Tính Formality Index (0-100)
         # Các yếu tố tăng tính trang trọng: độ dài từ trung bình cao, câu bị động, không có viết tắt
         # Các yếu tố giảm tính trang trọng: viết tắt (don't, can't), đại từ nhân xưng ngôi thứ nhất (I, we, you)
-        contractions = len(re.findall(r"\b[a-zA-Z]+'(?:t|s|re|ve|ll|d|m)\b", raw_text, re.IGNORECASE))
+        contractions = len(
+            re.findall(r"\b[a-zA-Z]+'(?:t|s|re|ve|ll|d|m)\b", raw_text, re.IGNORECASE)
+        )
         first_person = len(re.findall(r"\b(i|we|my|our|us|you|your)\b", raw_text, re.IGNORECASE))
         avg_word_len = sum(len(w) for w in words) / word_count
 
-        formality = 50.0 + (avg_word_len - 4.5) * 12.0 + (passive_ratio * 20.0) - (contractions * 3.0) - (first_person * 1.5)
+        formality = (
+            50.0
+            + (avg_word_len - 4.5) * 12.0
+            + (passive_ratio * 20.0)
+            - (contractions * 3.0)
+            - (first_person * 1.5)
+        )
         formality_score = round(max(0.0, min(100.0, formality)), 1)
 
         # 9. Khuyến nghị cải thiện

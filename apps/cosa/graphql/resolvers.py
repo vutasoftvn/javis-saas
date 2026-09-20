@@ -146,7 +146,7 @@ class WorkspaceContextOperation:
 class WorkspaceAuthorityOverviewOperation:
     """Founder-only persisted read BFF returning authoritative workforce authorization overview (Task 7)."""
 
-    allowed_variables = frozenset()
+    allowed_variables: frozenset[str] = frozenset()
 
     async def execute(
         self, variables: dict[str, Any], identity: IdentityLike, plane: Any

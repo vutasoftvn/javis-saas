@@ -20,6 +20,7 @@ from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 from apps.cosa.worker.main import dispatch_one_task
 from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
+from tests.apps.cosa.helpers.project_team_authority import attach_mock_project_team_client
 from tests.apps.cosa.policy_test_helpers import (
     configure_mock_client_allows_data_use,
     fake_active_tenant_policy_client,
@@ -62,6 +63,7 @@ async def e2e_setup():
         artifact_repository=art_repo,
         model=FakeSDKModel(responses=[text_response("E2E analysis verified.")]),
     )
+    attach_mock_project_team_client(plane)
     await seed_cosa_runtime_specs(
         spec_registry=plane.spec_registry,
         capability_registry=plane.capability_registry,
@@ -118,7 +120,7 @@ async def test_end_to_end_workspace_execution_flow(e2e_setup):
     await dispatch_one_task(plane, due[0])
 
     # 2. Get created conversation
-    convs, total = await conv_repo.list_conversations(workspace_id="ws_E2E", project_id=None)
+    convs, total = await conv_repo.list_conversations(workspace_id="ws_E2E", project_id="proj_test_1")
     assert total == 1
     conversation = convs[0]
     conv_id = conversation.conversation_id

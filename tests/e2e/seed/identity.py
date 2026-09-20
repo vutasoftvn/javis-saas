@@ -377,9 +377,23 @@ def seed_operations_ready_project(
     headers = {"Authorization": f"Bearer {token}", "X-Workspace-Id": str(workspace_id)}
     project_id = create_bare_project(company_base_url, token, workspace_id)
 
+    team_resp = httpx.get(
+        f"{company_base_url}/operations/projects/{project_id}/startup-team",
+        headers=headers,
+        timeout=_TIMEOUT,
+    )
+    if team_resp.status_code == 200:
+        items = team_resp.json().get("items", [])
+        ops = next((item for item in items if item.get("profileKey") == "operations"), None)
+        if ops and ops.get("displayState") == "ACTIVE":
+            return project_id
+        expected_version = ops.get("assignmentVersion", 1) if ops else 1
+    else:
+        expected_version = 1
+
     resp = httpx.post(
         f"{company_base_url}/operations/projects/{project_id}/startup-team/operations/activate",
-        json={"expectedVersion": 1},
+        json={"expectedVersion": expected_version},
         headers=headers,
         timeout=_TIMEOUT,
     )

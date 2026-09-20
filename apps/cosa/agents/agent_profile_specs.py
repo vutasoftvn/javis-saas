@@ -17,62 +17,9 @@ from __future__ import annotations
 
 from agent.contracts.spec import AgentSpec
 
-from apps.cosa.agents.specs import (
-    COSA_AI_GOVERNANCE_AGENT_SPEC,
-    COSA_CODING_AGENT_SPEC,
-    COSA_COFOUNDER_ASSISTANT_AGENT_SPEC,
-    COSA_CUSTOMER_SUPPORT_AGENT_SPEC,
-    COSA_DATA_AGENT_SPEC,
-    COSA_EXECUTIVE_CAIO_AGENT_SPEC,
-    COSA_EXECUTIVE_CDO_AGENT_SPEC,
-    COSA_EXECUTIVE_CHRO_AGENT_SPEC,
-    COSA_EXECUTIVE_CISO_AGENT_SPEC,
-    COSA_EXECUTIVE_CPO_AGENT_SPEC,
-    COSA_EXECUTIVE_CRO_AGENT_SPEC,
-    COSA_EXECUTIVE_CTO_AGENT_SPEC,
-    COSA_EXECUTIVE_GC_AGENT_SPEC,
-    COSA_EXECUTIVE_VPE_AGENT_SPEC,
-    COSA_FINANCE_AGENT_SPEC,
-    COSA_LEGAL_AGENT_SPEC,
-    COSA_MARKETING_AGENT_SPEC,
-    COSA_OPERATIONS_AGENT_SPEC,
-    COSA_PEOPLE_AGENT_SPEC,
-    COSA_PRODUCT_AGENT_SPEC,
-    COSA_RESEARCH_INTELLIGENCE_AGENT_SPEC,
-    COSA_SALES_AGENT_SPEC,
-    COSA_SECURITY_AGENT_SPEC,
-    COSA_STRATEGY_AGENT_SPEC,
-)
+from apps.cosa.agents.catalog import public_profile_specs
 
 __all__ = ["AGENT_PROFILE_SPECS"]
 
-# "founder_assistant" là default thật đang được Flutter gửi cho MỌI
-# conversation mới (chat_controller.dart createNewConversation() không truyền
-# agentProfile) — trỏ tới COSA_COFOUNDER_ASSISTANT_AGENT_SPEC (AI Co-Founder &
-# Thinking Partner).
-AGENT_PROFILE_SPECS: dict[str, AgentSpec] = {
-    "operations": COSA_OPERATIONS_AGENT_SPEC,
-    "founder_assistant": COSA_COFOUNDER_ASSISTANT_AGENT_SPEC,
-    "finance": COSA_FINANCE_AGENT_SPEC,
-    "marketing": COSA_MARKETING_AGENT_SPEC,
-    "research_intelligence": COSA_RESEARCH_INTELLIGENCE_AGENT_SPEC,
-    "strategy": COSA_STRATEGY_AGENT_SPEC,
-    "customer_support": COSA_CUSTOMER_SUPPORT_AGENT_SPEC,
-    "sales": COSA_SALES_AGENT_SPEC,
-    "cro": COSA_EXECUTIVE_CRO_AGENT_SPEC,
-    "coding": COSA_CODING_AGENT_SPEC,
-    "cto": COSA_EXECUTIVE_CTO_AGENT_SPEC,
-    "vpe": COSA_EXECUTIVE_VPE_AGENT_SPEC,
-    "product": COSA_PRODUCT_AGENT_SPEC,
-    "cpo": COSA_EXECUTIVE_CPO_AGENT_SPEC,
-    "people": COSA_PEOPLE_AGENT_SPEC,
-    "chro": COSA_EXECUTIVE_CHRO_AGENT_SPEC,
-    "security": COSA_SECURITY_AGENT_SPEC,
-    "ciso": COSA_EXECUTIVE_CISO_AGENT_SPEC,
-    "legal": COSA_LEGAL_AGENT_SPEC,
-    "gc": COSA_EXECUTIVE_GC_AGENT_SPEC,
-    "data": COSA_DATA_AGENT_SPEC,
-    "cdo": COSA_EXECUTIVE_CDO_AGENT_SPEC,
-    "ai_governance": COSA_AI_GOVERNANCE_AGENT_SPEC,
-    "caio": COSA_EXECUTIVE_CAIO_AGENT_SPEC,
-}
+# Derived dynamically from canonical catalog (Task 4)
+AGENT_PROFILE_SPECS: dict[str, AgentSpec] = public_profile_specs()

@@ -80,7 +80,9 @@ class FakeComplianceResolver:
 
 
 def _plane(company_client: Any | None = None):
-    return build_cosa_agent_plane(
+    from tests.apps.cosa.helpers.project_team_authority import attach_mock_project_team_client
+
+    plane = build_cosa_agent_plane(
         company_client=company_client,
         repository=InMemoryRunRepository(),
         conversation_repository=InMemoryConversationRepository(),
@@ -90,6 +92,8 @@ def _plane(company_client: Any | None = None):
         stream_event_repository=InMemoryRunStreamEventRepository(),
         model=FakeSDKModel(),
     )
+    attach_mock_project_team_client(plane)
+    return plane
 
 
 def _payload(**overrides) -> dict:
@@ -300,10 +304,11 @@ async def test_worker_passes_bound_delegation_to_snapshot_and_capability_clients
        X-COSA-Capability-Id, Authorization: Bearer <delegation_token>.
     3. Raw token / 'Bearer ' KHÔNG BAO GIỜ xuất hiện trong stream events hay messages.
     """
-    import httpx
     from unittest.mock import AsyncMock
 
+    import httpx
     from agent_testkit.fake_sdk_model import text_response, tool_call_response
+
     from apps.cosa.capabilities.client import CompanyServiceClient
 
     # Task 7 (2026-08-30) — CosaDataModelGate giờ deny khi thiếu
@@ -355,7 +360,7 @@ async def test_worker_passes_bound_delegation_to_snapshot_and_capability_clients
 
     # 1. Snapshot / resolver nhận đúng run_id bound
     assert len(fake_resolver.calls) == 1
-    req, spec = fake_resolver.calls[0]
+    req, _spec = fake_resolver.calls[0]
     assert req.run_id == "run_bound_delegation_e2e"
 
     # 2. Company capability client forwarded đúng các headers từ InvocationContext

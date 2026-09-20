@@ -1022,35 +1022,36 @@ async def decide_approval(
         )
 
     run_id = decided.run_id
-    run_record = await plane.repository.get_scoped_run(
-        run_id=run_id,
-        workspace_id=identity.workspace_id,
-    )
-    resume_conversation_id = (
-        run_record.conversation_id if run_record and run_record.conversation_id else "unknown"
-    )
+    if run_id:
+        run_record = await plane.repository.get_scoped_run(
+            run_id=run_id,
+            workspace_id=identity.workspace_id,
+        )
+        resume_conversation_id = (
+            run_record.conversation_id if run_record and run_record.conversation_id else "unknown"
+        )
 
-    await stream_mgr.emit(
-        plane.stream_event_repository,
-        run_id=run_id,
-        conversation_id=resume_conversation_id,
-        event_type="approval.resolved",
-        payload={
-            "approval_id": approval_id,
-            "status": decided.status,
-            "reviewer": decided.reviewer,
-            "reason": decided.reason,
-        },
-        # Task 3 (plan 2026-09-11-project-scoped-founder-hub) — mirrors the
-        # wiring pattern established at apps/cosa/api/routes.py::cancel_run:
-        # a durable runtime stream event also records an idempotent Project
-        # Activity row (before live fanout). project_id comes from the run's
-        # own persisted record (None for LEGACY_UNSCOPED runs — emit() skips
-        # the projection in that case, no error).
-        activity_service=getattr(plane, "project_activity_service", None),
-        workspace_id=identity.workspace_id,
-        project_id=run_record.project_id if run_record else None,
-    )
+        await stream_mgr.emit(
+            plane.stream_event_repository,
+            run_id=run_id,
+            conversation_id=resume_conversation_id,
+            event_type="approval.resolved",
+            payload={
+                "approval_id": approval_id,
+                "status": decided.status,
+                "reviewer": decided.reviewer,
+                "reason": decided.reason,
+            },
+            # Task 3 (plan 2026-09-11-project-scoped-founder-hub) — mirrors the
+            # wiring pattern established at apps/cosa/api/routes.py::cancel_run:
+            # a durable runtime stream event also records an idempotent Project
+            # Activity row (before live fanout). project_id comes from the run's
+            # own persisted record (None for LEGACY_UNSCOPED runs — emit() skips
+            # the projection in that case, no error).
+            activity_service=getattr(plane, "project_activity_service", None),
+            workspace_id=identity.workspace_id,
+            project_id=run_record.project_id if run_record else None,
+        )
 
     # Resume kernel if approved. Quyết định approval ĐÃ được ghi nhận hợp lệ ở
     # trên (submit_decision) dù bước schedule dưới đây có thất bại — không để

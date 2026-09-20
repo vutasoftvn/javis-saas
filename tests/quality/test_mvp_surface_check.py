@@ -26,13 +26,87 @@ def test_enabled_capability_requires_real_source_and_all_proofs() -> None:
                 "source_kind": "company_db",
                 "requires_workspace": True,
                 "frontend_symbol": "StrategyMvpClient.listCanvases",
-                "backend_test": "services/company/operations/tests/mvp-canvas-runtime.test.ts",
-                "flutter_test": "frontend/test/strategy_mvp_service_test.dart",
+                "backend_test": "services/company/operations/tests/strategy-experiment-services.test.ts",
+                "flutter_test": "frontend/test/modules/strategy/strategy_controller_test.dart",
                 "integration_test": "tests/e2e/test_mvp_strategy_runtime_http.py",
             }
         ],
     }
     assert validate_manifest(manifest) == []
+
+
+def test_enabled_capability_rejects_nonexistent_proof_paths() -> None:
+    errors = validate_manifest(
+        {
+            "version": "2026-08-31",
+            "capabilities": [
+                {
+                    "id": "x",
+                    "enabled": True,
+                    "owner": "company-operations",
+                    "plane": "company",
+                    "method": "GET",
+                    "path": "/operations/x",
+                    "schema": "x.v1",
+                    "source_kind": "company_db",
+                    "requires_workspace": True,
+                    "frontend_symbol": "X.client",
+                    "backend_test": "services/company/missing_backend.ts",
+                    "flutter_test": "frontend/test/missing_test.dart",
+                    "integration_test": "tests/e2e/missing.py",
+                }
+            ],
+        }
+    )
+    assert "does not exist" in "\n".join(errors)
+
+
+def test_enabled_capability_rejects_empty_integration_test() -> None:
+    errors = validate_manifest(
+        {
+            "version": "2026-08-31",
+            "capabilities": [
+                {
+                    "id": "x",
+                    "enabled": True,
+                    "owner": "company-operations",
+                    "plane": "company",
+                    "method": "GET",
+                    "path": "/operations/x",
+                    "schema": "x.v1",
+                    "source_kind": "company_db",
+                    "requires_workspace": True,
+                    "frontend_symbol": "X.client",
+                    "backend_test": "services/company/operations/tests/mvp-canvas-runtime.test.ts",
+                    "flutter_test": "frontend/test/modules/strategy/strategy_controller_test.dart",
+                    "integration_test": "",
+                }
+            ],
+        }
+    )
+    assert any("integration_test" in e for e in errors)
+
+
+def test_disabled_capability_permitted_to_omit_ui_proof() -> None:
+    errors = validate_manifest(
+        {
+            "version": "2026-08-31",
+            "capabilities": [
+                {
+                    "id": "disabled.route",
+                    "enabled": False,
+                    "owner": "company-operations",
+                    "plane": "company",
+                    "method": "GET",
+                    "path": "/operations/disabled",
+                    "schema": "disabled.v1",
+                    "source_kind": "company_db",
+                    "requires_workspace": True,
+                }
+            ],
+        }
+    )
+    assert errors == []
 
 
 def test_enabled_capability_rejects_runtime_fixture_source() -> None:

@@ -14,8 +14,10 @@ from agent.runs.stream_events import InMemoryRunStreamEventRepository
 from agent_testkit.fake_sdk_model import FakeSDKModel, text_response
 
 from apps.cosa.agents.seed import seed_cosa_runtime_specs
+from apps.cosa.agents.specs import COSA_OPERATIONS_AGENT_SPEC
 from apps.cosa.api.event_stream import CosaEventStreamManager
 from apps.cosa.capabilities.client import CompanyServiceClient
+from apps.cosa.company.project_team_client import ProjectAgentRunAuthority, SpecRef
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 from apps.cosa.worker.handlers import execute_scheduled_session_task
 from apps.cosa.worker.main import dispatch_one_task
@@ -63,6 +65,21 @@ async def worker_setup():
         artifact_repository=art_repo,
         model=FakeSDKModel(responses=[text_response("Scheduled report analysis complete.")]),
     )
+    mock_team_client = AsyncMock()
+    mock_team_client.get_run_authority.return_value = ProjectAgentRunAuthority(
+        projectId="proj_test_1",
+        workspaceId="ws_sched",
+        profileKey="operations",
+        assignmentVersion=1,
+        agentWorkforceMemberId="mem_test_agent",
+        spec=SpecRef(
+            id=COSA_OPERATIONS_AGENT_SPEC.id,
+            version=COSA_OPERATIONS_AGENT_SPEC.version,
+            hash=COSA_OPERATIONS_AGENT_SPEC.compute_hash(),
+        ),
+    )
+    plane.project_team_client = mock_team_client
+
     await seed_cosa_runtime_specs(
         spec_registry=plane.spec_registry,
         capability_registry=plane.capability_registry,
@@ -109,17 +126,21 @@ async def test_worker_dispatches_scheduled_session_task(worker_setup):
 
     # 4. Verify conversation was created
     conversations, total = await conv_repo.list_conversations(
-        workspace_id="ws_sched", project_id=None
+        workspace_id="ws_sched", project_id="proj_test_1"
     )
     assert total == 1
     assert len(conversations) == 1
     sched_conv = conversations[0]
+    assert sched_conv.project_id == "proj_test_1"
+    assert sched_conv.scope_state == "PROJECT_SCOPED"
+    assert sched_conv.active_agent_profile == "operations"
     assert sched_conv.created_by_principal == "service:scheduler"
     assert "Scheduled execution:" in sched_conv.title
 
     # 5. Verify messages in conversation (user prompt + assistant output)
     messages = await conv_repo.list_messages(sched_conv.conversation_id)
     assert len(messages) == 2
+    assert {message.project_id for message in messages} == {"proj_test_1"}
     assert messages[0].role == "user"
     assert messages[0].content == "Run quarterly risk review"
     assert messages[1].role == "assistant"
@@ -133,6 +154,7 @@ async def test_worker_dispatches_scheduled_session_task(worker_setup):
     )
     assert len(artifacts) == 1
     assert artifacts[0].artifact_kind == "assistant_output"
+
 
 
 @pytest.mark.asyncio
@@ -163,10 +185,56 @@ async def test_scheduled_session_fails_closed_when_payload_missing_project_id(wo
 
     # Fail-closed phải xảy ra TRƯỚC khi tạo conversation — không để lại
     # conversation mồ côi cho 1 run chưa từng có project context hợp lệ.
-    conversations, total = await conv_repo.list_conversations(
+    _, total = await conv_repo.list_conversations(
         workspace_id="ws_sched", project_id=None
     )
     assert total == 0
+
+
+@pytest.mark.asyncio
+async def test_scheduled_session_fails_closed_when_payload_project_mismatches_snapshot(worker_setup):
+    plane = worker_setup["plane"]
+    conv_repo = worker_setup["conv_repo"]
+    stream_mgr = CosaEventStreamManager()
+
+    mock_resp = AsyncMock()
+    mock_resp.status_code = 200
+    mock_resp.json = lambda: {
+        "workspaceId": "ws_sched",
+        "promptTemplateSnapshot": "Run quarterly risk review",
+        "agentProfileSnapshot": "operations",
+        "projectIdSnapshot": "proj_snapshot_a",
+    }
+
+    mock_post = AsyncMock()
+
+    with (
+        patch("apps.cosa.worker.handlers.resolve_platform_control_plane_url", return_value="http://control-plane"),
+        patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get,
+        patch("httpx.AsyncClient.post", new=mock_post),
+    ):
+        mock_get.return_value = mock_resp
+
+        with pytest.raises(ValueError, match="PROJECT_CONTEXT_MISMATCH"):
+            await execute_scheduled_session_task(
+                plane,
+                stream_mgr,
+                {
+                    "task_type": "scheduled_session",
+                    "schedule_execution_id": "exec_mismatch",
+                    "workspace_id": "ws_sched",
+                    "prompt_template": "Run quarterly risk review",
+                    "agent_profile": "operations",
+                    "project_id": "proj_payload_b",
+                },
+                run_id="run_mismatch",
+            )
+
+    _, total = await conv_repo.list_conversations(
+        workspace_id="ws_sched", project_id="proj_payload_b"
+    )
+    assert total == 0
+
 
 
 @pytest.mark.asyncio
@@ -280,7 +348,7 @@ async def test_scheduled_session_fails_closed_when_snapshot_lacks_project_id(
             run_id="run_snapshot_missing_project",
         )
 
-    conversations, total = await conv_repo.list_conversations(
+    _, total = await conv_repo.list_conversations(
         workspace_id="ws_sched", project_id=None
     )
     assert total == 0

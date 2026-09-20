@@ -187,7 +187,8 @@ class IWorkflowOrchestration:
     approval_service: Any
     workflow_definition_repository: WorkflowDefinitionRepository | None
 
-    def get_executor_health(self) -> dict[str, dict[str, Any]]: ...
+    def get_executor_health(self) -> dict[str, dict[str, Any]]:
+        raise NotImplementedError
 
     async def execute_spec(
         self,

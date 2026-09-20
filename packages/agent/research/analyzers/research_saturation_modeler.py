@@ -25,7 +25,7 @@ import json
 import math
 import re
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -39,20 +39,20 @@ class SaturationPlanResult:
     limits_and_rationale: str
     disclaimer: str
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
 @dataclass
 class InsightLintViolation:
-    line_number: Optional[int]
+    line_number: int | None
     statement: str
     participant_count: int
     classification: str  # ANECDOTE vs INSIGHT
     violation_rule: str
     suggested_correction: str
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -62,9 +62,9 @@ class InsightLintReport:
     anecdote_count: int
     insight_count: int
     is_compliant: bool
-    violations: List[InsightLintViolation] = field(default_factory=list)
+    violations: list[InsightLintViolation] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -134,8 +134,8 @@ class ResearchSaturationModeler:
             disclaimer="Điểm bão hòa là kết quả quan sát thực tế, không phải giả định tĩnh.",
         )
 
-    def lint_insight_claims(self, text_or_items: List[Dict[str, Any]] | str) -> InsightLintReport:
-        violations: List[InsightLintViolation] = []
+    def lint_insight_claims(self, text_or_items: list[dict[str, Any]] | str) -> InsightLintReport:
+        violations: list[InsightLintViolation] = []
         total_checked = 0
         anecdotes = 0
         insights = 0
@@ -155,11 +155,25 @@ class ResearchSaturationModeler:
                 total_checked += 1
 
                 # Check if marked as insight or claims universal truth with only 1 participant cited
-                is_single = bool(re.search(r"\b(1\s*người|1\s*user|1\s*khách hàng|participant\s*#?1|single\s*user)\b", line_str, re.IGNORECASE))
+                is_single = bool(
+                    re.search(
+                        r"\b(1\s*người|1\s*user|1\s*khách hàng|participant\s*#?1|single\s*user)\b",
+                        line_str,
+                        re.IGNORECASE,
+                    )
+                )
                 claims_universal = bool(broad_assertion_regex.search(line_str))
-                labeled_insight = bool(re.search(r"\b(insight|hiểu biết sâu sắc|kết luận|quy luật)\b", line_str, re.IGNORECASE))
+                labeled_insight = bool(
+                    re.search(
+                        r"\b(insight|hiểu biết sâu sắc|kết luận|quy luật)\b",
+                        line_str,
+                        re.IGNORECASE,
+                    )
+                )
 
-                if (is_single and (claims_universal or labeled_insight)) or (labeled_insight and "1/1" in line_str):
+                if (is_single and (claims_universal or labeled_insight)) or (
+                    labeled_insight and "1/1" in line_str
+                ):
                     anecdotes += 1
                     violations.append(
                         InsightLintViolation(
@@ -220,10 +234,14 @@ def render_human_saturation(plan: SaturationPlanResult) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Plan research saturation and lint insight claims.")
+    parser = argparse.ArgumentParser(
+        description="Plan research saturation and lint insight claims."
+    )
     parser.add_argument("--method", choices=["usability", "thematic"], default="usability")
     parser.add_argument("--segments", type=int, default=1)
-    parser.add_argument("--high-stakes", action="store_true", help="High stakes / heterogeneous pool (thematic)")
+    parser.add_argument(
+        "--high-stakes", action="store_true", help="High stakes / heterogeneous pool (thematic)"
+    )
     parser.add_argument("--output", choices=["human", "json"], default="human")
     args = parser.parse_args()
 
@@ -231,7 +249,9 @@ def main() -> int:
     if args.method == "usability":
         res = modeler.plan_usability_study(segments=args.segments)
     else:
-        res = modeler.plan_thematic_study(segments=args.segments, stakes_high_or_heterogeneous=args.high_stakes)
+        res = modeler.plan_thematic_study(
+            segments=args.segments, stakes_high_or_heterogeneous=args.high_stakes
+        )
 
     if args.output == "json":
         print(json.dumps(res.to_dict(), indent=2))
@@ -243,4 +263,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     import sys
+
     sys.exit(main())

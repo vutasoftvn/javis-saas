@@ -61,7 +61,7 @@ class LinkedInPostLinter:
     """Linter bài viết LinkedIn theo tiêu chuẩn tiếp cận & thuật toán hữu cơ."""
 
     # Dải Unicode Mathematical Alphanumeric Symbols (pseudo-bold, pseudo-italic)
-    # Ví dụ: 𝗮 𝗯 𝗰, 𝐚 𝐛 𝐜, 𝒂 𝒃 𝒄
+    # Ví dụ: 𝗮 𝗯 𝗰, 𝐚 𝐛 𝐜, 𝒂 𝒃 𝒄  # noqa: RUF003
     PSEUDO_UNICODE_PATTERN = re.compile(r"[\U0001D400-\U0001D7FF]")
 
     @classmethod
@@ -145,7 +145,10 @@ class LinkedInPostLinter:
         # 4. Kiểm tra luật nghiệm thuật toán 2026 cho Dòng mở đầu (Hook)
         clean_first_para = first_paragraph.strip().lower()
         is_question_hook = clean_first_para.endswith("?") or bool(
-            re.match(r"^(tại sao|liệu|bạn có biết|ai là|why|how|what|ever wondered|did you know|have you ever)\b", clean_first_para)
+            re.match(
+                r"^(tại sao|liệu|bạn có biết|ai là|why|how|what|ever wondered|did you know|have you ever)\b",
+                clean_first_para,
+            )
         )
         if is_question_hook:
             findings.append(

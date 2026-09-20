@@ -48,9 +48,11 @@ PROJECT_ID = "proj_1"
 
 
 def _worker_plane(activity_repo: InMemoryProjectActivityRepository):
+    from tests.apps.cosa.helpers.project_team_authority import attach_mock_project_team_client
+
     mock_client = AsyncMock(spec=CompanyServiceClient)
     configure_mock_client_allows_data_use(mock_client)
-    return build_cosa_agent_plane(
+    plane = build_cosa_agent_plane(
         company_client=mock_client,
         repository=InMemoryRunRepository(),
         conversation_repository=InMemoryConversationRepository(),
@@ -61,6 +63,8 @@ def _worker_plane(activity_repo: InMemoryProjectActivityRepository):
         model=FakeSDKModel(),
         project_activity_repository=activity_repo,
     )
+    attach_mock_project_team_client(plane)
+    return plane
 
 
 def _payload(**overrides) -> dict:

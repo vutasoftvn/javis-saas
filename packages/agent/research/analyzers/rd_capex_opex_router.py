@@ -24,9 +24,9 @@ from __future__ import annotations
 import argparse
 import json
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-IAS38_CRITERIA: List[str] = [
+IAS38_CRITERIA: list[str] = [
     "technical_feasibility",
     "intention_to_complete",
     "ability_to_use_or_sell",
@@ -35,7 +35,7 @@ IAS38_CRITERIA: List[str] = [
     "reliable_measurement",
 ]
 
-CRITERIA_DESCRIPTIONS: Dict[str, str] = {
+CRITERIA_DESCRIPTIONS: dict[str, str] = {
     "technical_feasibility": "Tính khả thi kỹ thuật đã được chứng minh (working model / PoC thành công).",
     "intention_to_complete": "Doanh nghiệp có cam kết và ý định rõ ràng hoàn thành sản phẩm.",
     "ability_to_use_or_sell": "Có khả năng đưa sản phẩm vào vận hành nội bộ hoặc phát hành cho khách hàng.",
@@ -51,14 +51,14 @@ class CostItemRouting:
     name: str
     phase: str  # research, preliminary, development, maintenance, operation
     amount: float
-    criteria_met: List[str]
-    criteria_missing: List[str]
+    criteria_met: list[str]
+    criteria_missing: list[str]
     verdict: str  # EXPENSE, CAPITALIZE-CANDIDATE, FINANCE-OWNER-REVIEW
     rationale: str
     named_owner: str
     accounting_standard: str
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -69,27 +69,29 @@ class RDCapexOpexReport:
     total_expense_candidate: float
     total_capitalize_candidate: float
     total_review_needed: float
-    items: List[CostItemRouting] = field(default_factory=list)
+    items: list[CostItemRouting] = field(default_factory=list)
     disclaimer: str = (
         "CÔNG CỤ HỖ TRỢ RA QUYẾT ĐỊNH (DECISION SUPPORT ONLY). "
         "Không tự động hạch toán kế toán. Quyết định vốn hóa cuối cùng phải do "
         "R&D Finance Controller và Kiểm toán viên độc lập ký duyệt."
     )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
 class RDCapexOpexRouter:
     """Evaluates R&D software costs against capitalization criteria and routes to owners."""
 
-    def __init__(self, standard: str = "ifrs", default_finance_owner: str = "R&D Finance Controller"):
+    def __init__(
+        self, standard: str = "ifrs", default_finance_owner: str = "R&D Finance Controller"
+    ):
         self.standard = standard.lower()
         if self.standard not in ("ifrs", "usgaap"):
             raise ValueError("Standard must be 'ifrs' or 'usgaap'.")
         self.default_finance_owner = default_finance_owner
 
-    def evaluate_item(self, item: Dict[str, Any]) -> CostItemRouting:
+    def evaluate_item(self, item: dict[str, Any]) -> CostItemRouting:
         item_id = str(item.get("id", "UNSPECIFIED"))
         name = str(item.get("name", "Unnamed R&D Cost"))
         phase = (item.get("phase") or "research").lower()
@@ -154,7 +156,7 @@ class RDCapexOpexRouter:
             accounting_standard=self.standard.upper(),
         )
 
-    def route_budget(self, items: List[Dict[str, Any]]) -> RDCapexOpexReport:
+    def route_budget(self, items: list[dict[str, Any]]) -> RDCapexOpexReport:
         evaluated = [self.evaluate_item(item) for item in items]
 
         total_spend = sum(i.amount for i in evaluated)
@@ -176,8 +178,12 @@ def render_human_rd_report(r: RDCapexOpexReport) -> str:
     lines = [
         f"=== Báo Cáo Định Tuyến Kế Toán R&D Phần Mềm (Chuẩn: {r.standard}) ===",
         f"Tổng ngân sách R&D:        ${r.total_spend:,.2f}",
-        f"  - Chi phí OpEx (Expense): ${r.total_expense_candidate:,.2f} ({r.total_expense_candidate/r.total_spend:.1%})" if r.total_spend else "$0.00",
-        f"  - Vốn hóa CapEx (Asset):  ${r.total_capitalize_candidate:,.2f} ({r.total_capitalize_candidate/r.total_spend:.1%})" if r.total_spend else "$0.00",
+        f"  - Chi phí OpEx (Expense): ${r.total_expense_candidate:,.2f} ({r.total_expense_candidate / r.total_spend:.1%})"
+        if r.total_spend
+        else "$0.00",
+        f"  - Vốn hóa CapEx (Asset):  ${r.total_capitalize_candidate:,.2f} ({r.total_capitalize_candidate / r.total_spend:.1%})"
+        if r.total_spend
+        else "$0.00",
         f"  - Cần thẩm định thêm:     ${r.total_review_needed:,.2f}",
         "",
         "Chi tiết từng hạng mục chi phí:",
@@ -193,7 +199,9 @@ def render_human_rd_report(r: RDCapexOpexReport) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Evaluate software R&D expenditures against capitalization criteria.")
+    parser = argparse.ArgumentParser(
+        description="Evaluate software R&D expenditures against capitalization criteria."
+    )
     parser.add_argument("--standard", choices=["ifrs", "usgaap"], default="ifrs")
     parser.add_argument("--owner", default="R&D Finance Controller")
     parser.add_argument("--input", help="Path to JSON file containing R&D cost items")
@@ -240,7 +248,7 @@ def main() -> int:
 
     items = sample_items
     if args.input:
-        with open(args.input, "r", encoding="utf-8") as f:
+        with open(args.input, encoding="utf-8") as f:
             items = json.load(f)
 
     router = RDCapexOpexRouter(standard=args.standard, default_finance_owner=args.owner)
@@ -256,4 +264,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     import sys
+
     sys.exit(main())

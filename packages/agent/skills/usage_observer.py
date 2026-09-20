@@ -36,18 +36,21 @@ class SkillUsageObserver:
     async def record_resolved_pins(
         self,
         run_record: RunRecord,
-        root_spec: AgentSpec,
-        resolved_skills: list[SkillSpec],
+        root_spec: AgentSpec | None = None,
+        resolved_skills: list[SkillSpec] | None = None,
         pinned_refs: list[PinnedSkillRef] | None = None,
+        agent_spec: AgentSpec | None = None,
     ) -> list[SkillUsageObservation]:
-        if not resolved_skills:
+        skills = resolved_skills or []
+        if not skills:
             return []
 
+        target_spec = root_spec or agent_spec
         observations: list[SkillUsageObservation] = []
-        root_spec_id = getattr(root_spec, "id", "") or "root_agent"
+        root_spec_id = getattr(target_spec, "id", "") or "root_agent"
         root_hash = (
-            getattr(root_spec, "definition_hash", "")
-            or getattr(root_spec, "version", "")
+            getattr(target_spec, "definition_hash", "")
+            or getattr(target_spec, "version", "")
             or "root_hash"
         )
 
@@ -58,7 +61,7 @@ class SkillUsageObserver:
             for pref in pinned_refs:
                 pinned_map[(pref.skill_id, pref.version)] = pref.definition_hash
 
-        for skill in resolved_skills:
+        for skill in skills:
             skill_version = skill.version or "1.0.0"
             def_hash = (
                 skill.definition_hash
@@ -66,7 +69,7 @@ class SkillUsageObserver:
                 or (skill.compute_hash() if hasattr(skill, "compute_hash") else "sha256:unknown")
             )
             obs = SkillUsageObservation(
-                workspace_id=run_record.workspace_id,
+                workspace_id=run_record.workspace_id or "",
                 run_id=run_record.run_id,
                 skill_id=skill.id,
                 skill_version=skill_version,
@@ -104,12 +107,17 @@ class InMemorySkillUsageObserver(SkillUsageObserver):
     async def record_resolved_pins(
         self,
         run_record: RunRecord,
-        root_spec: AgentSpec,
-        resolved_skills: list[SkillSpec],
+        root_spec: AgentSpec | None = None,
+        resolved_skills: list[SkillSpec] | None = None,
         pinned_refs: list[PinnedSkillRef] | None = None,
+        agent_spec: AgentSpec | None = None,
     ) -> list[SkillUsageObservation]:
         res = await super().record_resolved_pins(
-            run_record, root_spec, resolved_skills, pinned_refs
+            run_record,
+            root_spec=root_spec,
+            resolved_skills=resolved_skills,
+            pinned_refs=pinned_refs,
+            agent_spec=agent_spec,
         )
         self._observations.extend(res)
         return res

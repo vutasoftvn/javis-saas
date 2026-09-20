@@ -200,6 +200,7 @@ class WorkflowEngine:
 
                 sig = inspect.signature(handler_fn)
                 takes_params = len(sig.parameters) >= 2
+                step_callable: Any
 
                 if inspect.iscoroutinefunction(handler_fn):
                     if takes_params:

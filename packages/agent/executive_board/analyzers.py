@@ -584,9 +584,7 @@ def calculate_compounded_churn(monthly_churn_pct: float) -> dict[str, Any]:
     }
 
 
-def diagnose_saas_health_scorecard(
-    metrics: dict[str, Any], stage: str = "early"
-) -> dict[str, Any]:
+def diagnose_saas_health_scorecard(metrics: dict[str, Any], stage: str = "early") -> dict[str, Any]:
     """Chẩn đoán sức khỏe doanh nghiệp SaaS 4 chiều:
     1. Growth & Retention (Doanh thu YoY, NRR, Churn, Quick Ratio)
     2. Unit Economics (CAC, LTV, LTV:CAC, Payback, Gross Margin)
@@ -759,7 +757,11 @@ def calculate_viral_k_factor(
     K > 1.0: Tăng trưởng theo cấp số nhân (hiếm có).
     0.3 <= K <= 0.7: Viral-assisted (giúp giảm CAC 30-70%).
     """
-    if invites_sent_per_user < 0 or invite_conversion_rate_pct < 0 or invite_conversion_rate_pct > 100:
+    if (
+        invites_sent_per_user < 0
+        or invite_conversion_rate_pct < 0
+        or invite_conversion_rate_pct > 100
+    ):
         raise ValueError("Thông số lời mời hoặc tỷ lệ chuyển đổi không hợp lệ")
     k = round(invites_sent_per_user * (invite_conversion_rate_pct / 100.0), 3)
     if k > 1.0:
@@ -801,9 +803,9 @@ def analyze_feature_investment_roi(
         else 0.0
     )
 
-    if (feature_type == "direct_monetization" and roi >= 3.0 and contribution_margin_pct >= 50.0) or (
-        feature_type == "retention" and roi >= 5.0
-    ):
+    if (
+        feature_type == "direct_monetization" and roi >= 3.0 and contribution_margin_pct >= 50.0
+    ) or (feature_type == "retention" and roi >= 5.0):
         decision = "build_now"
     elif feature_type == "strategic" or roi >= 1.5:
         decision = "build_with_governance"

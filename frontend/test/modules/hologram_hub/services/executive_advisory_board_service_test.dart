@@ -88,6 +88,35 @@ void main() {
     expect(result.isSuccess, isTrue);
   });
 
+  test('Workspace office mutation disableRole sends expectedVersion', () async {
+    final httpClient = MockClient((request) async {
+      expect(request.url.path, '/operations/workspaces/ws/executive-roles/cfo/disable');
+      final body = jsonDecode(request.body);
+      expect(body['expectedVersion'], 5);
+      return http.Response(
+        jsonEncode({
+          'data': {
+            'id': 'm',
+            'roleKey': 'cfo',
+            'state': 'DISABLED',
+            'version': 6,
+          },
+          'meta': {
+            'dataState': 'populated',
+            'observedAt': '2026-09-15T00:00:00Z',
+            'sources': [],
+          },
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+    final result = await ExecutiveAdvisoryBoardService(
+      client: MvpRequestClient(httpClient: httpClient),
+    ).disableRole(workspaceId: 'ws', roleKey: 'cfo', expectedVersion: 5);
+    expect(result.isSuccess, isTrue);
+  });
+
   test('P0 Core bootstrap calls the Project-scoped Founder command', () async {
     final httpClient = MockClient((request) async {
       expect(request.url.path, '/operations/projects/project/executive-board/bootstrap-p0-core');

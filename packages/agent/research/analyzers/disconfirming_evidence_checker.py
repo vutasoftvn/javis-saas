@@ -20,13 +20,13 @@ import argparse
 import json
 import re
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 MIN_RATIO = 0.30
 WARN_RATIO = 0.20
 
 # Antonym-pivot heuristics for constructing disconfirming queries
-DISCONFIRMING_PIVOTS: Dict[str, List[str]] = {
+DISCONFIRMING_PIVOTS: dict[str, list[str]] = {
     "consolidating": ["diversifying", "splitting", "decentralizing", "abandoning"],
     "growing": ["shrinking", "declining", "stagnating", "slowing down"],
     "winning": ["losing", "failing", "underperforming", "losing market share"],
@@ -56,9 +56,9 @@ class EvidenceBalanceReport:
     disconfirming_needed_to_reach_floor: int
     message: str
     remediation_needed: bool
-    suggested_disconfirming_queries: List[str] = field(default_factory=list)
+    suggested_disconfirming_queries: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -70,9 +70,9 @@ class DisconfirmingEvidenceChecker:
         self.warn_ratio = warn_ratio
 
     def suggest_disconfirming_queries(
-        self, hypothesis: str, supporting_queries: Optional[List[str]] = None
-    ) -> List[str]:
-        suggestions: List[str] = []
+        self, hypothesis: str, supporting_queries: list[str] | None = None
+    ) -> list[str]:
+        suggestions: list[str] = []
         hyp_lower = hypothesis.lower()
 
         # 1. Antonym-pivot match on hypothesis
@@ -125,7 +125,7 @@ class DisconfirmingEvidenceChecker:
         supporting: int,
         disconfirming: int,
         inconclusive: int = 0,
-        supporting_queries: Optional[List[str]] = None,
+        supporting_queries: list[str] | None = None,
     ) -> EvidenceBalanceReport:
         total = supporting + disconfirming + inconclusive
 
@@ -155,7 +155,7 @@ class DisconfirmingEvidenceChecker:
                 f">={self.min_ratio:.0%}. Báo cáo đạt độ khách quan chuẩn thẩm định ra quyết định."
             )
             remediation = False
-            suggested: List[str] = []
+            suggested: list[str] = []
         elif ratio >= self.warn_ratio:
             verdict = "WARN"
             message = (
@@ -197,7 +197,7 @@ import math
 def render_human_balance(r: EvidenceBalanceReport) -> str:
     lines = [
         "=== Kiểm Tra Cân Bằng Bằng Chứng Phản Biện (Anti-Confirmation Bias) ===",
-        f"Giả thuyết: \"{r.hypothesis}\"",
+        f'Giả thuyết: "{r.hypothesis}"',
         f"Trạng thái đánh giá: [{r.verdict}]",
         f"  Tổng số truy vấn/bằng chứng:   {r.total_searches}",
         f"  - Bằng chứng ủng hộ:           {r.supporting}",
@@ -215,17 +215,25 @@ def render_human_balance(r: EvidenceBalanceReport) -> str:
         lines.append("")
         lines.append("Gợi ý truy vấn đối lập (Antonym-Pivot Suggestions):")
         for q in r.suggested_disconfirming_queries:
-            lines.append(f"  - \"{q}\"")
+            lines.append(f'  - "{q}"')
 
     return "\n".join(lines)
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Check disconfirming evidence ratio and suggest counter-queries.")
+    parser = argparse.ArgumentParser(
+        description="Check disconfirming evidence ratio and suggest counter-queries."
+    )
     parser.add_argument("--hypothesis", required=True, help="Research hypothesis statement")
-    parser.add_argument("--supporting", type=int, default=0, help="Number of supporting searches/evidence")
-    parser.add_argument("--disconfirming", type=int, default=0, help="Number of disconfirming searches/evidence")
-    parser.add_argument("--inconclusive", type=int, default=0, help="Number of inconclusive searches/evidence")
+    parser.add_argument(
+        "--supporting", type=int, default=0, help="Number of supporting searches/evidence"
+    )
+    parser.add_argument(
+        "--disconfirming", type=int, default=0, help="Number of disconfirming searches/evidence"
+    )
+    parser.add_argument(
+        "--inconclusive", type=int, default=0, help="Number of inconclusive searches/evidence"
+    )
     parser.add_argument("--output", choices=["human", "json"], default="human")
     args = parser.parse_args()
 
@@ -247,4 +255,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     import sys
+
     sys.exit(main())

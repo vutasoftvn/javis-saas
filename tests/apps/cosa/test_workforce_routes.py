@@ -723,6 +723,22 @@ async def test_dashboard_summary_aggregates_existing_counts(test_app) -> None:
         transport=httpx.ASGITransport(app=test_app),
         base_url="http://test",
     ) as client:
+        # Initial state before assignment
+        init_res = await client.get("/agent/workforce/dashboard-summary")
+        assert init_res.status_code == 200
+        init_data = init_res.json()["data"]
+        assert init_data["roster_total"] == len(FUNCTIONAL_AGENT_CATALOG)
+        assert init_data["roster_active"] == 0
+
+        # Roster endpoint lists each functional key exactly once
+        roster_res = await client.get("/agent/workforce/roster")
+        assert roster_res.status_code == 200
+        roster_items = roster_res.json()["data"]
+        roster_keys = [item["key"] for item in roster_items]
+        assert len(roster_keys) == len(set(roster_keys)), "Duplicate keys found in roster response"
+        assert set(roster_keys) == set(FUNCTIONAL_AGENT_CATALOG.keys())
+
+        # Create first assignment
         await client.post(
             "/agent/workforce/assignments",
             json={"functional_key": "campaign_planner", "company_workforce_member_id": "mem_test"},
@@ -731,8 +747,26 @@ async def test_dashboard_summary_aggregates_existing_counts(test_app) -> None:
         res = await client.get("/agent/workforce/dashboard-summary")
         assert res.status_code == 200
         data = res.json()["data"]
-        assert data["roster_total"] == 6
+        assert data["roster_total"] == len(FUNCTIONAL_AGENT_CATALOG)
         assert data["roster_active"] == 1
         assert data["open_exceptions"] == 0
         assert data["pending_approvals"] == 0
         assert data["work_products_total"] == 0
+
+        # Idempotency: re-assigning the same functional_key does not inflate active roster count
+        await client.post(
+            "/agent/workforce/assignments",
+            json={"functional_key": "campaign_planner", "company_workforce_member_id": "mem_test"},
+        )
+        res_same = await client.get("/agent/workforce/dashboard-summary")
+        assert res_same.json()["data"]["roster_active"] == 1
+
+        # Assign a second distinct functional key
+        assign_second = await client.post(
+            "/agent/workforce/assignments",
+            json={"functional_key": "cashflow_planner", "company_workforce_member_id": "mem_test"},
+        )
+        assert assign_second.status_code == 200
+        res_second = await client.get("/agent/workforce/dashboard-summary")
+        assert res_second.json()["data"]["roster_active"] == 2
+

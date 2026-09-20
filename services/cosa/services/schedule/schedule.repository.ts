@@ -106,12 +106,8 @@ export async function findDueScheduleDefinitions(
       and(
         eq(workspaceScheduleDefinitions.state, "enabled"),
         lte(workspaceScheduleDefinitions.nextRunAt, now),
-        // Finding 2 (2026-09-14 whole-branch review): schedule cũ (legacy,
-        // trước khi projectId bắt buộc) có projectId = NULL — không dispatch
-        // nữa vì worker sẽ fail-closed (schedule_project_context_missing)
-        // ngay khi chạy. Bỏ qua ở đây thay vì để dispatcher mint execution
-        // rồi fail vô ích.
-        isNotNull(workspaceScheduleDefinitions.projectId)
+        isNotNull(workspaceScheduleDefinitions.projectId),
+        eq(workspaceScheduleDefinitions.isLegacyUnscoped, false)
       )
     )
     .limit(limit);
@@ -339,3 +335,29 @@ export async function findExecutionById(executionId: string): Promise<ScheduleEx
     .where(eq(workspaceScheduleExecutions.id, executionId));
   return execution;
 }
+
+export async function rebindLegacyScheduleDefinition(input: {
+  scheduleId: string;
+  workspaceId: string;
+  projectId: string;
+}): Promise<ScheduleDefinitionRow | null> {
+  const [updated] = await db
+    .update(workspaceScheduleDefinitions)
+    .set({
+      projectId: input.projectId,
+      isLegacyUnscoped: false,
+      state: "enabled",
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(workspaceScheduleDefinitions.id, input.scheduleId),
+        eq(workspaceScheduleDefinitions.workspaceId, input.workspaceId),
+        eq(workspaceScheduleDefinitions.isLegacyUnscoped, true),
+        eq(workspaceScheduleDefinitions.state, "paused")
+      )
+    )
+    .returning();
+  return updated || null;
+}
+

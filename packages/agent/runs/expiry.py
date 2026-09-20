@@ -48,12 +48,13 @@ class RunExpiryManager:
                     approved=False,
                     reason="Approval expired due to inactivity timeout",
                 )
-                await self._repo.update_run_status(
-                    appr.run_id,
-                    status=RunStatus.FAILED,
-                    error_details={"error": "Run timed out waiting for human approval"},
-                )
-                expired_list.append(appr.run_id)
+                if appr.run_id:
+                    await self._repo.update_run_status(
+                        appr.run_id,
+                        status=RunStatus.FAILED,
+                        error_details={"error": "Run timed out waiting for human approval"},
+                    )
+                    expired_list.append(appr.run_id)
 
         return ExpirySweepResult(
             total_swept=len(expired_list),

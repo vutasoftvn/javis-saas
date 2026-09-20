@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'source_value_state.dart';
 
 @immutable
 class AccountingProfileModel {
@@ -6,20 +7,24 @@ class AccountingProfileModel {
   final String mode; // 'standard', 'simplified', 'micro'
   final bool active;
   final DateTime? createdAt;
+  final SourceValueState createdAtState;
 
   const AccountingProfileModel({
     required this.id,
     required this.mode,
     this.active = true,
     this.createdAt,
+    this.createdAtState = SourceValueState.unavailable,
   });
 
   factory AccountingProfileModel.fromJson(Map<String, dynamic> json) {
+    final parsedCreated = parseSourceDate(json['created_at'] ?? json['createdAt']);
     return AccountingProfileModel(
       id: json['id']?.toString() ?? '',
       mode: json['mode']?.toString() ?? 'standard',
       active: json['active'] == true || json['is_active'] == true,
-      createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) : null,
+      createdAt: parsedCreated.value,
+      createdAtState: parsedCreated.state,
     );
   }
 
@@ -37,12 +42,14 @@ class AccountingProfileModel {
     String? mode,
     bool? active,
     DateTime? createdAt,
+    SourceValueState? createdAtState,
   }) {
     return AccountingProfileModel(
       id: id ?? this.id,
       mode: mode ?? this.mode,
       active: active ?? this.active,
       createdAt: createdAt ?? this.createdAt,
+      createdAtState: createdAtState ?? this.createdAtState,
     );
   }
 }
@@ -50,24 +57,32 @@ class AccountingProfileModel {
 @immutable
 class AccountingPeriodModel {
   final String id;
-  final DateTime startDate;
-  final DateTime endDate;
+  final DateTime? startDate;
+  final SourceValueState startDateState;
+  final DateTime? endDate;
+  final SourceValueState endDateState;
   final String status; // 'open', 'closed', 'locked'
   final bool isLocked;
 
   const AccountingPeriodModel({
     required this.id,
-    required this.startDate,
-    required this.endDate,
+    this.startDate,
+    this.startDateState = SourceValueState.unavailable,
+    this.endDate,
+    this.endDateState = SourceValueState.unavailable,
     this.status = 'open',
     this.isLocked = false,
   });
 
   factory AccountingPeriodModel.fromJson(Map<String, dynamic> json) {
+    final parsedStart = parseSourceDate(json['start_date'] ?? json['startDate']);
+    final parsedEnd = parseSourceDate(json['end_date'] ?? json['endDate']);
     return AccountingPeriodModel(
       id: json['id']?.toString() ?? '',
-      startDate: DateTime.tryParse(json['start_date']?.toString() ?? json['startDate']?.toString() ?? '') ?? DateTime.now(),
-      endDate: DateTime.tryParse(json['end_date']?.toString() ?? json['endDate']?.toString() ?? '') ?? DateTime.now(),
+      startDate: parsedStart.value,
+      startDateState: parsedStart.state,
+      endDate: parsedEnd.value,
+      endDateState: parsedEnd.state,
       status: json['status']?.toString() ?? 'open',
       isLocked: json['is_locked'] == true || json['isLocked'] == true || json['status'] == 'locked',
     );
@@ -76,8 +91,8 @@ class AccountingPeriodModel {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'start_date': startDate.toIso8601String(),
-      'end_date': endDate.toIso8601String(),
+      'start_date': startDate?.toIso8601String(),
+      'end_date': endDate?.toIso8601String(),
       'status': status,
       'is_locked': isLocked,
     };
@@ -88,35 +103,47 @@ class AccountingPeriodModel {
 class FinancialTransactionModel {
   final String id;
   final String type; // 'income', 'expense', 'transfer'
-  final double amount;
+  final MonetaryAmount? amount;
+  final SourceValueState amountState;
   final String currency;
   final String category;
   final String description;
-  final DateTime transactionDate;
+  final DateTime? transactionDate;
+  final SourceValueState transactionDateState;
   final String? evidenceUrl;
   final String? accountCode;
 
   const FinancialTransactionModel({
     required this.id,
     required this.type,
-    required this.amount,
+    this.amount,
+    this.amountState = SourceValueState.unavailable,
     this.currency = 'VND',
     required this.category,
     this.description = '',
-    required this.transactionDate,
+    this.transactionDate,
+    this.transactionDateState = SourceValueState.unavailable,
     this.evidenceUrl,
     this.accountCode,
   });
 
   factory FinancialTransactionModel.fromJson(Map<String, dynamic> json) {
+    final currency = json['currency']?.toString() ?? 'VND';
+    final parsedAmount = parseSourceAmount(json['amount'] ?? json['value'], currency: currency);
+    final parsedDate = parseSourceDate(
+      json['transaction_date'] ?? json['transactionDate'] ?? json['date'],
+    );
+
     return FinancialTransactionModel(
       id: json['id']?.toString() ?? '',
       type: json['type']?.toString() ?? 'expense',
-      amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
-      currency: json['currency']?.toString() ?? 'VND',
+      amount: parsedAmount.value,
+      amountState: parsedAmount.state,
+      currency: currency,
       category: json['category']?.toString() ?? 'general',
       description: json['description']?.toString() ?? '',
-      transactionDate: DateTime.tryParse(json['transaction_date']?.toString() ?? json['transactionDate']?.toString() ?? json['date']?.toString() ?? '') ?? DateTime.now(),
+      transactionDate: parsedDate.value,
+      transactionDateState: parsedDate.state,
       evidenceUrl: json['evidence_url']?.toString() ?? json['evidenceUrl']?.toString(),
       accountCode: json['account_code']?.toString() ?? json['accountCode']?.toString(),
     );
@@ -126,11 +153,11 @@ class FinancialTransactionModel {
     return {
       'id': id,
       'type': type,
-      'amount': amount,
+      'amount': amount?.decimal,
       'currency': currency,
       'category': category,
       'description': description,
-      'transaction_date': transactionDate.toIso8601String(),
+      'transaction_date': transactionDate?.toIso8601String(),
       'evidence_url': evidenceUrl,
       'account_code': accountCode,
     };
@@ -140,40 +167,78 @@ class FinancialTransactionModel {
 @immutable
 class FinanceSnapshotModel {
   final String periodId;
-  final double totalIncome;
-  final double totalExpense;
-  final double netCashflow;
-  final double runwayMonths;
-  final DateTime generatedAt;
+  final MonetaryAmount? totalIncome;
+  final SourceValueState totalIncomeState;
+  final MonetaryAmount? totalExpense;
+  final SourceValueState totalExpenseState;
+  final MonetaryAmount? netCashflow;
+  final SourceValueState netCashflowState;
+  final double? runwayMonths;
+  final SourceValueState runwayMonthsState;
+  final DateTime? generatedAt;
+  final SourceValueState generatedAtState;
+  final String currency;
 
   const FinanceSnapshotModel({
     required this.periodId,
-    required this.totalIncome,
-    required this.totalExpense,
-    required this.netCashflow,
-    this.runwayMonths = 0.0,
-    required this.generatedAt,
+    this.totalIncome,
+    this.totalIncomeState = SourceValueState.unavailable,
+    this.totalExpense,
+    this.totalExpenseState = SourceValueState.unavailable,
+    this.netCashflow,
+    this.netCashflowState = SourceValueState.unavailable,
+    this.runwayMonths,
+    this.runwayMonthsState = SourceValueState.unavailable,
+    this.generatedAt,
+    this.generatedAtState = SourceValueState.unavailable,
+    this.currency = 'VND',
   });
 
   factory FinanceSnapshotModel.fromJson(Map<String, dynamic> json) {
+    final currency = json['currency']?.toString() ?? 'VND';
+    final parsedIncome = parseSourceAmount(
+      json['total_income'] ?? json['totalIncome'],
+      currency: currency,
+    );
+    final parsedExpense = parseSourceAmount(
+      json['total_expense'] ?? json['totalExpense'],
+      currency: currency,
+    );
+    final parsedCashflow = parseSourceAmount(
+      json['net_cashflow'] ?? json['netCashflow'],
+      currency: currency,
+    );
+    final parsedRunway = parseSourceDouble(
+      json['runway_months'] ?? json['runwayMonths'],
+    );
+    final parsedGen = parseSourceDate(
+      json['generated_at'] ?? json['generatedAt'],
+    );
+
     return FinanceSnapshotModel(
       periodId: json['period_id']?.toString() ?? json['periodId']?.toString() ?? '',
-      totalIncome: (json['total_income'] as num?)?.toDouble() ?? (json['totalIncome'] as num?)?.toDouble() ?? 0.0,
-      totalExpense: (json['total_expense'] as num?)?.toDouble() ?? (json['totalExpense'] as num?)?.toDouble() ?? 0.0,
-      netCashflow: (json['net_cashflow'] as num?)?.toDouble() ?? (json['netCashflow'] as num?)?.toDouble() ?? 0.0,
-      runwayMonths: (json['runway_months'] as num?)?.toDouble() ?? (json['runwayMonths'] as num?)?.toDouble() ?? 0.0,
-      generatedAt: DateTime.tryParse(json['generated_at']?.toString() ?? json['generatedAt']?.toString() ?? '') ?? DateTime.now(),
+      totalIncome: parsedIncome.value,
+      totalIncomeState: parsedIncome.state,
+      totalExpense: parsedExpense.value,
+      totalExpenseState: parsedExpense.state,
+      netCashflow: parsedCashflow.value,
+      netCashflowState: parsedCashflow.state,
+      runwayMonths: parsedRunway.value,
+      runwayMonthsState: parsedRunway.state,
+      generatedAt: parsedGen.value,
+      generatedAtState: parsedGen.state,
+      currency: currency,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'period_id': periodId,
-      'total_income': totalIncome,
-      'total_expense': totalExpense,
-      'net_cashflow': netCashflow,
+      'total_income': totalIncome?.decimal,
+      'total_expense': totalExpense?.decimal,
+      'net_cashflow': netCashflow?.decimal,
       'runway_months': runwayMonths,
-      'generated_at': generatedAt.toIso8601String(),
+      'generated_at': generatedAt?.toIso8601String(),
     };
   }
 }
@@ -183,7 +248,8 @@ class LegalObligationModel {
   final String id;
   final String title;
   final String category; // 'tax', 'corporate', 'labor', 'compliance'
-  final DateTime dueDate;
+  final DateTime? dueDate;
+  final SourceValueState dueDateState;
   final String status; // 'pending', 'in_progress', 'completed', 'overdue'
   final String? penaltyRisk;
 
@@ -191,17 +257,20 @@ class LegalObligationModel {
     required this.id,
     required this.title,
     required this.category,
-    required this.dueDate,
+    this.dueDate,
+    this.dueDateState = SourceValueState.unavailable,
     this.status = 'pending',
     this.penaltyRisk,
   });
 
   factory LegalObligationModel.fromJson(Map<String, dynamic> json) {
+    final parsedDue = parseSourceDate(json['due_date'] ?? json['dueDate']);
     return LegalObligationModel(
       id: json['id']?.toString() ?? '',
       title: json['title']?.toString() ?? '',
       category: json['category']?.toString() ?? 'compliance',
-      dueDate: DateTime.tryParse(json['due_date']?.toString() ?? json['dueDate']?.toString() ?? '') ?? DateTime.now(),
+      dueDate: parsedDue.value,
+      dueDateState: parsedDue.state,
       status: json['status']?.toString() ?? 'pending',
       penaltyRisk: json['penalty_risk']?.toString() ?? json['penaltyRisk']?.toString(),
     );
@@ -212,7 +281,7 @@ class LegalObligationModel {
       'id': id,
       'title': title,
       'category': category,
-      'due_date': dueDate.toIso8601String(),
+      'due_date': dueDate?.toIso8601String(),
       'status': status,
       'penalty_risk': penaltyRisk,
     };

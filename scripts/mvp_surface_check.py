@@ -41,8 +41,9 @@ FIXTURE_IMPORT_PATTERNS = [
 ]
 
 
-def validate_manifest(manifest: dict[str, Any]) -> list[str]:
+def validate_manifest(manifest: dict[str, Any], *, repo_root: Path | None = None) -> list[str]:
     errors: list[str] = []
+    root = repo_root or REPO_ROOT
     capabilities = manifest.get("capabilities")
     if not isinstance(capabilities, list):
         return ["manifest.capabilities must be a list"]
@@ -118,6 +119,58 @@ def validate_manifest(manifest: dict[str, Any]) -> list[str]:
                     errors.append(
                         f"capability '{cid}': enabled capability must have non-empty '{field}'"
                     )
+
+            # Validate proof file existence and owned paths
+            for field in ("backend_test", "flutter_test", "integration_test"):
+                val = cap.get(field)
+                if isinstance(val, str) and val.strip():
+                    try:
+                        resolved = (root / val).resolve()
+                        root_resolved = root.resolve()
+                        if not resolved.is_relative_to(root_resolved):
+                            errors.append(
+                                f"capability '{cid}': '{field}' path '{val}' traverses outside repository"
+                            )
+                            continue
+                    except Exception:
+                        errors.append(
+                            f"capability '{cid}': '{field}' path '{val}' is invalid"
+                        )
+                        continue
+
+                    if resolved.is_dir():
+                        errors.append(
+                            f"capability '{cid}': '{field}' path '{val}' is a directory, expected a test file"
+                        )
+                        continue
+
+                    if not resolved.is_file():
+                        errors.append(
+                            f"capability '{cid}': '{field}' path '{val}' does not exist"
+                        )
+                        continue
+
+                    rel_str = str(resolved.relative_to(root_resolved))
+                    if field == "flutter_test":
+                        if not rel_str.startswith("frontend/test/"):
+                            errors.append(
+                                f"capability '{cid}': 'flutter_test' path '{val}' must be under 'frontend/test/'"
+                            )
+                    elif field == "backend_test":
+                        if not (
+                            rel_str.startswith("services/")
+                            or rel_str.startswith("tests/")
+                            or rel_str.startswith("apps/")
+                            or rel_str.startswith("packages/")
+                        ):
+                            errors.append(
+                                f"capability '{cid}': 'backend_test' path '{val}' must be under an owned service/test root"
+                            )
+                    elif field == "integration_test":
+                        if not rel_str.startswith("tests/"):
+                            errors.append(
+                                f"capability '{cid}': 'integration_test' path '{val}' must be under 'tests/'"
+                            )
 
     return errors
 

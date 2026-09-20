@@ -62,6 +62,34 @@ class _AiWorkforceTabState extends State<AiWorkforceTab> {
     final coreDomains = packs.where((p) => p.isCore).toList();
     final hasPackList = packs.isNotEmpty;
 
+    // Khi loadState là unavailable, chỉ hiển thị thông báo trung thực,
+    // không hiển thị các CTA đột biến (mutation CTAs) hoặc điều khiển mở rộng.
+    if (widget.loadState == WorkforceLoadState.unavailable) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.only(bottom: 20),
+        decoration: BoxDecoration(
+          color: const Color(0xFF2A1B1B),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: const Color(0xFFF87171).withValues(alpha: 0.4),
+          ),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.error_outline, color: Color(0xFFF87171), size: 20),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Không tải được danh sách AI Workforce. Vui lòng thử lại sau.',
+                style: TextStyle(color: Color(0xFFF87171), fontSize: 13),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= 900;
@@ -70,32 +98,6 @@ class _AiWorkforceTabState extends State<AiWorkforceTab> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Thông báo lỗi nếu loadState là unavailable
-              if (widget.loadState == WorkforceLoadState.unavailable) ...[
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  margin: const EdgeInsets.only(bottom: 20),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2A1B1B),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: const Color(0xFFF87171).withValues(alpha: 0.4),
-                    ),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.error_outline, color: Color(0xFFF87171), size: 20),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Không tải được danh sách AI Workforce. Vui lòng thử lại sau.',
-                          style: TextStyle(color: Color(0xFFF87171), fontSize: 13),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
               // Nếu có packs từ composition API, hiển thị Core Domains count theo dữ liệu thật
               if (hasPackList) ...[
                 Row(

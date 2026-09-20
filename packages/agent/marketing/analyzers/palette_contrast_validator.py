@@ -53,6 +53,7 @@ class PaletteContrastValidator:
     @classmethod
     def relative_luminance(cls, r: int, g: int, b: int) -> float:
         """Tính Relative Luminance theo công thức W3C WCAG 2.1 (sRGB Linear)."""
+
         def to_linear(channel: int) -> float:
             c = channel / 255.0
             return c / 12.92 if c <= 0.04045 else math.pow((c + 0.055) / 1.055, 2.4)

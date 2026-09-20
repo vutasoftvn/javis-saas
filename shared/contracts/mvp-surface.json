@@ -29,7 +29,7 @@
       "requires_workspace": true,
       "requires_project": false,
       "frontend_symbol": "CrmService.createInterview",
-      "backend_test": "services/company/operations/tests/founder-trial-interview-evidence.test.ts",
+      "backend_test": "services/company/commercial/tests/founder-trial-commercial-http.contract.test.ts",
       "flutter_test": "frontend/test/modules/strategy/founder_trial_full_loop_test.dart",
       "integration_test": "tests/e2e/test_founder_trial_http.py"
     },
@@ -45,7 +45,7 @@
       "requires_workspace": true,
       "requires_project": false,
       "frontend_symbol": "FounderTrialCommands.submitInterviewEvidence",
-      "backend_test": "services/company/operations/tests/founder-trial-interview-evidence.test.ts",
+      "backend_test": "services/company/commercial/tests/founder-trial-commercial-http.contract.test.ts",
       "flutter_test": "frontend/test/modules/strategy/founder_trial_full_loop_test.dart",
       "integration_test": "tests/e2e/test_founder_trial_http.py"
     },
@@ -302,7 +302,7 @@
       "requires_project": true,
       "frontend_symbol": "ProjectOperatingLoopCommands.createCommitment",
       "backend_test": "services/company/operations/tests/project-operating-loop.handler.test.ts",
-      "flutter_test": "frontend/test/modules/projects/project_operating_loop_service_test.dart",
+      "flutter_test": "frontend/test/modules/projects/services/project_operating_loop_service_test.dart",
       "integration_test": "tests/e2e/test_founder_trial_http.py"
     },
     {
@@ -318,7 +318,7 @@
       "requires_project": true,
       "frontend_symbol": "ProjectOperatingLoopCommands.createCycle",
       "backend_test": "services/company/operations/tests/project-operating-loop.handler.test.ts",
-      "flutter_test": "frontend/test/modules/projects/project_operating_loop_service_test.dart",
+      "flutter_test": "frontend/test/modules/projects/services/project_operating_loop_service_test.dart",
       "integration_test": "tests/e2e/test_founder_trial_http.py"
     },
     {
@@ -334,7 +334,7 @@
       "requires_project": true,
       "frontend_symbol": "ProjectOperatingLoopService.fetch",
       "backend_test": "services/company/operations/tests/project-operating-loop.handler.test.ts",
-      "flutter_test": "frontend/test/modules/projects/project_operating_loop_service_test.dart",
+      "flutter_test": "frontend/test/modules/projects/services/project_operating_loop_service_test.dart",
       "integration_test": "tests/e2e/test_founder_trial_http.py"
     },
     {
@@ -350,7 +350,7 @@
       "requires_project": true,
       "frontend_symbol": "ProjectOperatingLoopCommands.createInitiative",
       "backend_test": "services/company/operations/tests/project-operating-loop.handler.test.ts",
-      "flutter_test": "frontend/test/modules/projects/project_operating_loop_service_test.dart",
+      "flutter_test": "frontend/test/modules/projects/services/project_operating_loop_service_test.dart",
       "integration_test": "tests/e2e/test_founder_trial_http.py"
     },
     {
@@ -366,7 +366,7 @@
       "requires_project": true,
       "frontend_symbol": "ProjectOperatingLoopCommands.createKeyResult",
       "backend_test": "services/company/operations/tests/project-operating-loop.handler.test.ts",
-      "flutter_test": "frontend/test/modules/projects/project_operating_loop_service_test.dart",
+      "flutter_test": "frontend/test/modules/projects/services/project_operating_loop_service_test.dart",
       "integration_test": "tests/e2e/test_founder_trial_http.py"
     },
     {
@@ -382,7 +382,7 @@
       "requires_project": true,
       "frontend_symbol": "ProjectOperatingLoopCommands.createObjective",
       "backend_test": "services/company/operations/tests/project-operating-loop.handler.test.ts",
-      "flutter_test": "frontend/test/modules/projects/project_operating_loop_service_test.dart",
+      "flutter_test": "frontend/test/modules/projects/services/project_operating_loop_service_test.dart",
       "integration_test": "tests/e2e/test_founder_trial_http.py"
     },
     {
@@ -398,7 +398,7 @@
       "requires_project": true,
       "frontend_symbol": "ProjectOperatingLoopCommands.advanceTaskStatus",
       "backend_test": "services/company/operations/tests/project-operating-loop.handler.test.ts",
-      "flutter_test": "frontend/test/modules/projects/project_operating_loop_service_test.dart",
+      "flutter_test": "frontend/test/modules/projects/services/project_operating_loop_service_test.dart",
       "integration_test": "tests/e2e/test_founder_trial_http.py"
     },
     {
@@ -414,7 +414,7 @@
       "requires_project": true,
       "frontend_symbol": "ProjectOperatingLoopCommands.createTask",
       "backend_test": "services/company/operations/tests/project-operating-loop.handler.test.ts",
-      "flutter_test": "frontend/test/modules/projects/project_operating_loop_service_test.dart",
+      "flutter_test": "frontend/test/modules/projects/services/project_operating_loop_service_test.dart",
       "integration_test": "tests/e2e/test_founder_trial_http.py"
     },
     {
@@ -430,7 +430,7 @@
       "requires_project": true,
       "frontend_symbol": "ProjectOperatingLoopCommands.createWeek",
       "backend_test": "services/company/operations/tests/project-operating-loop.handler.test.ts",
-      "flutter_test": "frontend/test/modules/projects/project_operating_loop_service_test.dart",
+      "flutter_test": "frontend/test/modules/projects/services/project_operating_loop_service_test.dart",
       "integration_test": "tests/e2e/test_founder_trial_http.py"
     },
     {
@@ -446,7 +446,7 @@
       "requires_project": true,
       "frontend_symbol": "ProjectOperatingLoopCommands.advanceCycleWeek",
       "backend_test": "services/company/operations/tests/project-operating-loop.handler.test.ts",
-      "flutter_test": "frontend/test/modules/projects/project_operating_loop_service_test.dart",
+      "flutter_test": "frontend/test/modules/projects/services/project_operating_loop_service_test.dart",
       "integration_test": "tests/e2e/test_founder_trial_http.py"
     },
     {
@@ -573,7 +573,9 @@
       "requires_workspace": true,
       "requires_project": false,
       "frontend_symbol": "ExecutiveAdvisoryBoardService.activateRole",
-      "backend_test": "services/company/operations/tests/executive-role-activation.handler.test.ts"
+      "backend_test": "services/company/operations/tests/executive-role-activation.handler.test.ts",
+      "flutter_test": "frontend/test/modules/hologram_hub/services/executive_advisory_board_service_test.dart",
+      "integration_test": "tests/e2e/test_executive_advisory_board.py"
     },
     {
       "id": "operations.executive_board.workspace_role.disable",
@@ -587,7 +589,9 @@
       "requires_workspace": true,
       "requires_project": false,
       "frontend_symbol": "ExecutiveAdvisoryBoardService.disableRole",
-      "backend_test": "services/company/operations/tests/executive-role-activation.handler.test.ts"
+      "backend_test": "services/company/operations/tests/executive-role-activation.handler.test.ts",
+      "flutter_test": "frontend/test/modules/hologram_hub/services/executive_advisory_board_service_test.dart",
+      "integration_test": "tests/e2e/test_executive_advisory_board.py"
     },
     {
       "id": "operations.executive_board.stage_suggestion",
@@ -601,7 +605,9 @@
       "requires_workspace": true,
       "requires_project": true,
       "frontend_symbol": "ExecutiveBoardStageSuggestionService.get",
-      "backend_test": "services/company/operations/tests/executive-role-activation.handler.test.ts"
+      "backend_test": "services/company/operations/tests/executive-role-activation.handler.test.ts",
+      "flutter_test": "frontend/test/modules/projects/services/executive_board_stage_suggestion_service_test.dart",
+      "integration_test": "tests/e2e/test_executive_advisory_board.py"
     },
     {
       "id": "operations.executive_board.bootstrap_p0_core",
@@ -617,7 +623,7 @@
       "frontend_symbol": "ExecutiveAdvisoryBoardService.bootstrapP0Core",
       "backend_test": "services/company/operations/tests/executive-role-activation.handler.test.ts",
       "flutter_test": "frontend/test/modules/hologram_hub/services/executive_advisory_board_service_test.dart",
-      "integration_test": ""
+      "integration_test": "tests/e2e/test_executive_advisory_board.py"
     },
     {
       "id": "project.agent_deployments.create",
@@ -631,7 +637,9 @@
       "requires_workspace": true,
       "requires_project": true,
       "frontend_symbol": "ProjectAgentDeploymentService.deploy",
-      "backend_test": "services/company/operations/tests/executive-role-activation.handler.test.ts"
+      "backend_test": "services/company/operations/tests/executive-role-activation.handler.test.ts",
+      "flutter_test": "frontend/test/modules/projects/services/project_agent_deployment_service_test.dart",
+      "integration_test": "tests/e2e/test_executive_advisory_board.py"
     },
     {
       "id": "project.deliberations.draft",
@@ -757,8 +765,8 @@
       "requires_workspace": true,
       "requires_project": true,
       "frontend_symbol": "FounderHubService.createConversation",
-      "backend_test": "tests/apps/cosa/api/test_project_scoped_conversation_routes.py",
-      "flutter_test": "frontend/test/modules/hologram_hub/founder_hub_project_scope_test.dart",
+      "backend_test": "tests/apps/cosa/api/test_conversation_project_context.py",
+      "flutter_test": "frontend/test/founder_command_center_chat_test.dart",
       "integration_test": "tests/e2e/test_project_scoped_founder_hub.py"
     },
     {
@@ -773,8 +781,8 @@
       "requires_workspace": true,
       "requires_project": true,
       "frontend_symbol": "FounderHubService.getConversation",
-      "backend_test": "tests/apps/cosa/api/test_project_scoped_conversation_routes.py",
-      "flutter_test": "frontend/test/modules/hologram_hub/founder_hub_project_scope_test.dart",
+      "backend_test": "tests/apps/cosa/api/test_conversation_project_context.py",
+      "flutter_test": "frontend/test/founder_command_center_chat_test.dart",
       "integration_test": "tests/e2e/test_project_scoped_founder_hub.py"
     },
     {
@@ -789,8 +797,8 @@
       "requires_workspace": true,
       "requires_project": true,
       "frontend_symbol": "FounderHubService.updateConversation",
-      "backend_test": "tests/apps/cosa/api/test_project_scoped_conversation_routes.py",
-      "flutter_test": "frontend/test/modules/hologram_hub/founder_hub_project_scope_test.dart",
+      "backend_test": "tests/apps/cosa/api/test_conversation_project_context.py",
+      "flutter_test": "frontend/test/founder_command_center_chat_test.dart",
       "integration_test": "tests/e2e/test_project_scoped_founder_hub.py"
     },
     {
@@ -805,8 +813,8 @@
       "requires_workspace": true,
       "requires_project": true,
       "frontend_symbol": "FounderHubService.sendMessage",
-      "backend_test": "tests/apps/cosa/api/test_project_scoped_conversation_routes.py",
-      "flutter_test": "frontend/test/modules/hologram_hub/founder_hub_project_scope_test.dart",
+      "backend_test": "tests/apps/cosa/api/test_conversation_project_context.py",
+      "flutter_test": "frontend/test/founder_command_center_chat_test.dart",
       "integration_test": "tests/e2e/test_project_scoped_founder_hub.py"
     },
     {
@@ -821,8 +829,8 @@
       "requires_workspace": true,
       "requires_project": true,
       "frontend_symbol": "ProjectActivityService.list",
-      "backend_test": "tests/apps/cosa/api/test_project_activity_routes.py",
-      "flutter_test": "frontend/test/modules/hologram_hub/founder_hub_project_scope_test.dart",
+      "backend_test": "tests/apps/cosa/project_activity/test_worker_wiring.py",
+      "flutter_test": "frontend/test/modules/hologram_hub/founder_command_center_controller_test.dart",
       "integration_test": "tests/e2e/test_project_scoped_founder_hub.py"
     },
     {
@@ -837,8 +845,8 @@
       "requires_workspace": true,
       "requires_project": true,
       "frontend_symbol": "ProjectActivityService.detail",
-      "backend_test": "tests/apps/cosa/api/test_project_activity_routes.py",
-      "flutter_test": "frontend/test/modules/hologram_hub/founder_hub_project_scope_test.dart",
+      "backend_test": "tests/apps/cosa/project_activity/test_worker_wiring.py",
+      "flutter_test": "frontend/test/modules/hologram_hub/founder_command_center_controller_test.dart",
       "integration_test": "tests/e2e/test_project_scoped_founder_hub.py"
     },
     {
@@ -853,8 +861,8 @@
       "requires_workspace": true,
       "requires_project": true,
       "frontend_symbol": "ProjectActivityService.stream",
-      "backend_test": "tests/apps/cosa/api/test_project_activity_routes.py",
-      "flutter_test": "frontend/test/modules/hologram_hub/founder_hub_project_scope_test.dart",
+      "backend_test": "tests/apps/cosa/project_activity/test_worker_wiring.py",
+      "flutter_test": "frontend/test/modules/hologram_hub/founder_command_center_controller_test.dart",
       "integration_test": "tests/e2e/test_project_scoped_founder_hub.py"
     },
     {
@@ -950,7 +958,8 @@
       "requires_project": false,
       "frontend_symbol": "LifecycleService.transition",
       "backend_test": "services/company/identity/tests/workspace-lifecycle.service.test.ts",
-      "flutter_test": "frontend/test/core/lifecycle/lifecycle_service_test.dart"
+      "flutter_test": "frontend/test/core/lifecycle/lifecycle_service_test.dart",
+      "integration_test": "tests/e2e/test_cross_plane_smoke.py"
     },
     {
       "id": "identity.workspace.lifecycle.events",
@@ -965,7 +974,8 @@
       "requires_project": false,
       "frontend_symbol": "LifecycleService.getHistory",
       "backend_test": "services/company/identity/tests/workspace-lifecycle.service.test.ts",
-      "flutter_test": "frontend/test/core/lifecycle/lifecycle_service_test.dart"
+      "flutter_test": "frontend/test/core/lifecycle/lifecycle_service_test.dart",
+      "integration_test": "tests/e2e/test_cross_plane_smoke.py"
     },
     {
       "id": "operations.founder_asset.command",
@@ -1011,7 +1021,9 @@
       "requires_workspace": true,
       "requires_project": false,
       "frontend_symbol": "TaskService.deleteTask",
-      "backend_test": "services/company/operations/tests/task.service.test.ts"
+      "backend_test": "services/company/operations/tests/task.service.test.ts",
+      "flutter_test": "frontend/test/task_service_test.dart",
+      "integration_test": "tests/e2e/test_cross_plane_smoke.py"
     },
     {
       "id": "operations.project.lifecycle.transition",
@@ -1026,7 +1038,8 @@
       "requires_project": true,
       "frontend_symbol": "LifecycleService.transition",
       "backend_test": "services/company/operations/tests/project-lifecycle.service.test.ts",
-      "flutter_test": "frontend/test/core/lifecycle/lifecycle_service_test.dart"
+      "flutter_test": "frontend/test/core/lifecycle/lifecycle_service_test.dart",
+      "integration_test": "tests/e2e/test_cross_plane_smoke.py"
     },
     {
       "id": "operations.project.lifecycle.events",
@@ -1041,7 +1054,8 @@
       "requires_project": true,
       "frontend_symbol": "LifecycleService.getHistory",
       "backend_test": "services/company/operations/tests/project-lifecycle.service.test.ts",
-      "flutter_test": "frontend/test/core/lifecycle/lifecycle_service_test.dart"
+      "flutter_test": "frontend/test/core/lifecycle/lifecycle_service_test.dart",
+      "integration_test": "tests/e2e/test_cross_plane_smoke.py"
     },
     {
       "id": "operations.okr.generate_weekly_cycle",
@@ -1055,7 +1069,9 @@
       "requires_workspace": true,
       "requires_project": false,
       "frontend_symbol": "OkrWeeklyGeneratorService.generate",
-      "backend_test": "services/company/operations/tests/okr-weekly-generator.service.test.ts"
+      "backend_test": "services/company/operations/tests/okr-weekly-generator.service.test.ts",
+      "flutter_test": "frontend/test/modules/strategy/services/okr_weekly_generator_service_test.dart",
+      "integration_test": "tests/e2e/test_mvp_strategy_runtime_http.py"
     },
     {
       "id": "operations.okr.cycle.list",
@@ -1069,7 +1085,9 @@
       "requires_workspace": true,
       "requires_project": false,
       "frontend_symbol": "OkrService.getOkrCycles",
-      "backend_test": "services/company/operations/tests/okr.test.ts"
+      "backend_test": "services/company/operations/tests/okr.test.ts",
+      "flutter_test": "frontend/test/modules/strategy/okr_service_test.dart",
+      "integration_test": "tests/e2e/test_mvp_strategy_runtime_http.py"
     },
     {
       "id": "operations.okr.cycle.create",
@@ -1083,7 +1101,9 @@
       "requires_workspace": true,
       "requires_project": false,
       "frontend_symbol": "OkrService.createOkrCycle",
-      "backend_test": "services/company/operations/tests/okr.test.ts"
+      "backend_test": "services/company/operations/tests/okr.test.ts",
+      "flutter_test": "frontend/test/modules/strategy/okr_service_test.dart",
+      "integration_test": "tests/e2e/test_mvp_strategy_runtime_http.py"
     },
     {
       "id": "operations.okr.objective.publish",
@@ -1097,7 +1117,9 @@
       "requires_workspace": true,
       "requires_project": false,
       "frontend_symbol": "OkrService.publishObjective",
-      "backend_test": "services/company/operations/tests/okr.test.ts"
+      "backend_test": "services/company/operations/tests/okr.test.ts",
+      "flutter_test": "frontend/test/modules/strategy/okr_service_test.dart",
+      "integration_test": "tests/e2e/test_mvp_strategy_runtime_http.py"
     },
     {
       "id": "operations.okr.objective.update",
@@ -1111,7 +1133,9 @@
       "requires_workspace": true,
       "requires_project": false,
       "frontend_symbol": "OkrService.updateObjective",
-      "backend_test": "services/company/operations/tests/okr.test.ts"
+      "backend_test": "services/company/operations/tests/okr.test.ts",
+      "flutter_test": "frontend/test/modules/strategy/okr_service_test.dart",
+      "integration_test": "tests/e2e/test_mvp_strategy_runtime_http.py"
     },
     {
       "id": "operations.okr.objective.delete",
@@ -1125,7 +1149,9 @@
       "requires_workspace": true,
       "requires_project": false,
       "frontend_symbol": "OkrService.deleteObjective",
-      "backend_test": "services/company/operations/tests/okr.test.ts"
+      "backend_test": "services/company/operations/tests/okr.test.ts",
+      "flutter_test": "frontend/test/modules/strategy/okr_service_test.dart",
+      "integration_test": "tests/e2e/test_mvp_strategy_runtime_http.py"
     },
     {
       "id": "operations.okr.key_result.checkin",
@@ -1139,7 +1165,9 @@
       "requires_workspace": true,
       "requires_project": false,
       "frontend_symbol": "OkrService.checkinKeyResult",
-      "backend_test": "services/company/operations/tests/okr.test.ts"
+      "backend_test": "services/company/operations/tests/okr.test.ts",
+      "flutter_test": "frontend/test/modules/strategy/okr_service_test.dart",
+      "integration_test": "tests/e2e/test_mvp_strategy_runtime_http.py"
     },
     {
       "id": "operations.okr.key_result.update",
@@ -1153,7 +1181,9 @@
       "requires_workspace": true,
       "requires_project": false,
       "frontend_symbol": "OkrService.updateKeyResult",
-      "backend_test": "services/company/operations/tests/okr.test.ts"
+      "backend_test": "services/company/operations/tests/okr.test.ts",
+      "flutter_test": "frontend/test/modules/strategy/okr_service_test.dart",
+      "integration_test": "tests/e2e/test_mvp_strategy_runtime_http.py"
     },
     {
       "id": "operations.okr.key_result.delete",
@@ -1167,7 +1197,9 @@
       "requires_workspace": true,
       "requires_project": false,
       "frontend_symbol": "OkrService.deleteKeyResult",
-      "backend_test": "services/company/operations/tests/okr.test.ts"
+      "backend_test": "services/company/operations/tests/okr.test.ts",
+      "flutter_test": "frontend/test/modules/strategy/okr_service_test.dart",
+      "integration_test": "tests/e2e/test_mvp_strategy_runtime_http.py"
     },
     {
       "id": "operations.twelve_week.cycle.list",
@@ -1181,7 +1213,9 @@
       "requires_workspace": true,
       "requires_project": false,
       "frontend_symbol": "TwelveWeekService.getTwelveWeekCycles",
-      "backend_test": "services/company/operations/tests/twelve-week-year.test.ts"
+      "backend_test": "services/company/operations/tests/twelve-week-year.test.ts",
+      "flutter_test": "frontend/test/modules/strategy/twelve_week_service_test.dart",
+      "integration_test": "tests/e2e/test_mvp_strategy_runtime_http.py"
     },
     {
       "id": "operations.execution_cycle_view.read",
@@ -1195,7 +1229,9 @@
       "requires_workspace": true,
       "requires_project": false,
       "frontend_symbol": "TwelveWeekService.getCycleTimeline",
-      "backend_test": "services/company/operations/tests/mvp-okr-twelve-week.test.ts"
+      "backend_test": "services/company/operations/tests/mvp-okr-twelve-week.test.ts",
+      "flutter_test": "frontend/test/modules/strategy/twelve_week_service_test.dart",
+      "integration_test": "tests/e2e/test_mvp_strategy_runtime_http.py"
     }
   ]
 }

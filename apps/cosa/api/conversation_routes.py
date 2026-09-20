@@ -326,6 +326,7 @@ async def create_message(
     # Save user message
     user_message = MessageRecord(
         conversation_id=conversation_id,
+        project_id=verified_project.project_id,
         role=req.role or "user",
         content=req.content,
         run_id=run_id,

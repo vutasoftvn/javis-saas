@@ -31,6 +31,7 @@ from apps.cosa.api.app import create_cosa_app
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
+from tests.apps.cosa.helpers.project_team_authority import attach_mock_project_team_client
 from tests.apps.cosa.locale_test_helpers import FakeProfileLocaleClient
 from tests.apps.cosa.policy_test_helpers import (
     configure_mock_client_allows_data_use,
@@ -76,6 +77,7 @@ def test_app():
             ]
         ),
     )
+    attach_mock_project_team_client(plane)
     asyncio.run(
         seed_cosa_runtime_specs(
             spec_registry=plane.spec_registry,

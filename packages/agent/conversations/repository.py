@@ -127,6 +127,14 @@ class InMemoryConversationRepository:
         message: MessageRecord,
         attachments: list[MessageAttachmentRecord] | None = None,
     ) -> MessageRecord:
+        conv = self._conversations.get(message.conversation_id)
+        if conv is not None:
+            if conv.scope_state == "PROJECT_SCOPED" and (
+                message.project_id != conv.project_id or not message.project_id
+            ):
+                raise ValueError("message_project_scope_mismatch")
+            if conv.scope_state == "LEGACY_UNSCOPED" and message.project_id is not None:
+                raise ValueError("message_project_scope_mismatch")
         stored = message.model_copy(deep=True)
         stored.attachments = list(attachments or [])
         seq = self._seq_counters.get(message.conversation_id, 0) + 1
@@ -309,6 +317,14 @@ class PostgresConversationRepository(BasePostgresRepository):
         message: MessageRecord,
         attachments: list[MessageAttachmentRecord] | None = None,
     ) -> MessageRecord:
+        conv = await self.get_conversation(message.conversation_id)
+        if conv is not None:
+            if conv.scope_state == "PROJECT_SCOPED" and (
+                message.project_id != conv.project_id or not message.project_id
+            ):
+                raise ValueError("message_project_scope_mismatch")
+            if conv.scope_state == "LEGACY_UNSCOPED" and message.project_id is not None:
+                raise ValueError("message_project_scope_mismatch")
         async with self._session_factory() as session:
             res = await self._execute(
                 session,

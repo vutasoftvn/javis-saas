@@ -12,9 +12,16 @@ from agent.runs.repository import InMemoryRunRepository
 from agent.runs.stream_events import InMemoryRunStreamEventRepository
 from agent_testkit.fake_sdk_model import FakeSDKModel
 
+from apps.cosa.agents.agent_profile_specs import AGENT_PROFILE_SPECS
 from apps.cosa.agents.seed import seed_cosa_runtime_specs
 from apps.cosa.api.event_stream import CosaEventStreamManager
 from apps.cosa.capabilities.client import CompanyServiceClient
+from apps.cosa.company.project_team_client import (
+    ProjectAgentRunAuthority,
+    ProjectTeamAuthorityError,
+    ProjectTeamClient,
+    SpecRef,
+)
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
 from apps.cosa.policies.company_policy_client import CosaTenantPolicyError
 from apps.cosa.worker.handlers import execute_resume_task, execute_run_task
@@ -22,13 +29,6 @@ from tests.apps.cosa.policy_test_helpers import (
     allow_all_policy_snapshot,
     configure_mock_client_allows_data_use,
     fake_active_tenant_policy_client,
-)
-from apps.cosa.agents.agent_profile_specs import AGENT_PROFILE_SPECS
-from apps.cosa.company.project_team_client import (
-    ProjectAgentRunAuthority,
-    ProjectTeamAuthorityError,
-    ProjectTeamClient,
-    SpecRef,
 )
 
 
@@ -172,9 +172,8 @@ async def test_non_goal_message_does_not_append_goal_confirm_card():
         ("finance", "cosa.agents.finance"),
         ("marketing", "cosa.agents.marketing"),
         # Default thật hiện tại của Flutter (chat_controller.dart
-        # createNewConversation() không truyền agentProfile) — phải tiếp tục
-        # map sang Operations, không được coi là "unknown".
-        ("founder_assistant", "cosa.agents.operations"),
+        # createNewConversation() không truyền agentProfile) — trỏ tới COSA_COFOUNDER_ASSISTANT_AGENT_SPEC.
+        ("founder_assistant", "cosa.agents.founder_assistant"),
     ],
 )
 async def test_execute_run_task_dispatches_correct_spec_per_agent_profile(

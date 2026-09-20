@@ -342,4 +342,40 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
     expect(executions.length).toBe(1);
     expect(executions[0].definitionId).toBe(scoped.id);
   });
+
+  it("rebinds a paused legacy unscoped schedule with a project id and enables it", async () => {
+    const id = `sched_legacy_rebind_${Date.now()}`;
+    await db.insert(workspaceScheduleDefinitions).values({
+      id,
+      workspaceId: "ws_1",
+      createdBy: "user_alice",
+      scheduleKind: "daily",
+      promptTemplate: "Scan",
+      state: "paused",
+      isLegacyUnscoped: true,
+      projectId: null,
+    });
+
+    const rebound = await scheduleSvc.rebindLegacyWorkspaceSchedule({
+      scheduleId: id,
+      workspaceId: "ws_1",
+      projectId: "proj_new_123",
+      principalId: "user_alice",
+    });
+
+    expect(rebound.id).toBe(id);
+    expect(rebound.projectId).toBe("proj_new_123");
+    expect(rebound.isLegacyUnscoped).toBe(false);
+    expect(rebound.state).toBe("enabled");
+
+    // Cannot rebind an already rebound schedule (fails precondition)
+    await expect(
+      scheduleSvc.rebindLegacyWorkspaceSchedule({
+        scheduleId: id,
+        workspaceId: "ws_1",
+        projectId: "proj_another",
+      })
+    ).rejects.toThrow();
+  });
 });
+

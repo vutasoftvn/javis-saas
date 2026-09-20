@@ -95,15 +95,35 @@ void main() {
     },
   );
 
-  testWidgets(
-    'renders normally (unchanged behavior) when loadState is not passed',
-    (tester) async {
-      await _pumpTab(tester, packs: const []);
+    testWidgets(
+      'renders normally (unchanged behavior) when loadState is not passed',
+      (tester) async {
+        await _pumpTab(tester, packs: const []);
 
-      expect(
-        find.textContaining('Không tải được danh sách AI Workforce'),
-        findsNothing,
-      );
-    },
-  );
-}
+        expect(
+          find.textContaining('Không tải được danh sách AI Workforce'),
+          findsNothing,
+        );
+      },
+    );
+
+    testWidgets(
+      'does not render any mutation CTA when loadState is unavailable even if packs are present',
+      (tester) async {
+        await _pumpTab(
+          tester,
+          packs: [_pack('sales', isCore: false), _pack('marketing', isCore: false)],
+          loadState: WorkforceLoadState.unavailable,
+        );
+
+        expect(
+          find.textContaining('Không tải được danh sách AI Workforce'),
+          findsOneWidget,
+        );
+        expect(find.byType(Switch), findsNothing);
+        expect(find.text('OPTIONAL WORKFORCE PACKS (Gói kỹ năng mở rộng)'), findsNothing);
+        expect(find.byType(ElevatedButton), findsNothing);
+      },
+    );
+  }
+

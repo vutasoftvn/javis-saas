@@ -1,23 +1,18 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import '../network/api_client.dart';
-import '../network/workspace_scoped_service.dart';
+import 'package:frontend/core/network/api_result.dart';
+import 'package:frontend/core/network/mvp_endpoints.g.dart';
+import 'package:frontend/core/network/mvp_request_client.dart';
 
-/// Task 12 — loại entity có lifecycle stage transition (Workspace W0..W5,
-/// Project P0..P6). Dùng enum thay vì string để `pathFor` không thể lệch
-/// route theo lỗi chính tả — cả 2 backend endpoint đã live, không cần thêm
-/// biến thể entity type nào khác ở đây.
+/// Loại entity có lifecycle stage transition (Workspace W0..W5, Project P0..P6).
 enum LifecycleEntityType { workspace, project }
 
-/// Task 12 — service dùng chung cho lifecycle transition/history của cả
-/// Workspace (`services/company/identity/handlers/workspace-lifecycle.handler.ts`)
-/// và Project (`services/company/operations/handlers/project-lifecycle.handler.ts`).
-/// Backend chỉ có PATCH (transition, trả state mới) + GET `.../events`
-/// (lịch sử) — KHÔNG có endpoint GET lifecycle hiện tại riêng, nên service
-/// này không expose `getState` (interface line trong task brief liệt kê
-/// `getState` nhưng Step 3 — nguồn thật khớp backend — không có; đã verify
-/// lại 2 handler file thật, không phỏng đoán theo doc).
-class LifecycleService extends WorkspaceService {
+/// Service dùng cho lifecycle transition và history của Workspace và Project.
+/// Sử dụng MvpRequestClient và MvpEndpoint thay cho legacy WorkspaceService.
+class LifecycleService {
+  final MvpRequestClient _client;
+
+  LifecycleService({MvpRequestClient? client})
+      : _client = client ?? MvpRequestClient();
+
   static String pathFor(LifecycleEntityType type, String entityId) {
     switch (type) {
       case LifecycleEntityType.workspace:
@@ -27,29 +22,34 @@ class LifecycleService extends WorkspaceService {
     }
   }
 
-  /// GET `.../lifecycle/events` — backend trả `{ items: LifecycleEvent[] }`,
-  /// không phải mảng trần, nên trả `Map` (giữ nguyên wrapper) thay vì ép về
-  /// `List` như doc line ở đầu task brief (đã lệch so với response shape thật).
-  ///
-  /// Dùng path literal đầy đủ (không nội suy qua `pathFor`) để contract-checker
-  /// nhận diện đúng 2 route thật trong `mvp-surface.json` — nội suy method call
-  /// bị checker flatten thành `:pathFor`, không khớp manifest.
-  Future<Map<String, dynamic>> getHistory(LifecycleEntityType type, String entityId) async {
-    final http.Response response;
-    if (type == LifecycleEntityType.workspace) {
-      response = await ApiClient.get('/identity/workspaces/$entityId/lifecycle/events');
-    } else {
-      response = await ApiClient.get('/operations/projects/$entityId/lifecycle/events');
+  /// GET `.../lifecycle/events` — trả `{ items: LifecycleEvent[] }`.
+  Future<Map<String, dynamic>> getHistory(
+    LifecycleEntityType type,
+    String entityId,
+  ) async {
+    final endpoint = type == LifecycleEntityType.workspace
+        ? MvpEndpoint.identityWorkspaceLifecycleEvents
+        : MvpEndpoint.operationsProjectLifecycleEvents;
+    final pathParams = type == LifecycleEntityType.workspace
+        ? {'workspaceId': entityId}
+        : {'projectId': entityId};
+
+    final result = await _client.request<Map<String, dynamic>>(
+      endpoint,
+      pathParams: pathParams,
+      decode: (raw) => raw as Map<String, dynamic>,
+    );
+
+    if (result.isSuccess) {
+      return (result as ApiSuccess<Map<String, dynamic>>).data;
     }
-    if (response.statusCode == 200) {
-      return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
-    }
-    throw StateError('Failed to load lifecycle history: ${response.statusCode} ${response.body}');
+    final failure = result.failureOrNull;
+    throw StateError(
+      'Failed to load lifecycle history: ${failure?.code} ${failure?.message}',
+    );
   }
 
-  /// PATCH `.../lifecycle` — chuyển stage, bind `expectedStageVersion` để
-  /// backend optimistic-lock chặn double-transition (đọc stale version rồi
-  /// ghi đè lên transition khác đã xảy ra song song).
+  /// PATCH `.../lifecycle` — chuyển stage với optimistic locking qua expectedStageVersion.
   Future<Map<String, dynamic>> transition(
     LifecycleEntityType type,
     String entityId, {
@@ -57,17 +57,32 @@ class LifecycleService extends WorkspaceService {
     required int expectedStageVersion,
     String? rationale,
   }) async {
-    final response = await ApiClient.patch(
-      pathFor(type, entityId),
-      body: {
-        'toStage': toStage,
-        'expectedStageVersion': expectedStageVersion,
-        'rationale': ?rationale,
-      },
+    final endpoint = type == LifecycleEntityType.workspace
+        ? MvpEndpoint.identityWorkspaceLifecycleTransition
+        : MvpEndpoint.operationsProjectLifecycleTransition;
+    final pathParams = type == LifecycleEntityType.workspace
+        ? {'workspaceId': entityId}
+        : {'projectId': entityId};
+
+    final body = <String, dynamic>{
+      'toStage': toStage,
+      'expectedStageVersion': expectedStageVersion,
+      'rationale': ?rationale,
+    };
+
+    final result = await _client.request<Map<String, dynamic>>(
+      endpoint,
+      pathParams: pathParams,
+      body: body,
+      decode: (raw) => raw as Map<String, dynamic>,
     );
-    if (response.statusCode == 200) {
-      return jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+
+    if (result.isSuccess) {
+      return (result as ApiSuccess<Map<String, dynamic>>).data;
     }
-    throw StateError('Failed to transition lifecycle: ${response.statusCode} ${response.body}');
+    final failure = result.failureOrNull;
+    throw StateError(
+      'Failed to transition lifecycle: ${failure?.code} ${failure?.message}',
+    );
   }
 }

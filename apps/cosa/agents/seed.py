@@ -11,59 +11,9 @@ from agent.registry.publisher import (
 from agent.registry.repository import SpecRegistryRepository
 from agent.skills.resolver import SkillResolver
 
+from apps.cosa.agents.catalog import deployed_entries, seeded_entries
 from apps.cosa.agents.skillpack_seed import seed_builtin_skillpacks
-from apps.cosa.agents.specs import (
-    COSA_AI_GOVERNANCE_AGENT_SPEC,
-    COSA_AI_GOVERNANCE_PROMPT,
-    COSA_CODING_AGENT_SPEC,
-    COSA_CODING_PROMPT,
-    COSA_CUSTOMER_SUPPORT_AGENT_SPEC,
-    COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC,
-    COSA_CUSTOMER_SUPPORT_AUTOPILOT_PROMPT,
-    COSA_CUSTOMER_SUPPORT_PROMPT,
-    COSA_DATA_AGENT_SPEC,
-    COSA_DATA_PROMPT,
-    COSA_DEFAULT_MODEL_POLICY,
-    COSA_DEPLOYED_AGENT_SPECS,
-    COSA_EXECUTIVE_CAIO_AGENT_SPEC,
-    COSA_EXECUTIVE_CAIO_PROMPT,
-    COSA_EXECUTIVE_CDO_AGENT_SPEC,
-    COSA_EXECUTIVE_CDO_PROMPT,
-    COSA_EXECUTIVE_CHRO_AGENT_SPEC,
-    COSA_EXECUTIVE_CHRO_PROMPT,
-    COSA_EXECUTIVE_CISO_AGENT_SPEC,
-    COSA_EXECUTIVE_CISO_PROMPT,
-    COSA_EXECUTIVE_CPO_AGENT_SPEC,
-    COSA_EXECUTIVE_CPO_PROMPT,
-    COSA_EXECUTIVE_CRO_AGENT_SPEC,
-    COSA_EXECUTIVE_CRO_PROMPT,
-    COSA_EXECUTIVE_GC_AGENT_SPEC,
-    COSA_EXECUTIVE_GC_PROMPT,
-    COSA_EXECUTIVE_VPE_AGENT_SPEC,
-    COSA_EXECUTIVE_VPE_PROMPT,
-    COSA_FINANCE_AGENT_SPEC,
-    COSA_FINANCE_PROMPT,
-    COSA_KICKOFF_SUGGESTION_AGENT_SPEC,
-    COSA_KICKOFF_SUGGESTION_PROMPT,
-    COSA_LEGAL_AGENT_SPEC,
-    COSA_LEGAL_PROMPT,
-    COSA_MARKETING_AGENT_SPEC,
-    COSA_MARKETING_PROMPT,
-    COSA_OPERATIONS_AGENT_SPEC,
-    COSA_OPERATIONS_PROMPT,
-    COSA_PEOPLE_AGENT_SPEC,
-    COSA_PEOPLE_PROMPT,
-    COSA_PRODUCT_AGENT_SPEC,
-    COSA_PRODUCT_PROMPT,
-    COSA_RESEARCH_INTELLIGENCE_AGENT_SPEC,
-    COSA_RESEARCH_INTELLIGENCE_PROMPT,
-    COSA_SALES_AGENT_SPEC,
-    COSA_SALES_PROMPT,
-    COSA_SECURITY_AGENT_SPEC,
-    COSA_SECURITY_PROMPT,
-    COSA_STRATEGY_AGENT_SPEC,
-    COSA_STRATEGY_PROMPT,
-)
+from apps.cosa.agents.specs import COSA_DEFAULT_MODEL_POLICY
 
 __all__ = ["seed_cosa_agent_specs", "seed_cosa_runtime_specs"]
 
@@ -72,72 +22,26 @@ async def seed_cosa_agent_specs(spec_registry: SpecRegistryRepository) -> None:
     """Publish toàn bộ Prompt/ModelPolicy/AgentSpec của COSA vào registry —
     được `seed_cosa_runtime_specs()` gọi ở mỗi entrypoint thật
     (`apps/cosa/api/app.py` lifespan, `apps/cosa/worker/main.py::main()`)
-    SAU khi `build_cosa_agent_plane()` đã dựng xong (hàm đó vẫn sync,
-    seeding là bước async riêng — Wave M2b).
-    Idempotent: publish_* chỉ lỗi nếu version đã publish với hash KHÁC, mà
-    `apps/cosa/agents/specs.py` là module-level constant nên hash luôn ổn
-    định giữa các lần gọi. `publish_agent_spec()` validate prompt_ref/
-    model_policy_ref đã publish trước (Wave M2 §5) — vì vậy Prompt/ModelPolicy
-    PHẢI publish trước AgentSpec, đúng thứ tự dưới đây."""
-    for prompt_spec in (
-        COSA_OPERATIONS_PROMPT,
-        COSA_FINANCE_PROMPT,
-        COSA_MARKETING_PROMPT,
-        COSA_RESEARCH_INTELLIGENCE_PROMPT,
-        COSA_STRATEGY_PROMPT,
-        COSA_CUSTOMER_SUPPORT_PROMPT,
-        COSA_CUSTOMER_SUPPORT_AUTOPILOT_PROMPT,
-        COSA_KICKOFF_SUGGESTION_PROMPT,
-        COSA_SALES_PROMPT,
-        COSA_CODING_PROMPT,
-        COSA_PRODUCT_PROMPT,
-        COSA_PEOPLE_PROMPT,
-        COSA_SECURITY_PROMPT,
-        COSA_LEGAL_PROMPT,
-        COSA_DATA_PROMPT,
-        COSA_AI_GOVERNANCE_PROMPT,
-        COSA_EXECUTIVE_CPO_PROMPT,
-        COSA_EXECUTIVE_CRO_PROMPT,
-        COSA_EXECUTIVE_VPE_PROMPT,
-        COSA_EXECUTIVE_CHRO_PROMPT,
-        COSA_EXECUTIVE_CISO_PROMPT,
-        COSA_EXECUTIVE_GC_PROMPT,
-        COSA_EXECUTIVE_CDO_PROMPT,
-        COSA_EXECUTIVE_CAIO_PROMPT,
-    ):
-        await publish_prompt_spec(prompt_spec, repository=spec_registry, publisher="cosa-seed")
+    SAU khi `build_cosa_agent_plane()` đã dựng xong.
+
+    Thứ tự chuẩn hóa từ canonical catalog (Task 4):
+    (1) publish toàn bộ prompt_spec của seeded_entries();
+    (2) publish model policy spec;
+    (3) publish toàn bộ agent_spec của seeded_entries().
+    """
+    entries = seeded_entries()
+
+    for entry in entries:
+        await publish_prompt_spec(
+            entry.prompt_spec, repository=spec_registry, publisher="cosa-seed"
+        )
 
     await publish_model_policy_spec(
         COSA_DEFAULT_MODEL_POLICY, repository=spec_registry, publisher="cosa-seed"
     )
 
-    for agent_spec in (
-        COSA_OPERATIONS_AGENT_SPEC,
-        COSA_FINANCE_AGENT_SPEC,
-        COSA_MARKETING_AGENT_SPEC,
-        COSA_RESEARCH_INTELLIGENCE_AGENT_SPEC,
-        COSA_STRATEGY_AGENT_SPEC,
-        COSA_CUSTOMER_SUPPORT_AGENT_SPEC,
-        COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC,
-        COSA_KICKOFF_SUGGESTION_AGENT_SPEC,
-        COSA_SALES_AGENT_SPEC,
-        COSA_CODING_AGENT_SPEC,
-        COSA_PRODUCT_AGENT_SPEC,
-        COSA_PEOPLE_AGENT_SPEC,
-        COSA_SECURITY_AGENT_SPEC,
-        COSA_LEGAL_AGENT_SPEC,
-        COSA_DATA_AGENT_SPEC,
-        COSA_AI_GOVERNANCE_AGENT_SPEC,
-        COSA_EXECUTIVE_CPO_AGENT_SPEC,
-        COSA_EXECUTIVE_CRO_AGENT_SPEC,
-        COSA_EXECUTIVE_VPE_AGENT_SPEC,
-        COSA_EXECUTIVE_CHRO_AGENT_SPEC,
-        COSA_EXECUTIVE_CISO_AGENT_SPEC,
-        COSA_EXECUTIVE_GC_AGENT_SPEC,
-        COSA_EXECUTIVE_CDO_AGENT_SPEC,
-        COSA_EXECUTIVE_CAIO_AGENT_SPEC,
-    ):
-        await publish_agent_spec(agent_spec, repository=spec_registry, publisher="cosa-seed")
+    for entry in entries:
+        await publish_agent_spec(entry.agent_spec, repository=spec_registry, publisher="cosa-seed")
 
 
 async def seed_cosa_runtime_specs(
@@ -149,14 +53,14 @@ async def seed_cosa_runtime_specs(
     """Khởi tạo đầy đủ runtime specs của COSA theo đúng thứ tự bắt buộc —
     entrypoint duy nhất mà `apps/cosa/api/app.py` (lifespan) và
     `apps/cosa/worker/main.py::main()` phải gọi trước khi phục vụ traffic
-    (Wave M2b). Thứ tự: (1) publish toàn bộ skillpack built-in — fail-closed
-    qua `seed_builtin_skillpacks` (BuiltinSkillpackSeedError nếu thiếu bundle
-    root, vi phạm contract, hay parse/publish lỗi); (2) publish Prompt/
-    ModelPolicy/AgentSpec qua `seed_cosa_agent_specs` (đã tự đảm bảo thứ tự
-    dependency bên trong); (3) verify mọi `pinned_skills` của
-    `COSA_DEPLOYED_AGENT_SPECS` resolve được — nếu một AgentSpec pin skill
-    chưa publish hoặc hash lệch, `SkillResolver.resolve()` raise ngay, không
-    để runtime khởi động với agent spec tham chiếu treo."""
+    (Wave M2b).
+
+    Thứ tự:
+    (1) publish toàn bộ skillpack built-in qua `seed_builtin_skillpacks`;
+    (2) publish Prompt/ModelPolicy/AgentSpec qua `seed_cosa_agent_specs`;
+    (3) verify mọi deployed entry: bản ghi AgentSpec tồn tại trong registry
+        và mọi `pinned_skills` resolve được qua `SkillResolver`.
+    """
     await seed_builtin_skillpacks(
         spec_registry,
         capability_ids={spec.id for spec in capability_registry.list_specs()},
@@ -164,5 +68,11 @@ async def seed_cosa_runtime_specs(
     )
     await seed_cosa_agent_specs(spec_registry)
     resolver = SkillResolver(spec_registry)
-    for agent_spec in COSA_DEPLOYED_AGENT_SPECS:
-        await resolver.resolve(agent_spec.pinned_skills)
+    for entry in deployed_entries():
+        record = await spec_registry.get("agent", entry.agent_spec.id, entry.agent_spec.version)
+        if record is None:
+            raise RuntimeError(
+                f"Deployed agent spec {entry.agent_spec.id}:{entry.agent_spec.version} "
+                "not found in registry after seeding"
+            )
+        await resolver.resolve(entry.agent_spec.pinned_skills)

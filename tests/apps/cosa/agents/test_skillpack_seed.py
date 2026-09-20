@@ -177,20 +177,23 @@ async def test_seed_cosa_runtime_specs_fails_closed_on_pin_hash_mismatch(
     )
     await seed_module.seed_cosa_agent_specs(plane.spec_registry)
 
-    source = COSA_DEPLOYED_AGENT_SPECS[0]
-    assert source.pinned_skills, "test cần một AgentSpec có ít nhất 1 pin"
-    original_pin = source.pinned_skills[0]
+    import dataclasses
 
-    corrupted = deepcopy(source)
-    corrupted.pinned_skills = (
+    source_entry = seed_module.deployed_entries()[0]
+    assert source_entry.agent_spec.pinned_skills, "test cần một AgentSpec có ít nhất 1 pin"
+    original_pin = source_entry.agent_spec.pinned_skills[0]
+
+    corrupted_spec = deepcopy(source_entry.agent_spec)
+    corrupted_spec.pinned_skills = (
         PinnedSkillRef(
             skill_id=original_pin.skill_id,
             version=original_pin.version,
             definition_hash="0" * 64,
         ),
-        *corrupted.pinned_skills[1:],
+        *corrupted_spec.pinned_skills[1:],
     )
-    monkeypatch.setattr(seed_module, "COSA_DEPLOYED_AGENT_SPECS", (corrupted,))
+    corrupted_entry = dataclasses.replace(source_entry, agent_spec=corrupted_spec)
+    monkeypatch.setattr(seed_module, "deployed_entries", lambda: (corrupted_entry,))
 
     with pytest.raises(AgentRuntimeError) as exc_info:
         await seed_cosa_runtime_specs(

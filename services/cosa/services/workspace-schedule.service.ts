@@ -287,3 +287,37 @@ export async function getScheduleExecution(
   }
   return execution;
 }
+
+export async function rebindLegacyWorkspaceSchedule(input: {
+  scheduleId: string;
+  workspaceId: string;
+  projectId: string;
+  principalId?: string;
+}): Promise<repo.ScheduleDefinitionRow> {
+  const { scheduleId, workspaceId, projectId } = input;
+  if (!projectId || !projectId.trim()) {
+    throw APIError.invalidArgument("projectId is required for schedule rebind");
+  }
+
+  const def = await repo.findScheduleDefinitionByIdAndWorkspace(scheduleId, workspaceId);
+  if (!def) {
+    throw APIError.notFound("schedule definition not found in workspace");
+  }
+
+  if (!def.isLegacyUnscoped || def.state !== "paused") {
+    throw APIError.failedPrecondition("only paused legacy unscoped schedules can be rebound");
+  }
+
+  const updated = await repo.rebindLegacyScheduleDefinition({
+    scheduleId,
+    workspaceId,
+    projectId: projectId.trim(),
+  });
+
+  if (!updated) {
+    throw APIError.internal("failed to rebind legacy schedule definition");
+  }
+
+  return updated;
+}
+

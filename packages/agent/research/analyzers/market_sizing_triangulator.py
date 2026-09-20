@@ -24,9 +24,9 @@ import argparse
 import json
 import math
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-PROFILES: Dict[str, Dict[str, Any]] = {
+PROFILES: dict[str, dict[str, Any]] = {
     "b2b-saas": {"tolerance": 0.30, "description": "B2B SaaS / Enterprise Cloud"},
     "consumer": {"tolerance": 0.40, "description": "Consumer Internet / Apps"},
     "enterprise": {"tolerance": 0.25, "description": "High-ticket Enterprise Software"},
@@ -65,7 +65,7 @@ class BottomsUpResult:
     tam: float = 0.0
     sam: float = 0.0
     som: float = 0.0
-    implied_customers_at_som: Optional[int] = None
+    implied_customers_at_som: int | None = None
 
 
 @dataclass
@@ -73,14 +73,14 @@ class TriangulationReport:
     market_name: str
     profile: str
     tolerance: float
-    top_down: Optional[TopDownResult] = None
-    bottoms_up: Optional[BottomsUpResult] = None
-    tam_divergence: Optional[float] = None
+    top_down: TopDownResult | None = None
+    bottoms_up: BottomsUpResult | None = None
+    tam_divergence: float | None = None
     triangulation_passed: bool = True
-    flags: List[str] = field(default_factory=list)
-    method_and_assumptions: List[str] = field(default_factory=lambda: list(DEFAULT_ASSUMPTIONS))
+    flags: list[str] = field(default_factory=list)
+    method_and_assumptions: list[str] = field(default_factory=lambda: list(DEFAULT_ASSUMPTIONS))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -137,9 +137,7 @@ class MarketSizingTriangulator:
         tam = round(total_potential_customers * annual_price, 2)
         sam = round(tam * serviceable_fraction, 2)
         som = round(sam * realistic_adoption, 2)
-        implied_customers = (
-            math.floor(som / annual_price) if annual_price > 0 else 0
-        )
+        implied_customers = math.floor(som / annual_price) if annual_price > 0 else 0
 
         return BottomsUpResult(
             method="bottoms-up",
@@ -156,11 +154,11 @@ class MarketSizingTriangulator:
     def triangulate(
         self,
         market_name: str,
-        top_down_input: Optional[Dict[str, float]] = None,
-        bottoms_up_input: Optional[Dict[str, float]] = None,
+        top_down_input: dict[str, float] | None = None,
+        bottoms_up_input: dict[str, float] | None = None,
     ) -> TriangulationReport:
-        td_result: Optional[TopDownResult] = None
-        bu_result: Optional[BottomsUpResult] = None
+        td_result: TopDownResult | None = None
+        bu_result: BottomsUpResult | None = None
 
         if top_down_input:
             td_result = self.calculate_top_down(
@@ -171,14 +169,16 @@ class MarketSizingTriangulator:
 
         if bottoms_up_input:
             bu_result = self.calculate_bottoms_up(
-                total_potential_customers=float(bottoms_up_input.get("total_potential_customers", 0.0)),
+                total_potential_customers=float(
+                    bottoms_up_input.get("total_potential_customers", 0.0)
+                ),
                 annual_price=float(bottoms_up_input.get("annual_price", 0.0)),
                 serviceable_fraction=float(bottoms_up_input.get("serviceable_fraction", 0.0)),
                 realistic_adoption=float(bottoms_up_input.get("realistic_adoption", 0.0)),
             )
 
-        flags: List[str] = []
-        divergence: Optional[float] = None
+        flags: list[str] = []
+        divergence: float | None = None
         passed: bool = True
 
         if td_result and bu_result:
@@ -202,7 +202,9 @@ class MarketSizingTriangulator:
         elif td_result and not bu_result:
             flags.append("Caution: Only Top-down TAM provided. Bottoms-up validation missing.")
         elif bu_result and not td_result:
-            flags.append("Caution: Only Bottoms-up TAM provided. Top-down industry validation missing.")
+            flags.append(
+                "Caution: Only Bottoms-up TAM provided. Top-down industry validation missing."
+            )
         else:
             flags.append("Error: Neither Top-down nor Bottoms-up data provided.")
             passed = False
@@ -220,7 +222,7 @@ class MarketSizingTriangulator:
         )
 
 
-def _fmt(n: Optional[float]) -> str:
+def _fmt(n: float | None) -> str:
     if n is None:
         return "N/A"
     return f"${n:,.0f}" if isinstance(n, (int, float)) else str(n)
@@ -243,7 +245,9 @@ def render_human_report(report: TriangulationReport) -> str:
             f"  [Bottoms-Up] TAM: {_fmt(bu.tam)} | SAM: {_fmt(bu.sam)} | SOM: {_fmt(bu.som)}"
         )
         if bu.implied_customers_at_som is not None:
-            lines.append(f"               -> Số khách hàng ngụ ý tại SOM: {bu.implied_customers_at_som:,}")
+            lines.append(
+                f"               -> Số khách hàng ngụ ý tại SOM: {bu.implied_customers_at_som:,}"
+            )
 
     if report.tam_divergence is not None:
         lines.append(f"  Độ lệch tam giác (TAM Divergence): {report.tam_divergence:.1%}")
@@ -269,8 +273,9 @@ def main() -> int:
     parser.add_argument("--output", choices=["human", "json"], default="human")
     args = parser.parse_args()
 
+    data: dict[str, Any]
     if not args.input:
-        sample_data = {
+        sample_data: dict[str, Any] = {
             "market_name": "Mid-market B2B HR Analytics (US)",
             "top_down": {
                 "total_market_value": 4500000000,
@@ -286,7 +291,7 @@ def main() -> int:
         }
         data = sample_data
     else:
-        with open(args.input, "r", encoding="utf-8") as f:
+        with open(args.input, encoding="utf-8") as f:
             data = json.load(f)
 
     triangulator = MarketSizingTriangulator(profile=args.profile)
@@ -306,4 +311,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     import sys
+
     sys.exit(main())

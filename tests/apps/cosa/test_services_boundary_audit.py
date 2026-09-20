@@ -71,6 +71,65 @@ _DEPLOYMENT_LEGACY_ALLOWLIST: dict[str, int] = {
     "docker-compose.yml": 2,  # 1 dòng comment ghi chú legacy đã xoá (2026-08-25)
 }
 
+DEFAULT_DEPLOYMENT_EXCLUDED_DIR_PARTS = {
+    "node_modules",
+    "legacy",
+    ".git",
+    "agent_runtime_archive",
+    ".worktrees",
+    ".kilo",
+    ".agents",
+    ".venv",
+    ".venv_verify",
+    ".gemini",
+    ".claude",
+    ".dart_tool",
+    "dist",
+    "build",
+}
+
+
+def scan_deployment_legacy_references(
+    repo_root: Path,
+    *,
+    excluded_dir_parts: set[str] | None = None,
+) -> dict[str, int]:
+    candidate_globs = ["docker-compose*.yml", "Dockerfile*", "Makefile"]
+    excluded = (
+        excluded_dir_parts
+        if excluded_dir_parts is not None
+        else DEFAULT_DEPLOYMENT_EXCLUDED_DIR_PARTS
+    )
+
+    found_counts: dict[str, int] = {}
+    for pattern in candidate_globs:
+        for path in repo_root.rglob(pattern):
+            if not path.is_file():
+                continue
+            rel = path.relative_to(repo_root)
+            if excluded & set(rel.parts[:-1]):
+                continue
+            content = path.read_text(encoding="utf-8", errors="ignore")
+            count = content.count("legacy/")
+            if count > 0:
+                found_counts[rel.as_posix()] = count
+    return found_counts
+
+
+def test_deployment_scanner_excludes_worktrees(tmp_path: Path):
+    """Quét deployment config phải loại bỏ .kilo, worktrees, v.v., nhưng vẫn bắt root Makefile."""
+    worktree_makefile = tmp_path / ".kilo" / "worktrees" / "example" / "Makefile"
+    worktree_makefile.parent.mkdir(parents=True, exist_ok=True)
+    worktree_makefile.write_text("# legacy/reference\n", encoding="utf-8")
+
+    root_makefile = tmp_path / "Makefile"
+    root_makefile.write_text("# legacy/real_root\n", encoding="utf-8")
+
+    findings = scan_deployment_legacy_references(tmp_path)
+    assert "Makefile" in findings
+    assert findings["Makefile"] == 1
+    assert not any(k.startswith(".kilo") for k in findings)
+
 
 def test_deployment_configs_legacy_references_are_allowlisted():
     """Boundary Audit mở rộng — quét docker-compose*.yml/Dockerfile*/Makefile
@@ -86,22 +145,7 @@ def test_deployment_configs_legacy_references_are_allowlisted():
     entry sẽ fail ở bước so khớp count (không âm thầm pass).
     """
     repo_root = Path(__file__).parents[3]
-    candidate_globs = ["docker-compose*.yml", "Dockerfile*", "Makefile"]
-    excluded_dir_parts = {"node_modules", "legacy", ".git", "agent_runtime_archive", ".worktrees", ".venv", ".venv_verify", ".gemini", ".claude"}
-
-
-    found_counts: dict[str, int] = {}
-    for pattern in candidate_globs:
-        for path in repo_root.rglob(pattern):
-            if not path.is_file():
-                continue
-            rel = path.relative_to(repo_root)
-            if excluded_dir_parts & set(rel.parts[:-1]):
-                continue
-            content = path.read_text(encoding="utf-8")
-            count = content.count("legacy/")
-            if count > 0:
-                found_counts[rel.as_posix()] = count
+    found_counts = scan_deployment_legacy_references(repo_root)
 
     violations = []
     for rel, count in found_counts.items():
@@ -118,3 +162,4 @@ def test_deployment_configs_legacy_references_are_allowlisted():
             violations.append(f"{rel}: allowlist ghi nhận có reference nhưng file hiện không còn — cập nhật allowlist")
 
     assert not violations, "Deployment config legacy reference drift:\n" + "\n".join(violations)
+

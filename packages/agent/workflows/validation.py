@@ -109,7 +109,7 @@ class WorkflowPublishValidator:
 
         # 1. Structural DAG validation
         try:
-            spec._validate_dag()
+            spec._validate_dag()  # type: ignore[operator]
         except Exception as exc:
             errors.append(f"DAG structure error: {exc}")
 

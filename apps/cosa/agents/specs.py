@@ -1039,26 +1039,14 @@ EXECUTIVE_AGENT_SPECS: dict[str, AgentSpec] = {
     "cosa.executive.caio": COSA_EXECUTIVE_CAIO_AGENT_SPEC,
 }
 
+
 # Toàn bộ AgentSpec đang triển khai thật của COSA — dùng để seed toàn bộ
 # runtime specs (skillpacks + prompts/model_policy/agent) và verify mọi
 # pinned_skills resolve được trước khi phục vụ traffic (Wave M2b).
-COSA_DEPLOYED_AGENT_SPECS = (
-    COSA_COFOUNDER_ASSISTANT_AGENT_SPEC,
-    COSA_OPERATIONS_AGENT_SPEC,
-    COSA_FINANCE_AGENT_SPEC,
-    COSA_MARKETING_AGENT_SPEC,
-    COSA_RESEARCH_INTELLIGENCE_AGENT_SPEC,
-    COSA_STRATEGY_AGENT_SPEC,
-    COSA_CUSTOMER_SUPPORT_AGENT_SPEC,
-    COSA_CUSTOMER_SUPPORT_AUTOPILOT_AGENT_SPEC,
-    COSA_KICKOFF_SUGGESTION_AGENT_SPEC,
-    COSA_SALES_AGENT_SPEC,
-    COSA_CODING_AGENT_SPEC,
-    COSA_PRODUCT_AGENT_SPEC,
-    COSA_PEOPLE_AGENT_SPEC,
-    COSA_SECURITY_AGENT_SPEC,
-    COSA_LEGAL_AGENT_SPEC,
-    COSA_DATA_AGENT_SPEC,
-    COSA_AI_GOVERNANCE_AGENT_SPEC,
-    COSA_EXECUTIVE_CTO_AGENT_SPEC,
-)
+def _get_deployed_specs() -> tuple[AgentSpec, ...]:
+    from apps.cosa.agents.catalog import deployed_entries
+
+    return tuple(entry.agent_spec for entry in deployed_entries())
+
+
+COSA_DEPLOYED_AGENT_SPECS = _get_deployed_specs()

@@ -124,7 +124,8 @@ def load_effective_improvement_policy(
     max_rounds: int | None = None,
     max_candidates_per_request: int | None = None,
 ) -> EffectiveSkillImprovementPolicy:
-    env_mode = (mode or os.getenv("COSA_SKILL_IMPROVEMENT_MODE", "OFF")).upper()
+    raw_mode = mode or os.getenv("COSA_SKILL_IMPROVEMENT_MODE") or "OFF"
+    env_mode = raw_mode.upper()
     if env_mode not in ("OFF", "OBSERVE", "CANDIDATE"):
         raise ValueError(f"Unsupported COSA_SKILL_IMPROVEMENT_MODE: {env_mode}")
 

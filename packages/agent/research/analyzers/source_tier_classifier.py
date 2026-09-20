@@ -18,9 +18,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 from urllib.parse import urlparse
 
 PRIMARY_DOMAIN_EXACT = {
@@ -117,7 +116,7 @@ TERTIARY_DOMAINS = {
     "github.com/discussions",
 }
 
-TIER_WEIGHTS: Dict[str, float] = {
+TIER_WEIGHTS: dict[str, float] = {
     "PRIMARY": 1.0,
     "SECONDARY": 0.7,
     "TERTIARY": 0.4,
@@ -132,7 +131,7 @@ class SourceClassification:
     weight: float
     rationale: str
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -145,9 +144,9 @@ class SourceInventoryReport:
     primary_ratio: float
     average_credibility_score: float
     quality_verdict: str  # HIGH_INTEGRITY, ACCEPTABLE, UNRELIABLE
-    sources: List[SourceClassification] = field(default_factory=list)
+    sources: list[SourceClassification] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -223,7 +222,10 @@ class SourceTierClassifier:
                 )
 
         # 6. Heuristic for Investor Relations or Corporate Official Pages
-        if any(kw in domain or kw in url_lower for kw in ["investor.", "investors.", "/ir/", "/annual-report"]):
+        if any(
+            kw in domain or kw in url_lower
+            for kw in ["investor.", "investors.", "/ir/", "/annual-report"]
+        ):
             return SourceClassification(
                 url=url,
                 domain=domain,
@@ -241,7 +243,7 @@ class SourceTierClassifier:
             rationale="Trang thông tin / website doanh nghiệp tổng quát.",
         )
 
-    def evaluate_inventory(self, urls: List[str]) -> SourceInventoryReport:
+    def evaluate_inventory(self, urls: list[str]) -> SourceInventoryReport:
         if not urls:
             return SourceInventoryReport(
                 total_sources=0,
@@ -318,9 +320,9 @@ def main() -> int:
             print(f"[{res.tier}] {res.domain} (Weight: {res.weight}) -> {res.rationale}")
         return 0
 
-    urls: List[str] = []
+    urls: list[str] = []
     if args.input:
-        with open(args.input, "r", encoding="utf-8") as f:
+        with open(args.input, encoding="utf-8") as f:
             content = f.read().strip()
             if content.startswith("["):
                 urls = json.loads(content)
@@ -345,4 +347,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     import sys
+
     sys.exit(main())

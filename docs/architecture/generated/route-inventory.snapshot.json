@@ -13,15 +13,23 @@
       "resolved": false,
       "owner": null
     },
+    "DELETE /operations/key-results": {
+      "resolved": true,
+      "owner": null
+    },
+    "DELETE /operations/objectives": {
+      "resolved": true,
+      "owner": null
+    },
+    "DELETE /operations/tasks": {
+      "resolved": true,
+      "owner": null
+    },
     "DELETE /workforce/agents": {
       "resolved": false,
       "owner": null
     },
     "GET /admin": {
-      "resolved": false,
-      "owner": null
-    },
-    "GET /business/packs": {
       "resolved": false,
       "owner": null
     },
@@ -101,6 +109,18 @@
       "resolved": true,
       "owner": null
     },
+    "GET /operations/key-results": {
+      "resolved": true,
+      "owner": null
+    },
+    "GET /operations/objectives": {
+      "resolved": true,
+      "owner": null
+    },
+    "GET /operations/okr-cycles": {
+      "resolved": true,
+      "owner": null
+    },
     "GET /operations/strategy/assumptions": {
       "resolved": true,
       "owner": null
@@ -118,6 +138,10 @@
       "owner": null
     },
     "GET /operations/tasks/founder-inbox": {
+      "resolved": true,
+      "owner": null
+    },
+    "GET /operations/workspaces": {
       "resolved": true,
       "owner": null
     },
@@ -221,6 +245,18 @@
       "resolved": true,
       "owner": null
     },
+    "POST /operations/key-results": {
+      "resolved": true,
+      "owner": null
+    },
+    "POST /operations/objectives": {
+      "resolved": true,
+      "owner": null
+    },
+    "POST /operations/okr-cycles": {
+      "resolved": true,
+      "owner": null
+    },
     "POST /operations/strategy/assumptions": {
       "resolved": true,
       "owner": null
@@ -263,6 +299,14 @@
     },
     "POST /workforce/tools/webhook": {
       "resolved": false,
+      "owner": null
+    },
+    "PUT /operations/key-results": {
+      "resolved": true,
+      "owner": null
+    },
+    "PUT /operations/objectives": {
+      "resolved": true,
       "owner": null
     }
   }

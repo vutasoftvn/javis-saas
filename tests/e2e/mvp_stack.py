@@ -109,6 +109,16 @@ class MvpStack:
     apps_cosa: ServiceClient
     worker_health_url: str
     uses_mock_transport: bool = False
+    handles: Any | None = None
+
+    def restart_api_and_worker(self, cluster: Any) -> None:
+        if self.handles is not None:
+            from tests.e2e.stack.subprocess_stack import restart_api_and_worker
+
+            self.handles = restart_api_and_worker(self.handles, cluster)
+            self.agent.base_url = self.handles.apps_cosa_url
+            self.apps_cosa.base_url = self.handles.apps_cosa_url
+            self.worker_health_url = self.handles.worker_health_url
 
     def __post_init__(self) -> None:
         # Bất biến: dàn E2E cross-plane KHÔNG bao giờ dùng transport giả.

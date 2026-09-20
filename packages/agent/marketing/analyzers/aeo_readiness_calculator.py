@@ -95,8 +95,7 @@ class AEOReadinessCalculator:
         # 2. Fact-First Lede (200 từ đầu tiên có chứa sự thật)
         first_200_words = " ".join(words[:200])
         first_200_facts = sum(
-            len(re.findall(pat, first_200_words, re.IGNORECASE))
-            for pat in facts_patterns
+            len(re.findall(pat, first_200_words, re.IGNORECASE)) for pat in facts_patterns
         )
         has_fact_first_lede = first_200_facts >= 2
 
@@ -106,12 +105,20 @@ class AEOReadinessCalculator:
             1
             for h in headers
             if h.strip().endswith("?")
-            or re.match(r"^(?:How|What|Why|When|Where|Who|Làm sao|Tại sao|Là gì|Khi nào)\b", h.strip(), re.IGNORECASE)
+            or re.match(
+                r"^(?:How|What|Why|When|Where|Who|Làm sao|Tại sao|Là gì|Khi nào)\b",
+                h.strip(),
+                re.IGNORECASE,
+            )
         )
 
         # 4. Kiểm tra sẵn sàng Schema / Dữ liệu có cấu trúc
         schema_ready = bool(
-            re.search(r"@context|schema\.org|\"application/ld\+json\"|FAQPage|Article|HowTo", raw_text, re.IGNORECASE)
+            re.search(
+                r"@context|schema\.org|\"application/ld\+json\"|FAQPage|Article|HowTo",
+                raw_text,
+                re.IGNORECASE,
+            )
             or (headers and any("faq" in h.lower() or "câu hỏi" in h.lower() for h in headers))
         )
 
@@ -122,7 +129,12 @@ class AEOReadinessCalculator:
             raw_text,
             re.IGNORECASE,
         )
-        score_exp = min(100.0, len(exp_signals) * 25.0 + (25.0 if fact_count >= 3 else 0.0) + (20.0 if has_fact_first_lede else 0.0))
+        score_exp = min(
+            100.0,
+            len(exp_signals) * 25.0
+            + (25.0 if fact_count >= 3 else 0.0)
+            + (20.0 if has_fact_first_lede else 0.0),
+        )
 
         # Expertise: Chiều sâu kỹ thuật, tiêu đề dạng câu hỏi Q&A, cấu trúc phân đoạn
         score_expert = min(
@@ -134,14 +146,22 @@ class AEOReadinessCalculator:
         )
 
         # Authoritativeness: Trích dẫn, nguồn tham chiếu, đối chiếu bên ngoài, schema
-        auth_signals = len(re.findall(r"(?:https?://|\[\d+\]|nguồn:|source:|theo nghiên cứu|schema:)", raw_text, re.IGNORECASE))
+        auth_signals = len(
+            re.findall(
+                r"(?:https?://|\[\d+\]|nguồn:|source:|theo nghiên cứu|schema:)",
+                raw_text,
+                re.IGNORECASE,
+            )
+        )
         score_auth = min(100.0, auth_signals * 25.0 + (25.0 if schema_ready else 0.0))
 
         # Trustworthiness: Mật độ sự thật cao, mở đầu minh bạch, không nói quá
         score_trust = min(100.0, factual_density * 3.0 + (30.0 if has_fact_first_lede else 0.0))
 
         # Điểm tổng hợp có trọng số
-        overall = (score_exp * 0.25) + (score_expert * 0.25) + (score_auth * 0.25) + (score_trust * 0.25)
+        overall = (
+            (score_exp * 0.25) + (score_expert * 0.25) + (score_auth * 0.25) + (score_trust * 0.25)
+        )
         overall = round(overall, 1)
 
         if overall >= 85.0:
