@@ -88,7 +88,7 @@ export async function createProjectService(ctx: TenantContext, req: CreateProjec
   // quyền Workspace Office. Founder có thể repair P0 project cũ bằng lệnh
   // tường minh trên Board.
   const shouldBootstrapP0Core =
-    creationMode === "NEW" &&
+    req.creationMode === "NEW" &&
     !ctx.isAiAgent &&
     ["founder", "co-founder"].includes((ctx.membershipRole || "").toLowerCase());
 

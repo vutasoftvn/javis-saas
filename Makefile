@@ -376,7 +376,7 @@ services-test-company:
 	cd services/company && encore test
 
 services-test-cosa:
-	cd services/cosa && node scripts/migrate.mjs --check-pending && encore test
+	cd services/cosa && COSA_MIGRATOR_DATABASE_URL="$${COSA_MIGRATOR_DATABASE_URL:-postgresql://cosa_migrator:change-me-cosa-migrator@127.0.0.1:5432/javis_cosa_test?sslmode=disable}" node scripts/migrate.mjs --check-pending && encore test
 
 services-dev-company:
 	cd services/company && encore run --port=4000

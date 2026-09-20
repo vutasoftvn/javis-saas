@@ -9,6 +9,7 @@ import {
 } from "./executive-role-activation.service";
 import {
   activateProjectStartupTeamMember,
+  ensureProjectStartupTeam,
   listProjectStartupTeam,
 } from "./project-startup-team.service";
 import { activateWorkspaceExecutiveRole } from "./workspace-executive-role-activation.service";
@@ -65,6 +66,14 @@ export async function bootstrapP0CoreForProject(
   }
 
   // 1. Materialize agent nền và Workspace Agent cho đúng Project P0.
+  await db.transaction(async (tx) => {
+    await ensureProjectStartupTeam(tx, {
+      workspaceId: ctx.workspaceId,
+      projectId,
+      actorId: ctx.userId ?? ctx.workspaceId,
+    });
+  });
+
   let startupTeam = await listProjectStartupTeam({
     workspaceId: ctx.workspaceId,
     projectId,

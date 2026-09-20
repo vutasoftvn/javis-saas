@@ -22,3 +22,4 @@ class SeededWorkspace:
     owner_token: str
     member_user_id: str | None = None
     member_token: str | None = None
+    default_project_id: str | None = None

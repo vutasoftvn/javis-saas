@@ -52,7 +52,7 @@ describe("Workspace Executive Role Activation Service", () => {
 
   it("lists all 13 roles even when nothing has been activated yet", async () => {
     const board = await getWorkspaceExecutiveRoleStates(founderCtx);
-    expect(board.roles).toHaveLength(13);
+    expect(board.roles).toHaveLength(15);
     // Không role nào bị thiếu khỏi danh sách chỉ vì chưa activate.
     expect(roleOf(board.roles, "cfo")).toBeDefined();
     expect(roleOf(board.roles, "vpe")).toBeDefined();

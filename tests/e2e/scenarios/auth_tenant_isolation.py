@@ -40,7 +40,11 @@ def run(stack: MvpStack, seeded: SeededWorkspace) -> None:
     #    bare `Task` với `id` dạng string.
     r_create = company.post(
         "/operations/tasks",
-        json={"workspaceId": seeded.workspace_id, "title": "S1 isolation task"},
+        json={
+            "workspaceId": seeded.workspace_id,
+            "projectId": seeded.default_project_id,
+            "title": "S1 isolation task",
+        },
         token=seeded.owner_token,
         workspace_id=seeded.workspace_id,
     )

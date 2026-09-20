@@ -68,7 +68,7 @@ describe("Executive Role Activation Service (Project-scoped read model)", () => 
   it("lists all 13 roles with the new effective-state shape", async () => {
     const states = await getProjectExecutiveRoleStates(founderCtx, projectId);
     expect(states.projectId).toBe(projectId);
-    expect(states.roles).toHaveLength(13);
+    expect(states.roles).toHaveLength(15);
 
     const cfo = roleOf(states.roles, "cfo");
     expect(cfo).toBeDefined();
@@ -98,7 +98,9 @@ describe("Executive Role Activation Service (Project-scoped read model)", () => 
     }
 
     // Không mở rộng ngầm quyền lực sang các Office ngoài P0 Core.
-    expect(roleOf(board.roles, "coo")?.officeState).toBe("UNAVAILABLE");
+    expect(roleOf(board.roles, "coo")?.effectiveState).toBe("OFFICE_DISABLED");
+    expect(roleOf(board.roles, "coo")?.officeState).not.toBe("ACTIVE");
+    expect(roleOf(board.roles, "ciso")?.officeState).toBe("UNAVAILABLE");
   });
 
   it("does not disclose a foreign Project", async () => {

@@ -307,7 +307,7 @@ describe("Executive Role Activation Handler", () => {
       });
       const cfo = list.roles.find((r: ProjectExecutiveRoleView) => r.roleKey === "cfo");
       // Office chưa bật → OFFICE_DISABLED (endpoint deprecated không bật lén).
-      expect(cfo?.officeState).toBe("UNAVAILABLE");
+      expect(cfo?.officeState).toBe("AVAILABLE_NOT_ACTIVATED");
       expect(cfo?.effectiveState).toBe("OFFICE_DISABLED");
     });
   });

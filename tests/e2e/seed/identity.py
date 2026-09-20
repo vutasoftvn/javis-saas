@@ -413,7 +413,7 @@ def seed_workspace(
     owner_platform_user_id, _owner_email, _owner_pw = register_user(stack.platform.base_url)
     _link_platform_user(cluster, owner_user_id, owner_platform_user_id)
     seed_workforce_founder(cluster, workspace_id, owner_user_id)
-    seed_default_project(cluster, workspace_id)
+    default_proj_id = seed_default_project(cluster, workspace_id)
 
     member_user_id: str | None = None
     member_token: str | None = None
@@ -428,5 +428,6 @@ def seed_workspace(
         owner_token=owner_token,
         member_user_id=member_user_id,
         member_token=member_token,
+        default_project_id=str(default_proj_id),
     )
 

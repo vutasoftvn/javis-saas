@@ -57,15 +57,15 @@ export const AGENT_PROFILE_SPEC_VERSION: Record<OwnerAgentProfile, string> = {
 
 // Pinned definition_hash theo specs.py AgentSpec.compute_hash().
 export const AGENT_PROFILE_SPEC_HASH: Record<OwnerAgentProfile, string> = {
-  operations: "0c838f93ddc700984b9acdfead50ce45eb7f6ad867453edaf7c6793562dc33b2",
+  operations: "e013bfddbb49b8c9d0ba3e76e3bc53553ee5c90d03d160ef4f1116b8fb2969aa",
   finance: "21bacc10efd681f204e62e827111853a468436fa2413857bdc1b1e7e0c38be96",
-  marketing: "4666a8f2958a656edbcb17f520826da84db8d871797baca18b22bd1438d9838a",
+  marketing: "4331a0729636df5470b5c5444f1b41d0eea0e1c7d2cc8a52b06832ef8c3cb172",
   research_intelligence: "2a3e445f343954dbad137100816be11226b9651a39ba91088adcbbbce1a9e705",
   strategy: "9e73d25f9399303e78556c7f3b881f2fe1ef738b9e95c978f7106f5e55343dd0",
   customer_support: "71fbf6cfccd3299367ad88e68866e53fd488d406c7d74bd0fbaef472731e15aa",
   sales: "089a67c81dc22041835b0ed05df7a441305c6abe416f293f609cc5262d31f332",
   coding: "d388ea7491ff1bad0863444b9bb764fe15804ee7eb74a4aad25e402a0af573e2",
-  product: "f91ce512b333d3dff17672164206bc958fab042435fd420a926a715a1ac889be",
+  product: "b1dd13108cde94d879b774e1eace24b29660360e68285880c650d24d6532dda7",
   people: "a03fcb1d3050bf4f364ca7c9e7581b443c08d3dac781199162626a5329dc0b05",
   security: "54232cdc8454ebda917991b48eb38f639dae3e6d8db3081070b859561670d966",
   legal: "b3f8435557658d3882da386db95c41f087c173acfe39f43e688c122263f46baf",

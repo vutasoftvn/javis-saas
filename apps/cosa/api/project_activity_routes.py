@@ -11,7 +11,6 @@ import logging
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from agent.project_activity.repository import ProjectActivityRepository
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 

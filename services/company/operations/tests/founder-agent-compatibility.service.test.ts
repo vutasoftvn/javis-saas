@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { and, eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { createTestWorkspaceWithMember } from "./_helpers";
 import {
@@ -120,21 +121,33 @@ describe("Founder Agent Compatibility & Dual-Read Service", () => {
       return ensureAiWorkforceMember(tx, ws.workspaceId, "operations");
     });
 
-    const wsAgentId = generateSnowflake();
+    const [existingWsAgent] = await db
+      .select({ id: workspaceAgents.id })
+      .from(workspaceAgents)
+      .where(
+        and(
+          eq(workspaceAgents.workspaceId, BigInt(ws.workspaceId)),
+          eq(workspaceAgents.agentAssetId, AGENT_PROFILE_SPEC_ID.operations)
+        )
+      );
+
+    const wsAgentId = existingWsAgent ? existingWsAgent.id : generateSnowflake();
     const deploymentId = generateSnowflake();
 
-    await db.insert(workspaceAgents).values({
-      id: wsAgentId,
-      workspaceId: BigInt(ws.workspaceId),
-      agentAssetId: AGENT_PROFILE_SPEC_ID.operations,
-      agentAssetVersion: "1.3.0",
-      agentDefinitionHash: AGENT_PROFILE_SPEC_HASH.operations,
-      workforceMemberId: BigInt(memberId),
-      state: "ACTIVE",
-      originKind: "BUILTIN",
-      createdBy: BigInt(ws.userId),
-      version: 1,
-    });
+    if (!existingWsAgent) {
+      await db.insert(workspaceAgents).values({
+        id: wsAgentId,
+        workspaceId: BigInt(ws.workspaceId),
+        agentAssetId: AGENT_PROFILE_SPEC_ID.operations,
+        agentAssetVersion: "1.3.0",
+        agentDefinitionHash: AGENT_PROFILE_SPEC_HASH.operations,
+        workforceMemberId: BigInt(memberId),
+        state: "ACTIVE",
+        originKind: "BUILTIN",
+        createdBy: BigInt(ws.userId),
+        version: 1,
+      });
+    }
 
     await db.insert(projectAgentDeployments).values({
       id: deploymentId,

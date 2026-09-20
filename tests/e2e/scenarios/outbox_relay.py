@@ -58,9 +58,18 @@ def run(stack: MvpStack, seeded: SeededWorkspace, cluster: DisposableCluster) ->
 
     # 1. Mutation qua route thật: tạo task -> buildTaskCreatedEvent ghi 1 hàng
     #    integration.event_outbox trong CÙNG transaction.
+    project_id = seeded.default_project_id
+    if not project_id:
+        from tests.e2e.seed.identity import seed_default_project
+        project_id = str(seed_default_project(cluster, workspace_id))
+
     r_task = stack.company.post(
         "/operations/tasks",
-        json={"workspaceId": workspace_id, "title": "S4 outbox relay task"},
+        json={
+            "workspaceId": workspace_id,
+            "projectId": project_id,
+            "title": "S4 outbox relay task",
+        },
         token=seeded.owner_token,
         workspace_id=workspace_id,
     )
