@@ -5,13 +5,13 @@ import { extractAuthContext } from "../middleware";
 
 export interface InstallConnectorParams {
   authorization?: Header<"Authorization">;
-  workspaceId: string;
+  organizationId: string;
   connectorKey: string;
 }
 
 export interface AuthorizeConnectorParams {
   authorization?: Header<"Authorization">;
-  workspaceId: string;
+  organizationId: string;
   installationId: string;
   secretRef: string;
   grantedScopes: string[];
@@ -20,7 +20,7 @@ export interface AuthorizeConnectorParams {
 
 export interface GrantConnectorParams {
   authorization?: Header<"Authorization">;
-  workspaceId: string;
+  organizationId: string;
   conversationId: string;
   authorizationId: string;
   allowedActions?: string[];
@@ -29,23 +29,29 @@ export interface GrantConnectorParams {
 
 export interface RevokeGrantParams {
   authorization?: Header<"Authorization">;
-  workspaceId: string;
+  organizationId: string;
   conversationId: string;
   grantId: string;
 }
 
 export interface AssertConnectorParams {
   authorization?: Header<"Authorization">;
-  workspaceId: string;
+  organizationId: string;
   conversationId: string;
   connectorKey: string;
   action?: string;
   requiredScope?: string;
 }
 
+/** Dòng DB giữ khoá `workspaceId` (tên trường Drizzle); trên dây trả `organizationId`. */
+function withOrganizationId<T extends { workspaceId: string }>(row: T): Omit<T, "workspaceId"> & { organizationId: string } {
+  const { workspaceId, ...rest } = row;
+  return { ...rest, organizationId: workspaceId };
+}
+
 export interface ConnectorInstallationResponse {
   id: string;
-  workspaceId: string;
+  organizationId: string;
   connectorKey: string;
   installedBy: string;
   status: string;
@@ -65,7 +71,7 @@ export interface ConnectorAuthorizationResponse {
 
 export interface SessionConnectorGrantResponse {
   id: string;
-  workspaceId: string;
+  organizationId: string;
   conversationId: string;
   authorizationId: string;
   grantedBy: string;
@@ -95,31 +101,31 @@ export function parseIsoDate(value: string, fieldName: string): Date {
 export const installConnectorEndpoint = api(
   { method: "POST", path: "/cosa/connectors/install", expose: true },
   async (params: InstallConnectorParams): Promise<ConnectorInstallationResponse> => {
-    const authCtx = await extractAuthContext(params.authorization, params.workspaceId);
+    const authCtx = await extractAuthContext(params.authorization, params.organizationId);
 
     // Verify caller is a member of the workspace
-    await connectorSvc.verifyWorkspaceMembership(params.workspaceId, params.authorization);
+    await connectorSvc.verifyWorkspaceMembership(params.organizationId, params.authorization);
 
     const res = await connectorSvc.installWorkspaceConnector({
-      workspaceId: params.workspaceId,
+      organizationId: params.organizationId,
       connectorKey: params.connectorKey,
       installedBy: authCtx.userID,
     });
-    return res;
+    return withOrganizationId(res);
   }
 );
 
 export const registerAuthorizationEndpoint = api(
   { method: "POST", path: "/cosa/connectors/authorize", expose: true },
   async (params: AuthorizeConnectorParams): Promise<ConnectorAuthorizationResponse> => {
-    const authCtx = await extractAuthContext(params.authorization, params.workspaceId);
+    const authCtx = await extractAuthContext(params.authorization, params.organizationId);
 
     // Verify caller is a member of the workspace
-    await connectorSvc.verifyWorkspaceMembership(params.workspaceId, params.authorization);
+    await connectorSvc.verifyWorkspaceMembership(params.organizationId, params.authorization);
 
     const res = await connectorSvc.registerConnectorAuthorization({
       installationId: params.installationId,
-      workspaceId: params.workspaceId,
+      organizationId: params.organizationId,
       principalId: authCtx.userID,
       secretRef: params.secretRef,
       grantedScopes: params.grantedScopes,
@@ -140,16 +146,16 @@ const CONNECTOR_MANAGE_OTHERS_ROLES = new Set(["founder", "co-founder"]);
 export const grantConnectorEndpoint = api(
   { method: "POST", path: "/cosa/connectors/grant", expose: true },
   async (params: GrantConnectorParams): Promise<SessionConnectorGrantResponse> => {
-    const authCtx = await extractAuthContext(params.authorization, params.workspaceId);
+    const authCtx = await extractAuthContext(params.authorization, params.organizationId);
 
     // Verify caller is a member of the workspace, and lấy membershipRole đã được
     // services/company xác thực để xác định override founder/co-founder (không dùng role
     // tự khai trong JWT của caller).
-    const membership = await connectorSvc.verifyWorkspaceMembership(params.workspaceId, params.authorization);
+    const membership = await connectorSvc.verifyWorkspaceMembership(params.organizationId, params.authorization);
     const allowManageOthers = CONNECTOR_MANAGE_OTHERS_ROLES.has(membership.membershipRole);
 
     const res = await connectorSvc.grantConnectorToSession({
-      workspaceId: params.workspaceId,
+      organizationId: params.organizationId,
       conversationId: params.conversationId,
       authorizationId: params.authorizationId,
       grantedBy: authCtx.userID,
@@ -158,22 +164,22 @@ export const grantConnectorEndpoint = api(
       callerPrincipalId: authCtx.userID,
       allowManageOthers,
     });
-    return res;
+    return withOrganizationId(res);
   }
 );
 
 export const revokeGrantEndpoint = api(
   { method: "POST", path: "/cosa/connectors/revoke", expose: true },
   async (params: RevokeGrantParams) => {
-    const authCtx = await extractAuthContext(params.authorization, params.workspaceId);
+    const authCtx = await extractAuthContext(params.authorization, params.organizationId);
 
     // Verify caller is a member of the workspace, và lấy membershipRole đã xác thực để
     // xác định override founder/co-founder.
-    const membership = await connectorSvc.verifyWorkspaceMembership(params.workspaceId, params.authorization);
+    const membership = await connectorSvc.verifyWorkspaceMembership(params.organizationId, params.authorization);
     const allowManageOthers = CONNECTOR_MANAGE_OTHERS_ROLES.has(membership.membershipRole);
 
     const res = await connectorSvc.revokeSessionGrant({
-      workspaceId: params.workspaceId,
+      organizationId: params.organizationId,
       conversationId: params.conversationId,
       grantId: params.grantId,
       callerPrincipalId: authCtx.userID,
@@ -190,7 +196,7 @@ export const assertConnectorEndpoint = api(
     requireWorkerServiceAuth(params.authorization);
 
     const res = await connectorSvc.assertConnectorInvocation({
-      workspaceId: params.workspaceId,
+      organizationId: params.organizationId,
       conversationId: params.conversationId,
       connectorKey: params.connectorKey,
       action: params.action,

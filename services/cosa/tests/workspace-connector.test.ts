@@ -78,7 +78,7 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
 
   it("installs connector and ensures idempotency for duplicate installs", async () => {
     const inst1 = await connectorSvc.installWorkspaceConnector({
-      workspaceId: stableId("ws_1"),
+      organizationId: stableId("ws_1"),
       connectorKey: "sandbox-read",
       installedBy: stableId("user_admin"),
     });
@@ -86,7 +86,7 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
     expect(inst1.status).toBe("enabled");
 
     const inst2 = await connectorSvc.installWorkspaceConnector({
-      workspaceId: stableId("ws_1"),
+      organizationId: stableId("ws_1"),
       connectorKey: "sandbox-read",
       installedBy: stableId("user_admin"),
     });
@@ -96,7 +96,7 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
   it("rejects unapproved connector keys fail-closed", async () => {
     await expect(
       connectorSvc.installWorkspaceConnector({
-        workspaceId: stableId("ws_1"),
+        organizationId: stableId("ws_1"),
         connectorKey: "dangerous-desktop-control",
         installedBy: stableId("user_admin"),
       })
@@ -105,7 +105,7 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
 
   it("rejects secret_ref not matching required secret URI format", async () => {
     const inst = await connectorSvc.installWorkspaceConnector({
-      workspaceId: stableId("ws_1"),
+      organizationId: stableId("ws_1"),
       connectorKey: "sandbox-read",
       installedBy: stableId("user_admin"),
     });
@@ -113,7 +113,7 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
     await expect(
       connectorSvc.registerConnectorAuthorization({
         installationId: inst.id,
-        workspaceId: stableId("ws_1"),
+        organizationId: stableId("ws_1"),
         principalId: stableId("user_alice"),
         secretRef: "raw-access-token-12345",
         grantedScopes: ["read"],
@@ -126,7 +126,7 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
     await expect(
       registerAuthorizationEndpoint({
         authorization: `Bearer ${signPlatformToken(TEST_USER_ID.toString())}`,
-        workspaceId: stableId("ws_test"),
+        organizationId: stableId("ws_test"),
         installationId: "missing",
         secretRef: "not-a-vault-ref",
         grantedScopes: ["read"],
@@ -139,7 +139,7 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
     await expect(
       grantConnectorEndpoint({
         authorization: `Bearer ${signPlatformToken(TEST_USER_ID.toString())}`,
-        workspaceId: stableId("ws_test"),
+        organizationId: stableId("ws_test"),
         conversationId: "conversation",
         authorizationId: "authorization",
         expiresAt: "tomorrow-ish",
@@ -149,14 +149,14 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
 
   it("registers authorization and does not leak raw credentials in response", async () => {
     const inst = await connectorSvc.installWorkspaceConnector({
-      workspaceId: stableId("ws_1"),
+      organizationId: stableId("ws_1"),
       connectorKey: "sandbox-read",
       installedBy: stableId("user_admin"),
     });
 
     const auth = await connectorSvc.registerConnectorAuthorization({
       installationId: inst.id,
-      workspaceId: stableId("ws_1"),
+      organizationId: stableId("ws_1"),
       principalId: stableId("user_alice"),
       secretRef: "secret://cosa-connectors/vault-key-abc",
       grantedScopes: ["read:data"],
@@ -171,14 +171,14 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
 
   it("prevents cross-tenant authorization grants", async () => {
     const instA = await connectorSvc.installWorkspaceConnector({
-      workspaceId: stableId("ws_A"),
+      organizationId: stableId("ws_A"),
       connectorKey: "sandbox-read",
       installedBy: stableId("user_admin"),
     });
 
     const authA = await connectorSvc.registerConnectorAuthorization({
       installationId: instA.id,
-      workspaceId: stableId("ws_A"),
+      organizationId: stableId("ws_A"),
       principalId: stableId("user_alice"),
       secretRef: "secret://cosa-connectors/vault-key-a",
       grantedScopes: ["read:data"],
@@ -188,7 +188,7 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
     // Try granting authA in company_B / ws_B -> reject with not_found
     await expect(
       connectorSvc.grantConnectorToSession({
-        workspaceId: stableId("ws_B"),
+        organizationId: stableId("ws_B"),
         conversationId: "conv_b",
         authorizationId: authA.id,
         grantedBy: stableId("user_bob"),
@@ -201,7 +201,7 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
 
   it("rejects registerConnectorAuthorization when installation is disabled", async () => {
     const inst = await connectorSvc.installWorkspaceConnector({
-      workspaceId: stableId("ws_1"),
+      organizationId: stableId("ws_1"),
       connectorKey: "sandbox-read",
       installedBy: stableId("user_admin"),
     });
@@ -214,7 +214,7 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
     await expect(
       connectorSvc.registerConnectorAuthorization({
         installationId: inst.id,
-        workspaceId: stableId("ws_1"),
+        organizationId: stableId("ws_1"),
         principalId: stableId("user_alice"),
         secretRef: "secret://cosa-connectors/vault-key-1",
         grantedScopes: ["read"],
@@ -225,7 +225,7 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
 
   it("assertConnectorInvocation returns connector_reauth_required when authorization or grant expired", async () => {
     const inst = await connectorSvc.installWorkspaceConnector({
-      workspaceId: stableId("ws_1"),
+      organizationId: stableId("ws_1"),
       connectorKey: "sandbox-read",
       installedBy: stableId("user_admin"),
     });
@@ -233,7 +233,7 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
     // Expired authorization
     const expiredAuth = await connectorSvc.registerConnectorAuthorization({
       installationId: inst.id,
-      workspaceId: stableId("ws_1"),
+      organizationId: stableId("ws_1"),
       principalId: stableId("user_alice"),
       secretRef: "secret://cosa-connectors/vault-key-exp",
       grantedScopes: ["read:data"],
@@ -252,7 +252,7 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
     });
 
     const assertRes = await connectorSvc.assertConnectorInvocation({
-      workspaceId: stableId("ws_1"),
+      organizationId: stableId("ws_1"),
       conversationId: "conv_1",
       connectorKey: "sandbox-read",
       requiredScope: "read:data",
@@ -264,14 +264,14 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
 
   it("assertConnectorInvocation succeeds for active grant and correct scope", async () => {
     const inst = await connectorSvc.installWorkspaceConnector({
-      workspaceId: stableId("ws_1"),
+      organizationId: stableId("ws_1"),
       connectorKey: "sandbox-read",
       installedBy: stableId("user_admin"),
     });
 
     const authorization = await connectorSvc.registerConnectorAuthorization({
       installationId: inst.id,
-      workspaceId: stableId("ws_1"),
+      organizationId: stableId("ws_1"),
       principalId: stableId("user_alice"),
       secretRef: "secret://cosa-connectors/valid-vault-ref",
       grantedScopes: ["read", "metadata"],
@@ -279,7 +279,7 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
     });
 
     const grant = await connectorSvc.grantConnectorToSession({
-      workspaceId: stableId("ws_1"),
+      organizationId: stableId("ws_1"),
       conversationId: "conv_active",
       authorizationId: authorization.id,
       grantedBy: stableId("user_alice"),
@@ -289,7 +289,7 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
     });
 
     const successAssert = await connectorSvc.assertConnectorInvocation({
-      workspaceId: stableId("ws_1"),
+      organizationId: stableId("ws_1"),
       conversationId: "conv_active",
       connectorKey: "sandbox-read",
       action: "sandbox.read",
@@ -304,7 +304,7 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
 
   it("rejects registerConnectorAuthorization when installation belongs to a different company", async () => {
     const inst = await connectorSvc.installWorkspaceConnector({
-      workspaceId: stableId("ws_a"),
+      organizationId: stableId("ws_a"),
       connectorKey: "sandbox-read",
       installedBy: stableId("user_a"),
     });
@@ -312,7 +312,7 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
     await expect(
       connectorSvc.registerConnectorAuthorization({
         installationId: inst.id,
-        workspaceId: stableId("ws_b"),
+        organizationId: stableId("ws_b"),
         principalId: stableId("user_b"),
         secretRef: "secret://cosa-connectors/sandbox-read/b",
         grantedScopes: ["read"],
@@ -329,7 +329,7 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
     await expect(
       installConnectorEndpoint({
         authorization: `Bearer ${tokenNonMember}`,
-        workspaceId: stableId("ws_test"),
+        organizationId: stableId("ws_test"),
         connectorKey: "sandbox-read",
       })
     ).rejects.toMatchObject({ code: "permission_denied" });
@@ -349,13 +349,13 @@ describe("Task 4: connector authorization ownership enforcement", () => {
 
   async function setupAuthorizationOwnedByB(workspaceId: string) {
     const inst = await connectorSvc.installWorkspaceConnector({
-      workspaceId,
+      organizationId: workspaceId,
       connectorKey: "sandbox-read",
       installedBy: PRINCIPAL_B,
     });
     const auth = await connectorSvc.registerConnectorAuthorization({
       installationId: inst.id,
-      workspaceId,
+      organizationId: workspaceId,
       principalId: PRINCIPAL_B,
       secretRef: "secret://cosa-connectors/task4-b-secret",
       grantedScopes: ["read"],
@@ -372,7 +372,7 @@ describe("Task 4: connector authorization ownership enforcement", () => {
     await expect(
       grantConnectorEndpoint({
         authorization: `Bearer ${tokenA}`,
-        workspaceId: stableId("ws_task4_grant_reject"),
+        organizationId: stableId("ws_task4_grant_reject"),
         conversationId: "conv_task4_grant_reject",
         authorizationId: auth.id,
       })
@@ -386,7 +386,7 @@ describe("Task 4: connector authorization ownership enforcement", () => {
 
     const res = await grantConnectorEndpoint({
       authorization: `Bearer ${tokenB}`,
-      workspaceId: stableId("ws_task4_grant_owner"),
+      organizationId: stableId("ws_task4_grant_owner"),
       conversationId: "conv_task4_grant_owner",
       authorizationId: auth.id,
     });
@@ -401,7 +401,7 @@ describe("Task 4: connector authorization ownership enforcement", () => {
 
     const res = await grantConnectorEndpoint({
       authorization: `Bearer ${tokenA}`,
-      workspaceId: stableId("ws_task4_grant_override"),
+      organizationId: stableId("ws_task4_grant_override"),
       conversationId: "conv_task4_grant_override",
       authorizationId: auth.id,
     });
@@ -415,7 +415,7 @@ describe("Task 4: connector authorization ownership enforcement", () => {
     const tokenB = signPlatformToken(PRINCIPAL_B);
     const grant = await grantConnectorEndpoint({
       authorization: `Bearer ${tokenB}`,
-      workspaceId: stableId("ws_task4_revoke_reject"),
+      organizationId: stableId("ws_task4_revoke_reject"),
       conversationId: "conv_task4_revoke_reject",
       authorizationId: auth.id,
     });
@@ -424,7 +424,7 @@ describe("Task 4: connector authorization ownership enforcement", () => {
     await expect(
       revokeGrantEndpoint({
         authorization: `Bearer ${tokenA}`,
-        workspaceId: stableId("ws_task4_revoke_reject"),
+        organizationId: stableId("ws_task4_revoke_reject"),
         conversationId: "conv_task4_revoke_reject",
         grantId: grant.id,
       })
@@ -437,14 +437,14 @@ describe("Task 4: connector authorization ownership enforcement", () => {
     const tokenB = signPlatformToken(PRINCIPAL_B);
     const grant = await grantConnectorEndpoint({
       authorization: `Bearer ${tokenB}`,
-      workspaceId: stableId("ws_task4_revoke_owner"),
+      organizationId: stableId("ws_task4_revoke_owner"),
       conversationId: "conv_task4_revoke_owner",
       authorizationId: auth.id,
     });
 
     const res = await revokeGrantEndpoint({
       authorization: `Bearer ${tokenB}`,
-      workspaceId: stableId("ws_task4_revoke_owner"),
+      organizationId: stableId("ws_task4_revoke_owner"),
       conversationId: "conv_task4_revoke_owner",
       grantId: grant.id,
     });
@@ -461,7 +461,7 @@ describe("Task 4: connector authorization ownership enforcement", () => {
     const tokenB = signPlatformToken(PRINCIPAL_B);
     const grant = await grantConnectorEndpoint({
       authorization: `Bearer ${tokenB}`,
-      workspaceId: stableId("ws_task4_revoke_override"),
+      organizationId: stableId("ws_task4_revoke_override"),
       conversationId: "conv_task4_revoke_override",
       authorizationId: auth.id,
     });
@@ -471,7 +471,7 @@ describe("Task 4: connector authorization ownership enforcement", () => {
     await expect(
       revokeGrantEndpoint({
         authorization: `Bearer ${tokenA}`,
-        workspaceId: stableId("ws_task4_revoke_override"),
+        organizationId: stableId("ws_task4_revoke_override"),
         conversationId: "conv_task4_revoke_override",
         grantId: grant.id,
       })

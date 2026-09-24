@@ -32,7 +32,7 @@ async def install_connector(
         resp = await client.post(
             f"{control_plane_url}/cosa/connectors/install",
             json={
-                "workspaceId": identity.workspace_id,
+                "organizationId": identity.workspace_id,
                 "connectorKey": body.connector_key,
             },
             headers={"Authorization": token},
@@ -78,7 +78,7 @@ async def grant_connector(
         resp = await client.post(
             f"{control_plane_url}/cosa/connectors/grant",
             json={
-                "workspaceId": identity.workspace_id,
+                "organizationId": identity.workspace_id,
                 "conversationId": body.conversation_id,
                 "authorizationId": body.authorization_id,
                 "allowedActions": body.allowed_actions,
@@ -103,7 +103,7 @@ async def revoke_connector(
         resp = await client.post(
             f"{control_plane_url}/cosa/connectors/revoke",
             json={
-                "workspaceId": identity.workspace_id,
+                "organizationId": identity.workspace_id,
                 "conversationId": body.conversation_id,
                 "grantId": body.grant_id,
             },

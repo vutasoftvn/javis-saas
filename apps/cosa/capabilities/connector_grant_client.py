@@ -37,7 +37,7 @@ class ConnectorGrantHttpClient:
                 f"{self.base_url}/cosa/connectors/assert",
                 headers={"Authorization": f"Bearer {token}"},
                 json={
-                    "workspaceId": workspace_id,
+                    "organizationId": workspace_id,
                     "conversationId": conversation_id,
                     "connectorKey": connector_key,
                     "action": action,

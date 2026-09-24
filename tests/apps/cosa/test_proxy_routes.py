@@ -70,7 +70,7 @@ async def test_connector_and_schedule_proxy_routes(proxy_setup):
             json={
                 "id": "conn_inst_1",
                 "companyId": "company_A",
-                "workspaceId": "ws_A",
+                "organizationId": "ws_A",
                 "connectorKey": "sandbox-read",
                 "status": "enabled",
             },

@@ -288,7 +288,7 @@ def test_connector_lifecycle_and_cross_tenant_deny(control_plane_service, async_
             headers={"Authorization": f"Bearer {token_a}"},
             json={
                 "companyId": str(company_a_id),
-                "workspaceId": "ws_a",
+                "organizationId": "ws_a",
                 "connectorKey": "sandbox-read",
             },
         )
@@ -302,7 +302,7 @@ def test_connector_lifecycle_and_cross_tenant_deny(control_plane_service, async_
             json={
                 "installationId": installation_id,
                 "companyId": str(company_a_id),
-                "workspaceId": "ws_a",
+                "organizationId": "ws_a",
                 "secretRef": "secret://cosa-connectors/sandbox-read/token",
                 "grantedScopes": ["read"],
                 "expiresAt": "2099-01-01T00:00:00Z",
@@ -320,7 +320,7 @@ def test_connector_lifecycle_and_cross_tenant_deny(control_plane_service, async_
             headers={"Authorization": f"Bearer {token_a}"},
             json={
                 "companyId": str(company_a_id),
-                "workspaceId": "ws_a",
+                "organizationId": "ws_a",
                 "conversationId": "conv_a_1",
                 "authorizationId": authorization_id,
                 "allowedActions": ["read"],
@@ -335,7 +335,7 @@ def test_connector_lifecycle_and_cross_tenant_deny(control_plane_service, async_
             headers={"Authorization": f"Bearer {_worker_token()}"},
             json={
                 "companyId": str(company_a_id),
-                "workspaceId": "ws_a",
+                "organizationId": "ws_a",
                 "conversationId": "conv_a_1",
                 "connectorKey": "sandbox-read",
                 "requiredScope": "read",
@@ -351,7 +351,7 @@ def test_connector_lifecycle_and_cross_tenant_deny(control_plane_service, async_
             json={
                 "installationId": installation_id,
                 "companyId": str(company_b_id),
-                "workspaceId": "ws_b",
+                "organizationId": "ws_b",
                 "secretRef": "secret://cosa-connectors/sandbox-read/hijack",
                 "grantedScopes": ["read"],
                 "expiresAt": "2099-01-01T00:00:00Z",
@@ -365,7 +365,7 @@ def test_connector_lifecycle_and_cross_tenant_deny(control_plane_service, async_
             headers={"Authorization": f"Bearer {token_a}"},
             json={
                 "companyId": str(company_a_id),
-                "workspaceId": "ws_a",
+                "organizationId": "ws_a",
                 "conversationId": "conv_a_1",
                 "grantId": grant_id,  # BUG FIX: sử dụng biến đúng, không phải r.json().get("id", "")
             },
@@ -378,7 +378,7 @@ def test_connector_lifecycle_and_cross_tenant_deny(control_plane_service, async_
             headers={"Authorization": f"Bearer {_worker_token()}"},
             json={
                 "companyId": str(company_a_id),
-                "workspaceId": "ws_a",
+                "organizationId": "ws_a",
                 "conversationId": "conv_a_1",
                 "connectorKey": "sandbox-read",
             },
@@ -413,7 +413,7 @@ def test_connector_assert_denies_expired_and_scope_mismatch(control_plane_servic
             headers={"Authorization": f"Bearer {token_c}"},
             json={
                 "companyId": str(company_c_id),
-                "workspaceId": "ws_c",
+                "organizationId": "ws_c",
                 "connectorKey": "sandbox-read",
             },
         )
@@ -427,7 +427,7 @@ def test_connector_assert_denies_expired_and_scope_mismatch(control_plane_servic
             json={
                 "installationId": inst_id_expired,
                 "companyId": str(company_c_id),
-                "workspaceId": "ws_c",
+                "organizationId": "ws_c",
                 "secretRef": "secret://cosa-connectors/sandbox-read/expired",
                 "grantedScopes": ["read"],
                 "expiresAt": "2020-01-01T00:00:00Z",  # Quá khứ
@@ -442,7 +442,7 @@ def test_connector_assert_denies_expired_and_scope_mismatch(control_plane_servic
             headers={"Authorization": f"Bearer {token_c}"},
             json={
                 "companyId": str(company_c_id),
-                "workspaceId": "ws_c",
+                "organizationId": "ws_c",
                 "conversationId": "conv_expired",
                 "authorizationId": auth_id_expired,
                 "allowedActions": ["read"],
@@ -457,7 +457,7 @@ def test_connector_assert_denies_expired_and_scope_mismatch(control_plane_servic
             headers={"Authorization": f"Bearer {token_c}"},
             json={
                 "companyId": str(company_c_id),
-                "workspaceId": "ws_c",
+                "organizationId": "ws_c",
                 "connectorKey": "sandbox-read",
             },
         )
@@ -471,7 +471,7 @@ def test_connector_assert_denies_expired_and_scope_mismatch(control_plane_servic
             json={
                 "installationId": inst_id_scope,
                 "companyId": str(company_c_id),
-                "workspaceId": "ws_c",
+                "organizationId": "ws_c",
                 "secretRef": "secret://cosa-connectors/sandbox-read/scope",
                 "grantedScopes": ["read"],
                 "expiresAt": "2099-01-01T00:00:00Z",
@@ -486,7 +486,7 @@ def test_connector_assert_denies_expired_and_scope_mismatch(control_plane_servic
             headers={"Authorization": f"Bearer {token_c}"},
             json={
                 "companyId": str(company_c_id),
-                "workspaceId": "ws_c",
+                "organizationId": "ws_c",
                 "conversationId": "conv_scope",
                 "authorizationId": auth_id_scope,
                 "allowedActions": ["read"],
@@ -501,7 +501,7 @@ def test_connector_assert_denies_expired_and_scope_mismatch(control_plane_servic
             headers={"Authorization": f"Bearer {_worker_token()}"},
             json={
                 "companyId": str(company_c_id),
-                "workspaceId": "ws_c",
+                "organizationId": "ws_c",
                 "conversationId": "conv_scope",
                 "connectorKey": "sandbox-read",
                 "requiredScope": "write",  # Không có trong grantedScopes
@@ -517,7 +517,7 @@ def test_connector_assert_denies_expired_and_scope_mismatch(control_plane_servic
             headers={"Authorization": f"Bearer {_worker_token()}"},
             json={
                 "companyId": str(company_c_id),
-                "workspaceId": "ws_c",
+                "organizationId": "ws_c",
                 "conversationId": "conv_no_grant",
                 "connectorKey": "sandbox-read",
                 "requiredScope": "read",

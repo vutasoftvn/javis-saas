@@ -135,7 +135,7 @@ export async function resolveCallerAuthorizedForWorkspace(
 }
 
 export async function installWorkspaceConnector(input: {
-  workspaceId: string;
+  organizationId: string;
   connectorKey: string;
   installedBy: string;
 }) {
@@ -146,7 +146,7 @@ export async function installWorkspaceConnector(input: {
     .from(workspaceConnectorInstallations)
     .where(
       and(
-        eq(workspaceConnectorInstallations.workspaceId, input.workspaceId),
+        eq(workspaceConnectorInstallations.workspaceId, input.organizationId),
         eq(workspaceConnectorInstallations.connectorKey, input.connectorKey)
       )
     );
@@ -167,7 +167,7 @@ export async function installWorkspaceConnector(input: {
     .insert(workspaceConnectorInstallations)
     .values({
       id,
-      workspaceId: input.workspaceId,
+      workspaceId: input.organizationId,
       connectorKey: input.connectorKey,
       installedBy: input.installedBy,
       status: "enabled",
@@ -179,7 +179,7 @@ export async function installWorkspaceConnector(input: {
 
 export async function registerConnectorAuthorization(input: {
   installationId: string;
-  workspaceId: string;
+  organizationId: string;
   principalId: string;
   secretRef: string;
   grantedScopes: string[];
@@ -193,7 +193,7 @@ export async function registerConnectorAuthorization(input: {
     .where(
       and(
         eq(workspaceConnectorInstallations.id, input.installationId),
-        eq(workspaceConnectorInstallations.workspaceId, input.workspaceId)
+        eq(workspaceConnectorInstallations.workspaceId, input.organizationId)
       )
     );
 
@@ -210,7 +210,7 @@ export async function registerConnectorAuthorization(input: {
     .values({
       id,
       installationId: input.installationId,
-      workspaceId: input.workspaceId,
+      workspaceId: input.organizationId,
       principalId: input.principalId,
       secretRef: input.secretRef,
       grantedScopes: input.grantedScopes,
@@ -231,7 +231,7 @@ export async function registerConnectorAuthorization(input: {
 }
 
 export async function grantConnectorToSession(input: {
-  workspaceId: string;
+  organizationId: string;
   conversationId: string;
   authorizationId: string;
   grantedBy: string;
@@ -252,7 +252,7 @@ export async function grantConnectorToSession(input: {
     .where(
       and(
         eq(connectorAuthorizations.id, input.authorizationId),
-        eq(workspaceConnectorInstallations.workspaceId, input.workspaceId)
+        eq(workspaceConnectorInstallations.workspaceId, input.organizationId)
       )
     );
 
@@ -304,7 +304,7 @@ export async function grantConnectorToSession(input: {
     .insert(sessionConnectorGrants)
     .values({
       id,
-      workspaceId: input.workspaceId,
+      workspaceId: input.organizationId,
       conversationId: input.conversationId,
       authorizationId: input.authorizationId,
       grantedBy: input.grantedBy,
@@ -318,7 +318,7 @@ export async function grantConnectorToSession(input: {
 }
 
 export async function revokeSessionGrant(input: {
-  workspaceId: string;
+  organizationId: string;
   conversationId: string;
   grantId: string;
   callerPrincipalId: string;
@@ -336,9 +336,9 @@ export async function revokeSessionGrant(input: {
     .where(
       and(
         eq(sessionConnectorGrants.id, input.grantId),
-        eq(sessionConnectorGrants.workspaceId, input.workspaceId),
+        eq(sessionConnectorGrants.workspaceId, input.organizationId),
         eq(sessionConnectorGrants.conversationId, input.conversationId),
-        eq(connectorAuthorizations.workspaceId, input.workspaceId)
+        eq(connectorAuthorizations.workspaceId, input.organizationId)
       )
     );
 
@@ -366,7 +366,7 @@ export async function revokeSessionGrant(input: {
 }
 
 export async function assertConnectorInvocation(input: {
-  workspaceId: string;
+  organizationId: string;
   conversationId: string;
   connectorKey: string;
   action?: string;
@@ -384,7 +384,7 @@ export async function assertConnectorInvocation(input: {
     .innerJoin(workspaceConnectorInstallations, eq(connectorAuthorizations.installationId, workspaceConnectorInstallations.id))
     .where(
       and(
-        eq(sessionConnectorGrants.workspaceId, input.workspaceId),
+        eq(sessionConnectorGrants.workspaceId, input.organizationId),
         eq(sessionConnectorGrants.conversationId, input.conversationId),
         eq(workspaceConnectorInstallations.connectorKey, input.connectorKey)
       )
