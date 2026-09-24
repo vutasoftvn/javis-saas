@@ -522,22 +522,22 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/platform/internal/resolve-identity` | cosa | ✓ |  | services/cosa/handlers/venture-workspace.handler.ts |
 | POST | `/platform/internal/validate-membership` | cosa |  |  | services/cosa/handlers/company.handler.ts |
 | POST | `/platform/internal/validate-workspace-membership` | cosa | ✓ |  | services/cosa/handlers/venture-workspace.handler.ts |
-| GET | `/platform/organizations/:id/entitlement` | cosa | ✓ | ✓ | services/cosa/handlers/venture-workspace.handler.ts |
-| GET | `/platform/organizations/:workspaceId/audit-events` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
-| GET | `/platform/organizations/:workspaceId/capability-manifest` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
-| PUT | `/platform/organizations/:workspaceId/capability-manifest/:surfaceKey` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
-| GET | `/platform/organizations/:workspaceId/connectors` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
-| POST | `/platform/organizations/:workspaceId/connectors/:connectorKey/install` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
-| POST | `/platform/organizations/:workspaceId/connectors/:connectorKey/revoke` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
-| GET | `/platform/organizations/:workspaceId/members` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
-| GET | `/platform/organizations/:workspaceId/module-visibility` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
-| PUT | `/platform/organizations/:workspaceId/module-visibility/:moduleKey` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
-| PUT | `/platform/organizations/:workspaceId/module-visibility/:moduleKey/preference` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
-| GET | `/platform/organizations/:workspaceId/runtime-nodes` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
-| POST | `/platform/organizations/:workspaceId/runtime-nodes/:nodeId/revoke` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
-| GET | `/platform/organizations/:workspaceId/session-context` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
-| GET | `/platform/organizations/:workspaceId/skill-policies` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
-| PUT | `/platform/organizations/:workspaceId/skill-policies/:skillKey` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| GET | `/platform/organizations/:organizationId/audit-events` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| GET | `/platform/organizations/:organizationId/capability-manifest` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| PUT | `/platform/organizations/:organizationId/capability-manifest/:surfaceKey` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| GET | `/platform/organizations/:organizationId/connectors` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| POST | `/platform/organizations/:organizationId/connectors/:connectorKey/install` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| POST | `/platform/organizations/:organizationId/connectors/:connectorKey/revoke` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| GET | `/platform/organizations/:organizationId/entitlement` | cosa | ✓ | ✓ | services/cosa/handlers/venture-workspace.handler.ts |
+| GET | `/platform/organizations/:organizationId/members` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| GET | `/platform/organizations/:organizationId/module-visibility` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| PUT | `/platform/organizations/:organizationId/module-visibility/:moduleKey` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| PUT | `/platform/organizations/:organizationId/module-visibility/:moduleKey/preference` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| GET | `/platform/organizations/:organizationId/runtime-nodes` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| POST | `/platform/organizations/:organizationId/runtime-nodes/:nodeId/revoke` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| GET | `/platform/organizations/:organizationId/session-context` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| GET | `/platform/organizations/:organizationId/skill-policies` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| PUT | `/platform/organizations/:organizationId/skill-policies/:skillKey` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
 
 ### ⚠ `expose:true` không `auth` (rà M1)
 

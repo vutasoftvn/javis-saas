@@ -912,7 +912,7 @@
       "expires_on": "2026-12-31"
     },
     {
-      "path": "/platform/organizations/:platformWorkspaceId/entitlement",
+      "path": "/platform/organizations/:organizationId/entitlement",
       "method": "GET",
       "owner": "control-plane",
       "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
@@ -2420,7 +2420,7 @@
       "expires_on": "2027-06-01"
     },
     {
-      "path": "/platform/organizations/:workspaceId/session-context",
+      "path": "/platform/organizations/:organizationId/session-context",
       "method": "GET",
       "owner": "control-plane",
       "reason": "Auth/session bootstrap — per-workspace session context fetched right after login/switch-workspace; foundational identity plumbing, not an MVP business capability (same class as /identity/me, /identity/sync-from-platform).",

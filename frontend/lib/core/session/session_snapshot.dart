@@ -5,7 +5,7 @@ library;
 
 /// Metadata runtime (mode/presence/heartbeat) đi kèm mỗi session snapshot,
 /// lấy trực tiếp từ response server-authoritative của
-/// `GET /platform/organizations/:workspaceId/session-context` (Task 3) — không
+/// `GET /platform/organizations/:organizationId/session-context` (Task 3) — không
 /// tự suy diễn lại ở client.
 final class SessionRuntimeInfo {
   const SessionRuntimeInfo({

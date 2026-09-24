@@ -103,7 +103,7 @@ describe("Workspace capability manifest reflects the contract-bound policy", () 
 
   it("gives every live surface a non-empty requiredCapabilities list", async () => {
     const res = await getWorkspaceCapabilityManifest({
-      workspaceId: wsId,
+      organizationId: wsId,
       authorization: `Bearer ${token}`,
     });
     for (const s of res.data.surfaces) {
@@ -118,7 +118,7 @@ describe("Workspace capability manifest reflects the contract-bound policy", () 
 
   it("reports cash liquidity as CONFIGURATION_REQUIRED while CAS is not connected", async () => {
     const res = await getWorkspaceCapabilityManifest({
-      workspaceId: wsId,
+      organizationId: wsId,
       authorization: `Bearer ${token}`,
     });
     const cash = res.data.surfaces.find((s) => s.surfaceKey === "finance.cash_liquidity");

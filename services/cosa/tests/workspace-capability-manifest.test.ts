@@ -32,7 +32,7 @@ describe("Workspace Capability Manifest", () => {
 
   it("returns the spec §7.1 shape with a version and typed surfaces", async () => {
     const res = await getWorkspaceCapabilityManifest({
-      workspaceId: wsId,
+      organizationId: wsId,
       authorization: `Bearer ${operatorToken}`,
     });
     expect(res.data.version).toBeTruthy();
@@ -49,7 +49,7 @@ describe("Workspace Capability Manifest", () => {
 
   it("planned surfaces are PLANNED with a null contract endpoint", async () => {
     const res = await getWorkspaceCapabilityManifest({
-      workspaceId: wsId,
+      organizationId: wsId,
       authorization: `Bearer ${operatorToken}`,
     });
     const planned = res.data.surfaces.find((s) => s.surfaceKey === "knowledge.vault_rag");
@@ -59,7 +59,7 @@ describe("Workspace Capability Manifest", () => {
 
   it("finance cash liquidity is CONFIGURATION_REQUIRED until CAS connector enabled", async () => {
     const before = await getWorkspaceCapabilityManifest({
-      workspaceId: wsId,
+      organizationId: wsId,
       authorization: `Bearer ${operatorToken}`,
     });
     const cashBefore = before.data.surfaces.find((s) => s.surfaceKey === "finance.cash_liquidity");
@@ -67,13 +67,13 @@ describe("Workspace Capability Manifest", () => {
     expect(cashBefore!.reasons).toContain("connector_missing:cas");
 
     await installWorkspaceConnector({
-      workspaceId: wsId,
+      organizationId: wsId,
       connectorKey: "cas",
       authorization: `Bearer ${operatorToken}`,
     } as any);
 
     const after = await getWorkspaceCapabilityManifest({
-      workspaceId: wsId,
+      organizationId: wsId,
       authorization: `Bearer ${operatorToken}`,
     });
     const cashAfter = after.data.surfaces.find((s) => s.surfaceKey === "finance.cash_liquidity");
@@ -82,13 +82,13 @@ describe("Workspace Capability Manifest", () => {
 
   it("disabling the finance module makes finance surfaces UNAVAILABLE and unentitled", async () => {
     await setWorkspaceModuleEnabled({
-      workspaceId: wsId,
+      organizationId: wsId,
       moduleKey: "finance",
       enabled: false,
       authorization: `Bearer ${operatorToken}`,
     });
     const res = await getWorkspaceCapabilityManifest({
-      workspaceId: wsId,
+      organizationId: wsId,
       authorization: `Bearer ${operatorToken}`,
     });
     const budget = res.data.surfaces.find((s) => s.surfaceKey === "finance.project_budget");
@@ -97,7 +97,7 @@ describe("Workspace Capability Manifest", () => {
     expect(budget!.reasons).toContain("module_disabled:finance");
 
     await setWorkspaceModuleEnabled({
-      workspaceId: wsId,
+      organizationId: wsId,
       moduleKey: "finance",
       enabled: true,
       authorization: `Bearer ${operatorToken}`,
@@ -106,14 +106,14 @@ describe("Workspace Capability Manifest", () => {
 
   it("operator override can downgrade but never force AVAILABLE", async () => {
     await setWorkspaceSurfaceOverride({
-      workspaceId: wsId,
+      organizationId: wsId,
       surfaceKey: "project.operating_loop",
       statusOverride: "PILOT",
       reason: "trial cohort",
       authorization: `Bearer ${operatorToken}`,
     });
     const res = await getWorkspaceCapabilityManifest({
-      workspaceId: wsId,
+      organizationId: wsId,
       authorization: `Bearer ${operatorToken}`,
     });
     const loop = res.data.surfaces.find((s) => s.surfaceKey === "project.operating_loop");
@@ -122,7 +122,7 @@ describe("Workspace Capability Manifest", () => {
 
     await expect(
       setWorkspaceSurfaceOverride({
-        workspaceId: wsId,
+        organizationId: wsId,
         surfaceKey: "legacy.unknown_surface",
         statusOverride: "AVAILABLE",
         authorization: `Bearer ${operatorToken}`,
@@ -133,7 +133,7 @@ describe("Workspace Capability Manifest", () => {
   it("rejects a caller who is not a workspace member", async () => {
     await expect(
       getWorkspaceCapabilityManifest({
-        workspaceId: wsId,
+        organizationId: wsId,
         authorization: `Bearer ${outsiderToken}`,
       })
     ).rejects.toThrow();
@@ -154,7 +154,7 @@ describe("Workspace Capability Manifest", () => {
     const memberToken = signPlatformToken(member.user!.id);
     await expect(
       setWorkspaceSurfaceOverride({
-        workspaceId: wsId,
+        organizationId: wsId,
         surfaceKey: "founder_trial.board",
         statusOverride: "UNAVAILABLE",
         authorization: `Bearer ${memberToken}`,

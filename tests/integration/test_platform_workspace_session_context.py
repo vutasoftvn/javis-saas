@@ -1,4 +1,4 @@
-"""E2E HTTP integration coverage cho `GET /platform/organizations/:workspaceId/session-context`
+"""E2E HTTP integration coverage cho `GET /platform/organizations/:organizationId/session-context`
 (Task 3 — Frontend Trust and UX Hardening, plan
 `docs/superpowers/plans/2026-09-02-frontend-trust-and-ux-hardening.md`).
 

@@ -727,7 +727,7 @@
       "owner": "control-plane",
       "plane": "platform",
       "method": "GET",
-      "path": "/platform/organizations/:workspaceId/capability-manifest",
+      "path": "/platform/organizations/:organizationId/capability-manifest",
       "schema": "settings.capability_manifest.read.v1",
       "source_kind": "control_plane",
       "requires_workspace": true,

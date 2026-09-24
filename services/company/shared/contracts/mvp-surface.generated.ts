@@ -1247,7 +1247,7 @@ export const MVP_CAPABILITIES: readonly MvpCapabilityMetadata[] = [
     owner: "control-plane",
     plane: "platform",
     method: "GET",
-    path: "/platform/organizations/:workspaceId/capability-manifest",
+    path: "/platform/organizations/:organizationId/capability-manifest",
     schema: "settings.capability_manifest.read.v1",
     sourceKind: "control_plane",
     requiresWorkspace: true,

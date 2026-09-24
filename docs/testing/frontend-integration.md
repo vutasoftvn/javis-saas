@@ -108,7 +108,7 @@ Mỗi `tearDown` (bắt buộc theo đúng thứ tự, xem comment trong từng 
 | Fault | Cờ trên `FixtureServer` | Route bị ảnh hưởng | Test dùng nó |
 |---|---|---|---|
 | Identity 401 | `identityUnauthorized = true` | `GET /identity/me` trả 401 `{error: "unauthorized", ...}` | Chưa có test riêng khai thác cờ này trong 3 file hiện tại — cờ đã sẵn sàng cho task tương lai cần chứng minh "phiên hết hạn giữa chừng → logout, không giả vờ vẫn hợp lệ" (đúng nhánh `SessionActivationFailureReason.identityUnverified`, Task 4). |
-| Runtime offline | Seed workspace với `runtimeMode: 'REMOTE_ACCESS', presenceStatus: 'OFFLINE'` (không phải cờ riêng — đây là dữ liệu session-context bình thường, đúng cách production trả về) | `GET /platform/organizations/:id/session-context` | `remote_access_flow_test.dart` |
+| Runtime offline | Seed workspace với `runtimeMode: 'REMOTE_ACCESS', presenceStatus: 'OFFLINE'` (không phải cờ riêng — đây là dữ liệu session-context bình thường, đúng cách production trả về) | `GET /platform/organizations/:organizationId/session-context` | `remote_access_flow_test.dart` |
 | Agent approval 503 | `approvalsUnavailable = true` | `GET /agent/workforce/approvals` trả 503 `{error: "agent_runtime_unavailable", ...}` | `approvals_truthfulness_test.dart` |
 
 ## 7. Ba test file
@@ -166,7 +166,7 @@ Override 3 base URL qua `--dart-define=E2E_COMPANY_URL/E2E_COSA_URL/E2E_API_URL`
 (default khớp `make dev-stack`).
 
 **Vì sao không phải cả 3 test đều exercise đầy đủ đường controller/widget ở
-`real`:** hop `GET services/cosa /platform/organizations/:id/session-context`
+`real`:** hop `GET services/cosa /platform/organizations/:organizationId/session-context`
 (nguồn `runtimeMode`/`modeSource`) đòi platform token mà seed `_e2e/session`
 không cấp — đây là bug B5, xem
 `docs/architecture/adr/ADR-COSA-DELEGATION-002-agent-run-tenant-token.md`

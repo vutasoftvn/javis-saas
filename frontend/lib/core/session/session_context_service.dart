@@ -1,6 +1,6 @@
 /// Task 4 — nguồn duy nhất lấy [SessionSnapshot] xác thực từ server, gọi
 /// endpoint server-authoritative của Task 3
-/// (`GET /platform/organizations/:workspaceId/session-context`).
+/// (`GET /platform/organizations/:organizationId/session-context`).
 library;
 
 import 'dart:convert';

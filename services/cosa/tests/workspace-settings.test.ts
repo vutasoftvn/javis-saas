@@ -38,7 +38,7 @@ describe("Workspace Settings Endpoints", () => {
 
   it("lists workspace members truthfully", async () => {
     const res = await listWorkspaceMembers({
-      workspaceId,
+      organizationId: workspaceId,
       authorization: `Bearer ${validToken}`,
     });
     expect(res.meta.dataState).toBe("populated");
@@ -49,7 +49,7 @@ describe("Workspace Settings Endpoints", () => {
   it("handles connector installation, list and revocation without exposing secrets", async () => {
     // 1. Initially connectors list is empty
     const initList = await listWorkspaceConnectors({
-      workspaceId,
+      organizationId: workspaceId,
       authorization: `Bearer ${validToken}`,
     });
     expect(initList.data).toEqual([]);
@@ -57,7 +57,7 @@ describe("Workspace Settings Endpoints", () => {
 
     // 2. Install connector
     const installRes = await installWorkspaceConnector({
-      workspaceId,
+      organizationId: workspaceId,
       connectorKey: "google-drive",
       authorization: `Bearer ${validToken}`,
     });
@@ -67,7 +67,7 @@ describe("Workspace Settings Endpoints", () => {
 
     // 3. List connectors shows installed
     const listAfter = await listWorkspaceConnectors({
-      workspaceId,
+      organizationId: workspaceId,
       authorization: `Bearer ${validToken}`,
     });
     expect(listAfter.data.length).toBe(1);
@@ -75,7 +75,7 @@ describe("Workspace Settings Endpoints", () => {
 
     // 4. Revoke connector
     const revokeRes = await revokeWorkspaceConnector({
-      workspaceId,
+      organizationId: workspaceId,
       connectorKey: "google-drive",
       authorization: `Bearer ${validToken}`,
     });
@@ -83,7 +83,7 @@ describe("Workspace Settings Endpoints", () => {
 
     // 5. Audit events recorded installation and revocation
     const auditRes = await listWorkspaceAuditEvents({
-      workspaceId,
+      organizationId: workspaceId,
       authorization: `Bearer ${validToken}`,
     });
     expect(auditRes.data.length).toBeGreaterThanOrEqual(2);
@@ -92,7 +92,7 @@ describe("Workspace Settings Endpoints", () => {
 
   it("lists runtime nodes truthfully", async () => {
     const res = await listWorkspaceRuntimeNodes({
-      workspaceId,
+      organizationId: workspaceId,
       authorization: `Bearer ${validToken}`,
     });
     expect(res.data).toBeDefined();
@@ -103,7 +103,7 @@ describe("Workspace Settings Endpoints", () => {
     const workerToken = signWorkerServiceToken("worker_1", workspaceId);
     await expect(
       listWorkspaceMembers({
-        workspaceId,
+        organizationId: workspaceId,
         authorization: `Bearer ${workerToken}`,
       })
     ).rejects.toMatchObject({ code: "unauthenticated" });
@@ -138,7 +138,7 @@ describe("Workspace Skill Policy Endpoints (Task 4)", () => {
 
   it("persists a skill policy and increments revision", async () => {
     const first = await putWorkspaceSkillPolicy({
-      workspaceId,
+      organizationId: workspaceId,
       skillKey: "lead_enricher",
       authorization: `Bearer ${founderToken}`,
       enabled: true,
@@ -149,7 +149,7 @@ describe("Workspace Skill Policy Endpoints (Task 4)", () => {
     expect(first.meta.sources[0].kind).toBe("control_plane");
 
     const second = await putWorkspaceSkillPolicy({
-      workspaceId,
+      organizationId: workspaceId,
       skillKey: "lead_enricher",
       authorization: `Bearer ${founderToken}`,
       enabled: false,
@@ -162,7 +162,7 @@ describe("Workspace Skill Policy Endpoints (Task 4)", () => {
   it("rejects a non-member mutation", async () => {
     await expect(
       putWorkspaceSkillPolicy({
-        workspaceId,
+        organizationId: workspaceId,
         authorization: `Bearer ${outsiderToken}`,
         skillKey: "lead_enricher",
         enabled: true,
@@ -173,7 +173,7 @@ describe("Workspace Skill Policy Endpoints (Task 4)", () => {
 
   it("records an audit event on every skill policy mutation", async () => {
     await putWorkspaceSkillPolicy({
-      workspaceId,
+      organizationId: workspaceId,
       skillKey: "growth_hacking",
       authorization: `Bearer ${founderToken}`,
       enabled: true,
@@ -181,7 +181,7 @@ describe("Workspace Skill Policy Endpoints (Task 4)", () => {
     });
 
     const auditRes = await listWorkspaceAuditEvents({
-      workspaceId,
+      organizationId: workspaceId,
       authorization: `Bearer ${founderToken}`,
     });
 
@@ -220,7 +220,7 @@ describe("Workspace Session Context Endpoint (Task 3 — Frontend Trust and UX H
 
   it("returns only the authenticated member workspace session context", async () => {
     const ctx = await getWorkspaceSessionContext({
-      workspaceId,
+      organizationId: workspaceId,
       authorization: `Bearer ${founderToken}`,
     });
 
@@ -241,7 +241,7 @@ describe("Workspace Session Context Endpoint (Task 3 — Frontend Trust and UX H
   it("denies a member of another workspace", async () => {
     await expect(
       getWorkspaceSessionContext({
-        workspaceId,
+        organizationId: workspaceId,
         authorization: `Bearer ${outsiderToken}`,
       })
     ).rejects.toMatchObject({ code: "permission_denied" });
@@ -264,7 +264,7 @@ describe("Workspace Session Context Endpoint (Task 3 — Frontend Trust and UX H
       .where(eq(schema.workspaceRuntimeNodes.nodeId, BigInt(node.nodeId)));
 
     const ctx = await getWorkspaceSessionContext({
-      workspaceId,
+      organizationId: workspaceId,
       authorization: `Bearer ${founderToken}`,
     });
 
@@ -307,7 +307,7 @@ describe("Workspace Session Context Endpoint (Task 3 — Frontend Trust and UX H
     });
 
     const ctx = await getWorkspaceSessionContext({
-      workspaceId: ws2,
+      organizationId: ws2,
       authorization: `Bearer ${token2}`,
     });
 
@@ -349,7 +349,7 @@ describe("Workspace Module Visibility", () => {
 
   it("defaults to finance: true, legal: true, crm: true", async () => {
     const res = await listWorkspaceModuleVisibility({
-      workspaceId: wsId,
+      organizationId: wsId,
       authorization: `Bearer ${operatorToken}`,
     });
     expect(res.data.workspaceId).toBe(wsId);
@@ -362,7 +362,7 @@ describe("Workspace Module Visibility", () => {
 
   it("workspace operator can disable finance at workspace level with audit event", async () => {
     const res = await setWorkspaceModuleEnabled({
-      workspaceId: wsId,
+      organizationId: wsId,
       moduleKey: "finance",
       enabled: false,
       authorization: `Bearer ${operatorToken}`,
@@ -374,7 +374,7 @@ describe("Workspace Module Visibility", () => {
 
     // Verify audit event
     const auditRes = await listWorkspaceAuditEvents({
-      workspaceId: wsId,
+      organizationId: wsId,
       authorization: `Bearer ${operatorToken}`,
     });
     const event = auditRes.data.find(
@@ -386,12 +386,12 @@ describe("Workspace Module Visibility", () => {
 
   it("member can toggle personal visibility for legal without creating workspace audit event", async () => {
     const auditBefore = await listWorkspaceAuditEvents({
-      workspaceId: wsId,
+      organizationId: wsId,
       authorization: `Bearer ${operatorToken}`,
     });
 
     const res = await setUserModulePreference({
-      workspaceId: wsId,
+      organizationId: wsId,
       moduleKey: "legal",
       visible: false,
       authorization: `Bearer ${memberToken}`,
@@ -404,7 +404,7 @@ describe("Workspace Module Visibility", () => {
 
     // Verify no new workspace audit event
     const auditAfter = await listWorkspaceAuditEvents({
-      workspaceId: wsId,
+      organizationId: wsId,
       authorization: `Bearer ${operatorToken}`,
     });
     expect(auditAfter.data.length).toBe(auditBefore.data.length);
@@ -413,7 +413,7 @@ describe("Workspace Module Visibility", () => {
   it("personal toggle cannot enable a module disabled at workspace level", async () => {
     // finance is disabled at workspace level
     const res = await setUserModulePreference({
-      workspaceId: wsId,
+      organizationId: wsId,
       moduleKey: "finance",
       visible: true,
       authorization: `Bearer ${memberToken}`,
@@ -427,7 +427,7 @@ describe("Workspace Module Visibility", () => {
   it("member role cannot mutate workspace-level module setting", async () => {
     await expect(
       setWorkspaceModuleEnabled({
-        workspaceId: wsId,
+        organizationId: wsId,
         moduleKey: "legal",
         enabled: false,
         authorization: `Bearer ${memberToken}`,

@@ -6,7 +6,7 @@ import 'workspace_capability_manifest_model.dart';
 
 /// Founder Trial R1 — module visibility is no longer a second routing authority.
 /// It now derives entirely from [WorkspaceCapabilityManifestController]; the old
-/// `/platform/organizations/:id/module-visibility` service is removed.
+/// `/platform/organizations/:organizationId/module-visibility` service is removed.
 abstract interface class ModuleVisibilityApi {
   Future<List<ModuleVisibility>> fetchVisibility(String workspaceId);
   Future<bool> setWorkspaceEnabled(String workspaceId, OptionalModule module, bool enabled);

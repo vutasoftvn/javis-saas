@@ -191,7 +191,7 @@ Tóm tắt quan hệ với B5: `E2E_MODE=real` seed danh tính qua
 `tests/e2e/seed/identity.py` dùng), nhưng KHÔNG mint được platform token
 `aud="cosa"` — cùng điểm hỏng B5 mô tả ở trên. Vì vậy `session_workspace_flow`
 và `remote_access_flow` ở `real` mode né hop
-`GET services/cosa /platform/organizations/:id/session-context` và chỉ chứng minh
+`GET services/cosa /platform/organizations/:organizationId/session-context` và chỉ chứng minh
 phần B5-independent (tenant-header isolation ở transport, enforcement chỉ-đọc
 client-side); `approvals_truthfulness` chỉ khẳng định trạng thái terminal thay
 vì fault 503 chính xác. Khi B5 được vá, các phần này mở khoá cùng lúc với

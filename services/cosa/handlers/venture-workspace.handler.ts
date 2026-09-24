@@ -43,14 +43,14 @@ export interface MarkWorkspaceSyncedResponse {
 }
 
 export const getWorkspaceEntitlementEndpoint = api(
-  { method: "GET", path: "/platform/organizations/:id/entitlement", expose: true, auth: true },
-  async ({ id }: { id: string }): Promise<WorkspaceEntitlementView> => {
+  { method: "GET", path: "/platform/organizations/:organizationId/entitlement", expose: true, auth: true },
+  async ({ organizationId }: { organizationId: string }): Promise<WorkspaceEntitlementView> => {
     const authData = await resolveAuthData();
     const userId = BigInt(authData.userID);
-    const workspaceId = BigInt(id);
+    const workspaceId = BigInt(organizationId);
 
     // Core quyết định thành viên và bản chiếu được cập nhật trước khi đọc bảng cục bộ.
-    await authorizeAndProjectCoreAccess(authData.accessToken, id, "cosa.workspace.read");
+    await authorizeAndProjectCoreAccess(authData.accessToken, organizationId, "cosa.workspace.read");
 
     const membership = await validateWorkspaceMembership(userId, workspaceId);
     if (!membership) {

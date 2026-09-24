@@ -4,7 +4,7 @@ Task 4 (Truthful MVP Hardening) — apps/cosa (Agent Platform composition
 layer) KHÔNG tự lưu `workspace_skill_policies`. Nguồn sự thật thật sự nằm ở
 `services/cosa` (Encore/TS, bảng `control_plane.workspace_skill_policies`,
 migration 30). Client này chỉ forward bearer token + workspace ID sang
-`/platform/organizations/:workspaceId/skill-policies[...]` — mọi validate
+`/platform/organizations/:organizationId/skill-policies[...]` — mọi validate
 skillKey với registry riêng của Agent Platform xảy ra ở caller
 (`apps/cosa/api/settings_routes.py`) TRƯỚC khi gọi client này.
 """
@@ -43,7 +43,7 @@ class WorkspaceSettingsClient:
         self.timeout = timeout
 
     async def list_policies(self, *, workspace_id: str, bearer_token: str) -> list[dict[str, Any]]:
-        """`GET /platform/organizations/:workspaceId/skill-policies` — trả danh
+        """`GET /platform/organizations/:organizationId/skill-policies` — trả danh
         sách policy đã persist (có thể rỗng nếu workspace chưa cấu hình skill
         nào — khác với "control plane không phản hồi được")."""
         try:
@@ -82,7 +82,7 @@ class WorkspaceSettingsClient:
         config: dict[str, Any],
         bearer_token: str,
     ) -> dict[str, Any]:
-        """`PUT /platform/organizations/:workspaceId/skill-policies/:skillKey` —
+        """`PUT /platform/organizations/:organizationId/skill-policies/:skillKey` —
         trả policy đã persist (đã tăng `revision`) từ control plane, KHÔNG
         phải giá trị echo lại từ request."""
         try:
