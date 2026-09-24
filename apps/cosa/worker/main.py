@@ -48,6 +48,9 @@ logger = logging.getLogger("cosa.worker")
 
 WORKER_ID = os.environ.get("COSA_WORKER_ID") or f"worker_{uuid.uuid4().hex[:8]}"
 POLL_INTERVAL_SEC = float(os.environ.get("COSA_WORKER_POLL_INTERVAL_SEC", "1.0"))
+# Backoff khi control plane không kết nối được (vd. encore :4001 chưa lên):
+# tăng gấp đôi mỗi lần lỗi liên tiếp, tối đa mức này, tránh spam log 1 dòng/giây.
+POLL_MAX_BACKOFF_SEC = float(os.environ.get("COSA_WORKER_POLL_MAX_BACKOFF_SEC", "30.0"))
 LEASE_TTL_SEC = int(os.environ.get("COSA_WORKER_LEASE_TTL_SEC", "60"))
 LEASE_HEARTBEAT_SEC = int(os.environ.get("COSA_WORKER_LEASE_HEARTBEAT_SEC", "20"))
 # Phase 3 Durable Queue Recovery — heartbeat riêng cho claim scheduled_tasks
@@ -638,6 +641,7 @@ async def run_worker_loop(
         health_state: Trạng thái sức khoẻ dùng cho /ready endpoint (Part 1E).
     """
     iterations = 0
+    poll_failures = 0
     while max_iterations is None or iterations < max_iterations:
         if health_state is not None:
             health_state.last_poll_ts = asyncio.get_event_loop().time()
@@ -659,12 +663,25 @@ async def run_worker_loop(
         try:
             tasks = await plane.scheduler.poll_due_tasks(worker_id=WORKER_ID, limit=poll_limit)
         except Exception as exc:
-            logger.warning("Failed to poll due tasks from control plane (will retry): %s", exc)
+            poll_failures += 1
+            backoff = min(POLL_INTERVAL_SEC * 2 ** (poll_failures - 1), POLL_MAX_BACKOFF_SEC)
+            # Log lần đầu và mỗi lần lỗi thứ 10 để không ngập log khi plane down lâu.
+            if poll_failures == 1 or poll_failures % 10 == 0:
+                logger.warning(
+                    "Failed to poll due tasks from control plane (attempt %d, retry in %.0fs): %s",
+                    poll_failures,
+                    backoff,
+                    exc,
+                )
             if max_iterations is not None and iterations + 1 >= max_iterations:
                 raise
-            await asyncio.sleep(POLL_INTERVAL_SEC)
+            await asyncio.sleep(backoff)
             iterations += 1
             continue
+
+        if poll_failures:
+            logger.info("Control plane reachable again after %d failed polls", poll_failures)
+            poll_failures = 0
 
         set_scheduler_queue_depth(len(tasks) if tasks else 0)
 

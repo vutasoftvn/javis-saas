@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { describe, it, expect, beforeEach, beforeAll, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, beforeAll } from "vitest";
 import * as connectorSvc from "../services/workspace-connector.service";
 import { db, schema } from "../models/db";
 import {
@@ -8,7 +8,7 @@ import {
   grantConnectorEndpoint,
   revokeGrantEndpoint,
 } from "../handlers/workspace-connector.handler";
-import { signPlatformToken } from "../services/token.service";
+import { setFakeCoreDefaultMembership, signPlatformToken, stableId } from "./support/test-identity";
 
 const {
   workspaceConnectorInstallations,
@@ -72,38 +72,23 @@ beforeEach(async () => {
 
 describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
   beforeEach(() => {
-    // Mock fetch for workspace membership verification
-    vi.stubGlobal("fetch", vi.fn(async (url: string, opts?: any) => {
-      // For workspace membership checks, default to member (200)
-      // The non-member test will override this
-      return {
-        status: 200,
-        ok: true,
-        json: async () => ({
-          platformCompanyId: "1",
-          membershipRole: "member",
-        }),
-      } as any;
-    }));
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
+    // Core (giả): mặc định mọi caller là thành viên (member); test không phải thành viên đặt null.
+    setFakeCoreDefaultMembership("member");
   });
 
   it("installs connector and ensures idempotency for duplicate installs", async () => {
     const inst1 = await connectorSvc.installWorkspaceConnector({
-      workspaceId: "ws_1",
+      workspaceId: stableId("ws_1"),
       connectorKey: "sandbox-read",
-      installedBy: "user_admin",
+      installedBy: stableId("user_admin"),
     });
     expect(inst1.id).toBeDefined();
     expect(inst1.status).toBe("enabled");
 
     const inst2 = await connectorSvc.installWorkspaceConnector({
-      workspaceId: "ws_1",
+      workspaceId: stableId("ws_1"),
       connectorKey: "sandbox-read",
-      installedBy: "user_admin",
+      installedBy: stableId("user_admin"),
     });
     expect(inst2.id).toBe(inst1.id);
   });
@@ -111,25 +96,25 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
   it("rejects unapproved connector keys fail-closed", async () => {
     await expect(
       connectorSvc.installWorkspaceConnector({
-        workspaceId: "ws_1",
+        workspaceId: stableId("ws_1"),
         connectorKey: "dangerous-desktop-control",
-        installedBy: "user_admin",
+        installedBy: stableId("user_admin"),
       })
     ).rejects.toMatchObject({ code: "invalid_argument" });
   });
 
   it("rejects secret_ref not matching required secret URI format", async () => {
     const inst = await connectorSvc.installWorkspaceConnector({
-      workspaceId: "ws_1",
+      workspaceId: stableId("ws_1"),
       connectorKey: "sandbox-read",
-      installedBy: "user_admin",
+      installedBy: stableId("user_admin"),
     });
 
     await expect(
       connectorSvc.registerConnectorAuthorization({
         installationId: inst.id,
-        workspaceId: "ws_1",
-        principalId: "user_alice",
+        workspaceId: stableId("ws_1"),
+        principalId: stableId("user_alice"),
         secretRef: "raw-access-token-12345",
         grantedScopes: ["read"],
         expiresAt: new Date(Date.now() + 3600000),
@@ -141,7 +126,7 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
     await expect(
       registerAuthorizationEndpoint({
         authorization: `Bearer ${signPlatformToken(TEST_USER_ID.toString())}`,
-        workspaceId: "ws_test",
+        workspaceId: stableId("ws_test"),
         installationId: "missing",
         secretRef: "not-a-vault-ref",
         grantedScopes: ["read"],
@@ -154,7 +139,7 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
     await expect(
       grantConnectorEndpoint({
         authorization: `Bearer ${signPlatformToken(TEST_USER_ID.toString())}`,
-        workspaceId: "ws_test",
+        workspaceId: stableId("ws_test"),
         conversationId: "conversation",
         authorizationId: "authorization",
         expiresAt: "tomorrow-ish",
@@ -164,15 +149,15 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
 
   it("registers authorization and does not leak raw credentials in response", async () => {
     const inst = await connectorSvc.installWorkspaceConnector({
-      workspaceId: "ws_1",
+      workspaceId: stableId("ws_1"),
       connectorKey: "sandbox-read",
-      installedBy: "user_admin",
+      installedBy: stableId("user_admin"),
     });
 
     const auth = await connectorSvc.registerConnectorAuthorization({
       installationId: inst.id,
-      workspaceId: "ws_1",
-      principalId: "user_alice",
+      workspaceId: stableId("ws_1"),
+      principalId: stableId("user_alice"),
       secretRef: "secret://cosa-connectors/vault-key-abc",
       grantedScopes: ["read:data"],
       expiresAt: new Date(Date.now() + 3600000),
@@ -186,15 +171,15 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
 
   it("prevents cross-tenant authorization grants", async () => {
     const instA = await connectorSvc.installWorkspaceConnector({
-      workspaceId: "ws_A",
+      workspaceId: stableId("ws_A"),
       connectorKey: "sandbox-read",
-      installedBy: "user_admin",
+      installedBy: stableId("user_admin"),
     });
 
     const authA = await connectorSvc.registerConnectorAuthorization({
       installationId: instA.id,
-      workspaceId: "ws_A",
-      principalId: "user_alice",
+      workspaceId: stableId("ws_A"),
+      principalId: stableId("user_alice"),
       secretRef: "secret://cosa-connectors/vault-key-a",
       grantedScopes: ["read:data"],
       expiresAt: new Date(Date.now() + 3600000),
@@ -203,12 +188,12 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
     // Try granting authA in company_B / ws_B -> reject with not_found
     await expect(
       connectorSvc.grantConnectorToSession({
-        workspaceId: "ws_B",
+        workspaceId: stableId("ws_B"),
         conversationId: "conv_b",
         authorizationId: authA.id,
-        grantedBy: "user_bob",
+        grantedBy: stableId("user_bob"),
         allowedActions: ["read"],
-        callerPrincipalId: "user_bob",
+        callerPrincipalId: stableId("user_bob"),
         allowManageOthers: false,
       })
     ).rejects.toMatchObject({ code: "not_found" });
@@ -216,9 +201,9 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
 
   it("rejects registerConnectorAuthorization when installation is disabled", async () => {
     const inst = await connectorSvc.installWorkspaceConnector({
-      workspaceId: "ws_1",
+      workspaceId: stableId("ws_1"),
       connectorKey: "sandbox-read",
-      installedBy: "user_admin",
+      installedBy: stableId("user_admin"),
     });
 
     await db
@@ -229,8 +214,8 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
     await expect(
       connectorSvc.registerConnectorAuthorization({
         installationId: inst.id,
-        workspaceId: "ws_1",
-        principalId: "user_alice",
+        workspaceId: stableId("ws_1"),
+        principalId: stableId("user_alice"),
         secretRef: "secret://cosa-connectors/vault-key-1",
         grantedScopes: ["read"],
         expiresAt: new Date(Date.now() + 3600000),
@@ -240,16 +225,16 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
 
   it("assertConnectorInvocation returns connector_reauth_required when authorization or grant expired", async () => {
     const inst = await connectorSvc.installWorkspaceConnector({
-      workspaceId: "ws_1",
+      workspaceId: stableId("ws_1"),
       connectorKey: "sandbox-read",
-      installedBy: "user_admin",
+      installedBy: stableId("user_admin"),
     });
 
     // Expired authorization
     const expiredAuth = await connectorSvc.registerConnectorAuthorization({
       installationId: inst.id,
-      workspaceId: "ws_1",
-      principalId: "user_alice",
+      workspaceId: stableId("ws_1"),
+      principalId: stableId("user_alice"),
       secretRef: "secret://cosa-connectors/vault-key-exp",
       grantedScopes: ["read:data"],
       expiresAt: new Date(Date.now() - 1000), // in the past
@@ -258,16 +243,16 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
     // Directly insert grant or bypass check for test
     await db.insert(sessionConnectorGrants).values({
       id: "grant_exp_1",
-      workspaceId: "ws_1",
+      workspaceId: stableId("ws_1"),
       conversationId: "conv_1",
       authorizationId: expiredAuth.id,
-      grantedBy: "user_alice",
+      grantedBy: stableId("user_alice"),
       allowedActions: ["read"],
       state: "enabled",
     });
 
     const assertRes = await connectorSvc.assertConnectorInvocation({
-      workspaceId: "ws_1",
+      workspaceId: stableId("ws_1"),
       conversationId: "conv_1",
       connectorKey: "sandbox-read",
       requiredScope: "read:data",
@@ -279,32 +264,32 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
 
   it("assertConnectorInvocation succeeds for active grant and correct scope", async () => {
     const inst = await connectorSvc.installWorkspaceConnector({
-      workspaceId: "ws_1",
+      workspaceId: stableId("ws_1"),
       connectorKey: "sandbox-read",
-      installedBy: "user_admin",
+      installedBy: stableId("user_admin"),
     });
 
     const authorization = await connectorSvc.registerConnectorAuthorization({
       installationId: inst.id,
-      workspaceId: "ws_1",
-      principalId: "user_alice",
+      workspaceId: stableId("ws_1"),
+      principalId: stableId("user_alice"),
       secretRef: "secret://cosa-connectors/valid-vault-ref",
       grantedScopes: ["read", "metadata"],
       expiresAt: new Date(Date.now() + 3600000),
     });
 
     const grant = await connectorSvc.grantConnectorToSession({
-      workspaceId: "ws_1",
+      workspaceId: stableId("ws_1"),
       conversationId: "conv_active",
       authorizationId: authorization.id,
-      grantedBy: "user_alice",
+      grantedBy: stableId("user_alice"),
       allowedActions: ["sandbox.read"],
-      callerPrincipalId: "user_alice",
+      callerPrincipalId: stableId("user_alice"),
       allowManageOthers: false,
     });
 
     const successAssert = await connectorSvc.assertConnectorInvocation({
-      workspaceId: "ws_1",
+      workspaceId: stableId("ws_1"),
       conversationId: "conv_active",
       connectorKey: "sandbox-read",
       action: "sandbox.read",
@@ -319,16 +304,16 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
 
   it("rejects registerConnectorAuthorization when installation belongs to a different company", async () => {
     const inst = await connectorSvc.installWorkspaceConnector({
-      workspaceId: "ws_a",
+      workspaceId: stableId("ws_a"),
       connectorKey: "sandbox-read",
-      installedBy: "user_a",
+      installedBy: stableId("user_a"),
     });
 
     await expect(
       connectorSvc.registerConnectorAuthorization({
         installationId: inst.id,
-        workspaceId: "ws_b",
-        principalId: "user_b",
+        workspaceId: stableId("ws_b"),
+        principalId: stableId("user_b"),
         secretRef: "secret://cosa-connectors/sandbox-read/b",
         grantedScopes: ["read"],
         expiresAt: new Date(Date.now() + 3600_000),
@@ -337,20 +322,14 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
   });
 
   it("rejects installConnectorEndpoint when caller is not a member of workspace", async () => {
-    // Override the fetch mock to return 403 (not a member) for this test
-    vi.stubGlobal("fetch", vi.fn(async (url: string, opts?: any) => {
-      return {
-        status: 403,
-        ok: false,
-        json: async () => ({}),
-      } as any;
-    }));
+    // Core (giả) từ chối: caller không phải thành viên.
+    setFakeCoreDefaultMembership(null);
 
     const tokenNonMember = signPlatformToken(TEST_NON_MEMBER_USER_ID.toString());
     await expect(
       installConnectorEndpoint({
         authorization: `Bearer ${tokenNonMember}`,
-        workspaceId: "ws_test",
+        workspaceId: stableId("ws_test"),
         connectorKey: "sandbox-read",
       })
     ).rejects.toMatchObject({ code: "permission_denied" });
@@ -361,31 +340,11 @@ describe("Task 4: connector authorization ownership enforcement", () => {
   // Principal A ("user_a_task4") tries to manage authorizations owned by principal B
   // ("user_b_task4"). A workspace member relationship (Task 3's check) is not enough:
   // only the owner (or an audited founder/co-founder override) may grant/revoke.
-  const PRINCIPAL_A = "user_a_task4";
-  const PRINCIPAL_B = "user_b_task4";
-  let currentCallerMembershipRole = "member";
-
+  const PRINCIPAL_A = stableId("user_a_task4");
+  const PRINCIPAL_B = stableId("user_b_task4");
   beforeEach(() => {
-    // membershipRole simulates what services/company returns for the *caller* of the
-    // current request (verified server-side, not self-declared in the caller's JWT).
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => {
-        return {
-          status: 200,
-          ok: true,
-          json: async () => ({
-            platformCompanyId: "1",
-            membershipRole: currentCallerMembershipRole,
-          }),
-        } as any;
-      })
-    );
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    currentCallerMembershipRole = "member";
+    // Role của caller do core (giả) quyết định (không tự khai trong token của caller).
+    setFakeCoreDefaultMembership("member");
   });
 
   async function setupAuthorizationOwnedByB(workspaceId: string) {
@@ -406,14 +365,14 @@ describe("Task 4: connector authorization ownership enforcement", () => {
   }
 
   it("rejects grantConnectorEndpoint when a non-owner member (A) grants B's authorization", async () => {
-    const auth = await setupAuthorizationOwnedByB("ws_task4_grant_reject");
-    currentCallerMembershipRole = "member";
+    const auth = await setupAuthorizationOwnedByB(stableId("ws_task4_grant_reject"));
+    setFakeCoreDefaultMembership("member");
     const tokenA = signPlatformToken(PRINCIPAL_A);
 
     await expect(
       grantConnectorEndpoint({
         authorization: `Bearer ${tokenA}`,
-        workspaceId: "ws_task4_grant_reject",
+        workspaceId: stableId("ws_task4_grant_reject"),
         conversationId: "conv_task4_grant_reject",
         authorizationId: auth.id,
       })
@@ -421,13 +380,13 @@ describe("Task 4: connector authorization ownership enforcement", () => {
   });
 
   it("allows grantConnectorEndpoint when the owner (B) grants their own authorization", async () => {
-    const auth = await setupAuthorizationOwnedByB("ws_task4_grant_owner");
-    currentCallerMembershipRole = "member";
+    const auth = await setupAuthorizationOwnedByB(stableId("ws_task4_grant_owner"));
+    setFakeCoreDefaultMembership("member");
     const tokenB = signPlatformToken(PRINCIPAL_B);
 
     const res = await grantConnectorEndpoint({
       authorization: `Bearer ${tokenB}`,
-      workspaceId: "ws_task4_grant_owner",
+      workspaceId: stableId("ws_task4_grant_owner"),
       conversationId: "conv_task4_grant_owner",
       authorizationId: auth.id,
     });
@@ -436,13 +395,13 @@ describe("Task 4: connector authorization ownership enforcement", () => {
   });
 
   it("allows grantConnectorEndpoint when caller (A) has an audited founder override", async () => {
-    const auth = await setupAuthorizationOwnedByB("ws_task4_grant_override");
-    currentCallerMembershipRole = "founder";
+    const auth = await setupAuthorizationOwnedByB(stableId("ws_task4_grant_override"));
+    setFakeCoreDefaultMembership("founder");
     const tokenA = signPlatformToken(PRINCIPAL_A);
 
     const res = await grantConnectorEndpoint({
       authorization: `Bearer ${tokenA}`,
-      workspaceId: "ws_task4_grant_override",
+      workspaceId: stableId("ws_task4_grant_override"),
       conversationId: "conv_task4_grant_override",
       authorizationId: auth.id,
     });
@@ -451,12 +410,12 @@ describe("Task 4: connector authorization ownership enforcement", () => {
   });
 
   it("rejects revokeGrantEndpoint when a non-owner member (A) revokes B's grant", async () => {
-    const auth = await setupAuthorizationOwnedByB("ws_task4_revoke_reject");
-    currentCallerMembershipRole = "member";
+    const auth = await setupAuthorizationOwnedByB(stableId("ws_task4_revoke_reject"));
+    setFakeCoreDefaultMembership("member");
     const tokenB = signPlatformToken(PRINCIPAL_B);
     const grant = await grantConnectorEndpoint({
       authorization: `Bearer ${tokenB}`,
-      workspaceId: "ws_task4_revoke_reject",
+      workspaceId: stableId("ws_task4_revoke_reject"),
       conversationId: "conv_task4_revoke_reject",
       authorizationId: auth.id,
     });
@@ -465,7 +424,7 @@ describe("Task 4: connector authorization ownership enforcement", () => {
     await expect(
       revokeGrantEndpoint({
         authorization: `Bearer ${tokenA}`,
-        workspaceId: "ws_task4_revoke_reject",
+        workspaceId: stableId("ws_task4_revoke_reject"),
         conversationId: "conv_task4_revoke_reject",
         grantId: grant.id,
       })
@@ -473,19 +432,19 @@ describe("Task 4: connector authorization ownership enforcement", () => {
   });
 
   it("allows revokeGrantEndpoint when the owner (B) revokes their own grant", async () => {
-    const auth = await setupAuthorizationOwnedByB("ws_task4_revoke_owner");
-    currentCallerMembershipRole = "member";
+    const auth = await setupAuthorizationOwnedByB(stableId("ws_task4_revoke_owner"));
+    setFakeCoreDefaultMembership("member");
     const tokenB = signPlatformToken(PRINCIPAL_B);
     const grant = await grantConnectorEndpoint({
       authorization: `Bearer ${tokenB}`,
-      workspaceId: "ws_task4_revoke_owner",
+      workspaceId: stableId("ws_task4_revoke_owner"),
       conversationId: "conv_task4_revoke_owner",
       authorizationId: auth.id,
     });
 
     const res = await revokeGrantEndpoint({
       authorization: `Bearer ${tokenB}`,
-      workspaceId: "ws_task4_revoke_owner",
+      workspaceId: stableId("ws_task4_revoke_owner"),
       conversationId: "conv_task4_revoke_owner",
       grantId: grant.id,
     });
@@ -497,22 +456,22 @@ describe("Task 4: connector authorization ownership enforcement", () => {
     // Policy decision (review round 1/5, 2026-08-30): only founder/co-founder override,
     // matching getRolePermissions() in services/company/identity/services/tenant-context.service.ts,
     // which buckets "admin" with "member"/"user" (["read","write"]) rather than full ("*") access.
-    const auth = await setupAuthorizationOwnedByB("ws_task4_revoke_override");
-    currentCallerMembershipRole = "member";
+    const auth = await setupAuthorizationOwnedByB(stableId("ws_task4_revoke_override"));
+    setFakeCoreDefaultMembership("member");
     const tokenB = signPlatformToken(PRINCIPAL_B);
     const grant = await grantConnectorEndpoint({
       authorization: `Bearer ${tokenB}`,
-      workspaceId: "ws_task4_revoke_override",
+      workspaceId: stableId("ws_task4_revoke_override"),
       conversationId: "conv_task4_revoke_override",
       authorizationId: auth.id,
     });
 
-    currentCallerMembershipRole = "admin";
+    setFakeCoreDefaultMembership("admin");
     const tokenA = signPlatformToken(PRINCIPAL_A);
     await expect(
       revokeGrantEndpoint({
         authorization: `Bearer ${tokenA}`,
-        workspaceId: "ws_task4_revoke_override",
+        workspaceId: stableId("ws_task4_revoke_override"),
         conversationId: "conv_task4_revoke_override",
         grantId: grant.id,
       })

@@ -1,21 +1,8 @@
-import jwt from "jsonwebtoken";
 import { APIError } from "encore.dev/api";
 import { isStagingOrProd } from "../../shared/env";
 
-const DEV_PLATFORM_JWT_SECRET = "cosa-super-secret-platform-jwt-key-change-in-prod";
 const DEV_PLATFORM_URL = "http://127.0.0.1:4001";
 const PLATFORM_REQUEST_TIMEOUT_MS = 5000;
-
-export function getPlatformJwtSecret(): string {
-  const secret = process.env.PLATFORM_JWT_SECRET;
-  if (isStagingOrProd()) {
-    if (!secret || secret === DEV_PLATFORM_JWT_SECRET || secret.length < 32) {
-      throw APIError.internal("PLATFORM_JWT_SECRET must be explicitly set with >= 32 characters in staging/production");
-    }
-    return secret;
-  }
-  return secret || DEV_PLATFORM_JWT_SECRET;
-}
 
 export function getPlatformUrl(): string {
   const url = process.env.PLATFORM_API_BASE_URL;
@@ -28,23 +15,58 @@ export function getPlatformUrl(): string {
   return url || DEV_PLATFORM_URL;
 }
 
-export interface PlatformJwtPayload {
-  sub: string;
-  aud: "cosa" | "control_plane";
+// Access token OIDC của backend/core là chuỗi opaque không có dấu chấm; token có dấu chấm (JWT) không phải
+// danh tính người dùng. Token do control-plane (cosa) xác thực qua backend/core.
+function isJwtShaped(token: string): boolean {
+  return token.includes(".");
 }
 
+export interface PlatformIdentity {
+  userId: string;
+  email?: string | null;
+  displayName?: string | null;
+}
 
-
-export function verifyPlatformToken(token: string): PlatformJwtPayload {
-  const secret = getPlatformJwtSecret();
-  try {
-    return jwt.verify(token, secret, {
-      audience: "cosa",
-      issuer: "cosa_platform",
-    }) as PlatformJwtPayload;
-  } catch {
-    throw APIError.unauthenticated("invalid or expired platform token");
+/**
+ * Danh tính của người giữ access token OIDC của core: hỏi control-plane (cosa)
+ * `POST /platform/internal/resolve-identity`, nơi introspect thật với backend/core.
+ */
+export async function resolvePlatformIdentity(token: string): Promise<PlatformIdentity> {
+  if (!token || isJwtShaped(token)) {
+    throw APIError.unauthenticated("invalid or expired access token");
   }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), PLATFORM_REQUEST_TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await fetch(`${getPlatformUrl()}/platform/internal/resolve-identity`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ platformToken: token }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    throw APIError.unavailable(
+      "không thể xác thực danh tính với control-plane (cosa) — thử lại sau",
+      err instanceof Error ? err : undefined
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  if (res.status === 401 || res.status === 403) {
+    throw APIError.unauthenticated("invalid or expired access token");
+  }
+  if (!res.ok) {
+    throw APIError.unavailable(`control-plane trả về lỗi không mong đợi: HTTP ${res.status}`);
+  }
+  const data = (await res.json()) as PlatformIdentity;
+  if (!data.userId) {
+    throw APIError.unavailable("control-plane không trả về userId");
+  }
+  return data;
 }
 
 /**
@@ -76,7 +98,6 @@ export interface PlatformWorkspaceMembership {
 export async function listPlatformWorkspaceMemberships(params: {
   platformToken: string;
 }): Promise<PlatformWorkspaceMembership[]> {
-  verifyPlatformToken(params.platformToken);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), PLATFORM_REQUEST_TIMEOUT_MS);
@@ -118,7 +139,6 @@ export async function validatePlatformWorkspaceMembership(params: {
   platformToken: string;
   platformWorkspaceId: string;
 }): Promise<PlatformWorkspaceMembership & { valid: boolean }> {
-  verifyPlatformToken(params.platformToken);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), PLATFORM_REQUEST_TIMEOUT_MS);

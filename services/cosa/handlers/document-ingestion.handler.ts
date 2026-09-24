@@ -1,5 +1,6 @@
 import { api, Header, APIError } from "encore.dev/api";
-import { verifyPlatformToken, requireWorkerServiceAuth } from "../services/token.service";
+import { requireWorkerServiceAuth } from "../services/token.service";
+import { resolveCallerIdentity } from "../services/core-access.service";
 import * as ingestionSvc from "../services/document-ingestion.service";
 import { verifyWorkspaceMembership } from "../services/workspace-connector.service";
 
@@ -53,7 +54,7 @@ export const createDocumentIngestionEndpoint = api(
     }
 
     const token = params.authorization.replace(/^Bearer\s+/i, "");
-    const claims = verifyPlatformToken(token);
+    const claims = { sub: (await resolveCallerIdentity(token)).userId };
 
     // Verify caller is a member of the workspace
     await verifyWorkspaceMembership(params.workspaceId, params.authorization);
@@ -80,7 +81,7 @@ export const getDocumentIngestionEndpoint = api(
     }
 
     const token = params.authorization.replace(/^Bearer\s+/i, "");
-    verifyPlatformToken(token);
+    await resolveCallerIdentity(token);
 
     // Verify caller is a member of the workspace
     await verifyWorkspaceMembership(params.workspaceId, params.authorization);
@@ -132,7 +133,7 @@ export const reviewDocumentIngestionEndpoint = api(
     }
 
     const token = params.authorization.replace(/^Bearer\s+/i, "");
-    const claims = verifyPlatformToken(token);
+    const claims = { sub: (await resolveCallerIdentity(token)).userId };
 
     // Verify caller is a member of the workspace
     await verifyWorkspaceMembership(params.workspaceId, params.authorization);

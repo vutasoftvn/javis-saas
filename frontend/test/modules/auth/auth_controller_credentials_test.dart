@@ -92,8 +92,22 @@ void main() {
         SharedPreferences.setMockInitialValues({});
 
         ApiClient.client = MockClient((request) async {
-          if (request.url.path.contains('/platform/auth/sessions')) {
-            return http.Response('{"access_token":"plat-tok-123","token_type":"bearer"}', 200);
+          // Đăng nhập trực tiếp với backend/core rồi đổi lấy access token OIDC (PKCE).
+          if (request.url.path == '/auth/login') {
+            return http.Response(
+              '{"user":{"id":"42"},"accessToken":"session-jwt","refreshToken":"r0","expiresIn":3600}',
+              200,
+            );
+          }
+          if (request.url.path == '/oauth/authorize') {
+            final q = request.url.queryParameters;
+            return http.Response('{"redirectUrl":"${q['redirect_uri']}?code=c1&state=${q['state']}"}', 200);
+          }
+          if (request.url.path == '/oauth/token') {
+            return http.Response(
+              '{"access_token":"plat-tok-123","refresh_token":"oidc-r","expires_in":3600,"token_type":"Bearer"}',
+              200,
+            );
           }
           if (request.url.path.contains('/identity/sync-from-platform')) {
             return http.Response(
@@ -113,7 +127,8 @@ void main() {
         await controller.login('founder@example.com', 'super-secret-plaintext');
 
         final prefs = await SharedPreferences.getInstance();
-        expect(prefs.getString('saved_identifier'), 'founder@example.com');
+        expect(prefs.getString('saved_identifier'), 'founder@example.com',
+            reason: 'errorMessage=${controller.errorMessage.value}');
         expect(prefs.containsKey('saved_password'), isFalse);
         expect(controller.errorMessage.value, isEmpty);
 

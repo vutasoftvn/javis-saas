@@ -1,8 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
-import { registerPlatformUser } from "../services/auth.service";
 import { provisionVentureWorkspace } from "../services/venture-workspace.service";
-import { signPlatformToken, signWorkerServiceToken } from "../services/token.service";
+import { signWorkerServiceToken } from "../services/token.service";
 import { registerRuntimeNode } from "../services/runtime-node-registry.service";
 import { db, schema } from "../models/db";
 import {
@@ -18,6 +17,7 @@ import {
   setWorkspaceModuleEnabled,
   setUserModulePreference,
 } from "../handlers/workspace-settings.handler";
+import { registerPlatformUser, signPlatformToken } from "./support/test-identity";
 
 describe("Workspace Settings Endpoints", () => {
   let userId: string;
@@ -106,7 +106,7 @@ describe("Workspace Settings Endpoints", () => {
         workspaceId,
         authorization: `Bearer ${workerToken}`,
       })
-    ).rejects.toThrow(/invalid or expired platform token|unauthenticated/i);
+    ).rejects.toMatchObject({ code: "unauthenticated" });
   });
 });
 
@@ -168,7 +168,7 @@ describe("Workspace Skill Policy Endpoints (Task 4)", () => {
         enabled: true,
         config: {},
       })
-    ).rejects.toThrow(/permission/i);
+    ).rejects.toMatchObject({ code: "permission_denied" });
   });
 
   it("records an audit event on every skill policy mutation", async () => {
@@ -244,7 +244,7 @@ describe("Workspace Session Context Endpoint (Task 3 — Frontend Trust and UX H
         workspaceId,
         authorization: `Bearer ${outsiderToken}`,
       })
-    ).rejects.toThrow(/permission/i);
+    ).rejects.toMatchObject({ code: "permission_denied" });
   });
 
   it("reports REMOTE_ACCESS/OFFLINE when the local runtime node is registered but unreachable — no implicit cloud target", async () => {

@@ -1,351 +1,215 @@
 # COSA — Founder / Company Operating System
 
-> **Create. Operate. Scale. Automate.**
+> **Create. Operate. Scale. Automate.**  
+> Hệ điều hành vận hành doanh nghiệp tích hợp AI Multi-Agent.
 
-COSA là hệ điều hành vận hành công ty có AI hỗ trợ. Hệ thống biến chiến lược,
-công việc, khách hàng, tài chính và tuân thủ thành dữ liệu cùng quy trình có
-cấu trúc; các agent là lực lượng thực thi có kiểm soát, không phải những bot
-độc lập tự quyết định nghiệp vụ.
+README này cung cấp hướng dẫn đầy đủ về kiến trúc hệ thống, phân bổ cổng (port mapping), quy trình khởi động stack phát triển, và cơ chế đăng ký / đăng nhập (hỗ trợ cả Email và Số điện thoại).
 
-README này mô tả **hành vi đang có trong mã nguồn**. Nó ưu tiên các ranh giới
-thực thi, dữ liệu và quyền hạn để cả founder lẫn kỹ sư biết rõ COSA làm gì,
-luồng nào đang chạy và giới hạn hiện tại nằm ở đâu.
+---
 
-## COSA giải quyết việc gì?
+## 1. Bản Đồ Kiến Trúc & Phân Bổ Cổng (Port Mapping)
 
-| Lĩnh vực | Chức năng chính | Nơi giữ sự thật nghiệp vụ |
-| --- | --- | --- |
-| Chiến lược / Project | Lifecycle Workspace (W0→W5) và Project (P0→P6), OKR, initiative, operating cycle (1–12 tuần), commitment, task, evidence/decision và next-best action | `services/company/operations/strategy/` + `services/company/identity/` (lifecycle) |
-| Vận hành | Project, execution plan, task, dependency, lịch chu kỳ và theo dõi kết quả thực thi | `services/company/operations/` |
-| Thương mại | CRM (lead, account, contact, opportunity, customer), marketing, chiến dịch và customer engagement | `services/company/commercial/` |
-| Tài chính và pháp lý | Pháp nhân, kỳ kế toán, chứng từ, sổ sách/báo cáo TT58, CAS, thanh toán, nghĩa vụ pháp lý và AI compliance | `services/company/finance-legal/` |
-| Lực lượng lao động | Một mô hình `WorkforceMember` chung cho người và AI; gán vai trò, agent, lịch, approval và dashboard | `services/company/identity/`, `apps/cosa/api/workforce_routes.py` |
-| Agent Platform | Hội thoại, run bất đồng bộ, capability, skillpack, workflow, audit, event stream, knowledge ingestion và connector | `packages/agent/`, `apps/cosa/` |
-
-`workspace` là đơn vị tenant chính. Các luồng nghiệp vụ và agent phải lấy
-workspace từ danh tính đã xác minh ở server; `X-Workspace-Id` của client chỉ
-là tín hiệu để đối chiếu, không phải authority. UI có thể ẩn một module theo
-cấu hình workspace, nhưng quyền đọc/ghi vẫn luôn phải được service kiểm tra ở
-server.
-
-## Bản đồ kiến trúc
-
-Tên “COSA” xuất hiện ở ba ngữ cảnh khác nhau:
-
-| Tên | Vai trò |
-| --- | --- |
-| `services/cosa` | **Control Plane** TypeScript/Encore: identity nền tảng, plan/license, policy, connector, scheduler, run lease và runtime node. |
-| `apps/cosa` | **Composition layer** Python: FastAPI, worker và nơi ghép Agent Platform với các service nghiệp vụ. |
-| COSA | Toàn bộ sản phẩm — Experience, Control Plane, Business Plane và Agent Platform. |
+Hệ thống COSA phân tách rõ ràng giữa **Nền tảng Quản trị Trung tâm (Control Plane)**, **Nghiệp vụ Công ty (Business Plane)**, **Tầng AI Thực thi (Agent Platform)** và **Giao diện Người dùng (Frontend)**:
 
 ```mermaid
 flowchart LR
-    U[Founder / nhân sự] --> F[Experience Plane<br/>Flutter]
-    F --> C[COSA Control Plane<br/>services/cosa · Encore/TS]
-    F --> B[Company Business<br/>services/company · Encore/TS]
-    F --> A[Agent API<br/>apps/cosa · FastAPI]
-    A <--> C
-    A <--> B
-    A --> W[Worker<br/>apps/cosa.worker]
-    W <--> C
-    W --> K[Agent Platform<br/>packages/agent]
-    K --> G[Capability Gateway<br/>Governance · Approval · Audit]
-    G --> B
-    C --> D1[(cosa)]
-    B --> D2[(workspace)]
-    K --> D3[(agent)]
+    UI[Experience Plane<br/>Flutter macOS/Web] -->|:4001 /platform/*| CP[COSA Control Plane<br/>services/cosa · Encore/TS]
+    UI -->|:4000 /identity/*, biz| BZ[Company Business Plane<br/>services/company · Encore/TS]
+    UI -->|:8000 /agent/*| AP[AgentOS FastAPI<br/>apps/cosa · Python]
+    AP <--> CP
+    AP <--> BZ
+    AP --> WK[Worker<br/>apps/cosa.worker]
+    WK <--> CP
+    WK --> BZ
 ```
 
-### Bốn vùng và nguyên tắc phân lớp
+### Chi tiết các Cổng & Dịch vụ
 
-1. **Experience Plane — `frontend/`**: ứng dụng Flutter cho chat, dashboard,
-   strategy, workforce, task, finance, approval, settings và các module nghiệp
-   vụ khác. Các capability giao diện được ràng buộc qua
-   [`shared/contracts/mvp-surface.json`](shared/contracts/mvp-surface.json),
-   thay vì để giao diện gọi route tự do.
-2. **COSA Control Plane — `services/cosa/`**: xác thực nền tảng, workspace
-   membership, entitlement/agent policy, connector grant, scheduler bền vững,
-   execution lease, schedule, mission/task/worker và document-ingestion record.
-3. **Company Business Plane — `services/company/`**: các service Encore
-   (`identity`, `operations`, `commercial`, `finance-legal`, `events`). Đây là
-   nguồn sự thật cho dữ liệu doanh nghiệp và quyết định
-   nghiệp vụ.
-4. **Agent Platform — `packages/agent/` + `apps/cosa/`**: framework Python
-   dùng lại được và lớp composition COSA. Agent Platform không ghi trực tiếp
-   vào database business; mọi side effect đi qua Capability Gateway, policy,
-   governance và audit.
+| Cổng | Dịch vụ | Thư mục mã nguồn | Vai trò cốt lõi |
+| :--- | :--- | :--- | :--- |
+| **`4001`** | **COSA Control Plane** | `services/cosa` (Encore.ts) | Quản lý danh tính trung tâm (`/platform/auth/*`), công ty, subscription, cấp phát tenant. **Bắt buộc phải chạy để Đăng nhập & Đăng ký**. |
+| **`4000`** | **Company Business Plane** | `services/company` (Encore.ts) | Nghiệp vụ công ty: Chiến lược, Vận hành, Bán hàng, Tài chính - Pháp lý, và đồng bộ danh tính (`/identity/sync-from-platform`). |
+| **`8000`** | **AgentOS API** | `apps/cosa` (FastAPI) | Multi-Agent platform, streaming chat, workforce routes, orchestration. |
+| **`8765`** | **Desktop Worker** | `desktop_worker` (Python) | Loopback execution worker cho tác vụ desktop/cục bộ. |
+| **`5432`** | **PostgreSQL (Docker)** | `cosa_postgres` (pgvector 16) | Chứa 3 cơ sở dữ liệu: `cosa` (platform), `workspace` (business), `agent` (state & run). |
+| **`9000/9001`** | **MinIO S3 (Docker)** | `cosa_minio` | Lưu trữ file, document ingestion, knowledge artifacts. |
+| **`7880/7881`** | **LiveKit (Docker)** | `cosa_livekit_local` | Kênh giao tiếp Voice & Audio thời gian thực. |
 
-PostgreSQL/pgvector được tách theo quyền sở hữu dữ liệu thành ba database:
+---
 
-| Database | Dữ liệu thuộc về |
-| --- | --- |
-| `agent` | Run, checkpoint, conversation, artifact, memory, knowledge, registry, governance và audit của Agent Platform. |
-| `cosa` | Danh tính/plan nền tảng, policy, connector, scheduler, lease, runtime node và schedule. |
-| `workspace` | Identity, chiến lược, vận hành, thương mại, tài chính-pháp lý và event outbox của công ty. |
+## 2. Hướng Dẫn Khởi Động Môi Trường Phát Triển
 
-## Các luồng hoạt động chính
+### Yêu Cầu Tiên Quyết
+- **Docker & Docker Compose** (đang chạy)
+- **Node.js v20+** & **Encore CLI** (`brew install encoredev/tap/encore`)
+- **Python 3.11+** và môi trường ảo (`.venv`)
+- **Flutter SDK** (nếu chạy ứng dụng giao diện)
 
-### 1. Thiết lập workspace và quyền truy cập
+---
 
-1. Người dùng đăng nhập tại Control Plane hoặc dùng local business session.
-2. `services/company/identity` tạo/đồng bộ workspace, membership và
-   `WorkforceMember`.
-3. Mỗi request Agent API gửi `Authorization` và `X-Workspace-Id`.
-4. `apps/cosa` xác minh token rồi gọi `identity/tenant-context/resolve` để
-   đối chiếu workspace với membership thật. Không xác minh được thì từ chối
-   (fail closed), không coi header của client là authority.
-5. Token delegation ngắn hạn được mint theo đúng hướng gọi cross-plane;
-   delegation sang Company còn bị giới hạn bởi `workspace_id`, `run_id` và
-   danh sách capability.
-
-### 2. Chiến lược đến thực thi
-
-Baseline project-centric (COSA Startup Core, 2026-09-10): hệ thống duy trì
-lineage giữa lifecycle, mục tiêu và việc thực hiện:
-
-```text
-Workspace (lifecycle W0_IDEA → W5_SCALE)
-  → Project (lifecycle P0_DISCOVERY → P6_SCALE_GOVERN)
-    → Objective → Key Result
-    → Initiative
-    → Operating Cycle (1–12 tuần) → Week → Commitment → Task
-    → evidence + decision record + next-best action
-```
-
-- Lifecycle stage là **context phát triển**, không phải bộ máy tự động: chuyển
-  giai đoạn do người có quyền (founder/co-founder/admin) thực hiện thủ công qua
-  `PATCH /identity/workspaces/:id/lifecycle` và `PATCH /operations/projects/:id/lifecycle`,
-  dùng optimistic locking trên `stage_version`, ghi lịch sử append-only
-  (`*_lifecycle_events`). Không có gate framework, không gọi model, không
-  background job tự tiến giai đoạn.
-- Objective → Key Result → Initiative → Task là lineage được lưu lại. Task
-  không phải BAU chỉ có thể tạo dưới initiative + weekly commitment hợp lệ.
-- Các khung phân tích cũ (BSC, PESTEL, SWOT/TOWS, Porter, maturity, stage-gate
-  scoreboard tự động) đã được gỡ khỏi cả 4 vùng trong đợt clean-slate — xem
-  `docs/superpowers/plans/2026-09-10-cosa-startup-core-clean-slate.md`.
-- Xem chi tiết miền này tại
-  [`services/company/operations/strategy/README.md`](services/company/operations/strategy/README.md).
-
-### 3. Chat với agent: từ message đến kết quả
-
-Chat không chạy kernel trong process HTTP. API trả nhanh sau khi lưu message
-và lập lịch task bền vững; worker riêng chịu trách nhiệm thực thi.
-
-```mermaid
-sequenceDiagram
-    participant UI as Flutter / client
-    participant API as apps/cosa FastAPI
-    participant CP as services/cosa scheduler
-    participant Worker as COSA worker
-    participant Agent as Kernel + Capability Gateway
-    participant Biz as services/company
-
-    UI->>API: POST conversation message + token + workspace
-    API->>Biz: xác minh tenant context
-    API->>CP: đọc profile locale (khi client không chọn locale theo lượt)
-    API->>API: lưu message và tạo run_id
-    API->>CP: schedule task chứa delegation ngắn hạn
-    API-->>UI: 202 Accepted + run_id
-    Worker->>CP: poll và atomic claim task
-    Worker->>CP: acquire run lease; heartbeat claim/lease
-    Worker->>Agent: resolve AgentSpec, policy và compliance
-    Agent->>Biz: capability scoped (đọc/ghi theo quyền)
-    Agent-->>Worker: output, artifact hoặc approval checkpoint
-    Worker->>API: lưu event/run outcome
-    API-->>UI: SSE stream và session timeline
-```
-
-Trình tự kiểm soát trong worker:
-
-1. Resolve `AgentSpec` đúng version/hash từ registry; không tin object Python
-   đang import khi rolling deploy.
-2. Lấy snapshot policy workspace và resolve AI compliance. Thiếu policy,
-   compliance hoặc delegation hợp lệ sẽ từ chối run.
-3. Kernel chạy với capability đã đăng ký. Capability Gateway kiểm tra quyền,
-   idempotency, connector grant và governance trước khi gọi service nghiệp vụ.
-4. Action rủi ro cao tạo checkpoint approval. Approval bị ràng buộc đúng bộ
-   `run_id + tool_call_id + checkpoint_ref`, nên không thể dùng lại nhầm cho
-   action khác.
-5. Worker gửi heartbeat cho cả task claim và run lease, rồi complete/fail task
-   bằng fencing token. Event, output và artifact được lưu để UI đọc qua SSE.
-
-#### Locale của câu trả lời chat
-
-API nhận `response_locale_override` cho từng lượt với hai giá trị hợp lệ
-`vi-VN` và `en-US`. Nếu UI không gửi override — đây là đường đi hiện tại của
-hai giao diện chat chính — Agent API lấy `preferred_locale` từ Control Plane
-bằng delegation token đã được xác minh trước khi lưu message hay lập lịch run.
-Do đó Control Plane/profile locale là dependency của việc gửi chat: không đọc
-được snapshot thì API trả `503 Profile locale unavailable` và không tạo run.
-Triển khai production cần theo dõi dependency này, hiển thị trạng thái có thể
-thử lại ở UI, và có bài kiểm tra cho cả hai locale; không dùng locale của thiết
-bị để thay thế authority profile một cách âm thầm.
-
-### 4. Agent hiện được triển khai
-
-| Agent | Mức tự chủ | Phạm vi thực tế |
-| --- | --- | --- |
-| Operations Specialist | `L0_OBSERVE` | Đọc task/project/evidence, gợi ý next action và tạo task draft. `founder_assistant` hiện ánh xạ vào agent này. |
-| Finance Specialist | `L1_PROPOSE` | Đọc giao dịch/kết nối, ghi nhận hoặc phân loại theo capability; các khoản chi/xác nhận nhạy cảm vẫn đi qua policy và approval. |
-| Marketing Specialist | `L0_OBSERVE` | Marketing context, campaign/asset/experiment, knowledge profile và web search có budget. |
-| Customer Support Copilot | `L0_OBSERVE` | Đọc thread/customer 360/knowledge đã duyệt và tạo bản nháp hoặc artifact; không tự gửi tin hay ghi CRM. |
-| Customer Support Autopilot | `L2_EXECUTE` | Chỉ trả lời FAQ/qualification trong phạm vi hẹp; thiếu độ tin cậy thì handoff người. Gửi tin yêu cầu approval trừ template đã pre-authorize. |
-
-AgentSpec hiện được author trong mã Python, seed vào registry khi khởi động và
-resolve từ registry lúc chạy. Đây là mô hình hybrid có chủ đích: thay đổi spec
-vẫn cần sửa mã và deploy, không phải tính năng quản trị runtime tự do.
-
-### 5. Event, lịch và knowledge
-
-- **Event backbone**: Company service ghi event outbox cùng transaction nghiệp
-  vụ. Relay claim event, ký HMAC và chuyển sang `/agent/internal/events`; Agent
-  Platform xác thực, chống trùng và chỉ schedule automation khi rule/policy cho
-  phép.
-- **Schedule**: Control Plane giữ schedule và task; worker poll/claim để chạy
-  one-off run, resume, scheduled session, Weekly Goal Agent (WGA), kickoff
-  suggestion hoặc knowledge ingestion.
-- **Knowledge ingestion**: khi `KNOWLEDGE_INGESTION_ENABLED=true`, người dùng
-  tạo upload ticket, hoàn tất upload để scanner/worker xử lý, rồi reviewer
-  publish hoặc reject nguồn tri thức. Chỉ nguồn đã duyệt mới được công bố.
-- **Connector**: cài đặt, authorize, grant và revoke connector ở Control
-  Plane; Capability Gateway yêu cầu grant còn hiệu lực trước khi dùng.
-
-## Các ranh giới an toàn quan trọng
-
-- Không có quyền tenant mặc định: workspace scope được xác minh server-side,
-  và lỗi mạng/xác minh được xử lý fail closed.
-- Business authorization và database business thuộc các Encore service;
-  Agent Platform chỉ gọi qua HTTP capability có scope.
-- Secret cross-plane là một chiều và một mục đích. Không dùng lại secret JWT,
-  delegation hoặc worker service token cho hướng khác.
-- Governance là code xác định, không suy luận từ câu trả lời của LLM. Run,
-  tool call, approval, checkpoint và audit record là state có cấu trúc.
-- API FastAPI kiểm tra readiness khi thiếu dependency cốt lõi; môi trường
-  staging/production yêu cầu CORS và service identity rõ ràng.
-
-## Trạng thái và giới hạn cần biết
-
-| Hạng mục | Trạng thái hiện tại |
-| --- | --- |
-| Vault document API (`/agent/vault/*`) | Chưa phát hành. Các endpoint trả `501 Not Implemented`, không giả lập upload/index/retrieval. |
-| Knowledge ingestion | Có pipeline và review, nhưng phải bật feature flag và cấu hình object storage/control-plane hợp lệ. |
-| AgentSpec | Hybrid: code là nơi author, registry là nguồn resolve khi chạy. |
-| Voice | Push-to-talk và LiveKit/Gemini Live là luồng riêng khỏi Agent worker; xem cấu hình runtime trước khi triển khai. |
-| Mô hình AI | OpenAI Agents SDK là execution kernel; model mặc định được ghép qua LiteLLM với DeepSeek theo cấu hình môi trường. |
-
-### Điều kiện bắt buộc trước khi mở workspace ra bên ngoài
-
-Các mục 1-5 dưới đây đã được đóng bởi
-`docs/superpowers/plans/2026-09-08-platform-authority-durability-hardening.md`
-(Task 1-8, 2026-09-08) — xem
-`docs/architecture/CODEBASE_HARDENING_2026-09-08.md` cho evidence đầy đủ
-(commit, test negative, migration, trạng thái IMPLEMENTED/WIRED/VERIFIED theo
-từng finding; 2 gate liên quan có finding riêng — pre-existing, không do plan
-này — vẫn còn mở, xem mục "Known limitations" trong tài liệu đó). Không coi
-một luồng là production-ready chỉ vì UI ẩn nút, unit test mock chạy xanh,
-hoặc typecheck ở một package riêng lẻ thành công — mỗi mục dưới đây chỉ được
-đánh dấu xong sau khi có test âm tính (negative test) qua process/DB thật.
-
-1. **Gia nhập workspace** dùng invitation có hạn (token ngẫu nhiên 32 byte,
-   hash SHA-256 lưu DB, email phải khớp principal lúc accept, expiry mặc định
-   168 giờ, single-use), do founder/co-founder/admin của đúng workspace
-   issue/revoke — xem `docs/architecture/adr/ADR-WORKSPACE-INVITATION-001.md`
-   cho contract đầy đủ. Endpoint `POST /platform/auth/companies/join` (nhận
-   `company_id` trần và tự cấp membership không cần invitation) đã bị gỡ khỏi
-   contract và frontend; không có compatibility fallback cho client cũ — mọi
-   request join bằng `company_id` trần nhận `permission_denied` vĩnh viễn.
-2. **Đọc/ghi theo workspace** kiểm tra bearer identity và membership ở từng
-   public handler (`GET /identity/workspaces/:id` đã đóng lỗ hổng đọc công
-   khai). Ghi nhận giao dịch tài chính yêu cầu command permission riêng
-   (`finance.transaction.record`), không chỉ cần membership đọc.
-3. **Approval** kiểm tra vai trò/requirement của reviewer ở server (qua
-   `identity.role_id` đã được Company Identity xác minh) trước khi cho quyết
-   định; scope đúng workspace không thay thế kiểm tra vai trò.
-4. **Huỷ run** là state bền vững có compare-and-set (`transition_run_status`/
-   `cancel_run`) trong `agent.runs` để API và worker ở process khác nhau
-   không thể đưa run đã huỷ về trạng thái hoàn tất — đã chứng minh bằng race
-   test 2 process thật trên Postgres thật. **Giới hạn đã biết:** hai đường
-   ghi trạng thái nền — `packages/agent/runs/expiry.py::sweep_dormant_runs`
-   và `recovery.py::recover_stale_run` — vẫn dùng `update_run_status` không
-   điều kiện, nên một cancel trùng thời điểm với sweep/recovery vẫn có thể bị
-   ghi đè; chưa được đưa vào phạm vi hardening đợt này.
-5. **Trải nghiệm chat khi lỗi** hoàn tác optimistic state, dừng spinner, và
-   cho phép thử lại (nút Retry, gửi lại đúng nội dung cũ, không tự động gửi
-   lại) khi API từ chối request hoặc dependency locale không sẵn sàng.
-
-## Chạy môi trường phát triển
-
-Yêu cầu chính: Docker, Python 3.11+, Node/Encore CLI và Flutter nếu chạy giao
-diện. Không đưa secret thật vào repository.
-
+### Bước 1: Thiết lập Biến Môi Trường
 ```bash
+cd /Volumes/SSD/DEV/miva/javis-saas
+
+# Copy file cấu hình mẫu nếu chưa có .env
 cp .env.example .env
+
+# Nạp biến môi trường cho phiên làm việc hiện tại (nếu terminal không dùng direnv)
 source scripts/load-dev-env.sh
+```
+
+---
+
+### Bước 2: Kiểm tra & Giải Phóng Xung Đột Cổng
+
+> [!WARNING]  
+> Nếu bạn đang chạy các dịch vụ khác (ví dụ: `miva-core-services` chạy Encore mặc định trên cổng `4000`), bạn **phải tắt hoặc giải phóng cổng** trước khi bật COSA stack, nếu không dịch vụ `services/company` sẽ không thể khởi động.
+
+Kiểm tra các cổng đang bị chiếm:
+```bash
+lsof -i :4000 -i :4001 -i :8000
+```
+Nếu cổng 4000 hoặc 4001 đang bị tiến trình khác chiếm dụng, hãy tắt tiến trình đó hoặc kill PID tương ứng:
+```bash
+kill -9 <PID>
+```
+
+---
+
+### Bước 3: Khởi Động Backend Stack
+
+#### Lựa chọn A — Khởi động toàn bộ từ đầu (Infra Docker + Migrations + 4 Services):
+```bash
 make dev-stack
 ```
+*Lệnh này sẽ khởi động Docker Postgres/MinIO/LiveKit, tự động chạy migration theo thứ tự `Agent -> COSA -> Company`, sau đó khởi động đồng thời cả 4 dịch vụ (`Company:4000`, `Control Plane:4001`, `FastAPI:8000`, `Worker`). Nhấn `Ctrl+C` để dừng toàn bộ.*
 
-`make dev-stack` khởi động PostgreSQL, MinIO và LiveKit trong Docker; chạy
-migration theo thứ tự **Agent → COSA Control Plane → Company**; rồi khởi động
-Company (`:4000`), Control Plane (`:4001`), FastAPI (`:8000`) và worker.
-
+#### Lựa chọn B — Chỉ khởi động Backend Services (khi Docker đã chạy sẵn):
 ```bash
-make dev-status       # kiểm tra service/port
-make dev-preflight    # kiểm tra cấu hình, migration và dependency
+make dev-stack-no-infra
 ```
 
-Các health endpoint ở local:
+---
 
-```text
-http://127.0.0.1:4000/healthz  # Company Business
-http://127.0.0.1:4001/healthz  # COSA Control Plane
-http://127.0.0.1:8000/healthz  # COSA Agent Platform readiness
+### Bước 4: Kiểm Tra Trạng Thái & Độ Sẵn Sàng (Health Check)
+
+Kiểm tra tiến trình và các cổng:
+```bash
+make dev-status
+```
+Kiểm tra cấu hình và các endpoint sức khỏe:
+```bash
+make dev-preflight
 ```
 
-Với terminal không dùng `direnv`, cần chạy `source scripts/load-dev-env.sh`
-trước mỗi lệnh `make` cần biến môi trường. Encore không tự nạp `.env`.
+Các endpoint kiểm tra trực tiếp qua trình duyệt hoặc curl:
+- **COSA Control Plane:** `http://127.0.0.1:4001/healthz`
+- **Company Business:** `http://127.0.0.1:4000/healthz`
+- **AgentOS Readiness:** `http://127.0.0.1:8000/healthz`
 
-## Kiểm thử và kiểm tra chất lượng
+---
 
-| Mục tiêu | Lệnh |
-| --- | --- |
-| Agent framework | `make agent-test` |
-| FastAPI/composition | `make apps-cosa-test` |
-| Hai Encore app | `make services-test` |
-| Flutter | `make frontend-test` và `make frontend-analyze` |
-| Contract/boundary | `make boundary-check`, `make skillpacks-validate`, `make frontend-api-contract-check` |
-| Golden path | `make e2e-test` |
-| Cross-plane thật với Postgres disposable | `make e2e-cross-plane-smoke` |
-| Gate CI đầy đủ | `make verify` |
+### Bước 5: Khởi Động Ứng Dụng Frontend (Flutter)
 
-Không dùng test mock hoặc static check để kết luận authorization, recovery,
-concurrency hay durability đã được chứng minh. Các luồng này cần test qua
-service/process và Postgres thật.
-
-Các test widget chỉ có thân `TODO` không chứng minh hành vi giao diện. Trước
-khi phát hành các vùng Workflow, Hologram/Provider, Profile Composition hoặc
-local projection cache, thay chúng bằng test có assertion cho role visibility,
-secret redaction, SSE/reconnect, optimistic error state và revision token.
-
-## Cấu trúc repository
-
-```text
-frontend/                 Flutter Experience Plane
-services/cosa/            COSA Control Plane (Encore/TypeScript)
-services/company/         Company Business Plane (Encore/TypeScript)
-packages/agent/           Agent framework tái sử dụng (Python)
-apps/cosa/                FastAPI, worker và composition COSA
-skillpacks/               Prompt/skill khai báo theo domain
-shared/contracts/         Hợp đồng frontend–backend–test
-deploy/                   Cấu hình hạ tầng và production
-docs/architecture/        ADR, overview và tài liệu kiến trúc
+Chuyển vào thư mục `frontend`:
+```bash
+cd frontend
 ```
 
-## Tài liệu liên quan
+#### Chạy trên macOS Desktop:
+```bash
+flutter run -d macos
+```
 
-- [Tổng quan kiến trúc](docs/architecture/overview/00-tong-quan.md)
-- [Bốn vùng kiến trúc](docs/architecture/overview/01-bon-vung-kien-truc.md)
-- [Workflow nghiệp vụ](docs/architecture/overview/02-workflow-nghiep-vu.md)
-- [Agent Platform và governance](docs/architecture/overview/03-agent-va-governance.md)
-- [Hướng dẫn database](db.md)
-- [Triển khai](DEPLOYMENT.md)
-- [Cross-plane E2E](docs/testing/cross-plane-e2e.md)
+#### Chạy trên Trình duyệt Web (Chrome):
+```bash
+flutter run -d chrome
+```
+
+#### Khởi động với Base URL tuỳ chỉnh:
+Nếu backend của bạn chạy trên cổng khác hoặc địa chỉ IP mạng LAN/VPS:
+```bash
+flutter run -d macos \
+  --dart-define=PLATFORM_BASE_URL=http://127.0.0.1:4001 \
+  --dart-define=API_BASE_URL=http://127.0.0.1:4000 \
+  --dart-define=AGENTOS_BASE_URL=http://127.0.0.1:8000
+```
+
+---
+
+## 3. Cơ Chế Xác Thực: Đăng Nhập & Đăng Ký (Email / Phone)
+
+### Hỗ Trợ Đăng Nhập Đa Kênh
+COSA hỗ trợ người dùng đăng nhập bằng cả **Email** hoặc **Số điện thoại** cùng **Mật khẩu**:
+
+> **Danh tính do `backend/core` quản lý.** COSA không còn giữ mật khẩu hay tự đăng nhập: app đăng nhập/đăng ký
+> trực tiếp với core rồi dùng access token OIDC của client `vn.mivacorp.cosa` (Authorization Code + PKCE).
+> Cấu hình app: `--dart-define=CORE_BASE_URL=http://127.0.0.1:4010`. Cấu hình `services/cosa`:
+> `CORE_BASE_URL`, `CORE_INTROSPECT_CLIENT_ID`, `CORE_INTROSPECT_CLIENT_SECRET` (xem `.env.example`; cấp secret bằng
+> `node --env-file=.env scripts/provision-cosa-backend-client.mjs` trong `backend/core`).
+
+1. **Bước 1 — Xác thực với backend/core:**  
+   Frontend gửi `POST {CORE_BASE_URL}/auth/login` (header `X-Client-ID: vn.mivacorp.cosa`) với body:
+   ```json
+   {
+     "emailOrPhone": "mivacorp@icloud.com",  // hoặc số điện thoại: "0901234567"
+     "password": "your_secure_password",
+     "clientId": "vn.mivacorp.cosa"
+   }
+   ```
+   Core trả phiên đăng nhập; app đổi phiên đó lấy access token OIDC bằng `GET /oauth/authorize` (PKCE `S256`) rồi
+   `POST /oauth/token` (xem `frontend/lib/modules/auth/services/core_auth_client.dart`). Access token là chuỗi opaque, hết hạn
+   ngắn và được tự làm mới bằng refresh token (`PlatformTokenProvider`). Mọi API `/platform/*` của COSA dùng token này làm Bearer;
+   COSA xác thực bằng `POST /oauth/introspect` của core.
+
+2. **Bước 2 — Đồng bộ Dữ liệu Cục bộ (Local Business Sync):**  
+   Frontend tự động lấy access token gửi tới `POST http://127.0.0.1:4000/identity/sync-from-platform`:
+   ```json
+   {
+     "platform_access_token": "<access_token_ở_bước_1>"
+   }
+   ```
+   Company service hỏi Control Plane (COSA) danh tính và các organization mà người dùng là thành viên (COSA xác thực với core),
+   đồng bộ profile và workspace xuống cơ sở dữ liệu `workspace`, rồi cấp phát `local_session_token`.
+
+3. **Bước 3 — Phiên Làm Việc (Workspace Context):**  
+   Frontend sử dụng `local_session_token` kèm header `X-Workspace-Id` để truy cập toàn bộ module nghiệp vụ (Chiến lược, Vận hành, Bán hàng, Tài chính, Chat Agent).
+
+---
+
+### Quy Trình Đăng Ký Tài Khoản Mới
+1. **Tạo thông tin cá nhân (backend/core, có xác nhận email):** `POST {CORE_BASE_URL}/auth/signup` (Email, Họ tên) gửi mã OTP,
+   sau đó `POST {CORE_BASE_URL}/auth/signup/complete` (Email, Mật khẩu, OTP) tạo tài khoản; app đổi phiên lấy access token như phần đăng nhập.
+2. **Khởi tạo Công ty / Workspace:** Tạo organization mới ở core qua COSA (`POST /platform/auth/companies/create`, người tạo là `founder`) hoặc chấp nhận mã mời tham gia (`POST /platform/auth/companies/invitations/accept`).
+3. **Đồng bộ về Local:** Tự động gọi `POST /identity/sync-from-platform` để sẵn sàng làm việc.
+
+---
+
+## 4. Quản Trị & Kiểm Tra Dữ Liệu Trực Tiếp Trong Database
+
+Khi cần kiểm tra danh sách tài khoản đã đăng ký hoặc gán số điện thoại:
+```bash
+# Xem danh sách người dùng trong Control Plane:
+docker exec -it cosa_postgres psql -U postgres -d cosa -c \
+  "SELECT id, email, phone, created_at FROM cosa.users;"
+
+# Cập nhật số điện thoại cho tài khoản thử nghiệm:
+docker exec -it cosa_postgres psql -U postgres -d cosa -c \
+  "UPDATE cosa.users SET phone = '0901234567' WHERE email = 'mivacorp@icloud.com';"
+```
+
+---
+
+## 5. Danh Mục Lệnh Makefile Hữu Ích
+
+| Lệnh | Ý nghĩa |
+| :--- | :--- |
+| `make dev-stack` | Khởi động toàn bộ hạ tầng Docker + migrations + 4 dịch vụ backend |
+| `make dev-stack-no-infra` | Khởi động 4 dịch vụ backend (không chạy lại Docker) |
+| `make dev-status` | Kiểm tra trạng thái các port và Docker containers |
+| `make dev-preflight` | Kiểm tra tính hợp lệ của môi trường trước khi chạy |
+| `make docker-up` | Khởi động riêng các container Docker (Postgres, MinIO, LiveKit) |
+| `make docker-down` | Dừng các container Docker |
+| `make services-migrate-cosa` | Chạy migration cho database COSA Control Plane |
+| `make services-migrate-company` | Chạy migration cho database Company Business |
+| `make verify` | Chạy toàn bộ bộ kiểm thử và kiểm tra chất lượng (CI test suite) |

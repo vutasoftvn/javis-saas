@@ -27,6 +27,8 @@ const secretKeys = <String>{
   'auth_token',
   'local_session_token',
   'platform_access_token',
+  // Refresh token OIDC của backend/core: cấp lại access token cho control plane.
+  'core_refresh_token',
 };
 
 class DefaultKeyClassifier implements KeyClassifier {

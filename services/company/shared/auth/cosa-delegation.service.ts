@@ -18,9 +18,8 @@
 // side effect thật (mutation/external call) phải chống replay (§ chống lộ
 // token bị dùng lại nhiều lần cho cùng 1 side effect).
 //
-// Secret sharing convention: `PLATFORM_JWT_SECRET` (services/cosa ký, cosa
-// verify) và `JWT_SECRET` (services/company ký, cosa verify) đã tồn tại
-// nhưng đều SAI CHIỀU cho nhu cầu này (cosa ký, company verify) — dùng đè
+// Secret sharing convention: `JWT_SECRET` (services/company ký, cosa verify) đã tồn tại
+// nhưng SAI CHIỀU cho nhu cầu này (cosa ký, company verify) — dùng đè
 // lên 1 trong 2 sẽ làm lẫn lộn 2 miền tin cậy khác nhau (control-plane vs
 // local business session). Vì vậy dùng biến env MỚI, riêng cho đúng 1 mục
 // đích: COSA_COMPANY_DELEGATION_SECRET (đối xứng với secret cùng tên phía

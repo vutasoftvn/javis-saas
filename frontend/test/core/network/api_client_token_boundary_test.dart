@@ -48,7 +48,7 @@ void main() {
   });
 
   test('control-plane /platform endpoint carries the platform access token', () async {
-    expect(await authHeaderFor('/platform/workspaces/1/entitlement'),
+    expect(await authHeaderFor('/platform/organizations/1/entitlement'),
         'Bearer PLATFORM_ACCESS');
   });
 

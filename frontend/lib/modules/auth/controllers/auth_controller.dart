@@ -40,6 +40,11 @@ class AuthController extends GetxController {
   final registerStep = 1.obs; // 1 = Thong tin tai khoan, 2 = Thiet lap cong ty
   final registeredPlatformToken = ''.obs;
 
+  /// Đăng ký qua backend/core cần xác nhận email: lần bấm đầu gửi mã OTP (otpRequested = true),
+  /// lần bấm sau nhập mã OTP để hoàn tất tài khoản rồi sang bước công ty.
+  final otpRequested = false.obs;
+  final regOtpController = TextEditingController();
+
   final regDisplayNameController = TextEditingController();
   final regEmailController = TextEditingController();
   final regPasswordController = TextEditingController();
@@ -89,6 +94,7 @@ class AuthController extends GetxController {
     regConfirmPasswordController.dispose();
     regCompanyNameController.dispose();
     regInvitationTokenController.dispose();
+    regOtpController.dispose();
     super.onClose();
   }
 
@@ -99,6 +105,8 @@ class AuthController extends GetxController {
     regConfirmPasswordController.clear();
     regCompanyNameController.clear();
     regInvitationTokenController.clear();
+    regOtpController.clear();
+    otpRequested.value = false;
     isJoiningCompany.value = false;
     registerStep.value = 1;
     registeredPlatformToken.value = '';
@@ -222,10 +230,33 @@ class AuthController extends GetxController {
         : null;
 
     try {
+      // Pha 1: core gửi mã OTP tới email; người dùng nhập mã rồi bấm lại.
+      if (!otpRequested.value) {
+        final otpResult = await _authService.requestSignupOtp(
+          email: email,
+          displayName: displayName,
+        );
+        if (!otpResult.success) {
+          registerErrorMessage.value =
+              otpResult.errorMessage ?? 'Không gửi được mã xác nhận. Vui lòng thử lại.';
+          return;
+        }
+        otpRequested.value = true;
+        return;
+      }
+
+      // Pha 2: xác nhận OTP với core, tạo tài khoản và nhận phiên.
+      final otp = regOtpController.text.trim();
+      if (otp.isEmpty) {
+        registerErrorMessage.value = 'Vui lòng nhập mã xác nhận được gửi tới email';
+        return;
+      }
+
       final result = await _authService.registerPlatform(
         email: email,
         password: password,
         displayName: displayName,
+        otp: otp,
         preferredLocale: currentLocale,
       );
 
@@ -319,6 +350,13 @@ class AuthController extends GetxController {
       registerStep.value = 1;
       registerErrorMessage.value = '';
     }
+  }
+
+  /// Quay lại sửa thông tin tài khoản khi đã gửi OTP (đổi email, gửi lại mã).
+  void editAccountDetails() {
+    otpRequested.value = false;
+    regOtpController.clear();
+    registerErrorMessage.value = '';
   }
 
   /// Backward-compatible register helper

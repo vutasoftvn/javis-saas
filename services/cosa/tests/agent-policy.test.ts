@@ -1,9 +1,8 @@
 import jwt from "jsonwebtoken";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { registerPlatform } from "../handlers/auth.handler";
 import { getMyTenantPolicySnapshot, getTenantPolicy, setTenantPolicy } from "../handlers/agent-policy.handler";
 import { getTenantPolicySnapshotForCaller } from "../services/agent-policy.service";
-import { verifyPlatformToken } from "../services/token.service";
+import { registerPlatform, signPlatformToken, verifyPlatformToken } from "./support/test-identity";
 
 const TEST_CONTROL_DELEGATION_SECRET = "test-control-delegation-secret-min-32-chars";
 
@@ -115,46 +114,8 @@ describe("Agent Policy (TenantPolicy, roadmap Phase 10a)", () => {
 });
 
 describe("getTenantPolicySnapshotForCaller", () => {
-  const allowedWorkspaces = new Set<string>();
-
-  beforeEach(() => {
-    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
-      const match = url.match(/\/identity\/workspaces\/([^/]+)\/platform-company/);
-      if (match) {
-        const workspaceId = match[1];
-        if (!allowedWorkspaces.has(workspaceId)) {
-          return {
-            status: 403,
-            ok: false,
-            json: async () => ({}),
-          } as any;
-        }
-
-        return {
-          status: 200,
-          ok: true,
-          json: async () => ({
-            platformCompanyId: workspaceId,
-            membershipRole: "founder",
-          }),
-        } as any;
-      }
-
-      return {
-        status: 200,
-        ok: true,
-        json: async () => ({
-          platformCompanyId: "1",
-          membershipRole: "founder",
-        }),
-      } as any;
-    }));
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    allowedWorkspaces.clear();
-  });
+  // Thành viên workspace do core (giả) quyết định qua Bearer của caller.
+  const bearerFor = (userId: string) => `Bearer ${signPlatformToken(userId)}`;
 
   it("trả workspaceStatus/principalStatus active + rules rỗng khi workspace chưa cấu hình policy", async () => {
     const res = await registerPlatform({
@@ -165,9 +126,8 @@ describe("getTenantPolicySnapshotForCaller", () => {
     });
     const userId = verifyPlatformToken(res.access_token).sub;
     const workspaceId = res.platform_workspace_id!;
-    allowedWorkspaces.add(workspaceId);
 
-    const snapshot = await getTenantPolicySnapshotForCaller(userId, workspaceId);
+    const snapshot = await getTenantPolicySnapshotForCaller(userId, workspaceId, bearerFor(userId));
     expect(snapshot.workspaceStatus).toBe("active");
     expect(snapshot.principalStatus).toBe("active");
     expect(snapshot.rules).toEqual([]);
@@ -183,12 +143,11 @@ describe("getTenantPolicySnapshotForCaller", () => {
     });
     const userId = verifyPlatformToken(res.access_token).sub;
     const workspaceId = res.platform_workspace_id!;
-    allowedWorkspaces.add(workspaceId);
 
     await setTenantPolicy({ workspaceId, toolPattern: "finance.*", decision: "REQUIRE_APPROVAL" });
     await setTenantPolicy({ workspaceId, toolPattern: "commercial.lead.create", decision: "ALLOW" });
 
-    const snapshot = await getTenantPolicySnapshotForCaller(userId, workspaceId);
+    const snapshot = await getTenantPolicySnapshotForCaller(userId, workspaceId, bearerFor(userId));
     expect(snapshot.rules).toHaveLength(2);
     expect(snapshot.rules.map((r) => r.toolPattern).sort()).toEqual(["commercial.lead.create", "finance.*"]);
   });
@@ -209,7 +168,7 @@ describe("getTenantPolicySnapshotForCaller", () => {
     const userIdA = verifyPlatformToken(resA.access_token).sub;
     const workspaceIdB = resB.platform_workspace_id!;
 
-    await expect(getTenantPolicySnapshotForCaller(userIdA, workspaceIdB)).rejects.toThrow();
+    await expect(getTenantPolicySnapshotForCaller(userIdA, workspaceIdB, bearerFor(userIdA))).rejects.toThrow();
   });
 
   it("hai snapshot của cùng 1 workspace nhưng khác rule set phải có snapshotHash khác nhau", async () => {
@@ -221,11 +180,10 @@ describe("getTenantPolicySnapshotForCaller", () => {
     });
     const userId = verifyPlatformToken(res.access_token).sub;
     const workspaceId = res.platform_workspace_id!;
-    allowedWorkspaces.add(workspaceId);
 
-    const before = await getTenantPolicySnapshotForCaller(userId, workspaceId);
+    const before = await getTenantPolicySnapshotForCaller(userId, workspaceId, bearerFor(userId));
     await setTenantPolicy({ workspaceId, toolPattern: "*", decision: "DENY" });
-    const after = await getTenantPolicySnapshotForCaller(userId, workspaceId);
+    const after = await getTenantPolicySnapshotForCaller(userId, workspaceId, bearerFor(userId));
 
     expect(before.snapshotHash).not.toBe(after.snapshotHash);
   });
@@ -307,7 +265,7 @@ describe("getMyTenantPolicySnapshot handler — B5 control-plane delegation", ()
     );
 
     // Sai secret -> verifyControlDelegationToken fail -> fallback sang
-    // verifyPlatformToken(token thô, KHÔNG phải platform token thật) -> 401.
+    // token JWT không phải access token OIDC của core -> 401.
     await expect(
       getMyTenantPolicySnapshot({ workspaceId, authorization: `Bearer ${forged}` })
     ).rejects.toMatchObject({ code: "unauthenticated" });

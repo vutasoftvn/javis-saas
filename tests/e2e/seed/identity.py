@@ -14,10 +14,9 @@ Bối cảnh discovery (đã xác nhận đọc code, 2026-09-02):
   là pattern các test `tests/e2e/test_mvp_*_http.py` đang dùng). Nó insert
   `core.user_projections` + `core.workspaces` + `core.workspace_memberships`
   (role `founder`) trong 1 transaction rồi trả `{accessToken, userId, workspaceId}`.
-- Cosa `POST /platform/auth/register` + `POST /platform/auth/sessions` là một
-  plane danh tính KHÁC (bảng `cosa.users`, token ký bằng `PLATFORM_JWT_SECRET`,
-  audience `cosa`). Giữ `register_user` / `login` cho scenario nào cần gọi
-  `/platform/*`, nhưng token đó KHÔNG dùng được cho business API của company.
+- Danh tính do backend/core quản lý: COSA không còn `POST /platform/auth/register` / `sessions`. Scenario nào cần
+  gọi `/platform/*` dùng `register_user` (chỉ cấp id) + `control_plane_delegation` (token nội bộ apps/cosa ->
+  services/cosa); token đó KHÔNG dùng được cho business API của company.
 - `_e2e/session` luôn tạo workspace RIÊNG + membership `founder` cho user mới,
   nên "member của workspace owner" phải thêm bằng INSERT trực tiếp 1 hàng
   `core.workspace_memberships` (role `member`) vào DB `workspace` của company —
@@ -47,40 +46,29 @@ def _snowflake() -> int:
     return (int(time.time() * 1000) << 15) | secrets.randbits(15)
 
 
-def register_user(cosa_base_url: str, *, email: str | None = None) -> tuple[str, str, str]:
-    """`POST /platform/auth/register` trên `services/cosa` (expose:true, auth:false).
+def register_user(cosa_base_url: str | None = None, *, email: str | None = None) -> tuple[str, str, str]:
+    """Cấp một platform_user_id kiểu backend/core cho user seed (KHÔNG gọi endpoint nào).
 
-    Body thật: `{email, password, full_name?}` (xem `RegisterParams` trong
-    `services/cosa/services/auth.service.ts`). KHÔNG truyền `workspace_name` để
-    tránh kích hoạt `provisionVentureWorkspace`. Response: `TokenResponse` với
-    `access_token` và `user.id`.
+    Danh tính, mật khẩu và đăng ký do backend/core quản lý; COSA không còn `POST /platform/auth/register`.
+    Seed e2e chỉ cần một id user hợp lệ để ghi `platform_user_id` vào projection của company
+    (`_link_platform_user`) và để ký control-plane delegation (`control_plane_delegation`).
+    `cosa_base_url` giữ lại để không đổi chữ ký các call site cũ, không được dùng.
 
-    Trả `(user_id, email, password)`. Lưu ý: đây là danh tính plane cosa, tách
-    biệt với local session của company (xem docstring module).
+    Trả `(user_id, email, password)`; password luôn rỗng vì không có đăng nhập cục bộ.
     """
     email = email or f"e2e-{secrets.token_hex(6)}@example.test"
-    password = f"Pw-{secrets.token_hex(8)}!"
-    with httpx.Client(base_url=cosa_base_url, timeout=_TIMEOUT) as client:
-        resp = client.post(
-            "/platform/auth/register",
-            json={"email": email, "password": password, "full_name": "E2E User"},
-        )
-    resp.raise_for_status()
-    body = resp.json()
-    user_id = str(body["user"]["id"])
-    return user_id, email, password
+    return str(_snowflake()), email, ""
 
 
-def login(cosa_base_url: str, email: str, password: str) -> str:
-    """`POST /platform/auth/sessions` trên `services/cosa` -> `access_token` (bearer)."""
-    with httpx.Client(base_url=cosa_base_url, timeout=_TIMEOUT) as client:
-        resp = client.post("/platform/auth/sessions", json={"email": email, "password": password})
-    resp.raise_for_status()
-    body = resp.json()
-    token = body.get("access_token")
-    if not token:
-        raise AssertionError(f"login response thiếu access_token: {body}")
-    return str(token)
+def control_plane_delegation(user_id: str, workspace_id: str, role: str = "founder") -> str:
+    """Control-plane delegation (apps/cosa ký) cho một user trong một workspace.
+
+    Thay cho token platform cũ: đây là đường nội bộ apps/cosa -> services/cosa, services/cosa tin claim
+    workspace (không hỏi lại core). Dùng để gọi các endpoint control-plane mà không cần access token của core.
+    """
+    from apps.cosa.auth.jwt import mint_control_plane_delegation
+
+    return mint_control_plane_delegation(sub=user_id, workspace_id=workspace_id, role=role)
 
 
 def create_company_session(

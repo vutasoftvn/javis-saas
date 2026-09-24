@@ -65,7 +65,6 @@ DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
 DEEPSEEK_DEFAULT_MODEL=deepseek-chat
 
 # JWT & Authentication
-PLATFORM_JWT_SECRET=cosa-super-secret-platform-jwt-key-change-in-prod
 WORKER_SERVICE_JWT_SECRET=worker-secret-change-in-prod
 COSA_WORKER_SERVICE_TOKEN=worker-token-change-in-prod
 ```

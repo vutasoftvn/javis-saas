@@ -16,14 +16,16 @@ ROOT = Path(__file__).resolve().parents[2]
 EXPLICIT_UNAUTHENTICATED_ALLOWLIST = {
     ("company", "GET", "/healthz"),
     ("cosa", "GET", "/healthz"),
-    ("cosa", "POST", "/platform/auth/sessions"),
-    ("cosa", "POST", "/platform/auth/register"),
     ("company", "POST", "/identity/session/renew"),
     ("company", "POST", "/identity/sync-from-platform"),
     ("cosa", "POST", "/platform/internal/list-workspace-memberships"),
     ("cosa", "POST", "/platform/internal/validate-workspace-membership"),
     ("cosa", "POST", "/platform/internal/mark-workspace-synced"),
-    # B5 (ADR-COSA-DELEGATION-002): Encore auth handler dùng PLATFORM_JWT_SECRET,
+    # Cutover COSA sang backend/core: services/company (app Encore riêng) hỏi danh tính của người giữ token
+    # (JWT platform cũ hoặc access token OIDC của core). Handler tự xác thực token trong body
+    # (resolveCallerIdentity -> introspect với core), giống validate-workspace-membership.
+    ("cosa", "POST", "/platform/internal/resolve-identity"),
+    # B5 (ADR-COSA-DELEGATION-002): Encore auth handler chỉ nhận access token của core,
     # nhưng caller (apps/cosa) mang control-plane delegation token ký bởi
     # COSA_CONTROL_DELEGATION_SECRET — 2 secret khác nhau nên auth built-in
     # luôn 403. Handler tự verify thủ công qua resolveCallerAuthorizedForWorkspace
@@ -38,7 +40,7 @@ EXPLICIT_UNAUTHENTICATED_ALLOWLIST = {
     # (apps/cosa, Python, ngoài Encore) mang control-plane delegation token để
     # ký ai-governance-snapshot envelope. Handler tự verify token thủ công qua
     # verifyControlDelegationToken (ai-governance-snapshot.service.ts) — cùng
-    # pattern B5 ở trên, khác secret (Gateway PLATFORM_JWT_SECRET không hiểu
+    # pattern B5 ở trên, khác secret (Gateway chỉ hiểu access token của core, không hiểu
     # được token này). auth:false có chủ đích, đã kiểm tra.
     ("cosa", "POST", "/cosa/ai-governance/snapshot"),
     # Advisor overlay lookup (2026-09-20): services/company là Encore app riêng nên gọi qua

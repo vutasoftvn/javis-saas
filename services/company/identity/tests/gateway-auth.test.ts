@@ -5,7 +5,7 @@ import { auth } from "../handlers/auth.handler";
 import { renewAccessToken } from "../services/token.service";
 import { createTestSession } from "./helpers/test-session";
 
-const PLATFORM_JWT_SECRET = process.env.PLATFORM_JWT_SECRET || "cosa-super-secret-platform-jwt-key-change-in-prod";
+const FOREIGN_JWT_SECRET = "a-jwt-signed-by-some-other-issuer-min-32-chars";
 const LOCAL_JWT_SECRET = process.env.JWT_SECRET || "cosa-dev-jwt-secret-do-not-use-in-prod";
 
 describe("gateway authHandler", () => {
@@ -15,9 +15,9 @@ describe("gateway authHandler", () => {
     expect(authData?.userID).toBe(session.userId);
   });
 
-  it("rejects a raw platform token (not a local session token)", async () => {
-    const platformToken = jwt.sign({ sub: "platform-user-123", aud: "cosa" }, PLATFORM_JWT_SECRET);
-    await expect(auth({ authorization: `Bearer ${platformToken}` })).rejects.toThrow();
+  it("rejects a JWT signed by another issuer (not a local session token)", async () => {
+    const foreignToken = jwt.sign({ sub: "platform-user-123", aud: "cosa" }, FOREIGN_JWT_SECRET);
+    await expect(auth({ authorization: `Bearer ${foreignToken}` })).rejects.toThrow();
   });
 
   it("rejects a missing authorization header", async () => {

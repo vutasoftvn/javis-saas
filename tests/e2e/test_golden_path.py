@@ -166,19 +166,19 @@ def test_golden_s7_policy_snapshot_tenant(stack: MvpStack, cluster: ExternalClus
     # cross-plane (cosa platform token hợp lệ → 403 `permission_denied` đồng nhất
     # trên 3 workspace có nội dung policy khác nhau, KHÔNG rò "rỗng = allow").
     # Nhánh 200 (cô lập `rules` theo tenant) là DORMANT tới khi cầu nối B5 landed.
-    _uid, email, password = identity.register_user(stack.platform.base_url)
-    cosa_token = identity.login(stack.platform.base_url, email, password)
+    uid, _email, _pw = identity.register_user()
 
     seeded_ops = identity.seed_workspace(stack, cluster)
     seeded_fin = identity.seed_workspace(stack, cluster)
     seeded_bare = identity.seed_workspace(stack, cluster)
+    delegation_token = identity.control_plane_delegation(uid, seeded_ops.workspace_id)
     entitlement.grant_entitlement(cluster, seeded_ops.workspace_id, "operations")
     entitlement.grant_entitlement(cluster, seeded_fin.workspace_id, "finance")
 
     policy_snapshot_tenant.run(
         stack,
         cluster,
-        cosa_token,
+        delegation_token,
         seeded_ops,
         seeded_fin,
         seeded_bare,

@@ -1,4 +1,4 @@
-"""E2E HTTP integration coverage cho `GET /platform/workspaces/:workspaceId/session-context`
+"""E2E HTTP integration coverage cho `GET /platform/organizations/:workspaceId/session-context`
 (Task 3 — Frontend Trust and UX Hardening, plan
 `docs/superpowers/plans/2026-09-02-frontend-trust-and-ux-hardening.md`).
 
@@ -187,7 +187,7 @@ def test_session_context_returns_only_the_authenticated_member_workspace(real_co
     token, workspace_id = _register(client, f"session-ctx-a-{time.time()}@example.com", "Session Ctx Venture A")
 
     res = client.get(
-        f"/platform/workspaces/{workspace_id}/session-context",
+        f"/platform/organizations/{workspace_id}/session-context",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert res.status_code == 200, res.text
@@ -216,7 +216,7 @@ def test_session_context_denies_a_member_of_another_workspace(real_cosa_service)
     token_outsider, _ = _register(client, f"session-ctx-b-outsider-{time.time()}@example.com", "Session Ctx Venture B-outsider")
 
     res = client.get(
-        f"/platform/workspaces/{workspace_a}/session-context",
+        f"/platform/organizations/{workspace_a}/session-context",
         headers={"Authorization": f"Bearer {token_outsider}"},
     )
     assert res.status_code == 403, res.text

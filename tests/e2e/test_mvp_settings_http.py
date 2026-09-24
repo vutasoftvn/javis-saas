@@ -52,7 +52,7 @@ def test_settings_contracts_live(real_company_service):
 
     # ─── 3. Verify Members ───
     # If control plane is wired
-    res_mem = client.get(f"/platform/workspaces/{ws_a}/members", headers=headers_a)
+    res_mem = client.get(f"/platform/organizations/{ws_a}/members", headers=headers_a)
     if res_mem.status_code == 200:
         mem_data = res_mem.json()
         assert mem_data["meta"]["dataState"] == "populated"
@@ -60,14 +60,14 @@ def test_settings_contracts_live(real_company_service):
         assert mem_data["data"][0]["roleId"] in {"founder", "member", "admin"}
 
     # ─── 4. Verify Connectors ───
-    res_conn = client.get(f"/platform/workspaces/{ws_a}/connectors", headers=headers_a)
+    res_conn = client.get(f"/platform/organizations/{ws_a}/connectors", headers=headers_a)
     if res_conn.status_code == 200:
         conn_data = res_conn.json()
         assert conn_data["meta"]["sources"][0]["kind"] == "control_plane"
         assert "secret" not in res_conn.text.lower() or "secretRef" not in res_conn.text
 
     # ─── 5. Verify Runtime Nodes ───
-    res_nodes = client.get(f"/platform/workspaces/{ws_a}/runtime-nodes", headers=headers_a)
+    res_nodes = client.get(f"/platform/organizations/{ws_a}/runtime-nodes", headers=headers_a)
     if res_nodes.status_code == 200:
         nodes_data = res_nodes.json()
         assert nodes_data["meta"]["sources"][0]["kind"] == "control_plane"
@@ -77,7 +77,7 @@ def test_settings_contracts_live(real_company_service):
     # ─── 6. Verify Skill Policies (Task 4 — Truthful MVP Hardening) ───
     # If control plane is wired (services/cosa reachable from this Encore instance)
     res_skill_policies = client.get(
-        f"/platform/workspaces/{ws_a}/skill-policies", headers=headers_a
+        f"/platform/organizations/{ws_a}/skill-policies", headers=headers_a
     )
     if res_skill_policies.status_code == 200:
         skill_data = res_skill_policies.json()
@@ -85,7 +85,7 @@ def test_settings_contracts_live(real_company_service):
         assert isinstance(skill_data["data"], list)
 
         put_res = client.put(
-            f"/platform/workspaces/{ws_a}/skill-policies/lead_enricher",
+            f"/platform/organizations/{ws_a}/skill-policies/lead_enricher",
             headers=headers_a,
             json={"enabled": True, "config": {}},
         )
@@ -96,7 +96,7 @@ def test_settings_contracts_live(real_company_service):
 
             # Workspace B cannot mutate Workspace A's skill policies.
             cross_put = client.put(
-                f"/platform/workspaces/{ws_a}/skill-policies/lead_enricher",
+                f"/platform/organizations/{ws_a}/skill-policies/lead_enricher",
                 headers=headers_b,
                 json={"enabled": True, "config": {}},
             )
@@ -104,5 +104,5 @@ def test_settings_contracts_live(real_company_service):
 
     # ─── 7. Tenant Isolation ───
     # Workspace B cannot read Workspace A's members
-    cross_res = client.get(f"/platform/workspaces/{ws_a}/members", headers=headers_b)
+    cross_res = client.get(f"/platform/organizations/{ws_a}/members", headers=headers_b)
     assert cross_res.status_code in {401, 403, 404}

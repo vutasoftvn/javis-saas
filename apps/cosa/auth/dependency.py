@@ -4,7 +4,6 @@ import hashlib
 import logging
 import os
 import time
-from typing import Literal
 
 from fastapi import Header, HTTPException, status
 from pydantic import BaseModel
@@ -14,10 +13,8 @@ from apps.cosa.auth.jwt import (
     MissingPlatformIdentityError,
     mint_company_delegation,
     mint_control_plane_delegation,
-    mint_delegation_token,
     mint_local_delegation_token,
     verify_local_session_token,
-    verify_platform_token,
 )
 from apps.cosa.auth.workspace_client import (
     ResolvedWorkspaceTenantContext,
@@ -56,15 +53,10 @@ class AuthenticatedIdentity(BaseModel):
     workspace_id: str
     role_id: str
     bearer_token: str
-    # M1 §1 — token gốc là local session (services/company) hay platform (control-plane).
-    # Quyết định delegation token forward xuống services/company phải cùng shape.
-    token_kind: Literal["local_session", "platform"] = "platform"
-    # B5 fix — platform_user_id THẬT (hàng `identityUserProjections.platformUserId`
-    # phía services/company), khác `platform_user_id` ở trên khi `token_kind ==
-    # "local_session"` (trường đó khi đó thực ra là local user id, giữ nguyên vì
-    # mint_company_delegation/mint_delegation cố tình cần đúng "sub gốc của
-    # token", không phải platform id thật). None nếu user local này chưa từng
-    # sync qua platform (`sync-from-platform`) — không có identity platform thật.
+    # platform_user_id THẬT = id user ở backend/core (hàng `identityUserProjections.platformUserId`
+    # phía services/company). `platform_user_id` ở trên thực ra là local user id (sub của local session),
+    # giữ nguyên vì mint_company_delegation/mint_delegation cố tình cần đúng "sub gốc của token". None nếu
+    # user local này chưa từng sync qua platform (`sync-from-platform`).
     resolved_platform_user_id: str | None = None
 
     def mint_control_plane_delegation(self, *, ttl_seconds: int = 600) -> str:
@@ -94,12 +86,9 @@ class AuthenticatedIdentity(BaseModel):
         )
 
     def mint_delegation(self, *, ttl_seconds: int = 600) -> str:
-        """Delegation token ngắn hạn cùng shape với token gốc — để lệnh forward
-        xuống services/company verify được (local session ⇒ JWT_SECRET/no-aud;
-        platform ⇒ PLATFORM_JWT_SECRET/aud=cosa)."""
-        if self.token_kind == "local_session":
-            return mint_local_delegation_token(self.platform_user_id, ttl_seconds=ttl_seconds)
-        return mint_delegation_token(self.platform_user_id, ttl_seconds=ttl_seconds)
+        """Delegation token ngắn hạn cùng shape với local session (JWT_SECRET, không audience) — để lệnh
+        forward xuống services/company verify được."""
+        return mint_local_delegation_token(self.platform_user_id, ttl_seconds=ttl_seconds)
 
     def mint_company_delegation(
         self,
@@ -270,21 +259,15 @@ async def get_authenticated_identity(
     if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing bearer token")
 
-    # M1 §1 — AgentOS là local business runtime ⇒ ưu tiên local session token
-    # (services/company). Platform token vẫn chấp nhận cho luồng platform.
-    token_kind: Literal["local_session", "platform"]
+    # AgentOS là local business runtime ⇒ chỉ chấp nhận local session token (services/company). Danh tính
+    # gốc do backend/core quản lý; app đổi access token của core lấy local session qua sync-from-platform.
     try:
         principal_id = verify_local_session_token(token)
-        token_kind = "local_session"
-    except InvalidPlatformTokenError:
-        try:
-            principal_id = verify_platform_token(token)
-            token_kind = "platform"
-        except InvalidPlatformTokenError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="invalid or expired session token",
-            ) from exc
+    except InvalidPlatformTokenError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="invalid or expired session token",
+        ) from exc
 
     if not x_workspace_id:
         raise HTTPException(
@@ -309,13 +292,9 @@ async def get_authenticated_identity(
     if resolved.workspace_id != x_workspace_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="tenant_scope_mismatch")
 
-    # B5 fix — với token_kind "platform", sub của chính token gốc ĐÃ LÀ
-    # platform_user_id thật. Với "local_session", platform_user_id thật (nếu
-    # có) chỉ biết được sau khi cross-check với services/company —
+    # platform_user_id thật (id user ở backend/core) chỉ biết được sau khi cross-check với services/company —
     # `resolved.platform_user_id` (None nếu local user này chưa từng sync).
-    resolved_platform_user_id = (
-        principal_id if token_kind == "platform" else resolved.platform_user_id
-    )
+    resolved_platform_user_id = resolved.platform_user_id
 
     return AuthenticatedIdentity(
         principal_id=f"user:{principal_id}",
@@ -323,6 +302,5 @@ async def get_authenticated_identity(
         workspace_id=resolved.workspace_id,
         role_id=resolved.membership_role,
         bearer_token=token,
-        token_kind=token_kind,
         resolved_platform_user_id=resolved_platform_user_id,
     )

@@ -4,7 +4,7 @@ Task 4 (Truthful MVP Hardening) — apps/cosa (Agent Platform composition
 layer) KHÔNG tự lưu `workspace_skill_policies`. Nguồn sự thật thật sự nằm ở
 `services/cosa` (Encore/TS, bảng `control_plane.workspace_skill_policies`,
 migration 30). Client này chỉ forward bearer token + workspace ID sang
-`/platform/workspaces/:workspaceId/skill-policies[...]` — mọi validate
+`/platform/organizations/:workspaceId/skill-policies[...]` — mọi validate
 skillKey với registry riêng của Agent Platform xảy ra ở caller
 (`apps/cosa/api/settings_routes.py`) TRƯỚC khi gọi client này.
 """
@@ -43,13 +43,13 @@ class WorkspaceSettingsClient:
         self.timeout = timeout
 
     async def list_policies(self, *, workspace_id: str, bearer_token: str) -> list[dict[str, Any]]:
-        """`GET /platform/workspaces/:workspaceId/skill-policies` — trả danh
+        """`GET /platform/organizations/:workspaceId/skill-policies` — trả danh
         sách policy đã persist (có thể rỗng nếu workspace chưa cấu hình skill
         nào — khác với "control plane không phản hồi được")."""
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 res = await client.get(
-                    f"{self.base_url}/platform/workspaces/{workspace_id}/skill-policies",
+                    f"{self.base_url}/platform/organizations/{workspace_id}/skill-policies",
                     headers={"Authorization": f"Bearer {bearer_token}"},
                 )
         except httpx.HTTPError as exc:
@@ -82,13 +82,13 @@ class WorkspaceSettingsClient:
         config: dict[str, Any],
         bearer_token: str,
     ) -> dict[str, Any]:
-        """`PUT /platform/workspaces/:workspaceId/skill-policies/:skillKey` —
+        """`PUT /platform/organizations/:workspaceId/skill-policies/:skillKey` —
         trả policy đã persist (đã tăng `revision`) từ control plane, KHÔNG
         phải giá trị echo lại từ request."""
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 res = await client.put(
-                    f"{self.base_url}/platform/workspaces/{workspace_id}/skill-policies/{skill_key}",
+                    f"{self.base_url}/platform/organizations/{workspace_id}/skill-policies/{skill_key}",
                     headers={"Authorization": f"Bearer {bearer_token}"},
                     json={"enabled": enabled, "config": config},
                 )

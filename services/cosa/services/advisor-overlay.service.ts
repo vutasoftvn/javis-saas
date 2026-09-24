@@ -14,7 +14,7 @@ export const ADVISOR_OVERLAY_TOKEN_ISSUER = "cosa_company";
 
 /**
  * Secret một chiều: `services/company` ký, `services/cosa` verify. Không tái dùng
- * PLATFORM_JWT_SECRET / JWT_SECRET / *_DELEGATION_SECRET (CLAUDE.md: mỗi secret đúng 1 chiều).
+ * JWT_SECRET / *_DELEGATION_SECRET (CLAUDE.md: mỗi secret đúng 1 chiều).
  */
 export function getAdvisorOverlayServiceSecret(): string {
   const secret = process.env.COSA_ADVISOR_OVERLAY_SERVICE_SECRET;

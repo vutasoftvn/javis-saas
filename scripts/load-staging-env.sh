@@ -55,11 +55,6 @@ check_staging_env() {
         has_error=1
     fi
 
-    if [ -z "$PLATFORM_JWT_SECRET" ]; then
-        echo "❌ PLATFORM_JWT_SECRET is required for staging" >&2
-        has_error=1
-    fi
-
     if [ -z "$WORKER_SERVICE_JWT_SECRET" ]; then
         echo "❌ WORKER_SERVICE_JWT_SECRET is required for staging" >&2
         has_error=1

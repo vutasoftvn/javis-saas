@@ -37,9 +37,6 @@ Trước khi tiến hành Cutover, tất cả các điều kiện sau PHẢI đ�
 
 Rotate mọi secret prod còn dùng giá trị dev/placeholder **trước** khi mở traffic. Chi tiết cơ chế + lệnh: [`docs/operations/secrets.md`](../operations/secrets.md) §3.
 
-Cửa sổ bảo trì bắt buộc cho `PLATFORM_JWT_SECRET` (rotate làm mọi session đang mở mất hiệu lực).
-
-- [ ] `PLATFORM_JWT_SECRET` — set đồng thời Coolify (`apps/cosa`) + `encore secret set --type prod` (`services/cosa`); redeploy `cosa-api` + `cosa-worker` + `services-cosa` cùng lúc.
 - [ ] `COSA_COMPANY_DELEGATION_SECRET` — sinh secret riêng, set cùng giá trị cho `services-company`, `cosa-api`, `cosa-worker`; redeploy cả ba; verify delegation trên staging trước khi cutover và thu hồi giá trị cũ sau khi traffic ổn định.
 - [ ] `WORKER_SERVICE_JWT_SECRET` — set Coolify; mint lại worker token (`scripts/mint-worker-service-token.mjs`); redeploy control plane + workers.
 - [ ] `DEEPSEEK_API_KEY` — tạo key mới ở dashboard; set Coolify; redeploy; thu hồi key cũ sau khi xác nhận traffic trên key mới.
@@ -47,7 +44,6 @@ Cửa sổ bảo trì bắt buộc cho `PLATFORM_JWT_SECRET` (rotate làm mọi 
 - [ ] Postgres app-role passwords (`agent`, `cosa`, `company`) — `ALTER ROLE ... PASSWORD`; cập nhật `*_DATABASE_URL` ở Coolify; redeploy; verify `/ready` 200.
 
 **Verify trên staging (bằng chứng, không bỏ qua):**
-- [ ] Token phát hành **trước** rotate `PLATFORM_JWT_SECRET` → gọi API `apps/cosa` trả `401`.
 - [ ] Đăng nhập lại → token mới verify OK, `/agent/conversations` trả `200`.
 - [ ] Worker với token cũ → bị control plane từ chối; worker mint lại token mới → claim task OK.
 - [ ] `bash scripts/e2e/run-golden-path.sh` xanh sau rotate.

@@ -1,10 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import jwt from "jsonwebtoken";
-import {
-  signPlatformToken,
-  signWorkerServiceToken,
-  getWorkerServiceJwtSecret,
-} from "../services/token.service";
+import { signWorkerServiceToken, getWorkerServiceJwtSecret } from "../services/token.service";
 import { workerIngressEndpoint } from "../handlers/worker-ingress.handler";
 import {
   acquireRuntimeLeaseEndpoint,
@@ -14,6 +10,7 @@ import {
   pollDueScheduledTasksEndpoint,
 } from "../handlers/control-plane.handler";
 import { db, schema } from "../models/db";
+import { signPlatformToken } from "./support/test-identity";
 
 const { scheduledTasks, workers } = schema;
 

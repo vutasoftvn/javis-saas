@@ -1,36 +1,18 @@
 """S7: cô lập tenant của policy snapshot (`GET /platform/auth/me/agent-policy-snapshot`).
 
-Discovery (2026-09-03 — đọc code `services/cosa` + `services/company`):
+Discovery (cập nhật sau cutover backend/core):
 
-- Endpoint `GET /platform/auth/me/agent-policy-snapshot` (`services/cosa`,
-  `expose:true auth:true`) chạy HAI chặng xác thực CHỒNG nhau:
-
-  (1) Encore gateway `authHandler` -> `verifyPlatformToken` (`PLATFORM_JWT_SECRET`
-      + `aud="cosa"` + `iss="cosa_platform"`). CHỈ cosa platform token
-      (`identity.register_user` + `identity.login`) qua được. Company local
-      token (`_e2e/session`, ký bằng `JWT_SECRET`) bị chặn -> 401 tại gateway
-      (đã được S3 `capability_governance` (C)(c1) chốt).
-
-  (2) handler -> `getTenantPolicySnapshotForCaller` -> `verifyWorkspaceMembership`
-      FORWARD NGUYÊN `Authorization` header sang `services/company`
-      `GET /identity/workspaces/:id/platform-company` -> `resolveTenantContext`
-      verify bằng `JWT_SECRET`. cosa platform token KHÔNG verify được ở đây ->
-      company trả 401 -> `verifyWorkspaceMembership` map thành
-      `APIError.permissionDenied` -> endpoint trả **403 `permission_denied`**.
-
-  Hệ quả: trong subprocess stack hiện tại KHÔNG token đơn nào thỏa CẢ (1) lẫn
-  (2) — cùng gốc rễ bug B5 (thiếu cầu nối identity/delegation cosa <-> company),
-  chỉ xuất hiện ở endpoint snapshot thay vì hop run-start của S2/S3. Vì vậy phần
-  "200 + `rules` lọc theo tenant" của scenario này là NHÁNH DORMANT (mirror
-  S2 `_assert_completed_run_facts` / S3 nhánh `run.completed`): tự kích hoạt khi
-  cầu nối B5 landed, KHÔNG hard-assert bug.
+- Endpoint `GET /platform/auth/me/agent-policy-snapshot` (`services/cosa`, `expose:true auth:true`) xác thực
+  bằng access token OIDC (opaque) của backend/core qua gateway `authHandler`. Token dạng JWT (company local
+  token ký `JWT_SECRET`, control-plane delegation) KHÔNG phải danh tính người dùng -> 401 tại gateway.
+- Trong subprocess stack không có backend/core thật nên không mint được access token hợp lệ: phần "200 +
+  `rules` lọc theo tenant" là NHÁNH DORMANT, chỉ chạy khi stack có core (tự kích hoạt, không hard-assert bug).
 
 B5-independent (LUÔN chạy):
 
 - Gateway auth gate: không bearer -> 401 `unauthenticated`; token rác -> 401
   `unauthenticated`.
-- FAIL-CLOSED tại tầng verify membership: cosa platform token HỢP LỆ (qua được
-  gateway) + bất kỳ `workspaceId` nào -> **403 `permission_denied`**, KHÔNG bao
+- FAIL-CLOSED: delegation JWT (không phải danh tính người dùng) + bất kỳ `workspaceId` nào -> **403 `permission_denied`**, KHÔNG bao
   giờ 200 với snapshot "rỗng = allow-all". Đây là điểm khác S3 (C)(c1): ở đó
   gateway TỪ CHỐI token; ở đây gateway CHẤP NHẬN token nhưng chặng verify
   membership cross-plane fail-closed. Uniform trên workspace có grant
@@ -56,14 +38,14 @@ _SNAPSHOT_PATH = "/platform/auth/me/agent-policy-snapshot"
 def run(
     stack: MvpStack,
     cluster: DisposableCluster,
-    cosa_token: str,
+    delegation_token: str,
     seeded_ops: SeededWorkspace,
     seeded_fin: SeededWorkspace,
     seeded_bare: SeededWorkspace,
 ) -> None:
     """`cluster` giữ chữ ký đồng nhất với S2–S4 (scenario không cần SQL trực tiếp
-    ở đây — seed đã xong ở tầng test). `cosa_token` là platform token THẬT do
-    `identity.login` cấp; ba `SeededWorkspace` là workspace company với nội dung
+    ở đây — seed đã xong ở tầng test). `delegation_token` là control-plane delegation JWT
+    (`identity.control_plane_delegation`); ba `SeededWorkspace` là workspace company với nội dung
     `cosa.workspace_agent_policy` khác nhau (operations / finance / trống)."""
     platform = stack.platform
 
@@ -77,7 +59,7 @@ def run(
     _assert_gateway_auth_gate(platform, seeded_ops.workspace_id)
     _assert_membership_hop_fails_closed(
         platform,
-        cosa_token,
+        delegation_token,
         (seeded_ops.workspace_id, seeded_fin.workspace_id, seeded_bare.workspace_id),
     )
     _assert_tenant_scoped_snapshot_or_dormant(platform, seeded_ops, seeded_fin, seeded_bare)
@@ -99,28 +81,21 @@ def _assert_gateway_auth_gate(platform: ServiceClient, workspace_id: str) -> Non
 
 
 def _assert_membership_hop_fails_closed(
-    platform: ServiceClient, cosa_token: str, workspace_ids: tuple[str, ...]
+    platform: ServiceClient, delegation_token: str, workspace_ids: tuple[str, ...]
 ) -> None:
-    # cosa platform token HỢP LỆ: qua được gateway (1), nhưng chặng (2)
-    # `verifyWorkspaceMembership` forward token sang `services/company` —
-    # `resolveTenantContext` verify bằng `JWT_SECRET`, cosa token fail ->
-    # company 401 -> map thành `permission_denied` -> endpoint 403.
-    #
-    # Bằng chứng FAIL-CLOSED: endpoint KHÔNG trả 200 với `rules: []` (allow-all
-    # ngầm) khi không verify được membership. Uniform trên 3 workspace có nội
-    # dung policy khác nhau -> không rò tín hiệu theo policy.
+    # Danh tính người dùng giờ là access token OIDC (opaque) của backend/core; e2e subprocess không có core
+    # thật nên không mint được. Token JWT (control-plane delegation do apps/cosa ký) KHÔNG phải danh tính
+    # người dùng: gateway `authHandler` PHẢI từ chối (401) thay vì cho qua — fail-closed, không "rỗng = allow",
+    # đồng nhất trên 3 workspace có nội dung policy khác nhau nên không rò tín hiệu theo policy.
     for workspace_id in workspace_ids:
         r = platform.get(
-            _SNAPSHOT_PATH, token=cosa_token, params={"workspaceId": workspace_id}
+            _SNAPSHOT_PATH, token=delegation_token, params={"workspaceId": workspace_id}
         )
-        assert r.status_code == 403, (
-            f"snapshot với cosa platform token cho ws {workspace_id}: kỳ vọng 403 "
-            f"(fail-closed tại chặng verify membership), thực tế {r.status_code}: {r.text}"
+        assert r.status_code == 401, (
+            f"snapshot với delegation JWT cho ws {workspace_id}: kỳ vọng 401 "
+            f"(không phải danh tính người dùng), thực tế {r.status_code}: {r.text}"
         )
-        assert r.json().get("code") == "permission_denied", (
-            f"403 body PHẢI là Encore `permission_denied` (fail-closed có cấu trúc), "
-            f"thực tế {r.json()!r}"
-        )
+        assert r.json().get("code") == "unauthenticated", r.json()
 
 
 def _assert_tenant_scoped_snapshot_or_dormant(

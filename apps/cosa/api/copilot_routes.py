@@ -28,7 +28,7 @@ class CopilotCustomerSupportRequest(BaseModel):
     # (mintCopilotDelegationToken, cùng shape {sub, auth_time} ký bằng
     # JWT_SECRET) cho ĐÚNG người dùng đã yêu cầu Copilot — route này KHÔNG
     # còn tự mint token khác dưới danh nghĩa "system:copilot" (sai secret,
-    # PLATFORM_JWT_SECRET thay vì JWT_SECRET, khiến mọi lời gọi ngược lại
+    # secret platform cũ thay vì JWT_SECRET, khiến mọi lời gọi ngược lại
     # services/company để đọc thread/customer/knowledge context luôn fail
     # xác thực). Bắt buộc có — thiếu thì từ chối thẳng, không tự chế fallback.
     actor_id: str

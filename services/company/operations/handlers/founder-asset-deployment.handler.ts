@@ -26,7 +26,6 @@ function requireWorkerServiceToken(
 
   const secret =
     process.env.WORKER_SERVICE_JWT_SECRET ||
-    process.env.PLATFORM_JWT_SECRET ||
     DEV_WORKER_JWT_SECRET;
   try {
     const payload = jwt.verify(token, secret, { audience: "control_plane" }) as {

@@ -312,7 +312,6 @@ deploy-preflight: ## Verify prerequisites before deployment (backup policy, conn
 	@test -n "$$AGENT_MIGRATOR_DATABASE_URL" || { echo "❌ AGENT_MIGRATOR_DATABASE_URL is required"; exit 1; }
 	@test -n "$$COSA_MIGRATOR_DATABASE_URL" || { echo "❌ COSA_MIGRATOR_DATABASE_URL is required"; exit 1; }
 	@test -n "$$WORKSPACE_MIGRATOR_DATABASE_URL" || { echo "❌ WORKSPACE_MIGRATOR_DATABASE_URL is required"; exit 1; }
-	@test -n "$$PLATFORM_JWT_SECRET" || { echo "❌ PLATFORM_JWT_SECRET is required"; exit 1; }
 	@test -n "$$WORKER_SERVICE_JWT_SECRET" || { echo "❌ WORKER_SERVICE_JWT_SECRET is required"; exit 1; }
 	@test -n "$$COSA_WORKER_SERVICE_TOKEN" || { echo "❌ COSA_WORKER_SERVICE_TOKEN is required"; exit 1; }
 	@test -n "$$DEEPSEEK_API_KEY" || { echo "❌ DEEPSEEK_API_KEY is required"; exit 1; }

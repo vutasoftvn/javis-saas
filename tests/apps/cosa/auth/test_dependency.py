@@ -15,11 +15,12 @@ from apps.cosa.auth.dependency import (
 )
 from apps.cosa.auth.workspace_client import WorkspaceTenantContextClient
 
-SECRET = "cosa-super-secret-platform-jwt-key-change-in-prod"
+# Local session token do services/company ký (JWT_SECRET, không audience).
+SECRET = "cosa-dev-jwt-secret-do-not-use-in-prod"
 
 
 def _token(sub="42"):
-    return jwt.encode({"sub": sub, "aud": "cosa", "exp": int(time.time()) + 3600}, SECRET, algorithm="HS256")
+    return jwt.encode({"sub": sub, "exp": int(time.time()) + 3600}, SECRET, algorithm="HS256")
 
 
 def _workspace_client_returning(workspace_id: str) -> WorkspaceTenantContextClient:
@@ -180,8 +181,8 @@ async def test_workspace_resolve_cache_keyed_by_token(monkeypatch):
     set_workspace_tenant_context_client(client)
 
     now = int(time.time())
-    token_a = jwt.encode({"sub": "99", "aud": "cosa", "exp": now + 3600}, SECRET, algorithm="HS256")
-    token_b = jwt.encode({"sub": "99", "aud": "cosa", "exp": now + 7200}, SECRET, algorithm="HS256")
+    token_a = jwt.encode({"sub": "99", "exp": now + 3600}, SECRET, algorithm="HS256")
+    token_b = jwt.encode({"sub": "99", "exp": now + 7200}, SECRET, algorithm="HS256")
     assert token_a != token_b
 
     await get_authenticated_identity(authorization=f"Bearer {token_a}", x_workspace_id="ws1")
@@ -217,13 +218,12 @@ def _local_token(sub="77"):
 
 
 @pytest.mark.asyncio
-async def test_accepts_local_session_token_and_marks_token_kind():
+async def test_accepts_local_session_token():
     set_workspace_tenant_context_client(_workspace_client_returning("ws1"))
     identity = await get_authenticated_identity(
         authorization=f"Bearer {_local_token(sub='77')}", x_workspace_id="ws1"
     )
     assert identity.principal_id == "user:77"
-    assert identity.token_kind == "local_session"
     # delegation token cùng shape local (no aud) — verify bằng local secret.
     deleg = identity.mint_delegation()
     decoded = jwt.decode(deleg, _LOCAL_SECRET, algorithms=["HS256"])
@@ -231,14 +231,17 @@ async def test_accepts_local_session_token_and_marks_token_kind():
 
 
 @pytest.mark.asyncio
-async def test_platform_token_still_accepted_as_fallback():
+async def test_platform_shaped_token_with_audience_is_rejected():
+    """Token JWT platform cũ (aud=cosa) không còn là danh tính hợp lệ: danh tính do backend/core quản lý."""
     set_workspace_tenant_context_client(_workspace_client_returning("ws1"))
-    identity = await get_authenticated_identity(
-        authorization=f"Bearer {_token(sub='42')}", x_workspace_id="ws1"
+    legacy = jwt.encode(
+        {"sub": "42", "aud": "cosa", "exp": int(time.time()) + 3600},
+        "cosa-super-secret-platform-jwt-key-change-in-prod",
+        algorithm="HS256",
     )
-    assert identity.token_kind == "platform"
-    deleg = identity.mint_delegation()
-    jwt.decode(deleg, SECRET, algorithms=["HS256"], audience="cosa")  # platform-shaped
+    with pytest.raises(HTTPException) as exc:
+        await get_authenticated_identity(authorization=f"Bearer {legacy}", x_workspace_id="ws1")
+    assert exc.value.status_code == 401
 
 
 _COMPANY_DELEGATION_SECRET = "cosa-company-delegation-dev-secret-change-in-prod"

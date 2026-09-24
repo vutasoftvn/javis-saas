@@ -50,7 +50,7 @@ export interface GetMyTenantPolicySnapshotParams {
  * policy. Resolve workspace → platform_company via services/company endpoint.
  *
  * B5 fix (2026-09-04) — trước đây dùng `auth: true` (Encore Gateway, chỉ
- * chấp nhận PLATFORM_JWT_SECRET) rồi verify membership bằng cách forward
+ * chấp nhận access token của core) rồi verify membership bằng cách forward
  * Authorization sang services/company (chỉ hiểu JWT_SECRET local-session) —
  * 2 secret khác nhau nên KHÔNG token nào qua được cả 2 chặng, mọi request từ
  * apps/cosa đều fail 403 permission_denied vô điều kiện. Giờ tự verify thủ

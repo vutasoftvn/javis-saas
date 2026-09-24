@@ -1,9 +1,14 @@
 import { api, APIError } from "encore.dev/api";
 import { resolveAuthData } from "./auth.handler";
-import { verifyPlatformToken } from "../services/token.service";
+import { authorizeAndProjectCoreAccess } from "../services/core-access.service";
+import {
+  listMembershipsForToken,
+  resolveIdentityForToken,
+  validateMembershipForToken,
+  type TokenIdentity,
+} from "../services/workspace-access.service";
 import {
   getWorkspaceEntitlement,
-  listWorkspaceMembershipsForUser,
   validateWorkspaceMembership,
   markWorkspaceSynced,
   WorkspaceEntitlementView,
@@ -38,11 +43,14 @@ export interface MarkWorkspaceSyncedResponse {
 }
 
 export const getWorkspaceEntitlementEndpoint = api(
-  { method: "GET", path: "/platform/workspaces/:id/entitlement", expose: true, auth: true },
+  { method: "GET", path: "/platform/organizations/:id/entitlement", expose: true, auth: true },
   async ({ id }: { id: string }): Promise<WorkspaceEntitlementView> => {
     const authData = await resolveAuthData();
     const userId = BigInt(authData.userID);
     const workspaceId = BigInt(id);
+
+    // Core quyết định thành viên và bản chiếu được cập nhật trước khi đọc bảng cục bộ.
+    await authorizeAndProjectCoreAccess(authData.accessToken, id, "cosa.workspace.read");
 
     const membership = await validateWorkspaceMembership(userId, workspaceId);
     if (!membership) {
@@ -56,15 +64,8 @@ export const getWorkspaceEntitlementEndpoint = api(
 export const listWorkspaceMembershipsEndpoint = api(
   { method: "POST", path: "/platform/internal/list-workspace-memberships", expose: true, auth: false },
   async (params: ListWorkspaceMembershipsRequest): Promise<ListWorkspaceMembershipsResponse> => {
-    let userIdStr: string;
-    try {
-      const claims = verifyPlatformToken(params.platformToken);
-      userIdStr = claims.sub;
-    } catch {
-      throw APIError.unauthenticated("invalid or expired platform token");
-    }
-
-    const memberships = await listWorkspaceMembershipsForUser(BigInt(userIdStr));
+    // Token JWT platform cũ hoặc access token OIDC của core (core là nguồn sự thật).
+    const memberships = await listMembershipsForToken(params.platformToken);
     return { memberships };
   }
 );
@@ -72,19 +73,23 @@ export const listWorkspaceMembershipsEndpoint = api(
 export const validateWorkspaceMembershipEndpoint = api(
   { method: "POST", path: "/platform/internal/validate-workspace-membership", expose: true, auth: false },
   async (params: ValidateWorkspaceMembershipRequest): Promise<ValidateWorkspaceMembershipResponse> => {
-    let userIdStr: string;
-    try {
-      const claims = verifyPlatformToken(params.platformToken);
-      userIdStr = claims.sub;
-    } catch {
-      throw APIError.unauthenticated("invalid or expired platform token");
-    }
-
-    const membership = await validateWorkspaceMembership(BigInt(userIdStr), BigInt(params.platformWorkspaceId));
+    const { membership } = await validateMembershipForToken(params.platformToken, params.platformWorkspaceId);
     if (!membership) {
       return { valid: false };
     }
     return { valid: true, membership };
+  }
+);
+
+export interface ResolveIdentityRequest {
+  platformToken: string;
+}
+
+/** Nội bộ cho services/company: danh tính của người giữ token (JWT platform cũ hoặc token OIDC của core). */
+export const resolveIdentityEndpoint = api(
+  { method: "POST", path: "/platform/internal/resolve-identity", expose: true, auth: false },
+  async (params: ResolveIdentityRequest): Promise<TokenIdentity> => {
+    return resolveIdentityForToken(params.platformToken);
   }
 );
 
@@ -93,16 +98,7 @@ export const markWorkspaceSyncedEndpoint = api(
   async (params: MarkWorkspaceSyncedRequest): Promise<MarkWorkspaceSyncedResponse> => {
     // M1 §4 — trước đây không xác thực gì (chỉ nhận platformWorkspaceId). Yêu cầu
     // platform token hợp lệ + caller là thành viên workspace đó.
-    let userIdStr: string;
-    try {
-      userIdStr = verifyPlatformToken(params.platformToken).sub;
-    } catch {
-      throw APIError.unauthenticated("invalid or expired platform token");
-    }
-    const membership = await validateWorkspaceMembership(
-      BigInt(userIdStr),
-      BigInt(params.platformWorkspaceId)
-    );
+    const { membership } = await validateMembershipForToken(params.platformToken, params.platformWorkspaceId);
     if (!membership) {
       throw APIError.permissionDenied("not a member of this workspace");
     }

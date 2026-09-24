@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/network/platform_token_provider.dart';
 import '../../../core/network/realtime_service.dart';
 import '../../../core/services/secure_storage_service.dart';
+import 'core_auth_client.dart';
 
 class WorkspaceSummary {
   final String workspaceId;
@@ -72,6 +74,14 @@ class AuthResult {
 /// local (COSA) de lay 1 local JWT dung cho moi API local khac. Local
 /// KHONG con dang ky/dang nhap doc lap bang email+password nua.
 class AuthService {
+  AuthService({CoreAuthClient? coreAuth}) : _injectedCoreAuth = coreAuth;
+
+  /// Client đăng nhập/đăng ký với backend/core. Tạo lười vì cần `ApiClient.client` mới nhất
+  /// (test thay `ApiClient.client` bằng MockClient sau khi dựng service).
+  final CoreAuthClient? _injectedCoreAuth;
+  CoreAuthClient get _coreAuth =>
+      _injectedCoreAuth ?? CoreAuthClient(client: ApiClient.client);
+
   static String? _cachedToken;
 
   static bool get isAuthenticated =>
@@ -115,32 +125,18 @@ class AuthService {
   /// local JWT thuc su dung cho cac API local khac.
   Future<AuthResult> loginPlatform(String identifier, String password) async {
     try {
-      final response = await ApiClient.post(
-        '/platform/auth/sessions',
-        requiresAuth: false,
-        body: {'username': identifier, 'password': password},
+      // Danh tính do backend/core quản lý: đăng nhập trực tiếp với core rồi đổi lấy access token
+      // OIDC của client vn.mivacorp.cosa (Authorization Code + PKCE, xem CoreAuthClient).
+      final session = await _coreAuth.login(identifier, password);
+      await PlatformTokenProvider.saveSession(session);
+      return AuthResult(
+        success: true,
+        token: session.accessToken,
+        user: session.user,
       );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final token = data['access_token'] as String?;
-        if (token == null) {
-          return const AuthResult(
-            success: false,
-            errorMessage: 'Phản hồi không hợp lệ từ máy chủ',
-          );
-        }
-        final userData = data['user'] as Map<String, dynamic>?;
-        final rawWs = (data['workspaces'] as List<dynamic>?)
-            ?.map((e) => e as Map<String, dynamic>)
-            .toList();
-        return AuthResult(
-          success: true,
-          token: token,
-          user: userData,
-          rawWorkspaces: rawWs,
-        );
-      } else if (response.statusCode == 401) {
+    } on CoreAuthException catch (e) {
+      debugPrint('loginPlatform core error: $e');
+      if (e.statusCode == 401 || e.statusCode == 403) {
         return const AuthResult(
           success: false,
           errorMessage: 'Email/Số điện thoại hoặc mật khẩu không chính xác',
@@ -148,8 +144,7 @@ class AuthService {
       }
       return AuthResult(
         success: false,
-        errorMessage:
-            'Đăng nhập không thành công (mã lỗi ${response.statusCode})',
+        errorMessage: 'Đăng nhập không thành công (mã lỗi ${e.statusCode})',
       );
     } catch (e) {
       debugPrint('loginPlatform error: $e');
@@ -166,72 +161,71 @@ class AuthService {
   }
 
   /// Đăng ký trên control_plane bằng email + password + workspaceName (hoặc companyName).
-  Future<AuthResult> registerPlatform({
+  Future<AuthResult> requestSignupOtp({
     required String email,
-    required String password,
     required String displayName,
-    String? workspaceName,
-    String? companyName,
-    String? preferredLocale,
   }) async {
     try {
-      final wsName = workspaceName ?? companyName;
-      final body = <String, dynamic>{
-        'email': email,
-        'password': password,
-        'full_name': displayName,
-      };
-      if (wsName != null) body['workspace_name'] = wsName;
-      if (companyName != null) body['company_name'] = companyName;
-      if (preferredLocale != null) body['preferred_locale'] = preferredLocale;
-
-      final response = await ApiClient.post(
-        '/platform/auth/register',
-        requiresAuth: false,
-        body: body,
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final token = data['access_token'] as String?;
-        final wsId =
-            (data['platform_workspace_id'] ?? data['company_id']) as String?;
-        if (token == null) {
-          return const AuthResult(
-            success: false,
-            errorMessage: 'Phản hồi không hợp lệ từ máy chủ',
-          );
-        }
-        final userData = data['user'] as Map<String, dynamic>?;
-        final rawWs = (data['workspaces'] as List<dynamic>?)
-            ?.map((e) => e as Map<String, dynamic>)
-            .toList();
-        return AuthResult(
-          success: true,
-          token: token,
-          companyId: wsId,
-          user: userData,
-          rawWorkspaces: rawWs,
-        );
-      } else if (response.statusCode == 409) {
+      await _coreAuth.requestSignupOtp(email: email, displayName: displayName);
+      return const AuthResult(success: true);
+    } on CoreAuthException catch (e) {
+      debugPrint('requestSignupOtp core error: $e');
+      if (e.statusCode == 409) {
         return const AuthResult(
           success: false,
           errorMessage: 'Email này đã được đăng ký',
         );
-      } else if (response.statusCode == 404) {
+      }
+      return AuthResult(
+        success: false,
+        errorMessage: e.statusCode == 400 || e.statusCode == 422
+            ? 'Thông tin đăng ký không hợp lệ'
+            : 'Không gửi được mã xác nhận (mã lỗi ${e.statusCode})',
+      );
+    } catch (e) {
+      debugPrint('requestSignupOtp error: $e');
+      return AuthResult(success: false, errorMessage: _networkOrGeneric(e, 'Gửi mã xác nhận thất bại'));
+    }
+  }
+
+  /// Hoàn tất đăng ký với backend/core bằng mã OTP đã gửi tới email. Workspace (organization) được
+  /// tạo ở bước sau bằng [createCompany] hoặc [acceptWorkspaceInvitation].
+  Future<AuthResult> registerPlatform({
+    required String email,
+    required String password,
+    required String displayName,
+    required String otp,
+    String? preferredLocale,
+  }) async {
+    try {
+      final session = await _coreAuth.completeSignup(
+        email: email,
+        password: password,
+        otp: otp,
+        displayName: displayName,
+        preferredLanguage: _coreLanguage(preferredLocale),
+      );
+      await PlatformTokenProvider.saveSession(session);
+      return AuthResult(
+        success: true,
+        token: session.accessToken,
+        user: session.user,
+      );
+    } on CoreAuthException catch (e) {
+      debugPrint('registerPlatform core error: $e');
+      if (e.statusCode == 409) {
         return const AuthResult(
           success: false,
-          errorMessage: 'Công ty không tồn tại',
+          errorMessage: 'Email này đã được đăng ký',
         );
-      } else if (response.statusCode == 422) {
-        try {
-          final data = jsonDecode(response.body);
-          final detail = data['detail'];
-          if (detail is List && detail.isNotEmpty) {
-            final msg = detail[0]['msg'] ?? 'Dữ liệu không hợp lệ';
-            return AuthResult(success: false, errorMessage: msg.toString());
-          }
-        } catch (_) {}
+      }
+      if (e.statusCode == 401 || e.statusCode == 400) {
+        return const AuthResult(
+          success: false,
+          errorMessage: 'Mã xác nhận không đúng hoặc đã hết hạn',
+        );
+      }
+      if (e.statusCode == 422) {
         return const AuthResult(
           success: false,
           errorMessage: 'Dữ liệu đăng ký không hợp lệ',
@@ -239,21 +233,29 @@ class AuthService {
       }
       return AuthResult(
         success: false,
-        errorMessage:
-            'Đăng ký không thành công (mã lỗi ${response.statusCode})',
+        errorMessage: 'Đăng ký không thành công (mã lỗi ${e.statusCode})',
       );
     } catch (e) {
       debugPrint('registerPlatform error: $e');
-      final isNetwork = e.toString().contains('SocketException') ||
-          e.toString().contains('ClientException') ||
-          e.toString().contains('TimeoutException');
-      return AuthResult(
-        success: false,
-        errorMessage: isNetwork
-            ? 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.'
-            : 'Đăng ký thất bại: $e',
-      );
+      return AuthResult(success: false, errorMessage: _networkOrGeneric(e, 'Đăng ký thất bại'));
     }
+  }
+
+  static String _networkOrGeneric(Object e, String prefix) {
+    final isNetwork = e.toString().contains('SocketException') ||
+        e.toString().contains('ClientException') ||
+        e.toString().contains('TimeoutException');
+    return isNetwork
+        ? 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.'
+        : '$prefix: $e';
+  }
+
+  /// Core dùng mã ngôn ngữ ngắn (vi/en/zh/ja/ko); app dùng tag đầy đủ (vi-VN/en-US).
+  static String? _coreLanguage(String? locale) {
+    if (locale == null || locale.isEmpty) return null;
+    final short = locale.split(RegExp(r'[-_]')).first.toLowerCase();
+    const supported = {'vi', 'en', 'zh', 'ja', 'ko'};
+    return supported.contains(short) ? short : null;
   }
 
   /// Tao company moi tren control_plane cho platform user hien tai.
@@ -560,7 +562,7 @@ class AuthService {
     _cachedToken = null;
     await SecureStorageService.delete('auth_token');
     await SecureStorageService.delete('local_session_token');
-    await SecureStorageService.delete('platform_access_token');
+    await PlatformTokenProvider.clear();
     await SecureStorageService.delete('workspace_id');
     await SecureStorageService.delete('role');
   }

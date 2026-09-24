@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../services/secure_storage_service.dart';
+import 'platform_token_provider.dart';
 
 /// M5 §5 — ném ra khi `_offlineGuard` chặn một request business (REMOTE_ACCESS +
 /// node OFFLINE). Các transport primitive dùng chung (SSE/multipart/form) không
@@ -317,9 +318,10 @@ class ApiClient {
     final normalized = normalizeEndpoint(endpoint.trim());
     final isPlatformTarget = normalized.startsWith('/platform');
 
-    final primaryKey =
-        isPlatformTarget ? 'platform_access_token' : 'local_session_token';
-    final primary = await SecureStorageService.read(primaryKey);
+    // Control plane dùng access token OIDC của core (tự làm mới khi sắp hết hạn).
+    final primary = isPlatformTarget
+        ? await PlatformTokenProvider.currentToken()
+        : await SecureStorageService.read('local_session_token');
     if (primary != null && primary.isNotEmpty) return primary;
     // Fallback tương thích ngược: token chung cũ.
     final legacy = await SecureStorageService.read('auth_token');

@@ -80,22 +80,56 @@ void main() {
       AuthService.setCachedToken(null);
     });
 
-    test('loginPlatform returns platform token on success (does not cache it as auth_token)', () async {
-      ApiClient.client = MockClient((request) async {
-        expect(request.url.path, contains('/platform/auth/sessions'));
-        return http.Response('{"access_token":"plat-tok-123","token_type":"bearer"}', 200);
-      });
+    /// Backend/core giả lập cho luồng đăng nhập first-party: /auth/login -> /oauth/authorize -> /oauth/token.
+    Future<http.Response> coreHandler(http.Request request, int loginStatus, int signupCompleteStatus) async {
+      switch (request.url.path) {
+        case '/auth/login':
+          if (loginStatus != 200) return http.Response('{}', loginStatus);
+          return http.Response(
+            '{"user":{"id":"42","email":"founder@cosa.dev"},"accessToken":"session-jwt","refreshToken":"r0","expiresIn":3600}',
+            200,
+          );
+        case '/auth/signup':
+          return http.Response('{"success":true,"message":"OTP sent"}', 200);
+        case '/auth/signup/complete':
+          if (signupCompleteStatus != 200) return http.Response('{}', signupCompleteStatus);
+          return http.Response(
+            '{"user":{"id":"43","email":"new@cosa.dev"},"accessToken":"session-jwt","refreshToken":"r0","expiresIn":3600}',
+            200,
+          );
+        case '/oauth/authorize':
+          final q = request.url.queryParameters;
+          return http.Response('{"redirectUrl":"${q['redirect_uri']}?code=c1&state=${q['state']}"}', 200);
+        case '/oauth/token':
+          return http.Response(
+            '{"access_token":"plat-tok-123","refresh_token":"oidc-r","expires_in":3600,"token_type":"Bearer"}',
+            200,
+          );
+      }
+      return http.Response('not found', 404);
+    }
+
+    MockClient fakeCoreLogin({int loginStatus = 200, int signupCompleteStatus = 200}) {
+      return MockClient((request) => coreHandler(request, loginStatus, signupCompleteStatus));
+    }
+
+    test('loginPlatform returns the core OIDC access token (does not cache it as auth_token)', () async {
+      ApiClient.client = fakeCoreLogin();
 
       final service = AuthService();
       final result = await service.loginPlatform('founder@cosa.dev', 'pw');
 
       expect(result.success, isTrue);
       expect(result.token, 'plat-tok-123');
+      expect(result.user?['id'], '42');
+      // Token core được lưu làm platform_access_token kèm refresh token để tự làm mới.
+      expect(await SecureStorageService.read('platform_access_token'), 'plat-tok-123');
+      expect(await SecureStorageService.read('core_refresh_token'), 'oidc-r');
       expect(AuthService.isAuthenticated, isFalse); // chua sync-from-platform nen chua co auth_token local
     });
 
     test('loginPlatform surfaces 401 as a friendly error', () async {
-      ApiClient.client = MockClient((request) async => http.Response('{}', 401));
+      ApiClient.client = fakeCoreLogin(loginStatus: 401);
 
       final service = AuthService();
       final result = await service.loginPlatform('founder@cosa.dev', 'wrong');
@@ -149,61 +183,69 @@ void main() {
       expect(prefs.getString('company_id'), isNull);
     });
 
-    test('registerPlatform sends company_name and returns company_id from server', () async {
+    test('requestSignupOtp asks core to send an OTP to the email', () async {
+      final seen = <String>[];
       ApiClient.client = MockClient((request) async {
-        expect(request.url.path, contains('/platform/auth/register'));
-        return http.Response(
-          '{"access_token":"plat-tok-999","token_type":"bearer","company_id":"42"}',
-          200,
-        );
+        seen.add(request.url.path);
+        final decoded = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(decoded['email'], 'new@cosa.dev');
+        return http.Response('{"success":true,"message":"OTP sent"}', 200);
       });
 
-      final service = AuthService();
-      final result = await service.registerPlatform(
-        email: 'founder@cosa.dev',
-        password: 'secretpw',
-        displayName: 'Founder',
-        companyName: 'Acme Inc',
-      );
+      final result = await AuthService().requestSignupOtp(email: 'new@cosa.dev', displayName: 'New');
 
       expect(result.success, isTrue);
-      expect(result.token, 'plat-tok-999');
-      expect(result.companyId, '42');
+      expect(seen, ['/auth/signup']);
     });
 
-    // Task 6 — `join_company_id` là dead code phía server (registerPlatformUser
-    // chưa từng đọc field này) nên registerPlatform() đã bỏ hẳn tham số này;
-    // xác nhận request body không bao giờ chứa key này nữa.
-    test('registerPlatform never sends join_company_id (removed dead param)', () async {
-      ApiClient.client = MockClient((request) async {
-        final decoded = jsonDecode(request.body) as Map<String, dynamic>;
-        expect(decoded.containsKey('join_company_id'), isFalse);
-        return http.Response(
-          '{"access_token":"plat-tok-999","token_type":"bearer"}',
-          200,
-        );
+    test('registerPlatform completes signup with the OTP and returns the core access token', () async {
+      final signupBodies = <Map<String, dynamic>>[];
+      ApiClient.client = MockClient((request) {
+        if (request.url.path == '/auth/signup/complete') {
+          signupBodies.add(jsonDecode(request.body) as Map<String, dynamic>);
+        }
+        return coreHandler(request, 200, 200);
       });
 
       final service = AuthService();
       final result = await service.registerPlatform(
-        email: 'founder@cosa.dev',
+        email: 'new@cosa.dev',
         password: 'secretpw',
-        displayName: 'Founder',
-        companyName: 'Acme Inc',
+        displayName: 'New',
+        otp: '123456',
+        preferredLocale: 'vi-VN',
       );
 
       expect(result.success, isTrue);
+      expect(result.token, 'plat-tok-123');
+      expect(signupBodies.single['otp'], '123456');
+      expect(signupBodies.single['preferredLanguage'], 'vi');
+      expect(await SecureStorageService.read('platform_access_token'), 'plat-tok-123');
+    });
+
+    test('registerPlatform surfaces a wrong OTP as a friendly error', () async {
+      ApiClient.client = fakeCoreLogin(signupCompleteStatus: 401);
+
+      final result = await AuthService().registerPlatform(
+        email: 'new@cosa.dev',
+        password: 'secretpw',
+        displayName: 'New',
+        otp: '000000',
+      );
+
+      expect(result.success, isFalse);
+      expect(result.errorMessage, contains('Mã xác nhận'));
     });
 
     test('registerPlatform surfaces 409 as email-taken error', () async {
-      ApiClient.client = MockClient((request) async => http.Response('{}', 409));
+      ApiClient.client = fakeCoreLogin(signupCompleteStatus: 409);
 
       final service = AuthService();
       final result = await service.registerPlatform(
         email: 'founder@cosa.dev',
         password: 'secretpw',
         displayName: 'Founder',
-        companyName: 'Acme',
+        otp: '123456',
       );
 
       expect(result.success, isFalse);

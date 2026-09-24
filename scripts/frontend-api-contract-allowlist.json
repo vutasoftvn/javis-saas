@@ -44,17 +44,10 @@
       "expires_on": "2027-06-01"
     },
     {
-      "path": "/platform/auth/register",
+      "path": "/platform/auth/companies/create",
       "method": "POST",
       "owner": "control-plane",
-      "reason": "Auth bootstrap — account registration, pre-dates and is outside the MVP business capability manifest by design.",
-      "expires_on": "2027-06-01"
-    },
-    {
-      "path": "/platform/auth/sessions",
-      "method": "POST",
-      "owner": "control-plane",
-      "reason": "Auth bootstrap — login/session creation, pre-dates and is outside the MVP business capability manifest by design.",
+      "reason": "Auth bootstrap — creates the caller's first organization (workspace) in backend/core right after core login/registration; foundational onboarding, not an MVP business capability. Login and registration now go straight to backend/core (CoreAuthClient), so /platform/auth/sessions and /platform/auth/register are no longer called by the frontend.",
       "expires_on": "2027-06-01"
     },
     {
@@ -919,7 +912,7 @@
       "expires_on": "2026-12-31"
     },
     {
-      "path": "/platform/workspaces/:platformWorkspaceId/entitlement",
+      "path": "/platform/organizations/:platformWorkspaceId/entitlement",
       "method": "GET",
       "owner": "control-plane",
       "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
@@ -2427,7 +2420,7 @@
       "expires_on": "2027-06-01"
     },
     {
-      "path": "/platform/workspaces/:workspaceId/session-context",
+      "path": "/platform/organizations/:workspaceId/session-context",
       "method": "GET",
       "owner": "control-plane",
       "reason": "Auth/session bootstrap — per-workspace session context fetched right after login/switch-workspace; foundational identity plumbing, not an MVP business capability (same class as /identity/me, /identity/sync-from-platform).",

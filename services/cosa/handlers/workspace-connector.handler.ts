@@ -95,7 +95,7 @@ export function parseIsoDate(value: string, fieldName: string): Date {
 export const installConnectorEndpoint = api(
   { method: "POST", path: "/cosa/connectors/install", expose: true },
   async (params: InstallConnectorParams): Promise<ConnectorInstallationResponse> => {
-    const authCtx = extractAuthContext(params.authorization, params.workspaceId);
+    const authCtx = await extractAuthContext(params.authorization, params.workspaceId);
 
     // Verify caller is a member of the workspace
     await connectorSvc.verifyWorkspaceMembership(params.workspaceId, params.authorization);
@@ -112,7 +112,7 @@ export const installConnectorEndpoint = api(
 export const registerAuthorizationEndpoint = api(
   { method: "POST", path: "/cosa/connectors/authorize", expose: true },
   async (params: AuthorizeConnectorParams): Promise<ConnectorAuthorizationResponse> => {
-    const authCtx = extractAuthContext(params.authorization, params.workspaceId);
+    const authCtx = await extractAuthContext(params.authorization, params.workspaceId);
 
     // Verify caller is a member of the workspace
     await connectorSvc.verifyWorkspaceMembership(params.workspaceId, params.authorization);
@@ -140,7 +140,7 @@ const CONNECTOR_MANAGE_OTHERS_ROLES = new Set(["founder", "co-founder"]);
 export const grantConnectorEndpoint = api(
   { method: "POST", path: "/cosa/connectors/grant", expose: true },
   async (params: GrantConnectorParams): Promise<SessionConnectorGrantResponse> => {
-    const authCtx = extractAuthContext(params.authorization, params.workspaceId);
+    const authCtx = await extractAuthContext(params.authorization, params.workspaceId);
 
     // Verify caller is a member of the workspace, and lấy membershipRole đã được
     // services/company xác thực để xác định override founder/co-founder (không dùng role
@@ -165,7 +165,7 @@ export const grantConnectorEndpoint = api(
 export const revokeGrantEndpoint = api(
   { method: "POST", path: "/cosa/connectors/revoke", expose: true },
   async (params: RevokeGrantParams) => {
-    const authCtx = extractAuthContext(params.authorization, params.workspaceId);
+    const authCtx = await extractAuthContext(params.authorization, params.workspaceId);
 
     // Verify caller is a member of the workspace, và lấy membershipRole đã xác thực để
     // xác định override founder/co-founder.

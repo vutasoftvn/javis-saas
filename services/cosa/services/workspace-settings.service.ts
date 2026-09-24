@@ -63,7 +63,7 @@ function mvpItem<T>(item: T, sources: readonly MvpSourceRef[]): MvpSuccess<T> {
 const SOURCE_CONTROL_PLANE: MvpSourceRef = { kind: "control_plane", ref: "control_plane.settings" };
 
 async function verifyWorkspaceMembershipRow(authorization: string | undefined, workspaceId: string) {
-  const authCtx = extractAuthContext(authorization, workspaceId);
+  const authCtx = await extractAuthContext(authorization, workspaceId);
 
   const wsIdBigInt = BigInt(workspaceId);
   const userIdBigInt = BigInt(authCtx.userID);

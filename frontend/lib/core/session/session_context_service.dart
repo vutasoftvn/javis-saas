@@ -1,6 +1,6 @@
 /// Task 4 — nguồn duy nhất lấy [SessionSnapshot] xác thực từ server, gọi
 /// endpoint server-authoritative của Task 3
-/// (`GET /platform/workspaces/:workspaceId/session-context`).
+/// (`GET /platform/organizations/:workspaceId/session-context`).
 library;
 
 import 'dart:convert';
@@ -90,7 +90,7 @@ class PlatformSessionContextService implements SessionContextService {
   Future<_Response> _get(String workspaceId) async {
     try {
       final response = await ApiClient.get(
-        '/platform/workspaces/${Uri.encodeComponent(workspaceId)}/session-context',
+        '/platform/organizations/${Uri.encodeComponent(workspaceId)}/session-context',
       );
       return _Response(response.statusCode, response.bodyBytes);
     } catch (e) {

@@ -17,7 +17,8 @@ export const users = cosaSchema.table("users", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   email: varchar("email", { length: 255 }),
   phone: varchar("phone", { length: 50 }),
-  hashedPassword: text("hashed_password").notNull(),
+  // Migration 006: mật khẩu chỉ còn ở backend/core; user chiếu từ core không có hash cục bộ.
+  hashedPassword: text("hashed_password"),
   status: varchar("status", { length: 50 }).default("active").notNull(),
   lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -48,18 +49,19 @@ export const plans = cosaSchema.table("plans", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const workspaces = cosaSchema.table("workspaces", {
+export const workspaces = cosaSchema.table("organizations", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceName: text("workspace_name").notNull(),
-  ownerId: bigint("owner_user_id", { mode: "bigint" }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  workspaceName: text("organization_name").notNull(),
+  // Migration 006: chủ sở hữu do core quyết định, không còn FK tới cosa.users.
+  ownerId: bigint("owner_user_id", { mode: "bigint" }).notNull(),
   status: text("status").default("active").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const workspaceMemberships = cosaSchema.table("workspace_memberships", {
+export const workspaceMemberships = cosaSchema.table("organization_memberships", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("platform_workspace_id", { mode: "bigint" }).notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  workspaceId: bigint("organization_id", { mode: "bigint" }).notNull().references(() => workspaces.id, { onDelete: "cascade" }),
   userId: bigint("user_id", { mode: "bigint" }).notNull().references(() => users.id, { onDelete: "cascade" }),
   roleId: text("role").default("member").notNull().references(() => roles.id),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -69,9 +71,9 @@ export const workspaceMemberships = cosaSchema.table("workspace_memberships", {
 // Migration 34 (ADR-WORKSPACE-INVITATION-001) — invitation có hạn thay cho
 // self-join bằng company_id trần. Chỉ lưu SHA-256 hash của token, không bao
 // giờ lưu token thô.
-export const workspaceInvitations = cosaSchema.table("workspace_invitations", {
+export const workspaceInvitations = cosaSchema.table("organization_invitations", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  workspaceId: bigint("organization_id", { mode: "bigint" }).notNull().references(() => workspaces.id, { onDelete: "cascade" }),
   emailNormalized: text("email_normalized").notNull(),
   roleId: text("role_id").notNull().references(() => roles.id),
   tokenHash: text("token_hash").notNull(),

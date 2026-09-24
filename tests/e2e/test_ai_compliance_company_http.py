@@ -655,9 +655,6 @@ async def test_approved_direct_business_input_reaches_model_once(
         platform_user_id=seeded["userId"],
         workspace_id=seeded["workspaceId"],
     )
-    # Delegation gửi Company phải ký như local session (JWT_SECRET, sub = user id Company) để
-    # Company xác minh Project thuộc workspace của đúng user này.
-    identity.token_kind = "local_session"
     client = TestClient(app)
 
     conv_res = client.post(
@@ -712,9 +709,6 @@ async def test_withdrawn_personal_authorization_never_reaches_model(
         platform_user_id=seeded["userId"],
         workspace_id=seeded["workspaceId"],
     )
-    # Delegation gửi Company phải ký như local session (JWT_SECRET, sub = user id Company) để
-    # Company xác minh Project thuộc workspace của đúng user này.
-    identity.token_kind = "local_session"
     client = TestClient(app)
 
     conv_res = client.post(

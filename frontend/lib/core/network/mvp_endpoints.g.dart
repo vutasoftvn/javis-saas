@@ -694,7 +694,7 @@ enum MvpEndpoint {
     enabled: true,
     plane: ApiPlane.platform,
     method: 'GET',
-    path: '/platform/workspaces/:workspaceId/capability-manifest',
+    path: '/platform/organizations/:workspaceId/capability-manifest',
     requiresWorkspace: true,
     requiresProject: false,
   );

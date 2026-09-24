@@ -43,8 +43,8 @@ void main() {
 
   test('REMOTE_ACCESS KHÔNG đổi target của /platform (control-plane vẫn thẳng)', () {
     ApiClient.setRuntimeContext(mode: 'REMOTE_ACCESS', presence: 'ONLINE');
-    expect(ApiClient.resolveUri('/platform/workspaces/1/entitlement').toString(),
-        'http://platform.local/platform/workspaces/1/entitlement');
+    expect(ApiClient.resolveUri('/platform/organizations/1/entitlement').toString(),
+        'http://platform.local/platform/organizations/1/entitlement');
   });
 
   // Task 5 — chốt lại rõ ràng bằng test riêng: /agent và /local-worker KHÔNG
@@ -101,7 +101,7 @@ void main() {
 
   test('REMOTE_ACCESS + OFFLINE ⇒ /platform vẫn đi được (không bị offline guard)', () async {
     ApiClient.setRuntimeContext(mode: 'REMOTE_ACCESS', presence: 'OFFLINE');
-    final res = await hit('/platform/workspaces/1/entitlement');
+    final res = await hit('/platform/organizations/1/entitlement');
     expect(res.statusCode, 200);
   });
 

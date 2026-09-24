@@ -19,7 +19,7 @@ tiếp). K8s để sau — điều kiện re-open ghi trong ADR-DEPLOY-001.
 
 1. **`services/company`** (Encore/TS) — container `services/Dockerfile`, port 4000. Encore self-host trong compose; fallback Encore Cloud nếu infra config phức tạp (ADR-DEPLOY-001 §5).
 2. **`services/cosa`** (Encore/TS) — port 4001, có `control_plane` schema + CronJob sweeper (`control-plane.cron.ts`). Deploy TRƯỚC `apps/cosa` phiên bản dùng client mới.
-3. **`apps/cosa` API** (Python) — `apps/cosa/Dockerfile.api`, port 8000. Cần `AGENT_DATABASE_URL` + `DEEPSEEK_API_KEY` + `PLATFORM_JWT_SECRET` + `CORS_ORIGINS` (no-silent-fallback — thiếu → `RuntimeError`/guard raise lúc start).
+3. **`apps/cosa` API** (Python) — `apps/cosa/Dockerfile.api`, port 8000. Cần `AGENT_DATABASE_URL` + `DEEPSEEK_API_KEY` + `CORS_ORIGINS` (no-silent-fallback — thiếu → `RuntimeError`/guard raise lúc start).
 4. **`apps/cosa` worker** (Python) — `apps/cosa/Dockerfile.worker`, không mở HTTP. `restart: unless-stopped` đưa lại khi crash; task đang chạy được sweeper cron reclaim (Part 2E).
 
 `cosa-ingestion-worker`: profile `ingestion`, TẮT mặc định trong compose —

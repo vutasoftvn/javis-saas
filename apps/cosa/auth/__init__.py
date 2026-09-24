@@ -8,7 +8,7 @@ from apps.cosa.auth.dependency import (
     resolve_identity_workspace,
     set_workspace_tenant_context_client,
 )
-from apps.cosa.auth.jwt import InvalidPlatformTokenError, verify_platform_token
+from apps.cosa.auth.jwt import InvalidPlatformTokenError
 from apps.cosa.auth.workspace_client import (
     ResolvedWorkspaceTenantContext,
     WorkspaceTenantContextClient,
@@ -26,5 +26,4 @@ __all__ = [
     "require_workspace_operator",
     "resolve_identity_workspace",
     "set_workspace_tenant_context_client",
-    "verify_platform_token",
 ]

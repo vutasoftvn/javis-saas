@@ -38,7 +38,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from apps.cosa.auth.jwt import mint_delegation_token
+from apps.cosa.auth.jwt import mint_local_delegation_token
 from tests.e2e.stack.subprocess_stack import WORKER_SERVICE_JWT_SECRET
 
 __all__ = ["test_two_real_processes_crash_recovery_real_worker"]
@@ -84,7 +84,7 @@ def test_two_real_processes_crash_recovery_real_worker(
     task_id = f"task_crash_test_{uuid.uuid4().hex[:8]}"
     run_id = f"run_crash_test_{uuid.uuid4().hex[:8]}"
     conv_id = f"conv_crash_test_{uuid.uuid4().hex[:8]}"
-    delegation_token = mint_delegation_token("1001")
+    delegation_token = mint_local_delegation_token("1001")
 
     async def setup_task():
         """Insert test conversation và task với delay_sec=10 (workspace-only tenancy: không seed hàng company/user ở cosa)."""

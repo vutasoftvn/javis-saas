@@ -6,7 +6,7 @@ import {
   listPlatformWorkspaceMemberships,
   validatePlatformWorkspaceMembership,
   markPlatformWorkspaceSynced,
-  verifyPlatformToken,
+  resolvePlatformIdentity,
   type PlatformWorkspaceMembership,
 } from "./platform.client";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
@@ -45,9 +45,10 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
     throw APIError.invalidArgument("vui lòng cung cấp platform_access_token");
   }
 
-  // Xác thực chữ ký token JWT từ Control Plane
-  const decoded = verifyPlatformToken(token);
-  const platformUserId = decoded.sub;
+  // Xác thực token và lấy danh tính: JWT platform cũ verify cục bộ; access token OIDC của core do
+  // Control Plane (cosa) xác thực với backend/core.
+  const identity = await resolvePlatformIdentity(token);
+  const platformUserId = identity.userId;
 
   // M2 §29 (P0) — KHÔNG BAO GIỜ tin dữ liệu workspaces/role do client gửi lên.
   // Toàn bộ membership phải lấy và xác thực từ Control Plane (services/cosa) —

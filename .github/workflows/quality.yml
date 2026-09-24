@@ -577,7 +577,6 @@ jobs:
       - run: PYTHONPATH=packages:. pytest tests/agent packages/agent_testkit -m "not integration" --cov=packages/agent --cov-report=xml:test-results/coverage-unit.xml --cov-fail-under=80 -q --junitxml=test-results/unit.xml
         env:
           AGENT_TEST_DATABASE_URL: postgresql+asyncpg://agent_app:ci-agent-app@127.0.0.1:5432/agent
-          PLATFORM_JWT_SECRET: cosa-super-secret-platform-jwt-key-change-in-prod
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -672,7 +671,6 @@ jobs:
           AGENT_DATABASE_URL: postgresql+asyncpg://agent_app:ci-agent-app@127.0.0.1:5432/agent
           COSA_DATABASE_URL: postgresql://cosa_app:ci-cosa-app@127.0.0.1:5432/cosa?sslmode=disable
           COSA_TEST_DATABASE_URL: postgresql://cosa_app:ci-cosa-app@127.0.0.1:5432/cosa?sslmode=disable
-          PLATFORM_JWT_SECRET: cosa-super-secret-platform-jwt-key-change-in-prod
           WORKER_SERVICE_JWT_SECRET: cosa-worker-service-jwt-key-change-in-prod-min32chars
       - uses: actions/upload-artifact@v4
         if: always()
@@ -762,7 +760,6 @@ jobs:
           AGENT_DATABASE_URL: postgresql+asyncpg://agent_app:ci-agent-app@127.0.0.1:5432/agent
           COSA_DATABASE_URL: postgresql://cosa_app:ci-cosa-app@127.0.0.1:5432/cosa?sslmode=disable
           COSA_TEST_DATABASE_URL: postgresql://cosa_app:ci-cosa-app@127.0.0.1:5432/cosa?sslmode=disable
-          PLATFORM_JWT_SECRET: cosa-super-secret-platform-jwt-key-change-in-prod
           WORKER_SERVICE_JWT_SECRET: cosa-worker-service-jwt-key-change-in-prod-min32chars
       - uses: actions/upload-artifact@v4
         if: always()
@@ -953,7 +950,6 @@ jobs:
           AGENT_DATABASE_URL: postgresql+asyncpg://agent_app:ci-agent-app@127.0.0.1:5432/agent
           COSA_DATABASE_URL: postgresql://cosa_app:ci-cosa-app@127.0.0.1:5432/cosa?sslmode=disable
           COSA_TEST_DATABASE_URL: postgresql://cosa_app:ci-cosa-app@127.0.0.1:5432/cosa?sslmode=disable
-          PLATFORM_JWT_SECRET: cosa-super-secret-platform-jwt-key-change-in-prod
           WORKER_SERVICE_JWT_SECRET: cosa-worker-service-jwt-key-change-in-prod-min32chars
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
       - uses: actions/upload-artifact@v4

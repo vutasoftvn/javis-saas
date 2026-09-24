@@ -2,7 +2,6 @@ import jwt, { SignOptions } from "jsonwebtoken";
 import { APIError } from "encore.dev/api";
 import { isStagingOrProd } from "../shared/env";
 
-const DEV_PLATFORM_JWT_SECRET = "cosa-super-secret-platform-jwt-key-change-in-prod";
 const DEV_WORKER_JWT_SECRET = "cosa-worker-service-jwt-key-change-in-prod-min32chars";
 // B5 fix — secret riêng cho delegation có cấu trúc chiều apps/cosa (Python,
 // composition root) -> services/cosa, ký bởi
@@ -22,17 +21,6 @@ const DEV_CONTROL_DELEGATION_SECRET = "cosa-control-delegation-dev-secret-change
 // đè secret này cho secret khác dù 'có vẻ tiện'".
 const DEV_AI_GOVERNANCE_SIGNING_SECRET = "cosa-ai-governance-signing-dev-secret-change-in-prod";
 
-export function getPlatformJwtSecret(): string {
-  const secret = process.env.PLATFORM_JWT_SECRET;
-  if (isStagingOrProd()) {
-    if (!secret || secret === DEV_PLATFORM_JWT_SECRET || secret.length < 32) {
-      throw new Error("PLATFORM_JWT_SECRET must be explicitly set with >= 32 characters in staging/production");
-    }
-    return secret;
-  }
-  return secret || DEV_PLATFORM_JWT_SECRET;
-}
-
 export function getWorkerServiceJwtSecret(): string {
   const secret = process.env.WORKER_SERVICE_JWT_SECRET;
   if (isStagingOrProd()) {
@@ -41,7 +29,7 @@ export function getWorkerServiceJwtSecret(): string {
     }
     return secret;
   }
-  return secret || process.env.PLATFORM_JWT_SECRET || DEV_WORKER_JWT_SECRET;
+  return secret || DEV_WORKER_JWT_SECRET;
 }
 
 export function getControlDelegationSecret(): string {
@@ -112,28 +100,14 @@ export function verifyControlDelegationToken(token: string): ControlDelegationPa
   return { sub: decoded.sub, workspaceId, role: decoded.role };
 }
 
-export interface PlatformJwtPayload {
+/** Claim của JWT dịch vụ worker (audience control_plane). Danh tính người dùng dùng access token OIDC của backend/core. */
+export interface WorkerJwtPayload {
   sub: string;
-  aud: "cosa" | "control_plane";
+  aud: "control_plane";
   role?: string;
   workspaceId?: string;
   iss?: string;
   exp?: number;
-}
-
-export function signPlatformToken(userId: string): string {
-  return jwt.sign(
-    {
-      sub: userId,
-      aud: "cosa",
-      role: "user",
-      iss: "cosa_platform",
-    },
-    getPlatformJwtSecret(),
-    {
-      expiresIn: "7d",
-    }
-  );
 }
 
 export function signWorkerServiceToken(workerId: string, workspaceId?: string, expiresIn: SignOptions["expiresIn"] = "1d"): string {
@@ -152,35 +126,24 @@ export function signWorkerServiceToken(workerId: string, workspaceId?: string, e
   );
 }
 
-export function verifyPlatformToken(token: string): PlatformJwtPayload {
-  try {
-    return jwt.verify(token, getPlatformJwtSecret(), {
-      audience: "cosa",
-      issuer: "cosa_platform",
-    }) as PlatformJwtPayload;
-  } catch {
-    throw APIError.unauthenticated("invalid or expired platform token");
-  }
-}
-
-export function verifyWorkerServiceToken(token: string): PlatformJwtPayload {
+export function verifyWorkerServiceToken(token: string): WorkerJwtPayload {
   return jwt.verify(token, getWorkerServiceJwtSecret(), {
     audience: "control_plane",
-  }) as PlatformJwtPayload;
+  }) as WorkerJwtPayload;
 }
 
 export function requireWorkerServiceAuth(
   authorization: string | undefined,
   expectedWorkerId?: string
-): PlatformJwtPayload {
+): WorkerJwtPayload {
   if (!authorization) {
     throw APIError.unauthenticated("missing authorization token");
   }
   const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : authorization;
   const secret = getWorkerServiceJwtSecret();
-  let payload: PlatformJwtPayload;
+  let payload: WorkerJwtPayload;
   try {
-    payload = jwt.verify(token, secret, { audience: "control_plane" }) as PlatformJwtPayload;
+    payload = jwt.verify(token, secret, { audience: "control_plane" }) as WorkerJwtPayload;
   } catch {
     throw APIError.unauthenticated("invalid or expired worker service token");
   }

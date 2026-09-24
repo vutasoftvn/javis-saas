@@ -13,8 +13,8 @@
 // Task 18 — dual-mode. `E2E_MODE=fixture` (mặc định): y hệt hôm nay (login qua
 // `FixtureServer` + widget picker + `SessionController.activateWorkspace`).
 // `E2E_MODE=real`: `SessionController.activateWorkspace` KHÔNG chạy được vì hop
-// `GET services/cosa /platform/workspaces/:id/session-context` yêu cầu platform
-// token (`PLATFORM_JWT_SECRET`) mà seed `_e2e/session` không cấp — đây là bug
+// `GET services/cosa /platform/organizations/:id/session-context` yêu cầu access
+// token của core mà seed `_e2e/session` không cấp — đây là bug
 // B5 (`ADR-COSA-DELEGATION-002`, PROPOSED). Nhánh real vì vậy chứng minh CÙNG
 // một tuyên bố wire-level ("sau khi chuyển workspace, không request nào mang
 // `X-Workspace-Id` của tenant cũ") nhưng ở tầng transport `ApiClient` thật
@@ -36,6 +36,7 @@ import 'package:frontend/core/services/secure_storage_service.dart';
 import 'package:frontend/core/session/session_binding.dart';
 import 'package:frontend/core/session/session_controller.dart';
 import 'package:frontend/modules/auth/services/auth_service.dart';
+import 'package:frontend/modules/auth/services/core_auth_client.dart';
 import 'package:frontend/modules/workspace_picker/bindings/workspace_picker_binding.dart';
 import 'package:frontend/modules/workspace_picker/views/workspace_picker_view.dart';
 
@@ -114,6 +115,8 @@ void main() {
     fixture = f;
 
     ApiClient.setBaseUrl(f.origin);
+    // Đăng nhập đi thẳng tới backend/core (không qua COSA): trỏ core về fixture.
+    CoreConfig.overrideBaseUrl(f.origin);
     ApiClient.setPlatformBaseUrl(f.origin);
     ApiClient.setAgentOsBaseUrl(f.origin);
     ApiClient.clearRuntimeContext();
@@ -127,6 +130,7 @@ void main() {
     RealtimeService().stop(clearCheckpoint: true);
     await fixture?.stop();
     fixture = null;
+    CoreConfig.overrideBaseUrl(null);
     Get.reset();
     SecureStorageService.resetForTest();
   });

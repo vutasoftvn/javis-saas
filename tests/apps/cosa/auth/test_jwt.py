@@ -5,47 +5,46 @@ import time
 import jwt
 import pytest
 
-from apps.cosa.auth.jwt import InvalidPlatformTokenError, verify_platform_token
+from apps.cosa.auth.jwt import InvalidPlatformTokenError, verify_local_session_token
 
-SECRET = "cosa-super-secret-platform-jwt-key-change-in-prod"
+# Local session token do services/company ký (JWT_SECRET, HS256, KHÔNG audience). Danh tính gốc do
+# backend/core quản lý; AgentOS chỉ chấp nhận local session.
+SECRET = "cosa-dev-jwt-secret-do-not-use-in-prod"
 
 
-def _make_token(*, sub="42", aud="cosa", secret=SECRET, exp_delta=3600, extra=None):
-    payload = {"sub": sub, "aud": aud, "exp": int(time.time()) + exp_delta}
+def _make_token(*, sub="42", secret=SECRET, exp_delta=3600, extra=None):
+    payload = {"sub": sub, "exp": int(time.time()) + exp_delta}
     if extra:
         payload.update(extra)
     return jwt.encode(payload, secret, algorithm="HS256")
 
 
 def test_valid_token_returns_sub():
-    token = _make_token(sub="123")
-    assert verify_platform_token(token) == "123"
+    assert verify_local_session_token(_make_token(sub="123")) == "123"
 
 
 def test_wrong_secret_rejected():
-    token = _make_token(secret="wrong-secret")
     with pytest.raises(InvalidPlatformTokenError):
-        verify_platform_token(token)
+        verify_local_session_token(_make_token(secret="wrong-secret"))
 
 
 def test_expired_token_rejected():
-    token = _make_token(exp_delta=-10)
     with pytest.raises(InvalidPlatformTokenError):
-        verify_platform_token(token)
+        verify_local_session_token(_make_token(exp_delta=-10))
 
 
-def test_wrong_audience_rejected():
-    token = _make_token(aud="control_plane")
+def test_token_with_audience_rejected():
+    """Token mang audience (vd delegation của luồng khác) không phải local session."""
     with pytest.raises(InvalidPlatformTokenError):
-        verify_platform_token(token)
+        verify_local_session_token(_make_token(extra={"aud": "cosa"}))
 
 
 def test_missing_sub_rejected():
-    token = jwt.encode({"aud": "cosa", "exp": int(time.time()) + 3600}, SECRET, algorithm="HS256")
+    token = jwt.encode({"exp": int(time.time()) + 3600}, SECRET, algorithm="HS256")
     with pytest.raises(InvalidPlatformTokenError):
-        verify_platform_token(token)
+        verify_local_session_token(token)
 
 
 def test_garbage_token_rejected():
     with pytest.raises(InvalidPlatformTokenError):
-        verify_platform_token("not-a-real-jwt")
+        verify_local_session_token("not-a-real-jwt")

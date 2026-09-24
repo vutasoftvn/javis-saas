@@ -4,6 +4,8 @@ import { eq, and } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { generateSnowflakeStr } from "./snowflake.service";
 import { CompanyActionResponse } from "./company.service";
+import { grantCoreMembership } from "./core-organization.service";
+import { mapCoreRoleToCosaRole } from "./core-projection.service";
 
 const {
   users,
@@ -265,18 +267,33 @@ export async function acceptWorkspaceInvitation(
       .where(and(eq(workspaceMemberships.workspaceId, invitation.workspaceId), eq(workspaceMemberships.userId, actorUserId)))
       .limit(1);
 
-    let finalRoleId = invitation.roleId;
+    // Cấp membership ở core TRƯỚC khi ghi bản chiếu cục bộ. Core idempotent và trả role hiện tại; nếu
+    // core lỗi, transaction rollback nên lời mời vẫn `pending` để thử lại.
+    const granted = await grantCoreMembership(invitation.workspaceId.toString(), actorId, invitation.roleId);
+    const coreRoleId = mapCoreRoleToCosaRole(granted.role);
+
+    let finalRoleId = coreRoleId;
     if (existingMembership) {
       // Đã là member qua đường khác — không tạo row thứ hai, chỉ đánh dấu
-      // invitation đã dùng.
-      finalRoleId = existingMembership.roleId;
+      // invitation đã dùng và đồng bộ role theo core.
+      if (coreRoleId !== existingMembership.roleId) {
+        await tx
+          .update(workspaceMemberships)
+          .set({ roleId: coreRoleId, updatedAt: now })
+          .where(
+            and(
+              eq(workspaceMemberships.workspaceId, invitation.workspaceId),
+              eq(workspaceMemberships.userId, actorUserId)
+            )
+          );
+      }
     } else {
       const newMembershipId = BigInt(generateSnowflakeStr());
       await tx.insert(workspaceMemberships).values({
         id: newMembershipId,
         workspaceId: invitation.workspaceId,
         userId: actorUserId,
-        roleId: invitation.roleId,
+        roleId: finalRoleId,
       });
     }
 

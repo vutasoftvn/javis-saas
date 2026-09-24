@@ -301,7 +301,7 @@ async def test_cross_plane_locale_delegation_tenancy_and_vietnamese_accounting_i
         ws_conn.close()
 
     res_session_ctx = client.get(
-        f"/platform/workspaces/{alice_ws}/session-context",
+        f"/platform/organizations/{alice_ws}/session-context",
         headers={"Authorization": f"Bearer {alice_token}"},
     )
     assert res_session_ctx.status_code == 200
@@ -369,7 +369,7 @@ def test_workspace_module_visibility_postgres_persistence_and_tenant_isolation(
 
     # 1. Initial visibility for Alice has finance enabled & visible
     res_init = client.get(
-        f"/platform/workspaces/{alice_ws}/module-visibility",
+        f"/platform/organizations/{alice_ws}/module-visibility",
         headers={"Authorization": f"Bearer {alice_token}"},
     )
     assert res_init.status_code == 200
@@ -378,7 +378,7 @@ def test_workspace_module_visibility_postgres_persistence_and_tenant_isolation(
 
     # 2. Alice sets personal visibility of finance to false
     res_hide = client.put(
-        f"/platform/workspaces/{alice_ws}/module-visibility/finance/preference",
+        f"/platform/organizations/{alice_ws}/module-visibility/finance/preference",
         headers={"Authorization": f"Bearer {alice_token}"},
         json={"visible": False},
     )
@@ -386,7 +386,7 @@ def test_workspace_module_visibility_postgres_persistence_and_tenant_isolation(
 
     # 3. Verify persistence in PostgreSQL for Alice
     res_after = client.get(
-        f"/platform/workspaces/{alice_ws}/module-visibility",
+        f"/platform/organizations/{alice_ws}/module-visibility",
         headers={"Authorization": f"Bearer {alice_token}"},
     )
     assert res_after.status_code == 200
@@ -396,7 +396,7 @@ def test_workspace_module_visibility_postgres_persistence_and_tenant_isolation(
 
     # 4. Verify tenant isolation: Bob's workspace finance is still visible
     res_bob = client.get(
-        f"/platform/workspaces/{bob_ws}/module-visibility",
+        f"/platform/organizations/{bob_ws}/module-visibility",
         headers={"Authorization": f"Bearer {bob_token}"},
     )
     assert res_bob.status_code == 200
@@ -406,7 +406,7 @@ def test_workspace_module_visibility_postgres_persistence_and_tenant_isolation(
 
     # 5. Bob disables crm at workspace level
     res_ws_disable = client.put(
-        f"/platform/workspaces/{bob_ws}/module-visibility/crm",
+        f"/platform/organizations/{bob_ws}/module-visibility/crm",
         headers={"Authorization": f"Bearer {bob_token}"},
         json={"enabled": False},
     )
@@ -414,7 +414,7 @@ def test_workspace_module_visibility_postgres_persistence_and_tenant_isolation(
 
     # Verify Bob's crm is disabled
     res_bob_after = client.get(
-        f"/platform/workspaces/{bob_ws}/module-visibility",
+        f"/platform/organizations/{bob_ws}/module-visibility",
         headers={"Authorization": f"Bearer {bob_token}"},
     )
     bob_after_mods = {m["moduleKey"]: m for m in res_bob_after.json()["data"]["modules"]}
@@ -423,7 +423,7 @@ def test_workspace_module_visibility_postgres_persistence_and_tenant_isolation(
 
     # Verify Alice's crm is unaffected (tenant isolated)
     res_alice_crm = client.get(
-        f"/platform/workspaces/{alice_ws}/module-visibility",
+        f"/platform/organizations/{alice_ws}/module-visibility",
         headers={"Authorization": f"Bearer {alice_token}"},
     )
     alice_crm_mods = {m["moduleKey"]: m for m in res_alice_crm.json()["data"]["modules"]}

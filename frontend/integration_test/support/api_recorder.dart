@@ -33,7 +33,10 @@ class RecordedRequest {
 /// assertion "không gửi mutation nghiệp vụ nào" không bị nhiễu bởi các bước
 /// đăng nhập hợp lệ luôn phải xảy ra trước đó.
 const _bootstrapPaths = <String>{
-  '/platform/auth/sessions',
+  // Đăng nhập first-party với backend/core (Authorization Code + PKCE).
+  '/auth/login',
+  '/oauth/authorize',
+  '/oauth/token',
   '/identity/sync-from-platform',
 };
 

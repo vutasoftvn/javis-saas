@@ -48,7 +48,7 @@ const COPILOT_DELEGATION_TTL_SECONDS = 600;
  * đường verify. Dùng để apps/cosa (Python) mang theo khi gọi ngược vào các
  * route đọc context cho Copilot (/commercial/engagement/threads/:id/context
  * v.v.) thay mặt ĐÚNG người dùng đã bấm yêu cầu Copilot — trước đây các route
- * này nhận một token ký bằng PLATFORM_JWT_SECRET (mint_delegation_token phía
+ * này nhận một token ký bằng secret platform cũ (mint_delegation_token phía
  * Python, sai hoàn toàn secret/đối tượng verify) nên luôn fail xác thực.
  *
  * KHÔNG dùng lại cho mục đích nào khác ngoài luồng Copilot — token này mang

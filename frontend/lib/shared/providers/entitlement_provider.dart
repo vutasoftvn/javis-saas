@@ -27,7 +27,7 @@ class EntitlementProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final res = await ApiClient.get('/platform/workspaces/$platformWorkspaceId/entitlement');
+      final res = await ApiClient.get('/platform/organizations/$platformWorkspaceId/entitlement');
       if (res.statusCode == 200) {
         final data = jsonDecode(utf8.decode(res.bodyBytes));
         if (data is Map<String, dynamic>) {

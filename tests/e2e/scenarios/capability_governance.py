@@ -22,7 +22,7 @@ Scenario này assert đúng những gì THẬT và có cấu trúc:
       thật vào `cosa.workspace_agent_policy` trên DB `services/cosa`, keyed theo
       workspace id của `services/company` — đọc ngược lại bằng SQL, assert
       `decision='ALLOW'` + `tool_pattern` đúng + idempotent (gọi 2 lần vẫn 1 hàng)
-      + hàng `cosa.workspaces` / `cosa.users` auto-seed cùng id.
+      + hàng `cosa.organizations` / `cosa.users` auto-seed cùng id.
   (B) Biên auth của route apps/cosa (`POST /agent/conversations`, route thật sẽ
       dẫn tới capability pipeline): no bearer → 401; token rác → 401; token
       company hợp lệ + `X-Workspace-Id` lạ (không phải member) → fail-closed;
@@ -108,10 +108,10 @@ def _assert_entitlement_round_trips_cross_plane(
     # bắc cầu vào DB cosa (FK của workspace_agent_policy buộc phải có).
     ws_owner = _scalar(
         cluster.cosa_app_url,
-        "SELECT owner_user_id FROM cosa.workspaces WHERE id = %s",
+        "SELECT owner_user_id FROM cosa.organizations WHERE id = %s",
         (wid,),
     )
-    assert ws_owner is not None, f"cosa.workspaces thiếu hàng id={wid} sau grant_entitlement"
+    assert ws_owner is not None, f"cosa.organizations thiếu hàng id={wid} sau grant_entitlement"
     user_exists = _scalar(
         cluster.cosa_app_url,
         "SELECT 1 FROM cosa.users WHERE id = %s",
@@ -196,7 +196,7 @@ def _assert_governance_fails_closed(
 
     # (c1) Gọi thẳng endpoint policy snapshot của `services/cosa` bằng token
     #      company (đúng token duy nhất mà biên apps/cosa chấp nhận). Gateway
-    #      `services/cosa` verify `PLATFORM_JWT_SECRET` + `aud="cosa"` → 401.
+    #      `services/cosa` chỉ chấp nhận access token opaque của core → 401.
     #      Đây là điểm fail-closed ở tầng gateway: policy KHÔNG lấy được ⇒ caller
     #      PHẢI coi là DENY, endpoint không trả snapshot "rỗng = allow".
     #

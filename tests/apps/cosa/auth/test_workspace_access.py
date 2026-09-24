@@ -16,13 +16,13 @@ from apps.cosa.auth.dependency import (
 )
 from apps.cosa.auth.workspace_client import WorkspaceTenantContextClient
 
-_PLATFORM_SECRET = "cosa-super-secret-platform-jwt-key-change-in-prod"
+_LOCAL_SESSION_SECRET = "cosa-dev-jwt-secret-do-not-use-in-prod"
 
 
 def _token(sub: str) -> str:
     return jwt.encode(
-        {"sub": sub, "aud": "cosa", "exp": int(time.time()) + 3600},
-        _PLATFORM_SECRET,
+        {"sub": sub, "exp": int(time.time()) + 3600},
+        _LOCAL_SESSION_SECRET,
         algorithm="HS256",
     )
 

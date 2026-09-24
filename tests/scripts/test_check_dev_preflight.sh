@@ -6,7 +6,15 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-PREFLIGHT_SCRIPT="$SCRIPT_DIR/scripts/check-dev-preflight.sh"
+
+# Hermetic: chạy bản sao script trong thư mục tạm không có .env, để `load-dev-env.sh` không nạp lại
+# các biến từ .env của máy dev (làm vô hiệu việc `env -u` bên dưới).
+SANDBOX_DIR="$(mktemp -d)"
+trap 'rm -rf "$SANDBOX_DIR"' EXIT
+mkdir -p "$SANDBOX_DIR/scripts"
+cp "$SCRIPT_DIR/scripts/check-dev-preflight.sh" "$SCRIPT_DIR/scripts/load-dev-env.sh" "$SANDBOX_DIR/scripts/"
+PREFLIGHT_SCRIPT="$SANDBOX_DIR/scripts/check-dev-preflight.sh"
+cd "$SANDBOX_DIR"
 
 # Bảng test: kiểm tra chọn các biến thiếu theo từng trường hợp
 test_missing_env_var() {
@@ -29,7 +37,6 @@ test_missing_env_var "COSA_DATABASE_URL"
 test_missing_env_var "WORKSPACE_DATABASE_URL"
 test_missing_env_var "COSA_CONTROL_PLANE_URL"
 test_missing_env_var "COMPANY_SERVICE_URL"
-test_missing_env_var "PLATFORM_JWT_SECRET"
 test_missing_env_var "WORKER_SERVICE_JWT_SECRET"
 test_missing_env_var "COSA_WORKER_SERVICE_TOKEN"
 
@@ -40,7 +47,6 @@ export COSA_DATABASE_URL="postgresql://user:pass@127.0.0.1:5432/db"
 export WORKSPACE_DATABASE_URL="postgresql://user:pass@127.0.0.1:5433/db"
 export COSA_CONTROL_PLANE_URL="http://127.0.0.1:54321"  # Intentionally non-listening
 export COMPANY_SERVICE_URL="http://127.0.0.1:54322"       # Intentionally non-listening
-export PLATFORM_JWT_SECRET="test-secret"
 export WORKER_SERVICE_JWT_SECRET="test-secret"
 export COSA_WORKER_SERVICE_TOKEN="test-token"
 

@@ -27,7 +27,7 @@ async def install_connector(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     control_plane_url = resolve_platform_control_plane_url()
-    token = request.headers.get("Authorization") or f"Bearer {identity.mint_delegation()}"
+    token = f"Bearer {identity.mint_control_plane_delegation()}"
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(
             f"{control_plane_url}/cosa/connectors/install",
@@ -49,7 +49,7 @@ async def authorize_connector(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     control_plane_url = resolve_platform_control_plane_url()
-    token = request.headers.get("Authorization") or f"Bearer {identity.mint_delegation()}"
+    token = f"Bearer {identity.mint_control_plane_delegation()}"
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(
             f"{control_plane_url}/cosa/connectors/authorize",
@@ -73,7 +73,7 @@ async def grant_connector(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     control_plane_url = resolve_platform_control_plane_url()
-    token = request.headers.get("Authorization") or f"Bearer {identity.mint_delegation()}"
+    token = f"Bearer {identity.mint_control_plane_delegation()}"
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(
             f"{control_plane_url}/cosa/connectors/grant",
@@ -98,7 +98,7 @@ async def revoke_connector(
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ):
     control_plane_url = resolve_platform_control_plane_url()
-    token = request.headers.get("Authorization") or f"Bearer {identity.mint_delegation()}"
+    token = f"Bearer {identity.mint_control_plane_delegation()}"
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(
             f"{control_plane_url}/cosa/connectors/revoke",

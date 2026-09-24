@@ -1,21 +1,16 @@
 import { api, Header, Gateway, APIError } from "encore.dev/api";
 import { authHandler } from "encore.dev/auth";
-import { verifyPlatformToken } from "../services/token.service";
+import { resolveCallerIdentity } from "../services/core-access.service";
 import { resolveCallerAuthorizedForWorkspace } from "../services/workspace-connector.service";
 import {
-  SessionParams,
-  TokenResponse,
-  RegisterParams,
   PlatformUserProfile,
   UpdateMeParams,
   SupportedLocale,
-  loginPlatformUser,
-  registerPlatformUser,
   getPlatformUserProfile,
   updatePlatformUserProfile,
 } from "../services/auth.service";
 
-export { SessionParams, TokenResponse, RegisterParams, PlatformUserProfile, UpdateMeParams, SupportedLocale };
+export { PlatformUserProfile, UpdateMeParams, SupportedLocale };
 
 export interface AuthParams {
   authorization?: Header<"Authorization">;
@@ -23,23 +18,24 @@ export interface AuthParams {
 
 export interface AuthData {
   userID: string;
+  /** Access token OIDC của core, để chuyển tiếp sang core (tạo organization, nhận lời mời...). */
+  accessToken: string;
+}
+
+// Danh tính do backend/core quản lý: chỉ nhận access token OIDC (chuỗi opaque, xem core-access.service).
+export async function resolveBearerAuthData(header: string | undefined): Promise<AuthData> {
+  if (!header || !header.startsWith("Bearer ")) {
+    throw APIError.unauthenticated("missing bearer token");
+  }
+  const caller = await resolveCallerIdentity(header.slice("Bearer ".length));
+  return { userID: caller.userId, accessToken: caller.accessToken };
 }
 
 // Encore's native auth mechanism (thay cho extractUserId thủ công trong từng
 // handler) — xác thực Bearer token 1 lần tại Gateway, các endpoint auth:true
 // tự động bị chặn nếu thiếu/sai token trước khi vào tới business logic.
 export const auth = authHandler<AuthParams, AuthData>(async (params) => {
-  const header = params.authorization;
-  if (!header || !header.startsWith("Bearer ")) {
-    throw APIError.unauthenticated("missing bearer token");
-  }
-  const token = header.slice("Bearer ".length);
-  try {
-    const decoded = verifyPlatformToken(token);
-    return { userID: decoded.sub };
-  } catch {
-    throw APIError.unauthenticated("invalid or expired platform token");
-  }
+  return resolveBearerAuthData(params.authorization);
 });
 
 export const gateway = new Gateway({ authHandler: auth });
@@ -60,20 +56,6 @@ export async function resolveAuthData(): Promise<AuthData> {
   }
   return authData;
 }
-
-export const loginPlatform = api(
-  { method: "POST", path: "/platform/auth/sessions", expose: true, auth: false },
-  async (params: SessionParams): Promise<TokenResponse> => {
-    return loginPlatformUser(params);
-  }
-);
-
-export const registerPlatform = api(
-  { method: "POST", path: "/platform/auth/register", expose: true, auth: false },
-  async (params: RegisterParams): Promise<TokenResponse> => {
-    return registerPlatformUser(params);
-  }
-);
 
 export async function getMe(authData: AuthData): Promise<PlatformUserProfile> {
   return getPlatformUserProfile(authData.userID);

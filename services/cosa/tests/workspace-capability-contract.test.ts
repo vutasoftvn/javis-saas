@@ -1,5 +1,4 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { registerPlatformUser } from "../services/auth.service";
 import {
   FOUNDER_TRIAL_SURFACE_POLICY,
   type SurfacePolicyEntry,
@@ -9,6 +8,7 @@ import {
   validateSurfacePolicyAgainstMvpContract,
 } from "../services/mvp-contract-policy";
 import { getWorkspaceCapabilityManifest } from "../handlers/workspace-settings.handler";
+import { registerPlatformUser } from "./support/test-identity";
 
 const enabledIds = loadEnabledMvpCapabilityIds();
 

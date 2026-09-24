@@ -38,6 +38,8 @@ export default defineConfig({
     globals: true,
     environment: "node",
     fileParallelism: false,
+    // Core giả (danh tính/quyền do backend/core quyết định) cho mọi test COSA.
+    setupFiles: ["./tests/support/setup-fake-core.ts"],
   },
 });
 

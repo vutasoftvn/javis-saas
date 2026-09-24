@@ -32,7 +32,6 @@ _PYTHON = os.environ.get("PYTHON", os.path.join(_REPO_ROOT, ".venv", "bin", "pyt
 # Secrets dev từ `.env.e2e` — non-strict env (`APP_ENV=development`) chấp nhận
 # các giá trị này; `validate_service_identity` chỉ siết ở staging/production.
 _SECRETS = {
-    "PLATFORM_JWT_SECRET": "cosa-super-secret-platform-jwt-key-change-in-prod",
     "WORKER_SERVICE_JWT_SECRET": "cosa-worker-service-jwt-key-change-in-prod-min32chars",
     "JWT_SECRET": "cosa-dev-jwt-secret-do-not-use-in-prod",
     # HMAC dùng chung cho local outbox relay (`services/company` ký) ↔ apps/cosa

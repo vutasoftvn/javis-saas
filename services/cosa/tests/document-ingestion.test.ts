@@ -1,9 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { APIError } from "encore.dev/api";
-import {
-  signPlatformToken,
-  signWorkerServiceToken,
-} from "../services/token.service";
+import { signWorkerServiceToken } from "../services/token.service";
 import {
   createDocumentIngestionEndpoint,
   getDocumentIngestionEndpoint,
@@ -20,6 +17,7 @@ import {
   getAuditEventsForIngestion,
 } from "../services/document-ingestion.service";
 import { db, schema } from "../models/db";
+import { signPlatformToken } from "./support/test-identity";
 
 const { documentIngestions, documentIngestionAuditEvents } = schema;
 

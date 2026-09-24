@@ -24,7 +24,6 @@ Không dùng SOPS/Vault ở giai đoạn này — nếu chuyển sang, ghi ADR m
 | Secret | Dùng ở đâu | Nơi lưu (prod) | Bắt buộc? | Rotate |
 |---|---|---|---|---|
 | `AGENT_DATABASE_URL` | `packages/agent` mọi repository factory; `apps/cosa` composition root | Coolify secret | Bắt buộc — thiếu → `RuntimeError` khi khởi động (`build_cosa_agent_plane`, no-silent-fallback) | Khi đổi mật khẩu Postgres app role |
-| `PLATFORM_JWT_SECRET` | `apps/cosa/auth/jwt.py::_get_jwt_secret()` (verify + mint delegation token); `services/cosa` `token.service.ts::signPlatformToken()` — **phải đối xứng 2 phía** | Coolify secret **và** Encore secret (cùng giá trị) | Bắt buộc — guard từ chối ở staging/prod nếu thiếu / `< 32` ký tự / bằng dev default | **Rotate trước go-live.** Làm mất hiệu lực mọi session đang mở → cửa sổ bảo trì |
 | `COSA_COMPANY_DELEGATION_SECRET` | JWT delegation COSA → Company: `apps/cosa/auth/jwt.py::_get_company_delegation_secret` và `services/company/shared/auth/cosa-delegation.service.ts::getDelegationSecret` | Coolify secret cho topology Compose (cùng giá trị cho `services-company`, `cosa-api`, `cosa-worker`); Encore secret manager nếu `services/company` được deploy trực tiếp bởi Encore | Bắt buộc cho cả ba consumer; không dùng chung với platform/session/service token | Rotate theo thứ tự deploy cả ba consumer |
 | `WORKER_SERVICE_JWT_SECRET` | Auth giữa `cosa-worker` ↔ control plane; `scripts/mint-worker-service-token.mjs` | Coolify secret | Bắt buộc cho worker auth | **Rotate trước go-live**, đồng bộ mint lại worker token |
 | `DEEPSEEK_API_KEY` | Model provider chính qua LiteLLM (`apps/cosa/composition/model_provider.py::build_deepseek_model`, `ADR-RUNTIME-002`) | Coolify secret | Bắt buộc cho runtime `openai_agents` production (fail-fast nếu thiếu) | **Rotate trước go-live** + định kỳ 90 ngày |
@@ -37,15 +36,11 @@ Không dùng SOPS/Vault ở giai đoạn này — nếu chuyển sang, ghi ADR m
 
 Nguyên tắc: **expand → cutover → contract** cho secret có consumer nhiều bên.
 
-### 3.1 `PLATFORM_JWT_SECRET` (2 phía: `apps/cosa` + `services/cosa`)
-1. Cửa sổ bảo trì (rotate làm mọi JWT hiện hành vô hiệu).
-2. Sinh giá trị mới: `openssl rand -base64 48`.
-3. Set đồng thời: Coolify secret (`apps/cosa`) **và** `encore secret set --type prod PLATFORM_JWT_SECRET` (`services/cosa`).
-4. Redeploy `cosa-api`, `cosa-worker`, `services-cosa` cùng lúc.
-5. Verify: token phát hành trước rotate → 401; đăng nhập lại → token mới verify OK (test trên staging trước — xem §5 checklist).
+### 3.1 (đã gỡ) `PLATFORM_JWT_SECRET`
+Danh tính người dùng do `backend/core` cấp (access token OIDC, introspect), nên không còn secret ký platform token. Rotate credential `CORE_INTROSPECT_CLIENT_SECRET` ở `backend/core` (`scripts/provision-cosa-backend-client.mjs`) thay cho mục này.
 
 ### 3.2 `COSA_COMPANY_DELEGATION_SECRET` (3 consumer: `services-company` + `cosa-api` + `cosa-worker`)
-1. Sinh giá trị mới riêng cho delegation: `openssl rand -base64 48`. Không tái sử dụng `PLATFORM_JWT_SECRET`, `WORKER_SERVICE_JWT_SECRET`, `COSA_LOCAL_SERVICE_SECRET` hoặc các service token.
+1. Sinh giá trị mới riêng cho delegation: `openssl rand -base64 48`. Không tái sử dụng `WORKER_SERVICE_JWT_SECRET`, `COSA_LOCAL_SERVICE_SECRET` hoặc các service token.
 2. Với topology `deploy/central_vps/docker-compose.prod.yaml`, set cùng một giá trị trong Coolify cho `COSA_COMPANY_DELEGATION_SECRET` của cả `services-company`, `cosa-api` và `cosa-worker`. Nếu dùng deployment `services/company` được Encore quản lý trực tiếp, set cùng giá trị qua Encore secret manager cho deployment đó.
 3. Redeploy cả ba consumer trong cùng một cửa sổ thay đổi; không chỉ restart một service.
 4. Verify trên staging: `cosa-api` phát hành delegation JWT và `services-company` xác minh thành công; worker thực hiện luồng delegation thành công.
@@ -81,4 +76,4 @@ Truy cập secret prod ghi log qua Coolify audit / Encore audit. Không chia s�
 
 ## 6. Checklist rotate trước go-live
 
-Xem [`docs/runbooks/prod-cutover.md`](../runbooks/prod-cutover.md) **Bước 0 — Secret Rotation (T-24h)**. Tối thiểu phải rotate + verify trên staging: `PLATFORM_JWT_SECRET`, `COSA_COMPANY_DELEGATION_SECRET`, `WORKER_SERVICE_JWT_SECRET`, `DEEPSEEK_API_KEY`, MinIO keys, Postgres app-role passwords.
+Xem [`docs/runbooks/prod-cutover.md`](../runbooks/prod-cutover.md) **Bước 0 — Secret Rotation (T-24h)**. Tối thiểu phải rotate + verify trên staging: `COSA_COMPANY_DELEGATION_SECRET`, `WORKER_SERVICE_JWT_SECRET`, `DEEPSEEK_API_KEY`, MinIO keys, Postgres app-role passwords.

@@ -8,7 +8,7 @@ import {
   CompanyActionResponse,
   ValidateMembershipParams,
   ValidateMembershipResult,
-  listUserCompanies,
+  listCoreCompanies,
   createNewCompany,
   joinExistingCompany,
   validateUserMembership,
@@ -33,14 +33,14 @@ export {
 };
 
 export async function listMyCompaniesFor(authData: AuthData): Promise<ListMyCompaniesResponse> {
-  return listUserCompanies(authData.userID);
+  return listCoreCompanies(authData.accessToken);
 }
 
 export async function createCompanyFor(
   authData: AuthData,
   params: BaseCreateCompanyParams
 ): Promise<CompanyActionResponse> {
-  return createNewCompany(authData.userID, params);
+  return createNewCompany(authData.userID, params, { accessToken: authData.accessToken });
 }
 
 export async function joinCompanyFor(

@@ -514,30 +514,30 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | GET | `/platform/auth/me/agent-policy-snapshot` | cosa | ✓ |  | services/cosa/handlers/agent-policy.handler.ts |
 | GET | `/platform/auth/me/companies` | cosa | ✓ | ✓ | services/cosa/handlers/company.handler.ts |
 | GET | `/platform/auth/me/locale-snapshot` | cosa | ✓ |  | services/cosa/handlers/auth.handler.ts |
-| POST | `/platform/auth/register` | cosa | ✓ |  | services/cosa/handlers/auth.handler.ts |
-| POST | `/platform/auth/sessions` | cosa | ✓ |  | services/cosa/handlers/auth.handler.ts |
 | GET | `/platform/internal/agent-policy` | cosa |  |  | services/cosa/handlers/agent-policy.handler.ts |
 | POST | `/platform/internal/agent-policy` | cosa |  |  | services/cosa/handlers/agent-policy.handler.ts |
+| GET | `/platform/internal/executive-advisor-overlay` | cosa | ✓ |  | services/cosa/handlers/advisor-overlay.handler.ts |
 | POST | `/platform/internal/list-workspace-memberships` | cosa | ✓ |  | services/cosa/handlers/venture-workspace.handler.ts |
 | POST | `/platform/internal/mark-workspace-synced` | cosa | ✓ |  | services/cosa/handlers/venture-workspace.handler.ts |
+| POST | `/platform/internal/resolve-identity` | cosa | ✓ |  | services/cosa/handlers/venture-workspace.handler.ts |
 | POST | `/platform/internal/validate-membership` | cosa |  |  | services/cosa/handlers/company.handler.ts |
 | POST | `/platform/internal/validate-workspace-membership` | cosa | ✓ |  | services/cosa/handlers/venture-workspace.handler.ts |
-| GET | `/platform/workspaces/:id/entitlement` | cosa | ✓ | ✓ | services/cosa/handlers/venture-workspace.handler.ts |
-| GET | `/platform/workspaces/:workspaceId/audit-events` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
-| GET | `/platform/workspaces/:workspaceId/capability-manifest` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
-| PUT | `/platform/workspaces/:workspaceId/capability-manifest/:surfaceKey` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
-| GET | `/platform/workspaces/:workspaceId/connectors` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
-| POST | `/platform/workspaces/:workspaceId/connectors/:connectorKey/install` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
-| POST | `/platform/workspaces/:workspaceId/connectors/:connectorKey/revoke` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
-| GET | `/platform/workspaces/:workspaceId/members` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
-| GET | `/platform/workspaces/:workspaceId/module-visibility` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
-| PUT | `/platform/workspaces/:workspaceId/module-visibility/:moduleKey` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
-| PUT | `/platform/workspaces/:workspaceId/module-visibility/:moduleKey/preference` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
-| GET | `/platform/workspaces/:workspaceId/runtime-nodes` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
-| POST | `/platform/workspaces/:workspaceId/runtime-nodes/:nodeId/revoke` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
-| GET | `/platform/workspaces/:workspaceId/session-context` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
-| GET | `/platform/workspaces/:workspaceId/skill-policies` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
-| PUT | `/platform/workspaces/:workspaceId/skill-policies/:skillKey` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| GET | `/platform/organizations/:id/entitlement` | cosa | ✓ | ✓ | services/cosa/handlers/venture-workspace.handler.ts |
+| GET | `/platform/organizations/:workspaceId/audit-events` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| GET | `/platform/organizations/:workspaceId/capability-manifest` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| PUT | `/platform/organizations/:workspaceId/capability-manifest/:surfaceKey` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| GET | `/platform/organizations/:workspaceId/connectors` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| POST | `/platform/organizations/:workspaceId/connectors/:connectorKey/install` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| POST | `/platform/organizations/:workspaceId/connectors/:connectorKey/revoke` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| GET | `/platform/organizations/:workspaceId/members` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| GET | `/platform/organizations/:workspaceId/module-visibility` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| PUT | `/platform/organizations/:workspaceId/module-visibility/:moduleKey` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| PUT | `/platform/organizations/:workspaceId/module-visibility/:moduleKey/preference` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| GET | `/platform/organizations/:workspaceId/runtime-nodes` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| POST | `/platform/organizations/:workspaceId/runtime-nodes/:nodeId/revoke` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| GET | `/platform/organizations/:workspaceId/session-context` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| GET | `/platform/organizations/:workspaceId/skill-policies` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| PUT | `/platform/organizations/:workspaceId/skill-policies/:skillKey` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
 
 ### ⚠ `expose:true` không `auth` (rà M1)
 
@@ -548,10 +548,10 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 - POST `/identity/sync-from-platform` — services/company/identity/handlers/sync.handler.ts
 - GET `/platform/auth/me/agent-policy-snapshot` — services/cosa/handlers/agent-policy.handler.ts
 - GET `/platform/auth/me/locale-snapshot` — services/cosa/handlers/auth.handler.ts
-- POST `/platform/auth/register` — services/cosa/handlers/auth.handler.ts
-- POST `/platform/auth/sessions` — services/cosa/handlers/auth.handler.ts
+- GET `/platform/internal/executive-advisor-overlay` — services/cosa/handlers/advisor-overlay.handler.ts
 - POST `/platform/internal/list-workspace-memberships` — services/cosa/handlers/venture-workspace.handler.ts
 - POST `/platform/internal/mark-workspace-synced` — services/cosa/handlers/venture-workspace.handler.ts
+- POST `/platform/internal/resolve-identity` — services/cosa/handlers/venture-workspace.handler.ts
 - POST `/platform/internal/validate-workspace-membership` — services/cosa/handlers/venture-workspace.handler.ts
 
 ## 2. Frontend company-bound call sites — trạng thái resolve
@@ -563,7 +563,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `DELETE /execution/weekly-commitments` | ✗ GHOST |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:175 |
 | `DELETE /operations/key-results` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:240 |
 | `DELETE /operations/objectives` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:162 |
-| `DELETE /operations/tasks` | ✓ |  | frontend/lib/modules/tasks/services/task_service.dart:158 |
+| `DELETE /operations/tasks` | ✓ |  | frontend/lib/modules/tasks/services/task_service.dart:160 |
 | `DELETE /workforce/agents` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:390 |
 | `GET /admin` | ✗ GHOST |  | frontend/lib/modules/dashboard/services/hub_service.dart:39, frontend/lib/modules/settings/services/admin_service.dart:14 |
 | `GET /channels` | ✗ GHOST |  | frontend/lib/modules/marketing/services/channels_service.dart:50 |
@@ -582,7 +582,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /finance-legal/snapshots/latest` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:52 |
 | `GET /finance-legal/transactions` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:68 |
 | `GET /finance-legal/workspaces` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:174 |
-| `GET /identity/me` | ✓ |  | frontend/lib/modules/auth/services/auth_service.dart:100, frontend/lib/modules/auth/services/auth_service.dart:531 |
+| `GET /identity/me` | ✓ |  | frontend/lib/modules/auth/services/auth_service.dart:110, frontend/lib/modules/auth/services/auth_service.dart:533 |
 | `GET /identity/workspaces` | ✓ |  | frontend/lib/modules/settings/services/workspace_orientation_service.dart:16, frontend/lib/modules/settings/views/settings_view.dart:117 |
 | `GET /operations/execution-settings` | ✓ |  | frontend/lib/modules/strategy/services/execution_plan_service.dart:60 |
 | `GET /operations/key-results` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:177 |
@@ -625,7 +625,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `POST /operations/strategy/assumptions` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:36 |
 | `POST /operations/strategy/decision-records` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:132 |
 | `POST /operations/strategy/evidence` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:75 |
-| `POST /operations/tasks` | ✓ |  | frontend/lib/modules/tasks/services/task_service.dart:81 |
+| `POST /operations/tasks` | ✓ |  | frontend/lib/modules/tasks/services/task_service.dart:83 |
 | `POST /tech-radar/seed` | ✗ GHOST |  | frontend/lib/modules/skills/services/tech_radar_service.dart:116 |
 | `POST /workforce/agents` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:376 |
 | `POST /workforce/decisions` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:253 |

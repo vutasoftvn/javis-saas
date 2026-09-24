@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { registerPlatform, loginPlatform, getMe, updateMe } from "../handlers/auth.handler";
+import { getMe, updateMe } from "../handlers/auth.handler";
 import {
   createCompanyFor,
   joinCompanyFor,
@@ -8,9 +8,9 @@ import {
   createWorkspaceInvitationFor,
   acceptWorkspaceInvitationFor,
 } from "../handlers/company.handler";
-import { verifyPlatformToken } from "../services/token.service";
 import { eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
+import { asCaller, registerPlatform, verifyPlatformToken } from "./support/test-identity";
 
 const { workspaces, workspaceMemberships } = schema;
 
@@ -37,45 +37,6 @@ describe("Control Plane Service", () => {
     expect(payload.sub).toBeDefined();
   });
 
-  it("logs in the registered platform user", async () => {
-    const loginRes = await loginPlatform({
-      username: testEmail,
-      password: "password1234",
-    });
-
-    expect(loginRes.access_token).toBeDefined();
-    expect(loginRes.token_type).toBe("bearer");
-  });
-
-  it("rejects invalid login password", async () => {
-    await expect(
-      loginPlatform({
-        username: testEmail,
-        password: "wrong_password",
-      })
-    ).rejects.toThrow();
-  });
-
-  it("rejects registration with a password shorter than 8 characters", async () => {
-    await expect(
-      registerPlatform({
-        email: `short_${Date.now()}@example.com`,
-        password: "1234567",
-        full_name: "Short Password",
-      })
-    ).rejects.toThrow(/8/i);
-  });
-
-  it("rejects registration with a password longer than 128 characters", async () => {
-    await expect(
-      registerPlatform({
-        email: `long_${Date.now()}@example.com`,
-        password: "1".repeat(129),
-        full_name: "Long Password",
-      })
-    ).rejects.toThrow(/128/i);
-  });
-
   it("accepts registration with an 8-character password", async () => {
     const res = await registerPlatform({
       email: `valid_${Date.now()}@example.com`,
@@ -86,7 +47,7 @@ describe("Control Plane Service", () => {
   });
 
   it("retrieves current platform user profile with founder role for company creator", async () => {
-    const profile = await getMe({ userID: verifyPlatformToken(platformToken).sub });
+    const profile = await getMe(asCaller(verifyPlatformToken(platformToken).sub));
 
     expect(profile.email).toBe(testEmail);
     expect(profile.full_name).toBe("John Doe");
@@ -96,7 +57,7 @@ describe("Control Plane Service", () => {
 
   it("updates platform user profile with social persona fields", async () => {
     const updated = await updateMe(
-      { userID: verifyPlatformToken(platformToken).sub },
+      asCaller(verifyPlatformToken(platformToken).sub),
       {
         full_name: "John Doe Updated",
         phone: `+84912${Math.floor(100000 + Math.random() * 900000)}`,
@@ -113,9 +74,9 @@ describe("Control Plane Service", () => {
   });
 
   it("does not mutate the global role from self-profile input", async () => {
-    const userID = verifyPlatformToken(platformToken).sub;
-    const before = await getMe({ userID });
-    const updated = await updateMe({ userID }, { role_id: "superadmin" } as any);
+    const caller = asCaller(verifyPlatformToken(platformToken).sub);
+    const before = await getMe(caller);
+    const updated = await updateMe(caller, { role_id: "superadmin" } as any);
     expect(updated.role_id).toBe(before.role_id);
   });
 
@@ -130,7 +91,7 @@ describe("Control Plane Service", () => {
   });
 
   it("lists companies of the platform user", async () => {
-    const res = await listMyCompaniesFor({ userID: verifyPlatformToken(platformToken).sub });
+    const res = await listMyCompaniesFor(asCaller(verifyPlatformToken(platformToken).sub));
 
     expect(res.companies.length).toBeGreaterThanOrEqual(1);
     expect(res.companies[0].company_id).toBe(companyId);
@@ -139,7 +100,7 @@ describe("Control Plane Service", () => {
 
   it("creates a second company", async () => {
     const secondComp = await createCompanyFor(
-      { userID: verifyPlatformToken(platformToken).sub },
+      asCaller(verifyPlatformToken(platformToken).sub),
       { name: "Second Venture Inc" }
     );
 
@@ -161,7 +122,7 @@ describe("Control Plane Service", () => {
 
     await expect(
       joinCompanyFor(
-        { userID: verifyPlatformToken(newUserRes.access_token).sub },
+        asCaller(verifyPlatformToken(newUserRes.access_token).sub),
         { company_id: companyId }
       )
     ).rejects.toMatchObject({ code: "permission_denied" });
@@ -183,7 +144,7 @@ describe("Control Plane Service", () => {
 
     await expect(
       joinCompanyFor(
-        { userID: verifyPlatformToken(intruderRes.access_token).sub },
+        asCaller(verifyPlatformToken(intruderRes.access_token).sub),
         { company_id: companyId }
       )
     ).rejects.toMatchObject({ code: "permission_denied" });
@@ -241,7 +202,7 @@ describe("Control Plane Service", () => {
     });
 
     const invitation = await createWorkspaceInvitationFor(
-      { userID: founderUserId },
+      asCaller(founderUserId),
       {
         workspace_id: MAX_PRECISION_ID.toString(),
         email: inviteeEmail,
@@ -261,7 +222,7 @@ describe("Control Plane Service", () => {
     const inviteeUserId = verifyPlatformToken(inviteeRes.access_token).sub;
 
     const accepted = await acceptWorkspaceInvitationFor(
-      { userID: inviteeUserId },
+      asCaller(inviteeUserId),
       { token: invitation.token }
     );
 
@@ -279,7 +240,7 @@ describe("Control Plane Service", () => {
     expect(wire).not.toMatch(/"company_id":9223372036854775807/);
 
     // listMyCompaniesFor cũng phải trả cùng ID dạng string chính xác.
-    const companies = await listMyCompaniesFor({ userID: inviteeUserId });
+    const companies = await listMyCompaniesFor(asCaller(inviteeUserId));
     const match = companies.companies.find((c) => c.company_id === "9223372036854775807");
     expect(match).toBeDefined();
     expect(JSON.stringify(companies)).not.toMatch(/"company_id":9223372036854775807/);

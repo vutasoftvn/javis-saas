@@ -1,6 +1,4 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { registerPlatformUser } from "../services/auth.service";
-import { signPlatformToken } from "../services/token.service";
 import { db, schema } from "../models/db";
 import {
   getWorkspaceCapabilityManifest,
@@ -8,6 +6,7 @@ import {
   setWorkspaceModuleEnabled,
 } from "../handlers/workspace-settings.handler";
 import { installWorkspaceConnector } from "../handlers/workspace-settings.handler";
+import { registerPlatformUser, signPlatformToken } from "./support/test-identity";
 
 describe("Workspace Capability Manifest", () => {
   let wsId: string;

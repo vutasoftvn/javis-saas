@@ -103,7 +103,7 @@ export async function getTenantPolicySnapshotForCaller(
   // Verify workspace membership (throws if not a member) — đường xác thực gốc,
   // forward Authorization sang services/company. B5: đường này chỉ hoạt động
   // đúng với token mà services/company hiểu được (local-session, JWT_SECRET);
-  // 1 platform token hợp lệ (PLATFORM_JWT_SECRET) sẽ luôn fail ở đây (khác
+  // 1 access token của core sẽ luôn fail ở đây (khác
   // secret) — xem `buildTenantPolicySnapshot` bên dưới cho đường B5 fix
   // (control-plane delegation, KHÔNG round-trip sang company).
   await verifyWorkspaceMembership(workspaceId, authorizationHeader);

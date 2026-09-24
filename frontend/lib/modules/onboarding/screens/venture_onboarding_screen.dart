@@ -109,13 +109,10 @@ class _VentureOnboardingScreenState extends State<VentureOnboardingScreen> {
           setState(() => _errorMessage = 'Tạo workspace không thành công');
         }
       } else {
-        // Mặc định gọi API đăng ký / tạo workspace
+        // Mặc định gọi API tạo organization (workspace) của người dùng đã đăng nhập bằng core.
         final res = await ApiClient.post(
-          '/platform/auth/register',
-          body: {
-            'workspace_name': _workspaceNameController.text.trim(),
-            'client_workspace_creation_id': clientCreationId,
-          },
+          '/platform/auth/companies/create',
+          body: {'name': _workspaceNameController.text.trim()},
         );
         if (res.statusCode != 200 && res.statusCode != 201) {
           setState(() => _errorMessage = 'Lỗi tạo workspace (${res.statusCode})');

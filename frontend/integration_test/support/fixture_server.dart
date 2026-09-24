@@ -118,11 +118,29 @@ class FixtureServer {
     final path = request.uri.path;
     final method = request.method;
 
-    if (method == 'POST' && path == '/platform/auth/sessions') {
+    // Backend/core giả lập: /auth/login -> /oauth/authorize (PKCE) -> /oauth/token.
+    if (method == 'POST' && path == '/auth/login') {
+      return _respond(request, 200, {
+        'user': {'id': 'member-a', 'displayName': 'Member A'},
+        'accessToken': 'fixture-core-session',
+        'refreshToken': 'fixture-core-session-refresh',
+        'expiresIn': 3600,
+      });
+    }
+
+    if (method == 'GET' && path == '/oauth/authorize') {
+      final q = request.uri.queryParameters;
+      return _respond(request, 200, {
+        'redirectUrl': '${q['redirect_uri']}?code=fixture-code&state=${q['state']}',
+      });
+    }
+
+    if (method == 'POST' && path == '/oauth/token') {
       return _respond(request, 200, {
         'access_token': platformToken,
-        'user': {'id': 'member-a', 'display_name': 'Member A'},
-        'workspaces': const [],
+        'refresh_token': 'fixture-oidc-refresh',
+        'expires_in': 3600,
+        'token_type': 'Bearer',
       });
     }
 
@@ -162,7 +180,7 @@ class FixtureServer {
     }
 
     final sessionContextMatch =
-        RegExp(r'^/platform/workspaces/([^/]+)/session-context$').firstMatch(path);
+        RegExp(r'^/platform/organizations/([^/]+)/session-context$').firstMatch(path);
     if (method == 'GET' && sessionContextMatch != null) {
       final workspaceId = Uri.decodeComponent(sessionContextMatch.group(1)!);
       final ws = _workspaces[workspaceId];

@@ -1,8 +1,10 @@
 import { APIError } from "encore.dev/api";
 import { eq, and, asc } from "drizzle-orm";
 import { db, schema } from "../models/db";
-import { verifyPlatformToken } from "./token.service";
+import { authorizeAndProjectCoreAccess, resolveCallerIdentity } from "./core-access.service";
 import { provisionVentureWorkspace } from "./venture-workspace.service";
+import { createCoreOrganization, listCoreOrganizations } from "./core-organization.service";
+import { mapCoreRoleToCosaRole } from "./core-projection.service";
 
 const {
   users,
@@ -59,32 +61,32 @@ export interface ValidateMembershipResult {
   membershipUpdatedAt: string;
 }
 
-export async function listUserCompanies(userIdStr: string): Promise<ListMyCompaniesResponse> {
-  const userId = BigInt(userIdStr);
+// Role của core dùng cho miền giao thông (operator, driver) không có nghĩa ở COSA.
+const CORE_ROLES_WITHOUT_COSA_ACCESS = new Set(["operator", "driver"]);
 
-  const rows = await db
-    .select({
-      companyId: workspaceMemberships.workspaceId,
-      name: workspaces.workspaceName,
-      roleId: workspaceMemberships.roleId,
-    })
-    .from(workspaceMemberships)
-    .innerJoin(workspaces, eq(workspaces.id, workspaceMemberships.workspaceId))
-    .where(and(eq(workspaceMemberships.userId, userId), eq(workspaces.status, "active")))
-    .orderBy(asc(workspaceMemberships.createdAt));
-
+/** Danh sách organization của user lấy từ core (nguồn sự thật) khi đăng nhập bằng token của core. */
+export async function listCoreCompanies(accessToken: string): Promise<ListMyCompaniesResponse> {
+  const organizations = await listCoreOrganizations(accessToken);
   return {
-    companies: rows.map((r) => ({
-      company_id: r.companyId.toString(),
-      name: r.name,
-      role_id: r.roleId,
-    })),
+    companies: organizations
+      .filter((o) => !CORE_ROLES_WITHOUT_COSA_ACCESS.has(o.role))
+      .map((o) => ({
+        company_id: o.organizationId,
+        name: o.name,
+        role_id: mapCoreRoleToCosaRole(o.role),
+      })),
   };
+}
+
+export interface CreateCompanyContext {
+  /** Access token OIDC của core: organization được tạo ở core (nguồn sự thật). */
+  accessToken: string;
 }
 
 export async function createNewCompany(
   userIdStr: string,
-  params: CreateCompanyServiceParams
+  params: CreateCompanyServiceParams,
+  ctx: CreateCompanyContext
 ): Promise<CompanyActionResponse> {
   const userId = BigInt(userIdStr);
   const name = params.name.trim();
@@ -92,10 +94,15 @@ export async function createNewCompany(
     throw APIError.invalidArgument("tên công ty không được để trống");
   }
 
+  // Organization (id, tên, membership founder) được tạo ở core trước, COSA chỉ dựng dữ liệu vận hành
+  // (license, entitlement, sync log) với đúng id đó.
+  const coreOrg = await createCoreOrganization(ctx.accessToken, name);
+
   const result = await provisionVentureWorkspace({
     ownerUserId: userId,
-    workspaceName: name,
-    clientCreationId: `legacy-comp-create-${Date.now()}-${userIdStr}`,
+    workspaceName: coreOrg.name,
+    clientCreationId: `core-org-${coreOrg.organizationId}`,
+    workspaceId: coreOrg.organizationId,
   });
 
   // Tự động nâng profile role của người tạo lên founder nếu đang là member
@@ -136,14 +143,12 @@ export async function joinExistingCompany(
 export async function validateUserMembership(
   params: ValidateMembershipParams
 ): Promise<ValidateMembershipResult> {
-  let payload;
-  try {
-    payload = verifyPlatformToken(params.platformToken);
-  } catch {
-    throw APIError.unauthenticated("invalid or expired platform token");
-  }
+  // Access token OIDC của core: core quyết định thành viên (ném permission_denied nếu không phải) và bản
+  // chiếu được cập nhật trước khi đọc bảng cục bộ.
+  const caller = await resolveCallerIdentity(params.platformToken);
+  await authorizeAndProjectCoreAccess(params.platformToken, params.companyId, "cosa.workspace.read");
 
-  const userId = BigInt(payload.sub);
+  const userId = BigInt(caller.userId);
   const workspaceId = BigInt(params.companyId);
 
   const [userRow] = await db

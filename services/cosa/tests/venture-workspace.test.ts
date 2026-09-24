@@ -7,7 +7,7 @@ import {
   validateWorkspaceMembership,
   getWorkspaceEntitlement,
 } from "../services/venture-workspace.service";
-import { registerPlatformUser } from "../services/auth.service";
+import { registerPlatformUser } from "./support/test-identity";
 
 describe("venture-workspace service", () => {
   let userId: bigint;
@@ -114,7 +114,6 @@ describe("venture-workspace service", () => {
       client_workspace_creation_id: `ccid-${Date.now()}`,
     });
     expect(res.platform_workspace_id).toBeTruthy();
-    expect(res.workspace_provision_status).toBe("pending");
 
     const [ent] = await db
       .select()

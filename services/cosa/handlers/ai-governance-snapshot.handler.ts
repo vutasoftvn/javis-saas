@@ -21,7 +21,7 @@ export interface GetAiGovernanceSnapshotRequest {
  * `/platform/auth/me/agent-policy-snapshot`). `expose: true` + `auth: false`
  * ở tầng Encore Gateway vì caller dùng
  * `COSA_CONTROL_DELEGATION_SECRET`-signed delegation token (không phải
- * `PLATFORM_JWT_SECRET` mà Gateway `auth: true` yêu cầu) — verify thủ công
+ * access token của core mà Gateway `auth: true` yêu cầu) — verify thủ công
  * bên trong `getAiGovernanceSnapshot` (cùng pattern B5 fix của
  * agent-policy.handler.ts). Đọc/ký only — không có endpoint update/mutate
  * nào đi kèm.

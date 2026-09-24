@@ -28,6 +28,8 @@ from typing import Optional
 import httpx
 import jwt as pyjwt
 import pytest
+
+from apps.cosa.auth.jwt import mint_control_plane_delegation
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -36,17 +38,16 @@ __all__ = [
     "test_connector_assert_denies_expired_and_scope_mismatch",
 ]
 
-PLATFORM_JWT_SECRET = "cosa-super-secret-platform-jwt-key-change-in-prod"
 WORKER_SERVICE_JWT_SECRET = "cosa-worker-service-jwt-key-change-in-prod-min32chars"
 
 
-def _platform_token(user_id: str) -> str:
-    """Mint a platform JWT token for a user."""
-    return pyjwt.encode(
-        {"sub": user_id, "aud": "cosa", "exp": int(time.time()) + 3600},
-        PLATFORM_JWT_SECRET,
-        algorithm="HS256",
-    )
+def _platform_token(user_id: str, workspace_id: str) -> str:
+    """Control-plane delegation (apps/cosa ký, COSA_CONTROL_DELEGATION_SECRET) cho một user trong một workspace.
+
+    Danh tính người dùng do backend/core quản lý nên test không còn tự ký JWT platform; delegation này là đường
+    nội bộ apps/cosa -> services/cosa (services/cosa tin claim workspace, không hỏi lại core).
+    """
+    return mint_control_plane_delegation(sub=user_id, workspace_id=workspace_id, role="founder")
 
 
 def _worker_token() -> str:
@@ -102,7 +103,6 @@ def control_plane_service(control_plane_dsn: str):
     Yields control when service is healthy (responds to HTTP).
     Tears down `encore run` process when done.
 
-    Skips test if services/company is not available (required for workspace membership checks).
     """
     repo_root = Path(__file__).parent.parent.parent.parent.parent
     services_dir = repo_root / "services" / "cosa"
@@ -113,17 +113,6 @@ def control_plane_service(control_plane_dsn: str):
         db_url = f"{db_url}?sslmode=disable"
     encore_env["COSA_DATABASE_URL"] = db_url
     encore_env["COSA_DATABASE_URL"] = db_url
-
-    # Check if services/company is available (required for workspace membership validation)
-    company_service_url = os.environ.get("COMPANY_SERVICE_URL", "http://localhost:4002")
-    try:
-        response = httpx.get(f"{company_service_url}/health", timeout=2)
-        if response.status_code not in (200, 503):
-            # 503 is acceptable (service is up but degraded)
-            pass
-    except (httpx.ConnectError, httpx.TimeoutException, httpx.RequestError):
-        # services/company is not available — skip this test
-        pytest.skip("services/company is not available (workspace membership check requires it)")
 
     # Run migrations before starting encore run to ensure schema is current
     migrate_env = {**encore_env}
@@ -289,8 +278,8 @@ def test_connector_lifecycle_and_cross_tenant_deny(control_plane_service, async_
     # Seed tenants
     asyncio.run(_seed_tenants(async_control_plane_dsn, company_a_id, company_b_id))
 
-    token_a = _platform_token("1001")  # user_a has id 1001
-    token_b = _platform_token("1002")  # user_b has id 1002
+    token_a = _platform_token("1001", "ws_a")  # user_a has id 1001
+    token_b = _platform_token("1002", "ws_b")  # user_b has id 1002
 
     with httpx.Client(base_url=control_plane_service, timeout=10.0) as client:
         # 1. install (tenant A)
@@ -414,7 +403,7 @@ def test_connector_assert_denies_expired_and_scope_mismatch(control_plane_servic
     # Seed tenant C
     asyncio.run(_seed_tenants(async_control_plane_dsn, company_c_id, dummy_id))
 
-    token_c = _platform_token("1001")  # user_a has id 1001
+    token_c = _platform_token("1001", "ws_c")  # user_a has id 1001
 
     with httpx.Client(base_url=control_plane_service, timeout=10.0) as client:
         # --- Scenario 1: Expired Authorization ---

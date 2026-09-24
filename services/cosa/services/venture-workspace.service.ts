@@ -19,6 +19,8 @@ export interface ProvisionParams {
   workspaceName: string;
   clientCreationId: string;
   planId?: string;
+  /** id organization do backend/core cấp; bỏ trống thì COSA tự sinh id (luồng cũ). */
+  workspaceId?: string;
 }
 
 export interface ProvisionResult {
@@ -78,19 +80,26 @@ export async function provisionVentureWorkspace(params: ProvisionParams): Promis
     throw APIError.internal(`plan ${planId} chưa được seed`);
   }
 
-  const wsId = BigInt(generateSnowflakeStr());
+  const wsId = params.workspaceId ? BigInt(params.workspaceId) : BigInt(generateSnowflakeStr());
   await db.transaction(async (tx) => {
-    await tx.insert(workspaces).values({
-      id: wsId,
-      workspaceName: name,
-      ownerId: params.ownerUserId,
-    });
-    await tx.insert(workspaceMemberships).values({
-      id: BigInt(generateSnowflakeStr()),
-      workspaceId: wsId,
-      userId: params.ownerUserId,
-      roleId: "founder",
-    });
+    // Bản chiếu từ core có thể đã tạo workspace và membership cùng id: không được lỗi trùng khoá.
+    await tx
+      .insert(workspaces)
+      .values({
+        id: wsId,
+        workspaceName: name,
+        ownerId: params.ownerUserId,
+      })
+      .onConflictDoNothing();
+    await tx
+      .insert(workspaceMemberships)
+      .values({
+        id: BigInt(generateSnowflakeStr()),
+        workspaceId: wsId,
+        userId: params.ownerUserId,
+        roleId: "founder",
+      })
+      .onConflictDoNothing();
     await tx.insert(workspaceLicenses).values({
       id: BigInt(generateSnowflakeStr()),
       workspaceId: wsId,

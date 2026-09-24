@@ -49,7 +49,6 @@ Trỏ các bản ghi DNS của bạn về địa chỉ IP của VPS Coolify:
    WORKSPACE_DATABASE_URL=postgresql://<user>:<password>@<host>:5432/workspace?sslmode=disable
    COSA_CONTROL_PLANE_URL=http://<services-cosa-host>:4001
    COMPANY_SERVICE_URL=http://<services-company-host>:4000
-   PLATFORM_JWT_SECRET=cosa_platform_master_signing_key_production_random_string_64chars
    WORKER_SERVICE_JWT_SECRET=cosa_worker_jwt_secret_min32chars
    ENVIRONMENT=production
    PYTHONUNBUFFERED=1

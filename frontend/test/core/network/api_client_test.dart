@@ -85,9 +85,9 @@ void main() {
 
     test('/platform không đổi target và không bị offline guard', () {
       ApiClient.setRuntimeContext(mode: 'REMOTE_ACCESS', presence: 'OFFLINE');
-      final target = ApiClient.resolveRequestTarget('/platform/workspaces/1/entitlement');
+      final target = ApiClient.resolveRequestTarget('/platform/organizations/1/entitlement');
       expect(target.blockedResponse, isNull);
-      expect(target.uri.toString(), 'http://platform.local/platform/workspaces/1/entitlement');
+      expect(target.uri.toString(), 'http://platform.local/platform/organizations/1/entitlement');
     });
 
     test('/agent không đổi target và không bị offline guard', () {

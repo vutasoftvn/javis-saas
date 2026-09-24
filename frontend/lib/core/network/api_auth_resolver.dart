@@ -1,5 +1,6 @@
 import '../services/secure_storage_service.dart';
 import 'api_result.dart';
+import 'platform_token_provider.dart';
 
 abstract interface class ApiAuthResolver {
   Future<String?> tokenFor(ApiPlane plane);
@@ -13,7 +14,8 @@ class DefaultApiAuthResolver implements ApiAuthResolver {
   Future<String?> tokenFor(ApiPlane plane) async {
     switch (plane) {
       case ApiPlane.platform:
-        final primary = await SecureStorageService.read('platform_access_token');
+        // Access token OIDC của core, tự làm mới khi sắp hết hạn.
+        final primary = await PlatformTokenProvider.currentToken();
         if (primary != null && primary.isNotEmpty) return primary;
         final legacy = await SecureStorageService.read('auth_token');
         return (legacy != null && legacy.isNotEmpty) ? legacy : null;

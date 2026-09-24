@@ -7,10 +7,9 @@ import {
   markWorkspaceSyncedEndpoint,
   getWorkspaceEntitlementEndpoint,
 } from "../handlers/venture-workspace.handler";
-import { signPlatformToken } from "../services/token.service";
 import { provisionVentureWorkspace } from "../services/venture-workspace.service";
-import { registerPlatformUser } from "../services/auth.service";
 import { APIError } from "encore.dev/api";
+import { registerPlatformUser, signPlatformToken } from "./support/test-identity";
 
 const {
   users,

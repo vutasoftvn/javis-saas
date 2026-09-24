@@ -11,10 +11,10 @@ Discovery (2026-09-02):
   `tool_pattern` kết thúc `.*` theo prefix — nên grant = upsert 1 hàng
   `"<prefix>.*" -> ALLOW`.
 - `platform_workspace_id` có FK tới `cosa.platform_workspaces(id)` (view alias
-  của `cosa.workspaces`), và `cosa.workspaces.owner_user_id` FK tới
+  của `cosa.organizations`), và `cosa.organizations.owner_user_id` FK tới
   `cosa.users(id)`. Workspace do `POST /identity/_e2e/session` tạo chỉ tồn tại
   trong DB `workspace` của company, chưa có hàng tương ứng ở cosa — nên hàm này
-  tự seed hàng `cosa.users` (tối thiểu) + `cosa.workspaces` cùng id trước khi
+  tự seed hàng `cosa.users` (tối thiểu) + `cosa.organizations` cùng id trước khi
   upsert policy. Toàn bộ là INSERT trực tiếp theo schema (KHÔNG mock), idempotent
   qua `ON CONFLICT`.
 
@@ -54,7 +54,7 @@ def grant_entitlement(
     try:
         with conn, conn.cursor() as cur:
             # Đảm bảo có hàng workspace ở cosa để thoả FK của workspace_agent_policy.
-            cur.execute("SELECT 1 FROM cosa.workspaces WHERE id = %s", (wid,))
+            cur.execute("SELECT 1 FROM cosa.organizations WHERE id = %s", (wid,))
             if cur.fetchone() is None:
                 owner_id = _snowflake()
                 # `cosa.users` có CHECK `users_email_or_phone_required` — phải có
@@ -69,7 +69,7 @@ def grant_entitlement(
                 )
                 cur.execute(
                     """
-                    INSERT INTO cosa.workspaces (id, workspace_name, owner_user_id)
+                    INSERT INTO cosa.organizations (id, organization_name, owner_user_id)
                     VALUES (%s, %s, %s)
                     ON CONFLICT (id) DO NOTHING
                     """,

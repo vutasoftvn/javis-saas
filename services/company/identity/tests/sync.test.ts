@@ -8,9 +8,9 @@ vi.mock("../services/platform.client", () => ({
   listPlatformWorkspaceMemberships: vi.fn().mockResolvedValue([]),
   validatePlatformWorkspaceMembership: vi.fn(),
   markPlatformWorkspaceSynced: vi.fn().mockResolvedValue(undefined),
-  verifyPlatformToken: vi.fn().mockImplementation((token: string) => {
+  resolvePlatformIdentity: vi.fn().mockImplementation(async (token: string) => {
     if (token === "invalid") throw new Error("invalid token");
-    return { sub: "u-mock", aud: "cosa" };
+    return { userId: "u-mock" };
   }),
 }));
 
@@ -32,7 +32,7 @@ function wm(over: Partial<Record<string, unknown>> = {}) {
   return {
     platformWorkspaceId: id,
     workspaceName: `WS ${id}`,
-    // verifyPlatformToken mock (bên trên) luôn trả `sub: "u-mock"` bất kể
+    // resolvePlatformIdentity mock (bên trên) luôn trả `sub: "u-mock"` bất kể
     // token truyền vào — userId ở đây phải khớp để qua được check
     // `verified.userId !== platformUserId` trong syncFromPlatformService.
     userId: "u-mock",
@@ -59,7 +59,7 @@ function mockVerifiedMemberships(memberships: Array<ReturnType<typeof wm>>) {
 }
 
 describe("syncFromPlatformService", () => {
-  // Mock `verifyPlatformToken` (bên trên) luôn trả cùng một `sub: "u-mock"`
+  // Mock `resolvePlatformIdentity` (bên trên) luôn trả cùng một `sub: "u-mock"`
   // cho mọi token hợp lệ ⇒ toàn bộ test trong file này giờ verify membership
   // dưới CÙNG một platformUserId (đây chính là hành vi security fix mới —
   // membership phải khớp platformUserId của token, không còn suy ra userId

@@ -156,10 +156,9 @@ TypeScript đã tồn tại; claim "zero production consumer" (tính đến 2026
 membership; `shared/auth/cosa-delegation.service.ts` bridge token cho
 `apps/cosa`). Luôn kiểm tra lại bằng grep thay vì tin ngày trong ghi chú này.
 
-**3 secret cross-plane, mỗi secret đúng 1 chiều ký→verify — không tái dùng
-chéo** (xem `ADR-COSA-DELEGATION-002` cho bối cảnh đầy đủ):
-`PLATFORM_JWT_SECRET` (`services/cosa` ký, `services/cosa` gateway + `apps/cosa`
-verify — danh tính platform), `JWT_SECRET` (`services/company` ký, `apps/cosa`
+**Secret cross-plane, mỗi secret đúng 1 chiều ký→verify — không tái dùng
+chéo** (xem `ADR-COSA-DELEGATION-002` cho bối cảnh đầy đủ; danh tính người dùng
+không còn secret riêng vì do `backend/core` cấp): `JWT_SECRET` (`services/company` ký, `apps/cosa`
 verify — local business session), `COSA_COMPANY_DELEGATION_SECRET`
 (`apps/cosa` ký → `services/company` verify, scoped `{workspace_id, run_id,
 capability_ids}`), `COSA_CONTROL_DELEGATION_SECRET` (`apps/cosa` ký →
@@ -168,6 +167,25 @@ capability_ids}`), `COSA_CONTROL_DELEGATION_SECRET` (`apps/cosa` ký →
 secret khác dù "có vẻ tiện" — đúng thứ từng gây bug B5 (agent run thật fail
 `policy_snapshot_unavailable` vì forward nhầm token platform sang endpoint chỉ
 hiểu local-session, đã vá).
+
+**Cutover sang `backend/core`:** danh tính, mật khẩu, đăng ký và organization do
+`backend/core` quản lý; app Flutter đăng nhập/đăng ký trực tiếp với core rồi dùng access
+token OIDC (chuỗi opaque, client `vn.mivacorp.cosa`, PKCE) làm Bearer cho mọi API `/platform/*`.
+`services/cosa` phân biệt token theo dấu chấm (`services/core-access.service.ts`): token có
+dấu chấm là control-plane delegation nội bộ (`COSA_CONTROL_DELEGATION_SECRET`), token không có dấu
+chấm là token core (introspect + hỏi quyền ở core, kết quả được chiếu vào `cosa.users`,
+`cosa.workspaces`, `cosa.workspace_memberships` với id của core, xem migration 006). Credential
+dịch vụ mới, cũng một chiều: `CORE_INTROSPECT_CLIENT_ID` / `CORE_INTROSPECT_CLIENT_SECRET`
+(client confidential `vn.mivacorp.cosa.backend`, `services/cosa` → `backend/core`
+`/oauth/introspect` và `/internal/organizations/:id/members`; cấp bằng
+`backend/core/scripts/provision-cosa-backend-client.mjs`). Quyền organization đi bằng chính
+bearer của user tới `POST /me/organizations/:id/authorize`. `services/company` hỏi danh tính
+qua `POST /platform/internal/resolve-identity` của cosa. `PLATFORM_JWT_SECRET` và login/đăng ký
+cục bộ (`POST /platform/auth/sessions|register`) đã bị gỡ hoàn toàn. Đổi tên
+workspace→organization ở phía COSA đã làm cho DB (migration 007: `cosa.organizations`,
+`organization_memberships`, `organization_invitations`) và đường dẫn `/platform/organizations/*`.
+Chưa đổi (có chủ đích): header `X-Workspace-Id`, tham số `:workspaceId`, tên trường JSON và định danh
+TypeScript/Python/Dart, vì dùng chung với `services/company` (giữ "workspace" là khái niệm riêng).
 
 Trạng thái ACCEPTED chỉ xác nhận quyết định kiến trúc; không mặc định có
 nghĩa implementation, migration cutover, runtime wiring hoặc production

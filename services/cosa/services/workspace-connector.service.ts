@@ -2,7 +2,8 @@ import { APIError } from "encore.dev/api";
 import { eq, and, sql } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { isStagingOrProd } from "../shared/env";
-import { verifyControlDelegationToken, verifyPlatformToken } from "./token.service";
+import { verifyControlDelegationToken } from "./token.service";
+import { authorizeAndProjectCoreAccess, looksLikeJwt } from "./core-access.service";
 
 const DEV_COMPANY_SERVICE_URL = "http://localhost:4002";
 
@@ -80,51 +81,29 @@ export async function verifyWorkspaceMembership(
   workspaceId: string,
   authorizationHeader: string | undefined
 ): Promise<WorkspaceMembershipInfo> {
-  const companyUrl = resolveCompanyServiceUrl();
-  try {
-    const response = await fetch(
-      `${companyUrl}/identity/workspaces/${workspaceId}/platform-company`,
-      {
-        method: "GET",
-        headers: {
-          "Authorization": authorizationHeader || "",
-          "Content-Type": "application/json",
-        },
-      }
-    );
-
-    if (response.status === 403 || response.status === 401) {
-      throw APIError.permissionDenied("bạn không phải thành viên của workspace này");
-    }
-    if (!response.ok) {
-      throw APIError.unavailable(`services/company endpoint failed: ${response.status}`);
-    }
-
-    const data = (await response.json()) as WorkspaceMembershipInfo;
-    return data;
-  } catch (err) {
-    if (err instanceof APIError) {
-      throw err;
-    }
-    throw APIError.unavailable(`failed to verify workspace membership: ${err instanceof Error ? err.message : String(err)}`);
+  // Access token OIDC của core: core quyết định thành viên.
+  const bearer = authorizationHeader?.replace(/^Bearer\s+/i, "");
+  if (!bearer) {
+    throw APIError.unauthenticated("invalid or expired access token");
   }
+  // Control-plane delegation do apps/cosa ký (đã kiểm tra thành viên thật): tin claim, không hỏi lại core.
+  if (looksLikeJwt(bearer)) {
+    const delegation = verifyControlDelegationToken(bearer);
+    if (delegation.workspaceId !== workspaceId) {
+      throw APIError.permissionDenied("control-plane delegation token scoped cho workspace khác");
+    }
+    return { platformCompanyId: null, membershipRole: delegation.role };
+  }
+  const access = await authorizeAndProjectCoreAccess(bearer, workspaceId, "cosa.workspace.read");
+  return { platformCompanyId: null, membershipRole: access.cosaRole };
 }
 
 /**
- * B5 fix (2026-09-04) — điểm vào DÙNG CHUNG cho mọi endpoint cần "caller đã
- * chứng minh thuộc workspace này" (agent-policy-snapshot, /cosa/schedules*).
- * Trước đây mỗi endpoint tự verifyPlatformToken() + verifyWorkspaceMembership()
- * (forward Authorization sang services/company) — luôn fail vì
- * services/company chỉ hiểu local-session token (JWT_SECRET), không hiểu
- * platform token (PLATFORM_JWT_SECRET) mà caller thật (apps/cosa) có.
- *
- * Ưu tiên control-plane delegation (apps/cosa tự mint sau khi ĐÃ cross-check
- * membership thật với services/company — xem
- * apps/cosa/auth/jwt.py::mint_control_plane_delegation) — TIN claim
- * workspaceId/sub trong đó, KHÔNG round-trip lại. Nếu token không phải
- * delegation hợp lệ, fallback nguyên trạng: verifyPlatformToken +
- * verifyWorkspaceMembership (giữ đúng hành vi cũ cho caller nào không dùng
- * delegation — vẫn phụ thuộc services/company hiểu được token đó).
+ * Điểm vào DÙNG CHUNG cho mọi endpoint cần "caller đã chứng minh thuộc workspace này"
+ * (agent-policy-snapshot, /cosa/schedules*). Ưu tiên control-plane delegation (apps/cosa tự mint sau khi
+ * đã cross-check membership thật — xem apps/cosa/auth/jwt.py::mint_control_plane_delegation) — TIN claim
+ * workspaceId/sub trong đó. Nếu không phải delegation hợp lệ thì là access token OIDC của core: core quyết
+ * định thành viên (introspect + `/me/organizations/:id/authorize`).
  */
 export async function resolveCallerAuthorizedForWorkspace(
   authorizationHeader: string | undefined,
@@ -145,12 +124,14 @@ export async function resolveCallerAuthorizedForWorkspace(
     if (err instanceof APIError && err.code === "permission_denied") {
       throw err;
     }
-    // Không phải delegation token hợp lệ -> fallback đường platform token gốc.
+    // Không phải delegation token hợp lệ -> access token OIDC của core.
   }
 
-  const claims = verifyPlatformToken(token);
-  await verifyWorkspaceMembership(workspaceId, authorizationHeader);
-  return { sub: claims.sub };
+  if (looksLikeJwt(token)) {
+    throw APIError.unauthenticated("invalid or expired access token");
+  }
+  const access = await authorizeAndProjectCoreAccess(token, workspaceId, "cosa.workspace.read");
+  return { sub: access.userId };
 }
 
 export async function installWorkspaceConnector(input: {

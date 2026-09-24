@@ -1,13 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
 import { eq } from "drizzle-orm";
-import { registerPlatform } from "../handlers/auth.handler";
 import { createCompanyFor, joinCompanyFor } from "../handlers/company.handler";
 import {
   createWorkspaceInvitationFor,
   acceptWorkspaceInvitationFor,
 } from "../handlers/company.handler";
-import { verifyPlatformToken } from "../services/token.service";
 import { db, schema } from "../models/db";
+import { asCaller, registerPlatform, verifyPlatformToken } from "./support/test-identity";
 
 const { workspaceInvitations } = schema;
 
@@ -23,7 +22,7 @@ async function registerUser(prefix: string) {
 
 async function createFounderWithCompany(prefix: string) {
   const founder = await registerUser(prefix);
-  const company = await createCompanyFor({ userID: founder.userID }, { name: `${prefix} Co` });
+  const company = await createCompanyFor(asCaller(founder.userID), { name: `${prefix} Co` });
   return { ...founder, companyId: company.company_id };
 }
 
@@ -33,7 +32,7 @@ describe("Workspace Invitation Service (ADR-WORKSPACE-INVITATION-001)", () => {
     const stranger = await registerUser("known_ws_stranger");
 
     await expect(
-      joinCompanyFor({ userID: stranger.userID }, { company_id: founder.companyId })
+      joinCompanyFor(asCaller(stranger.userID), { company_id: founder.companyId })
     ).rejects.toMatchObject({ code: "permission_denied" });
   });
 
@@ -42,7 +41,7 @@ describe("Workspace Invitation Service (ADR-WORKSPACE-INVITATION-001)", () => {
     const invitee = await registerUser("issue_invitee");
 
     const invitation = await createWorkspaceInvitationFor(
-      { userID: founder.userID },
+      asCaller(founder.userID),
       { workspace_id: founder.companyId, email: invitee.email, role_id: "member" }
     );
 
@@ -51,7 +50,7 @@ describe("Workspace Invitation Service (ADR-WORKSPACE-INVITATION-001)", () => {
     expect(invitation.expires_at).toBeDefined();
 
     const accepted = await acceptWorkspaceInvitationFor(
-      { userID: invitee.userID },
+      asCaller(invitee.userID),
       { token: invitation.token }
     );
 
@@ -64,7 +63,7 @@ describe("Workspace Invitation Service (ADR-WORKSPACE-INVITATION-001)", () => {
     const invitee = await registerUser("dup_invite_invitee");
 
     await createWorkspaceInvitationFor(
-      { userID: founder.userID },
+      asCaller(founder.userID),
       { workspace_id: founder.companyId, email: invitee.email, role_id: "member" }
     );
 
@@ -72,7 +71,7 @@ describe("Workspace Invitation Service (ADR-WORKSPACE-INVITATION-001)", () => {
     // pending) — đây là con đường 23505 phải được map thành already_exists.
     await expect(
       createWorkspaceInvitationFor(
-        { userID: founder.userID },
+        asCaller(founder.userID),
         { workspace_id: founder.companyId, email: invitee.email, role_id: "member" }
       )
     ).rejects.toMatchObject({ code: "already_exists" });
@@ -92,7 +91,7 @@ describe("Workspace Invitation Service (ADR-WORKSPACE-INVITATION-001)", () => {
     try {
       await expect(
         createWorkspaceInvitationFor(
-          { userID: founder.userID },
+          asCaller(founder.userID),
           { workspace_id: founder.companyId, email: invitee.email, role_id: "member" }
         )
       ).rejects.toMatchObject({ code: "internal" });
@@ -107,7 +106,7 @@ describe("Workspace Invitation Service (ADR-WORKSPACE-INVITATION-001)", () => {
 
     await expect(
       createWorkspaceInvitationFor(
-        { userID: outsider.userID },
+        asCaller(outsider.userID),
         { workspace_id: founder.companyId, email: "someone@example.com", role_id: "member" }
       )
     ).rejects.toMatchObject({ code: "permission_denied" });
@@ -118,7 +117,7 @@ describe("Workspace Invitation Service (ADR-WORKSPACE-INVITATION-001)", () => {
 
     await expect(
       createWorkspaceInvitationFor(
-        { userID: founder.userID },
+        asCaller(founder.userID),
         { workspace_id: founder.companyId, email: "future-cofounder@example.com", role_id: "founder" as any }
       )
     ).rejects.toMatchObject({ code: "invalid_argument" });
@@ -129,14 +128,14 @@ describe("Workspace Invitation Service (ADR-WORKSPACE-INVITATION-001)", () => {
     const admin = await registerUser("admin_issue_admin");
 
     const adminInvite = await createWorkspaceInvitationFor(
-      { userID: founder.userID },
+      asCaller(founder.userID),
       { workspace_id: founder.companyId, email: admin.email, role_id: "admin" }
     );
-    await acceptWorkspaceInvitationFor({ userID: admin.userID }, { token: adminInvite.token });
+    await acceptWorkspaceInvitationFor(asCaller(admin.userID), { token: adminInvite.token });
 
     const nextInvitee = await registerUser("admin_issue_invitee");
     const nextInvite = await createWorkspaceInvitationFor(
-      { userID: admin.userID },
+      asCaller(admin.userID),
       { workspace_id: founder.companyId, email: nextInvitee.email, role_id: "member" }
     );
     expect(nextInvite.token).toBeDefined();
@@ -148,12 +147,12 @@ describe("Workspace Invitation Service (ADR-WORKSPACE-INVITATION-001)", () => {
     const intruder = await registerUser("email_mismatch_intruder");
 
     const invitation = await createWorkspaceInvitationFor(
-      { userID: founder.userID },
+      asCaller(founder.userID),
       { workspace_id: founder.companyId, email: invitee.email, role_id: "member" }
     );
 
     await expect(
-      acceptWorkspaceInvitationFor({ userID: intruder.userID }, { token: invitation.token })
+      acceptWorkspaceInvitationFor(asCaller(intruder.userID), { token: invitation.token })
     ).rejects.toMatchObject({ code: "permission_denied" });
   });
 
@@ -162,16 +161,16 @@ describe("Workspace Invitation Service (ADR-WORKSPACE-INVITATION-001)", () => {
     const invitee = await registerUser("idempotent_invitee");
 
     const invitation = await createWorkspaceInvitationFor(
-      { userID: founder.userID },
+      asCaller(founder.userID),
       { workspace_id: founder.companyId, email: invitee.email, role_id: "member" }
     );
 
-    const first = await acceptWorkspaceInvitationFor({ userID: invitee.userID }, { token: invitation.token });
+    const first = await acceptWorkspaceInvitationFor(asCaller(invitee.userID), { token: invitation.token });
     expect(first.role_id).toBe("member");
 
     // Retry sau khi đã accept (network retry / double click) phải idempotent,
     // không tạo thêm membership thứ hai và không throw.
-    const second = await acceptWorkspaceInvitationFor({ userID: invitee.userID }, { token: invitation.token });
+    const second = await acceptWorkspaceInvitationFor(asCaller(invitee.userID), { token: invitation.token });
     expect(second.company_id).toBe(first.company_id);
     expect(second.role_id).toBe(first.role_id);
   });
@@ -181,21 +180,21 @@ describe("Workspace Invitation Service (ADR-WORKSPACE-INVITATION-001)", () => {
     const invitee = await registerUser("concurrent_invitee");
 
     const invitation = await createWorkspaceInvitationFor(
-      { userID: founder.userID },
+      asCaller(founder.userID),
       { workspace_id: founder.companyId, email: invitee.email, role_id: "member" }
     );
 
     const results = await Promise.allSettled([
-      acceptWorkspaceInvitationFor({ userID: invitee.userID }, { token: invitation.token }),
-      acceptWorkspaceInvitationFor({ userID: invitee.userID }, { token: invitation.token }),
-      acceptWorkspaceInvitationFor({ userID: invitee.userID }, { token: invitation.token }),
+      acceptWorkspaceInvitationFor(asCaller(invitee.userID), { token: invitation.token }),
+      acceptWorkspaceInvitationFor(asCaller(invitee.userID), { token: invitation.token }),
+      acceptWorkspaceInvitationFor(asCaller(invitee.userID), { token: invitation.token }),
     ]);
 
     const fulfilled = results.filter((r) => r.status === "fulfilled");
     expect(fulfilled.length).toBe(3);
 
     const companies = await import("../handlers/company.handler").then((m) =>
-      m.listMyCompaniesFor({ userID: invitee.userID })
+      m.listMyCompaniesFor(asCaller(invitee.userID))
     );
     const matches = companies.companies.filter((c) => c.company_id === founder.companyId);
     expect(matches.length).toBe(1);
@@ -206,7 +205,7 @@ describe("Workspace Invitation Service (ADR-WORKSPACE-INVITATION-001)", () => {
     const invitee = await registerUser("revoke_invitee");
 
     const invitation = await createWorkspaceInvitationFor(
-      { userID: founder.userID },
+      asCaller(founder.userID),
       { workspace_id: founder.companyId, email: invitee.email, role_id: "member" }
     );
 
@@ -216,7 +215,7 @@ describe("Workspace Invitation Service (ADR-WORKSPACE-INVITATION-001)", () => {
       .where(eq(workspaceInvitations.id, BigInt(invitation.invitation_id)));
 
     await expect(
-      acceptWorkspaceInvitationFor({ userID: invitee.userID }, { token: invitation.token })
+      acceptWorkspaceInvitationFor(asCaller(invitee.userID), { token: invitation.token })
     ).rejects.toMatchObject({ code: "permission_denied" });
   });
 
@@ -225,7 +224,7 @@ describe("Workspace Invitation Service (ADR-WORKSPACE-INVITATION-001)", () => {
     const invitee = await registerUser("expiry_invitee");
 
     const invitation = await createWorkspaceInvitationFor(
-      { userID: founder.userID },
+      asCaller(founder.userID),
       { workspace_id: founder.companyId, email: invitee.email, role_id: "member" }
     );
 
@@ -235,7 +234,7 @@ describe("Workspace Invitation Service (ADR-WORKSPACE-INVITATION-001)", () => {
       .where(eq(workspaceInvitations.id, BigInt(invitation.invitation_id)));
 
     await expect(
-      acceptWorkspaceInvitationFor({ userID: invitee.userID }, { token: invitation.token })
+      acceptWorkspaceInvitationFor(asCaller(invitee.userID), { token: invitation.token })
     ).rejects.toMatchObject({ code: "permission_denied" });
   });
 
@@ -243,7 +242,7 @@ describe("Workspace Invitation Service (ADR-WORKSPACE-INVITATION-001)", () => {
     const invitee = await registerUser("garbage_token_invitee");
 
     await expect(
-      acceptWorkspaceInvitationFor({ userID: invitee.userID }, { token: "not-a-real-token" })
+      acceptWorkspaceInvitationFor(asCaller(invitee.userID), { token: "not-a-real-token" })
     ).rejects.toMatchObject({ code: "permission_denied" });
   });
 });

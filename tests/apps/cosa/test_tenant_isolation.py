@@ -265,13 +265,12 @@ async def test_workspace_id_collision_across_companies_does_not_leak(test_app):
     )
     from apps.cosa.auth.workspace_client import WorkspaceTenantContextClient
 
-    SECRET = (
-        os.environ.get("PLATFORM_JWT_SECRET") or "cosa-super-secret-platform-jwt-key-change-in-prod"
-    )
+    # Local session token do services/company ký (JWT_SECRET, không audience).
+    SECRET = os.environ.get("JWT_SECRET") or "cosa-dev-jwt-secret-do-not-use-in-prod"
 
     def _token(sub: str) -> str:
         return pyjwt.encode(
-            {"sub": sub, "aud": "cosa", "exp": int(time.time()) + 3600}, SECRET, algorithm="HS256"
+            {"sub": sub, "exp": int(time.time()) + 3600}, SECRET, algorithm="HS256"
         )
 
     def _workspace_client_for(workspace_id: str) -> WorkspaceTenantContextClient:

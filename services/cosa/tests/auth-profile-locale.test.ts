@@ -1,11 +1,8 @@
 import jwt from "jsonwebtoken";
 import { describe, expect, it } from "vitest";
-import {
-  registerPlatformUser,
-  getPlatformUserProfile,
-  updatePlatformUserProfile,
-} from "../services/auth.service";
+import { getPlatformUserProfile, updatePlatformUserProfile } from "../services/auth.service";
 import { getLocaleSnapshotForWorkspace } from "../handlers/auth.handler";
+import { registerPlatformUser } from "./support/test-identity";
 
 const TEST_SECRET = "cosa-control-delegation-dev-secret-change-in-prod";
 
