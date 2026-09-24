@@ -184,7 +184,7 @@ qua `POST /platform/internal/resolve-identity` của cosa. `PLATFORM_JWT_SECRET`
 cục bộ (`POST /platform/auth/sessions|register`) đã bị gỡ hoàn toàn. Đổi tên
 workspace→organization ở phía COSA đã làm cho DB (migration 007: `cosa.organizations`,
 `organization_memberships`, `organization_invitations`) và đường dẫn `/platform/organizations/*`.
-Chưa đổi (có chủ đích): header `X-Workspace-Id`, tham số `:workspaceId`, tên trường JSON và định danh
+COSA không có header workspace riêng (id đi bằng tham số đường dẫn `:workspaceId`). Chưa đổi (có chủ đích): tham số `:workspaceId`, tên trường JSON và định danh
 TypeScript/Python/Dart, vì dùng chung với `services/company` (giữ "workspace" là khái niệm riêng).
 
 Trạng thái ACCEPTED chỉ xác nhận quyết định kiến trúc; không mặc định có

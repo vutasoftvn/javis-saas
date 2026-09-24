@@ -23,11 +23,11 @@ export interface AuthContext {
  * Extract and verify authentication context from HTTP headers.
  *
  * Danh tính và quyền do backend/core quyết định: access token OIDC (chuỗi opaque) được introspect, sau
- * đó core hỏi user có phải thành viên organization (header X-Workspace-Id, giá trị là id organization)
+ * đó core hỏi user có phải thành viên organization (id organization, lấy từ tham số đường dẫn `:workspaceId`)
  * không; kết quả được chiếu vào DB COSA. Ngoại lệ nội bộ: control-plane delegation (JWT) do apps/cosa ký.
  *
  * @param authHeader - Authorization header value (e.g., "Bearer <token>")
- * @param workspaceHeader - X-Workspace-Id header value
+ * @param workspaceHeader - id organization (tham số đường dẫn)
  * @returns Verified AuthContext with user ID, workspace, and token claims
  * @throws APIError.unauthenticated if token is missing or invalid
  * @throws APIError.permissionDenied if workspace header is missing or not allowed
@@ -45,7 +45,7 @@ export async function extractAuthContext(
     throw APIError.unauthenticated("invalid or expired access token");
   }
   if (!workspaceHeader) {
-    throw APIError.permissionDenied("missing X-Workspace-Id header");
+    throw APIError.permissionDenied("missing organization id");
   }
 
   // Token dạng JWT: control-plane delegation do apps/cosa ký (COSA_CONTROL_DELEGATION_SECRET) sau khi ĐÃ
