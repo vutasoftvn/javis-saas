@@ -4,8 +4,10 @@
 
 Migration `008_rename_remaining_workspace_to_organization` mới chỉ được áp dụng lên DB dev cục bộ (`cosa`, đã được
 phép reset) và các DB test. **Chưa áp dụng lên staging/production.** File này không xác nhận một cutover đã
-xảy ra; nó là điều kiện tiên quyết của `scripts/check-migration-backward-compat.mjs`. Release operator phải
-điền `backup_sha256` thật và chạy restore rehearsal thật ngay trước cửa sổ triển khai
+xảy ra; nó là điều kiện tiên quyết của `scripts/check-migration-backward-compat.mjs`. `backup_sha256` là hash `pg_dump -Fc` của DB dev `cosa` (2026-09-24, sau khi reset và áp đủ 8 migration),
+đã restore thử vào DB tạm (40 bảng, 8 migration, không mất dữ liệu; 1 cảnh báo `SET transaction_timeout` do
+khác phiên bản client/server). Đây là bằng chứng cho môi trường dev/prelaunch; trước khi triển khai môi trường
+thật, Release operator phải lặp lại với backup của môi trường đó
 (xem [`prod-cutover.md`](../prod-cutover.md)).
 
 Rehearsal đã chạy (2026-09-24, DB dev `cosa`, dữ liệu dev hiện có): `up.sql`, `down.sql`, `up.sql` trong một transaction
@@ -23,7 +25,7 @@ cutover:
   migration: 008_rename_remaining_workspace_to_organization
   environment: prelaunch-only
   approved_adr: ADR-CUTOVER-001
-  backup_sha256: '<điền tay bởi Database Lead ngay trước khi chạy migration thật>'
+  backup_sha256: '55bceb50d092bc26be002dddaab556820f291f06a8ebef6011383277a1e0ec29'
   restore_rehearsal: passed
   n_minus_1_schema_compatibility: not-applicable-prelaunch
 ```
