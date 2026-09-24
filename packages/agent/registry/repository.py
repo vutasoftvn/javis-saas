@@ -293,23 +293,36 @@ class PostgresSpecRegistryRepository:
                         record.definition_hash,
                     )
                 seen[key] = record.definition_hash
-                await session.execute(
-                    insert_sql,
-                    {
-                        **params,
-                        "definition_hash": record.definition_hash,
-                        "content": json.dumps(record.content),
-                        "status": record.status,
-                        "publisher": record.publisher,
-                        "created_at": record.created_at,
-                        "published_at": record.published_at,
-                        "retired_at": record.retired_at,
-                    },
-                )
+                try:
+                    async with session.begin_nested():
+                        await session.execute(
+                            insert_sql,
+                            {
+                                **params,
+                                "definition_hash": record.definition_hash,
+                                "content": json.dumps(record.content),
+                                "status": record.status,
+                                "publisher": record.publisher,
+                                "created_at": record.created_at,
+                                "published_at": record.published_at,
+                                "retired_at": record.retired_at,
+                            },
+                        )
+                except IntegrityError:
+                    # Handle concurrent publish_batch race on uq_agent_registry_published_specs_hash
+                    pass
             await session.commit()
         stored: list[PublishedSpecRecord] = []
         for record in records:
             row_record = await self.get(record.spec_kind, record.spec_id, record.version)
+            if row_record is not None and row_record.definition_hash != record.definition_hash:
+                raise SpecVersionHashConflictError(
+                    record.spec_kind,
+                    record.spec_id,
+                    record.version,
+                    row_record.definition_hash,
+                    record.definition_hash,
+                )
             stored.append(row_record if row_record is not None else record)
         return stored
 
