@@ -52,7 +52,8 @@ def test_cto_advisor_spec_properties():
     """Verify COSA_EXECUTIVE_CTO_AGENT_SPEC incorporates Startup CTO & Stage-Adaptive principles."""
     spec = COSA_EXECUTIVE_CTO_AGENT_SPEC
     assert spec.id == "cosa.executive.cto"
-    assert spec.version == "1.1.0"
+    # 1.2.0: overlay pin thêm skill engineering.workspace-site-builder theo contract overlay.
+    assert spec.version == "1.2.0"
     assert spec.autonomy_level == AutonomyLevel.L1_PROPOSE
     assert "Stage-Adaptive CTO" in spec.instructions
     assert "Boring Technology" in spec.instructions
@@ -61,7 +62,7 @@ def test_cto_advisor_spec_properties():
 
     # Verify pinned skill
     pinned_ids = [s.skill_id for s in spec.pinned_skills]
-    assert "executive.cto-advisor" in pinned_ids
+    assert pinned_ids == ["executive.cto-advisor", "engineering.workspace-site-builder"]
 
 
 def test_marketing_spec_pins_bootstrapped_engine():

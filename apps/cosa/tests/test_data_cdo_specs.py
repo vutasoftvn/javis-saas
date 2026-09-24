@@ -28,7 +28,7 @@ def test_data_profile_has_explicit_spec_and_read_only_capability():
 def test_cdo_is_capability_empty_and_carries_advisory_disclaimer():
     assert AGENT_PROFILE_SPECS["cdo"] is COSA_EXECUTIVE_CDO_AGENT_SPEC
     assert COSA_EXECUTIVE_CDO_AGENT_SPEC.id == "cosa.executive.cdo"
-    assert COSA_EXECUTIVE_CDO_AGENT_SPEC.version == "1.0.0"
+    assert COSA_EXECUTIVE_CDO_AGENT_SPEC.version == "1.1.0"  # overlay pin skill (advisor overlay contract)
     assert COSA_EXECUTIVE_CDO_AGENT_SPEC.autonomy_level is AutonomyLevel.L1_PROPOSE
     assert EXECUTIVE_AGENT_SPECS["cosa.executive.cdo"].capability_refs == []
     assert COSA_EXECUTIVE_CDO_AGENT_SPEC.metadata.get("advisory_only") is True

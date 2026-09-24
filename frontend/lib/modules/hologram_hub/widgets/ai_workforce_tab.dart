@@ -4,7 +4,6 @@ import '../../../core/shell/chat_panel_controller.dart';
 import '../../../data/models/workforce_pack_model.dart';
 import '../../agents/controllers/agents_controller.dart';
 import '../../agents/views/widgets/agent_card.dart';
-import '../../agents/views/widgets/agent_test_run_drawer.dart';
 import '../controllers/founder_command_center_controller.dart' show WorkforceLoadState;
 
 class AiWorkforceTab extends StatefulWidget {
@@ -292,7 +291,6 @@ class _AiWorkforceTabState extends State<AiWorkforceTab> {
           final agent = agentsList[index];
           return AgentCard(
             agent: agent,
-            onTestRun: () => _openTestRunDrawer(context, agent),
             onDetails: () {
               if (Get.isRegistered<ChatPanelController>()) {
                 final chat = Get.find<ChatPanelController>();
@@ -303,33 +301,6 @@ class _AiWorkforceTabState extends State<AiWorkforceTab> {
         },
       );
     });
-  }
-
-  void _openTestRunDrawer(BuildContext context, Map<String, dynamic> agent) {
-    _agentsController.openTestRunDrawer(agent);
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return Align(
-          alignment: Alignment.centerRight,
-          child: AgentTestRunDrawer(
-            agent: agent,
-            isLoading: _agentsController.isTestingRun.value,
-            result: _agentsController.testRunResult.value,
-            onExecute: (prompt, model, temp) {
-              _agentsController.executeTestRun(
-                prompt,
-                model,
-                temp,
-              );
-            },
-            onClose: () => Navigator.of(ctx).pop(),
-          ),
-        );
-      },
-    );
   }
 
   List<Map<String, dynamic>> _getDefaultCosaAgents(String filterDept) {

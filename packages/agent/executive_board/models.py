@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -11,13 +12,63 @@ class ExecutiveBoardInputError(Exception):
     pass
 
 
-class RolePin(BaseModel):
-    role_key: str
-    assignment_id: str
+def _sha256_lines(parts: list[str]) -> str:
+    return hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()
+
+
+class ProjectDeploymentPin(BaseModel):
+    """Quyền dùng profile trong đúng Project (Company là chủ) — không suy từ role key."""
+
+    project_agent_deployment_id: str
+    profile_key: str
     spec_id: str
     spec_version: str
     spec_hash: str
-    skill_pins: tuple[str, ...] = Field(default_factory=tuple)
+
+    def identity_hash(self) -> str:
+        # Định dạng phải khớp services/company/operations/services/executive-pin-hash.ts.
+        return _sha256_lines(
+            [
+                self.project_agent_deployment_id,
+                self.profile_key,
+                self.spec_id,
+                self.spec_version,
+                self.spec_hash,
+            ]
+        )
+
+
+class PinnedSkillIdentity(BaseModel):
+    skill_id: str
+    version: str
+    definition_hash: str
+
+
+class AdvisorOverlayPin(BaseModel):
+    """AgentSpec overlay advisory bất biến — không có quyền Project độc lập."""
+
+    role_key: str
+    overlay_spec_id: str
+    overlay_spec_version: str
+    overlay_spec_hash: str
+    skill_pins: tuple[PinnedSkillIdentity, ...] = Field(default_factory=tuple)
+
+    def identity_hash(self) -> str:
+        return _sha256_lines(
+            [
+                self.role_key,
+                self.overlay_spec_id,
+                self.overlay_spec_version,
+                self.overlay_spec_hash,
+                *(f"{p.skill_id}@{p.version}#{p.definition_hash}" for p in self.skill_pins),
+            ]
+        )
+
+
+class SelectedAdvisorExecutionPin(BaseModel):
+    role_key: str
+    deployment: ProjectDeploymentPin
+    overlay: AdvisorOverlayPin
 
 
 class EvidenceRef(BaseModel):
@@ -34,7 +85,7 @@ class ExecutiveAnalysisRequest(BaseModel):
     frame_version: int
     role_key: str
     question: str
-    role_pin: RolePin
+    execution_pin: SelectedAdvisorExecutionPin
     evidence_refs: tuple[EvidenceRef, ...] = Field(default_factory=tuple)
     peer_drafts: list[dict[str, Any]] | None = None
     mock_model_output: dict[str, Any] | None = None
@@ -80,6 +131,9 @@ class ExecutiveAnalysisOutcome(BaseModel):
     error_detail: str | None = None
     context_snapshot_age_weeks: int | None = None
     evidence_tag: str | None = None
+    # Hash pin đã thực thi — Company chỉ nhận callback khi bằng đúng pin của frame.
+    deployment_pin_hash: str | None = None
+    overlay_pin_hash: str | None = None
 
 
 EXECUTIVE_ANALYSIS_OUTPUT_SCHEMA: dict[str, Any] = {

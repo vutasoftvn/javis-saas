@@ -53,7 +53,7 @@ def test_ai_governance_profile_capability_refs_never_touch_governance_write_surf
 def test_caio_is_capability_empty_and_carries_advisory_disclaimer():
     assert AGENT_PROFILE_SPECS["caio"] is COSA_EXECUTIVE_CAIO_AGENT_SPEC
     assert COSA_EXECUTIVE_CAIO_AGENT_SPEC.id == "cosa.executive.caio"
-    assert COSA_EXECUTIVE_CAIO_AGENT_SPEC.version == "1.0.0"
+    assert COSA_EXECUTIVE_CAIO_AGENT_SPEC.version == "1.1.0"  # overlay pin skill (advisor overlay contract)
     assert COSA_EXECUTIVE_CAIO_AGENT_SPEC.autonomy_level is AutonomyLevel.L1_PROPOSE
     assert EXECUTIVE_AGENT_SPECS["cosa.executive.caio"].capability_refs == []
     assert COSA_EXECUTIVE_CAIO_AGENT_SPEC.metadata.get("advisory_only") is True

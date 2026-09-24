@@ -35,6 +35,7 @@ class WorkflowEngine:
         registered_handlers: dict[str, Any] | None = None,
         kernel: Any | None = None,
         resolver: Any | None = None,
+        spec_resolver: Any | None = None,
         step_builders: dict[str | StepType, Callable] | None = None,
     ) -> None:
         from agent.workflows.deterministic_handlers import WHITELISTED_DETERMINISTIC_HANDLERS
@@ -49,6 +50,7 @@ class WorkflowEngine:
             self._registered_handlers.update(registered_handlers)
         self._kernel = kernel
         self._resolver = resolver
+        self._spec_resolver = spec_resolver
         self._step_builders = dict(step_builders) if step_builders else {}
 
     # ------------------------------------------------------------------------
@@ -248,6 +250,7 @@ class WorkflowEngine:
                         name=step_name,
                         output_key=step_spec.output_key or f"{step_spec.id}_output",
                         project_agent_deployment_id=dep_id,
+                        spec_resolver=self._spec_resolver,
                     )
                 )
             elif step_spec.type == StepType.RETRY:

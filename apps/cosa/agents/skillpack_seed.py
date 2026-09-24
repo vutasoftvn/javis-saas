@@ -18,7 +18,7 @@ import os
 from pathlib import Path
 
 from agent.registry.models import PublishedSpecRecord
-from agent.registry.publisher import publish_skill_spec
+from agent.registry.publisher import publish_skill_batch
 from agent.registry.repository import SpecRegistryRepository, SpecVersionHashConflictError
 from agent.skills.skillpack_contract import validate_skillpack_tree
 
@@ -79,23 +79,24 @@ async def seed_builtin_skillpacks(
         details = "; ".join(f"{item.path}:{item.rule}" for item in violations)
         raise BuiltinSkillpackSeedError(details)
 
-    records: list[PublishedSpecRecord] = []
+    # Parse TOÀN BỘ manifest trước khi ghi gì vào registry: một pack hỏng thì không pack nào
+    # được publish, tránh trạng thái published dở dang có thể bị agent resolve.
+    specs = []
     for manifest_path in sorted(root.rglob("manifest.yaml")):
         try:
-            spec = parse_skillpack_spec(manifest_path.parent)
-            record = await publish_skill_spec(
-                spec,
-                repository=spec_registry,
-                publisher="cosa_built_in",
-            )
-        except SpecVersionHashConflictError:
-            # Phiên bản published là immutable. Propagate lỗi để entrypoint
-            # startup và endpoint sync trả đúng tín hiệu 409, thay vì biến
-            # xung đột version thành lỗi bundle 400 khó chẩn đoán.
-            raise
+            specs.append(parse_skillpack_spec(manifest_path.parent))
         except Exception as exc:
-            raise BuiltinSkillpackSeedError(
-                f"Cannot publish {manifest_path.parent}: {exc}"
-            ) from exc
-        records.append(record)
+            raise BuiltinSkillpackSeedError(f"Cannot parse {manifest_path.parent}: {exc}") from exc
+
+    try:
+        records = await publish_skill_batch(
+            specs, repository=spec_registry, publisher="cosa_built_in"
+        )
+    except SpecVersionHashConflictError:
+        # Phiên bản published là immutable. Propagate lỗi để entrypoint
+        # startup và endpoint sync trả đúng tín hiệu 409, thay vì biến
+        # xung đột version thành lỗi bundle 400 khó chẩn đoán.
+        raise
+    except Exception as exc:
+        raise BuiltinSkillpackSeedError(f"Cannot publish skillpack batch: {exc}") from exc
     return tuple(records)

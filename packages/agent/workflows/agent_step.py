@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any
 
 from agent.contracts.run import RunRequest
-from agent.governance.contracts import PinnedSpecIdentity
 from agent.workflows.models import StepOutcome, StepStatus
 
 __all__ = ["AgentWorkflowStep"]
@@ -20,12 +19,16 @@ class AgentWorkflowStep:
         name: str = "agent_step",
         output_key: str = "agent_output",
         project_agent_deployment_id: str | None = None,
+        spec_resolver: Any | None = None,
     ) -> None:
         self.name = name
         self._resolver = resolver
         self._kernel = kernel
         self._output_key = output_key
         self._project_agent_deployment_id = project_agent_deployment_id
+        # Resolver AgentSpec đầy đủ theo exact identity (composition inject, xem
+        # `RegistryAgentSpecResolver`); kernel.run cần AgentSpec chứ không chỉ pin.
+        self._spec_resolver = spec_resolver
 
     async def run(self, state: dict[str, Any]) -> StepOutcome:
         manifest = state.get("_manifest") or state.get("manifest")
@@ -134,13 +137,31 @@ class AgentWorkflowStep:
                 error="Scoped skill resolver is required for pinned workflow skills",
             )
 
-        # 4. Construct PinnedSpecIdentity and RunRequest
-        root_ref = PinnedSpecIdentity(
-            spec_kind="agent",
-            spec_id=spec_id,
-            spec_version=version,
-            definition_hash=definition_hash,
-        )
+        # 4. Resolve AgentSpec đầy đủ theo exact pin (fail closed nếu thiếu/lệch hash).
+        if self._spec_resolver is None:
+            return StepOutcome(
+                status=StepStatus.FAILED,
+                error="Exact AgentSpec resolver is required for an AGENT step",
+            )
+        try:
+            agent_spec = await self._spec_resolver.resolve_agent_spec(
+                spec_id=spec_id, version=version, definition_hash=definition_hash
+            )
+        except Exception as exc:
+            return StepOutcome(
+                status=StepStatus.FAILED,
+                error=f"Exact AgentSpec resolution failed for '{spec_id}@{version}': {exc}",
+            )
+        if (
+            agent_spec.id != spec_id
+            or agent_spec.version != version
+            or (agent_spec.definition_hash or agent_spec.compute_hash()) != definition_hash
+        ):
+            return StepOutcome(
+                status=StepStatus.FAILED,
+                error="Resolved AgentSpec does not match the exact manifest pin",
+            )
+        root_ref = agent_spec.to_pinned_identity()
 
         prompt_input = (
             state.get("task_prompt")
@@ -175,7 +196,7 @@ class AgentWorkflowStep:
             )
 
         try:
-            result = await self._kernel.run(request)
+            result = await self._kernel.run(request, agent_spec)
         except Exception as exc:
             return StepOutcome(
                 status=StepStatus.FAILED,

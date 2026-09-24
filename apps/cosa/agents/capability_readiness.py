@@ -46,6 +46,7 @@ def check_agent_spec_readiness(
        VÀ có trong spec.capability_refs của agent.
     """
     needed: set[str] = set(spec.capability_refs)
+    missing_from_spec: set[str] = set()
 
     if skill_manifests:
         for pinned in spec.pinned_skills:
@@ -53,5 +54,11 @@ def check_agent_spec_readiness(
             if manifest:
                 skill_tools = get_skill_required_capabilities(manifest)
                 needed.update(skill_tools)
+                # Tool của skill phải nằm trong capability_refs của chính AgentSpec —
+                # nếu không, skill sẽ dùng tool mà spec chưa được cấp quyền khai báo.
+                outside = skill_tools - set(spec.capability_refs)
+                missing_from_spec.update(outside)
 
-    return check_capability_readiness(needed, available_capabilities)
+    return sorted(
+        set(check_capability_readiness(needed, available_capabilities)) | missing_from_spec
+    )

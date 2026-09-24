@@ -4,6 +4,7 @@ from agent.contracts.identity import PinnedSkillRef
 from agent.contracts.model_policy import ModelPolicySpec
 from agent.contracts.prompt import PromptSpec
 from agent.contracts.spec import AgentSpec
+from agent.executive_board.models import EXECUTIVE_ANALYSIS_OUTPUT_SCHEMA
 from agent.governance.contracts import AutonomyLevel
 
 __all__ = [
@@ -21,12 +22,22 @@ __all__ = [
     "COSA_DEPLOYED_AGENT_SPECS",
     "COSA_EXECUTIVE_CAIO_AGENT_SPEC",
     "COSA_EXECUTIVE_CAIO_PROMPT",
+    "COSA_EXECUTIVE_CCO_AGENT_SPEC",
+    "COSA_EXECUTIVE_CCO_PROMPT",
     "COSA_EXECUTIVE_CDO_AGENT_SPEC",
     "COSA_EXECUTIVE_CDO_PROMPT",
     "COSA_EXECUTIVE_CEO_AGENT_SPEC",
     "COSA_EXECUTIVE_CEO_PROMPT",
+    "COSA_EXECUTIVE_CFO_AGENT_SPEC",
+    "COSA_EXECUTIVE_CFO_PROMPT",
+    "COSA_EXECUTIVE_CHIEF_OF_STAFF_AGENT_SPEC",
+    "COSA_EXECUTIVE_CHIEF_OF_STAFF_PROMPT",
     "COSA_EXECUTIVE_CHRO_AGENT_SPEC",
     "COSA_EXECUTIVE_CHRO_PROMPT",
+    "COSA_EXECUTIVE_CMO_AGENT_SPEC",
+    "COSA_EXECUTIVE_CMO_PROMPT",
+    "COSA_EXECUTIVE_COO_AGENT_SPEC",
+    "COSA_EXECUTIVE_COO_PROMPT",
     "COSA_EXECUTIVE_CPO_AGENT_SPEC",
     "COSA_EXECUTIVE_CPO_PROMPT",
     "COSA_EXECUTIVE_CRO_AGENT_SPEC",
@@ -58,6 +69,91 @@ __all__ = [
     "COSA_STRATEGY_AGENT_SPEC",
     "COSA_STRATEGY_PROMPT",
 ]
+
+# Hash skill được pin bởi advisor overlay — sinh từ skillpacks/ qua parse_skillpack_spec;
+# test_overlay_catalog đối chiếu lại để chống drift.
+_ADVISOR_SKILL_HASHES: dict[str, tuple[str, str]] = {
+    "engineering.workspace-site-builder": (
+        "1.0.0",
+        "e593a2256237dd91f35c981326c11936b7ad45df74fbd67a26df171bd36e0fe0",
+    ),
+    "executive.board-protocol": (
+        "1.0.0",
+        "e8fdd15bd8010c1d5636c026dd63e03d8ecf2c9165f3cce29ec839f94853ce96",
+    ),
+    "executive.caio-advisor": (
+        "1.0.0",
+        "7431268b12a450b3158461a770f0cd25b5fa72e038c327fd774e7226344d6bdb",
+    ),
+    "executive.cco-advisor": (
+        "1.0.0",
+        "ef0f9d4ebc726a725dde5260b175acafca529755ac0522ea7967d5fe74a2c1eb",
+    ),
+    "executive.cdo-advisor": (
+        "1.0.0",
+        "98224cb8380143c6a9f2bd60c14620bb040ba9f8b8c1236b0f9518fe49c8ccad",
+    ),
+    "executive.ceo-advisor": (
+        "1.0.0",
+        "7de38afd93f98ffc285792f3ac7e2601feb452cb2af3a13c996c40757280b1a2",
+    ),
+    "executive.cfo-advisor": (
+        "1.0.0",
+        "52dbcc7b0dd1c6236c9dff6821739087e4904656d714ff1eb50ea99294bed3da",
+    ),
+    "executive.chief-of-staff": (
+        "1.0.0",
+        "ee99e1b7d9bccab53d0a110abc7919e9628420ed45300196f7170bb0d3ca9a90",
+    ),
+    "executive.chro-advisor": (
+        "1.0.0",
+        "bb5d73d7fc6f7ebe5963417c6d2df3782580be0a3798d1a24e7b88758e8643c8",
+    ),
+    "executive.ciso-advisor": (
+        "1.0.0",
+        "49a4d6a46ed6b0437b7730b7e091c0fe84691e0d9545b663fbfbe0a7494d7485",
+    ),
+    "executive.cmo-advisor": (
+        "1.0.0",
+        "aa042d0f313687c2f225ce5bff34ee8704615ddff55c2dbd7a054afa9aaea24f",
+    ),
+    "executive.coo-advisor": (
+        "1.0.0",
+        "b17c6f6bf6c4931241d0f6a410dd0090531f02c83d6eecae08159f2e8cf870c3",
+    ),
+    "executive.cpo-advisor": (
+        "1.0.0",
+        "39973d3d3bd616c8c9653fa2a722ae080d317441406c2e33153ea89c2bed18be",
+    ),
+    "executive.cro-advisor": (
+        "1.0.0",
+        "c772513824907d8a61f02dc8af40ca6e34a74f3230126c46e44b36fe68c77db2",
+    ),
+    "executive.cto-advisor": (
+        "1.0.0",
+        "021076c53f5be56aa07e1edbdb49afe173b6cd5368f15c4392e3aac4dd742667",
+    ),
+    "executive.gc-advisor": (
+        "1.0.0",
+        "5cedb3d84ba6263aac8ff948c091416db68d2aebaa82d5ea576984cdd4cabca5",
+    ),
+    "executive.vpe-advisor": (
+        "1.0.0",
+        "865c8411d9c2ec11e67f5f522d6abf046117cc9a590fb56a5bc99d94c3f463cf",
+    ),
+}
+
+
+def _advisor_skills(*skill_ids: str) -> list[PinnedSkillRef]:
+    return [
+        PinnedSkillRef(
+            skill_id=sid,
+            version=_ADVISOR_SKILL_HASHES[sid][0],
+            definition_hash=_ADVISOR_SKILL_HASHES[sid][1],
+        )
+        for sid in skill_ids
+    ]
+
 
 # ModelPolicySpec dùng chung cho mọi COSA agent — chỉ pin provenance/lineage
 # (Wave M2b); runtime thật vẫn đọc DEEPSEEK_* env qua
@@ -522,14 +618,15 @@ COSA_EXECUTIVE_CRO_PROMPT = PromptSpec(
 
 COSA_EXECUTIVE_CRO_AGENT_SPEC = AgentSpec(
     id="cosa.executive.cro",
-    version="1.0.0",
+    version="1.1.0",
     autonomy_level=AutonomyLevel.L1_PROPOSE,
     instructions=COSA_EXECUTIVE_CRO_PROMPT.text,
     capability_refs=[],
     model_input_capability_ref="model.input.direct-user-message",
-    pinned_skills=[],
+    pinned_skills=_advisor_skills("executive.cro-advisor"),
     prompt_ref=COSA_EXECUTIVE_CRO_PROMPT.to_pinned_identity(),
     model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    output_schema=EXECUTIVE_ANALYSIS_OUTPUT_SCHEMA,
     metadata={"display_name": "COSA CRO Advisor", "advisory_only": True},
 )
 
@@ -609,14 +706,15 @@ COSA_EXECUTIVE_CPO_PROMPT = PromptSpec(
 
 COSA_EXECUTIVE_CPO_AGENT_SPEC = AgentSpec(
     id="cosa.executive.cpo",
-    version="1.1.0",
+    version="1.2.0",
     autonomy_level=AutonomyLevel.L1_PROPOSE,
     instructions=COSA_EXECUTIVE_CPO_PROMPT.text,
     capability_refs=[],
     model_input_capability_ref="model.input.direct-user-message",
-    pinned_skills=[],
+    pinned_skills=_advisor_skills("executive.cpo-advisor"),
     prompt_ref=COSA_EXECUTIVE_CPO_PROMPT.to_pinned_identity(),
     model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    output_schema=EXECUTIVE_ANALYSIS_OUTPUT_SCHEMA,
     metadata={"display_name": "COSA CPO Advisor", "advisory_only": True},
 )
 
@@ -633,14 +731,15 @@ COSA_EXECUTIVE_VPE_PROMPT = PromptSpec(
 
 COSA_EXECUTIVE_VPE_AGENT_SPEC = AgentSpec(
     id="cosa.executive.vpe",
-    version="1.0.0",
+    version="1.1.0",
     autonomy_level=AutonomyLevel.L1_PROPOSE,
     instructions=COSA_EXECUTIVE_VPE_PROMPT.text,
     capability_refs=[],
     model_input_capability_ref="model.input.direct-user-message",
-    pinned_skills=[],
+    pinned_skills=_advisor_skills("executive.vpe-advisor"),
     prompt_ref=COSA_EXECUTIVE_VPE_PROMPT.to_pinned_identity(),
     model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    output_schema=EXECUTIVE_ANALYSIS_OUTPUT_SCHEMA,
     metadata={"display_name": "COSA VP Engineering Advisor", "advisory_only": True},
 )
 
@@ -692,14 +791,15 @@ COSA_EXECUTIVE_CHRO_PROMPT = PromptSpec(
 
 COSA_EXECUTIVE_CHRO_AGENT_SPEC = AgentSpec(
     id="cosa.executive.chro",
-    version="1.0.0",
+    version="1.1.0",
     autonomy_level=AutonomyLevel.L1_PROPOSE,
     instructions=COSA_EXECUTIVE_CHRO_PROMPT.text,
     capability_refs=[],
     model_input_capability_ref="model.input.direct-user-message",
-    pinned_skills=[],
+    pinned_skills=_advisor_skills("executive.chro-advisor"),
     prompt_ref=COSA_EXECUTIVE_CHRO_PROMPT.to_pinned_identity(),
     model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    output_schema=EXECUTIVE_ANALYSIS_OUTPUT_SCHEMA,
     metadata={"display_name": "COSA CHRO Advisor", "advisory_only": True},
 )
 
@@ -753,14 +853,15 @@ COSA_EXECUTIVE_CISO_PROMPT = PromptSpec(
 
 COSA_EXECUTIVE_CISO_AGENT_SPEC = AgentSpec(
     id="cosa.executive.ciso",
-    version="1.0.0",
+    version="1.1.0",
     autonomy_level=AutonomyLevel.L1_PROPOSE,
     instructions=COSA_EXECUTIVE_CISO_PROMPT.text,
     capability_refs=[],
     model_input_capability_ref="model.input.direct-user-message",
-    pinned_skills=[],
+    pinned_skills=_advisor_skills("executive.ciso-advisor"),
     prompt_ref=COSA_EXECUTIVE_CISO_PROMPT.to_pinned_identity(),
     model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    output_schema=EXECUTIVE_ANALYSIS_OUTPUT_SCHEMA,
     metadata={"display_name": "COSA CISO Advisor", "advisory_only": True},
 )
 
@@ -821,14 +922,15 @@ COSA_EXECUTIVE_GC_PROMPT = PromptSpec(
 
 COSA_EXECUTIVE_GC_AGENT_SPEC = AgentSpec(
     id="cosa.executive.gc",
-    version="1.0.0",
+    version="1.1.0",
     autonomy_level=AutonomyLevel.L1_PROPOSE,
     instructions=COSA_EXECUTIVE_GC_PROMPT.text,
     capability_refs=[],
     model_input_capability_ref="model.input.direct-user-message",
-    pinned_skills=[],
+    pinned_skills=_advisor_skills("executive.gc-advisor"),
     prompt_ref=COSA_EXECUTIVE_GC_PROMPT.to_pinned_identity(),
     model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    output_schema=EXECUTIVE_ANALYSIS_OUTPUT_SCHEMA,
     metadata={"display_name": "COSA GC Advisor", "advisory_only": True},
 )
 
@@ -884,14 +986,15 @@ COSA_EXECUTIVE_CDO_PROMPT = PromptSpec(
 
 COSA_EXECUTIVE_CDO_AGENT_SPEC = AgentSpec(
     id="cosa.executive.cdo",
-    version="1.0.0",
+    version="1.1.0",
     autonomy_level=AutonomyLevel.L1_PROPOSE,
     instructions=COSA_EXECUTIVE_CDO_PROMPT.text,
     capability_refs=[],
     model_input_capability_ref="model.input.direct-user-message",
-    pinned_skills=[],
+    pinned_skills=_advisor_skills("executive.cdo-advisor"),
     prompt_ref=COSA_EXECUTIVE_CDO_PROMPT.to_pinned_identity(),
     model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    output_schema=EXECUTIVE_ANALYSIS_OUTPUT_SCHEMA,
     metadata={"display_name": "COSA CDO Advisor", "advisory_only": True},
 )
 
@@ -952,14 +1055,15 @@ COSA_EXECUTIVE_CAIO_PROMPT = PromptSpec(
 
 COSA_EXECUTIVE_CAIO_AGENT_SPEC = AgentSpec(
     id="cosa.executive.caio",
-    version="1.0.0",
+    version="1.1.0",
     autonomy_level=AutonomyLevel.L1_PROPOSE,
     instructions=COSA_EXECUTIVE_CAIO_PROMPT.text,
     capability_refs=[],
     model_input_capability_ref="model.input.direct-user-message",
-    pinned_skills=[],
+    pinned_skills=_advisor_skills("executive.caio-advisor"),
     prompt_ref=COSA_EXECUTIVE_CAIO_PROMPT.to_pinned_identity(),
     model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    output_schema=EXECUTIVE_ANALYSIS_OUTPUT_SCHEMA,
     metadata={"display_name": "COSA CAIO Advisor", "advisory_only": True},
 )
 
@@ -979,14 +1083,15 @@ COSA_EXECUTIVE_CEO_PROMPT = PromptSpec(
 
 COSA_EXECUTIVE_CEO_AGENT_SPEC = AgentSpec(
     id="cosa.executive.ceo",
-    version="1.0.0",
+    version="1.1.0",
     autonomy_level=AutonomyLevel.L1_PROPOSE,
     instructions=COSA_EXECUTIVE_CEO_PROMPT.text,
     capability_refs=[],
     model_input_capability_ref="model.input.direct-user-message",
-    pinned_skills=[],
+    pinned_skills=_advisor_skills("executive.ceo-advisor"),
     prompt_ref=COSA_EXECUTIVE_CEO_PROMPT.to_pinned_identity(),
     model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    output_schema=EXECUTIVE_ANALYSIS_OUTPUT_SCHEMA,
     metadata={"display_name": "COSA CEO Advisor", "advisory_only": True},
 )
 
@@ -1009,24 +1114,159 @@ COSA_EXECUTIVE_CTO_PROMPT = PromptSpec(
 
 COSA_EXECUTIVE_CTO_AGENT_SPEC = AgentSpec(
     id="cosa.executive.cto",
-    version="1.1.0",
+    version="1.2.0",
     autonomy_level=AutonomyLevel.L1_PROPOSE,
     instructions=COSA_EXECUTIVE_CTO_PROMPT.text,
     capability_refs=[],
     model_input_capability_ref="model.input.direct-user-message",
-    pinned_skills=[
-        PinnedSkillRef(
-            skill_id="executive.cto-advisor",
-            version="1.0.0",
-            definition_hash="021076c53f5be56aa07e1edbdb49afe173b6cd5368f15c4392e3aac4dd742667",
-        ),
-    ],
+    pinned_skills=_advisor_skills("executive.cto-advisor", "engineering.workspace-site-builder"),
     prompt_ref=COSA_EXECUTIVE_CTO_PROMPT.to_pinned_identity(),
     model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    output_schema=EXECUTIVE_ANALYSIS_OUTPUT_SCHEMA,
     metadata={"display_name": "COSA CTO Advisor", "advisory_only": True},
 )
 
+COSA_EXECUTIVE_CHIEF_OF_STAFF_PROMPT = PromptSpec(
+    id="cosa.executive.chief_of_staff.prompt",
+    version="1.0.0",
+    text=(
+        "Cố vấn Chánh Văn phòng (Chief of Staff Advisor). Đóng khung câu hỏi deliberation, điều phối định tuyến liên chức năng, tổng hợp ý kiến độc lập và giữ nhật ký quyết định sạch "
+        "trong các phiên thảo luận của Ban điều hành (L1_PROPOSE, advisory-only) — luôn nêu rõ "
+        "khoảng trống bằng chứng/giả định trong mỗi phản hồi. "
+        "Tuyệt đối không có quyền ghi dữ liệu nghiệp vụ, phê duyệt, chi tiêu, gửi tin nhắn ra "
+        "ngoài hay mở rộng quyền của profile được triển khai — Founder con người luôn là người "
+        "quyết định cuối cùng."
+    ),
+).with_hash()
+
+COSA_EXECUTIVE_CHIEF_OF_STAFF_AGENT_SPEC = AgentSpec(
+    id="cosa.executive.chief_of_staff",
+    version="1.0.0",
+    autonomy_level=AutonomyLevel.L1_PROPOSE,
+    instructions=COSA_EXECUTIVE_CHIEF_OF_STAFF_PROMPT.text,
+    capability_refs=[],
+    model_input_capability_ref="model.input.direct-user-message",
+    pinned_skills=_advisor_skills("executive.board-protocol", "executive.chief-of-staff"),
+    prompt_ref=COSA_EXECUTIVE_CHIEF_OF_STAFF_PROMPT.to_pinned_identity(),
+    model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    output_schema=EXECUTIVE_ANALYSIS_OUTPUT_SCHEMA,
+    metadata={"display_name": "COSA Chief of Staff Advisor", "advisory_only": True},
+)
+
+COSA_EXECUTIVE_CFO_PROMPT = PromptSpec(
+    id="cosa.executive.cfo.prompt",
+    version="1.0.0",
+    text=(
+        "Cố vấn Giám đốc Tài chính (CFO Advisor). Đánh giá tác động tài chính, dự phóng runway, biên an toàn ngân sách và cấu trúc chi phí của các quyết định chiến lược "
+        "trong các phiên thảo luận của Ban điều hành (L1_PROPOSE, advisory-only) — luôn nêu rõ "
+        "khoảng trống bằng chứng/giả định trong mỗi phản hồi. "
+        "Tuyệt đối không có quyền ghi dữ liệu nghiệp vụ, phê duyệt, chi tiêu, gửi tin nhắn ra "
+        "ngoài hay mở rộng quyền của profile được triển khai — Founder con người luôn là người "
+        "quyết định cuối cùng."
+    ),
+).with_hash()
+
+COSA_EXECUTIVE_CFO_AGENT_SPEC = AgentSpec(
+    id="cosa.executive.cfo",
+    version="1.0.0",
+    autonomy_level=AutonomyLevel.L1_PROPOSE,
+    instructions=COSA_EXECUTIVE_CFO_PROMPT.text,
+    capability_refs=[],
+    model_input_capability_ref="model.input.direct-user-message",
+    pinned_skills=_advisor_skills("executive.cfo-advisor"),
+    prompt_ref=COSA_EXECUTIVE_CFO_PROMPT.to_pinned_identity(),
+    model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    output_schema=EXECUTIVE_ANALYSIS_OUTPUT_SCHEMA,
+    metadata={"display_name": "COSA CFO Advisor", "advisory_only": True},
+)
+
+COSA_EXECUTIVE_CMO_PROMPT = PromptSpec(
+    id="cosa.executive.cmo.prompt",
+    version="1.0.0",
+    text=(
+        "Cố vấn Giám đốc Marketing (CMO Advisor). Đánh giá định vị, thông điệp, kênh tăng trưởng và bằng chứng nhu cầu thị trường "
+        "trong các phiên thảo luận của Ban điều hành (L1_PROPOSE, advisory-only) — luôn nêu rõ "
+        "khoảng trống bằng chứng/giả định trong mỗi phản hồi. "
+        "Tuyệt đối không có quyền ghi dữ liệu nghiệp vụ, phê duyệt, chi tiêu, gửi tin nhắn ra "
+        "ngoài hay mở rộng quyền của profile được triển khai — Founder con người luôn là người "
+        "quyết định cuối cùng."
+    ),
+).with_hash()
+
+COSA_EXECUTIVE_CMO_AGENT_SPEC = AgentSpec(
+    id="cosa.executive.cmo",
+    version="1.0.0",
+    autonomy_level=AutonomyLevel.L1_PROPOSE,
+    instructions=COSA_EXECUTIVE_CMO_PROMPT.text,
+    capability_refs=[],
+    model_input_capability_ref="model.input.direct-user-message",
+    pinned_skills=_advisor_skills("executive.cmo-advisor"),
+    prompt_ref=COSA_EXECUTIVE_CMO_PROMPT.to_pinned_identity(),
+    model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    output_schema=EXECUTIVE_ANALYSIS_OUTPUT_SCHEMA,
+    metadata={"display_name": "COSA CMO Advisor", "advisory_only": True},
+)
+
+COSA_EXECUTIVE_COO_PROMPT = PromptSpec(
+    id="cosa.executive.coo.prompt",
+    version="1.0.0",
+    text=(
+        "Cố vấn Giám đốc Vận hành (COO Advisor). Đánh giá năng lực vận hành, nhịp thực thi, điểm nghẽn quy trình và rủi ro triển khai "
+        "trong các phiên thảo luận của Ban điều hành (L1_PROPOSE, advisory-only) — luôn nêu rõ "
+        "khoảng trống bằng chứng/giả định trong mỗi phản hồi. "
+        "Tuyệt đối không có quyền ghi dữ liệu nghiệp vụ, phê duyệt, chi tiêu, gửi tin nhắn ra "
+        "ngoài hay mở rộng quyền của profile được triển khai — Founder con người luôn là người "
+        "quyết định cuối cùng."
+    ),
+).with_hash()
+
+COSA_EXECUTIVE_COO_AGENT_SPEC = AgentSpec(
+    id="cosa.executive.coo",
+    version="1.0.0",
+    autonomy_level=AutonomyLevel.L1_PROPOSE,
+    instructions=COSA_EXECUTIVE_COO_PROMPT.text,
+    capability_refs=[],
+    model_input_capability_ref="model.input.direct-user-message",
+    pinned_skills=_advisor_skills("executive.coo-advisor"),
+    prompt_ref=COSA_EXECUTIVE_COO_PROMPT.to_pinned_identity(),
+    model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    output_schema=EXECUTIVE_ANALYSIS_OUTPUT_SCHEMA,
+    metadata={"display_name": "COSA COO Advisor", "advisory_only": True},
+)
+
+COSA_EXECUTIVE_CCO_PROMPT = PromptSpec(
+    id="cosa.executive.cco.prompt",
+    version="1.0.0",
+    text=(
+        "Cố vấn Giám đốc Khách hàng (CCO Advisor). Đánh giá trải nghiệm khách hàng, rủi ro churn, năng lực hỗ trợ và tín hiệu phản hồi "
+        "trong các phiên thảo luận của Ban điều hành (L1_PROPOSE, advisory-only) — luôn nêu rõ "
+        "khoảng trống bằng chứng/giả định trong mỗi phản hồi. "
+        "Tuyệt đối không có quyền ghi dữ liệu nghiệp vụ, phê duyệt, chi tiêu, gửi tin nhắn ra "
+        "ngoài hay mở rộng quyền của profile được triển khai — Founder con người luôn là người "
+        "quyết định cuối cùng."
+    ),
+).with_hash()
+
+COSA_EXECUTIVE_CCO_AGENT_SPEC = AgentSpec(
+    id="cosa.executive.cco",
+    version="1.0.0",
+    autonomy_level=AutonomyLevel.L1_PROPOSE,
+    instructions=COSA_EXECUTIVE_CCO_PROMPT.text,
+    capability_refs=[],
+    model_input_capability_ref="model.input.direct-user-message",
+    pinned_skills=_advisor_skills("executive.cco-advisor"),
+    prompt_ref=COSA_EXECUTIVE_CCO_PROMPT.to_pinned_identity(),
+    model_policy_ref=COSA_DEFAULT_MODEL_POLICY.to_pinned_identity(),
+    output_schema=EXECUTIVE_ANALYSIS_OUTPUT_SCHEMA,
+    metadata={"display_name": "COSA CCO Advisor", "advisory_only": True},
+)
+
 EXECUTIVE_AGENT_SPECS: dict[str, AgentSpec] = {
+    "cosa.executive.chief_of_staff": COSA_EXECUTIVE_CHIEF_OF_STAFF_AGENT_SPEC,
+    "cosa.executive.cfo": COSA_EXECUTIVE_CFO_AGENT_SPEC,
+    "cosa.executive.cmo": COSA_EXECUTIVE_CMO_AGENT_SPEC,
+    "cosa.executive.coo": COSA_EXECUTIVE_COO_AGENT_SPEC,
+    "cosa.executive.cco": COSA_EXECUTIVE_CCO_AGENT_SPEC,
     "cosa.executive.ceo": COSA_EXECUTIVE_CEO_AGENT_SPEC,
     "cosa.executive.cto": COSA_EXECUTIVE_CTO_AGENT_SPEC,
     "cosa.executive.vpe": COSA_EXECUTIVE_VPE_AGENT_SPEC,

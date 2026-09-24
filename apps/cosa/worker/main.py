@@ -298,6 +298,49 @@ async def _dispatch_approval_action_task(plane: CosaAgentPlane, task, payload: d
         )
 
 
+async def _dispatch_executive_deliberation_task(plane: CosaAgentPlane, task, payload: dict) -> None:
+    """Dispatch framed executive deliberation — task claim fencing only (no run lease)."""
+    try:
+        from apps.cosa.worker.executive_board_handler import (
+            execute_executive_deliberation_framed_task,
+        )
+
+        stream_mgr = get_cosa_event_stream_manager()
+        results: list[dict] = []
+
+        async def _execute_handler():
+            outcome = await execute_executive_deliberation_framed_task(plane, stream_mgr, payload)
+            results.append(outcome)
+
+        await _heartbeat_task_claim_only(plane, task.task_id, task.claim_token, _execute_handler())
+        # Callback bị Company từ chối (CALLBACK_FAILED) = task thất bại để scheduler retry/quarantine.
+        failed = [r for r in (results[0].get("results", []) if results else []) if "error" in r]
+        ok = await plane.scheduler.complete_task(
+            task.task_id,
+            worker_id=WORKER_ID,
+            claim_token=task.claim_token,
+            success=not failed,
+            error=f"executive callback failed for roles: {[r['role_key'] for r in failed]}"
+            if failed
+            else None,
+        )
+        if not ok:
+            logger.warning(
+                "worker=%s task=%s (executive_deliberation_framed) completed but fencing rejected",
+                WORKER_ID,
+                task.task_id,
+            )
+    except Exception as exc:
+        logger.exception("task=%s (executive_deliberation_framed) failed", task.task_id)
+        await plane.scheduler.complete_task(
+            task.task_id,
+            worker_id=WORKER_ID,
+            claim_token=task.claim_token,
+            success=False,
+            error=str(exc),
+        )
+
+
 async def _dispatch_skill_improvement_task(plane: CosaAgentPlane, task, payload: dict) -> None:
     """Dispatch durable skill improvement task — no run lease needed."""
     try:
@@ -452,6 +495,12 @@ async def dispatch_one_task(plane: CosaAgentPlane, task) -> None:
             # Branch: approval_action (Task 6) — durable worker promotion of approved custom skills
             if task_type == "approval_action":
                 await _dispatch_approval_action_task(plane, task, payload)
+                return
+
+            # Branch: executive_deliberation_framed — chạy advisor overlay từng role rồi callback
+            # Company; runless (mỗi role tự có run_id riêng), chỉ dùng task claim fencing.
+            if task_type == "executive_deliberation_framed":
+                await _dispatch_executive_deliberation_task(plane, task, payload)
                 return
 
             # Branch: skill_improvement (Task 6) — runless task with scheduler & repo claim fencing only (no run lease)
@@ -670,7 +719,11 @@ async def main() -> None:
     if not os.environ.get("DEEPSEEK_API_KEY"):
         from agent_testkit.fake_sdk_model import FakeSDKModel
 
-        plane = build_cosa_agent_plane(model=FakeSDKModel())
+        # COSA_FAKE_MODEL_TEXT: câu trả lời cố định cho process E2E (subprocess không tiêm được
+        # hàng đợi response); không đặt thì giữ hành vi mặc định của FakeSDKModel.
+        plane = build_cosa_agent_plane(
+            model=FakeSDKModel(default_text=os.environ.get("COSA_FAKE_MODEL_TEXT") or None)
+        )
     else:
         plane = build_cosa_agent_plane()
 

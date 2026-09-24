@@ -69,6 +69,9 @@ class SpecRegistryRepository(Protocol):
     """Protocol cho registry lưu published spec bất biến theo Blueprint V2 §25."""
 
     async def publish(self, record: PublishedSpecRecord) -> PublishedSpecRecord: ...
+    async def publish_batch(
+        self, records: list[PublishedSpecRecord]
+    ) -> list[PublishedSpecRecord]: ...
     async def get(
         self, spec_kind: str, spec_id: str, version: str
     ) -> PublishedSpecRecord | None: ...
@@ -105,6 +108,30 @@ class InMemorySpecRegistryRepository:
         stored = record.model_copy(deep=True)
         self._by_version[key] = stored
         return stored.model_copy(deep=True)
+
+    async def publish_batch(self, records: list[PublishedSpecRecord]) -> list[PublishedSpecRecord]:
+        """Tất cả hoặc không: kiểm conflict toàn batch (kể cả trùng key trong batch) trước
+        khi ghi bất kỳ record nào."""
+        pending: dict[tuple[str, str, str], PublishedSpecRecord] = {}
+        for record in records:
+            key = (record.spec_kind, record.spec_id, record.version)
+            known = pending.get(key) or self._by_version.get(key)
+            if known is not None and known.definition_hash != record.definition_hash:
+                raise SpecVersionHashConflictError(
+                    record.spec_kind,
+                    record.spec_id,
+                    record.version,
+                    known.definition_hash,
+                    record.definition_hash,
+                )
+            if key not in self._by_version:
+                pending[key] = record
+        for key, record in pending.items():
+            self._by_version[key] = record.model_copy(deep=True)
+        return [
+            self._by_version[(r.spec_kind, r.spec_id, r.version)].model_copy(deep=True)
+            for r in records
+        ]
 
     async def get(self, spec_kind: str, spec_id: str, version: str) -> PublishedSpecRecord | None:
         r = self._by_version.get((spec_kind, spec_id, version))
@@ -220,6 +247,70 @@ class PostgresSpecRegistryRepository:
                 stored.definition_hash,
                 record.definition_hash,
             )
+        return stored
+
+    async def publish_batch(self, records: list[PublishedSpecRecord]) -> list[PublishedSpecRecord]:
+        """Một transaction: mọi record hoặc không record nào. Hash conflict với bản đã
+        publish (hoặc trùng key khác hash trong batch) rollback toàn bộ."""
+        select_sql = text(
+            """
+            SELECT definition_hash FROM agent_registry.published_specs
+            WHERE spec_kind = :spec_kind AND spec_id = :spec_id AND version = :version
+            """
+        )
+        insert_sql = text(
+            """
+            INSERT INTO agent_registry.published_specs (
+                spec_kind, spec_id, version, definition_hash, content, status,
+                publisher, created_at, published_at, retired_at
+            ) VALUES (
+                :spec_kind, :spec_id, :version, :definition_hash, :content, :status,
+                :publisher, :created_at, :published_at, :retired_at
+            )
+            ON CONFLICT (spec_kind, spec_id, version) DO NOTHING
+            """
+        )
+        async with self._session_factory() as session:
+            seen: dict[tuple[str, str, str], str] = {}
+            for record in records:
+                key = (record.spec_kind, record.spec_id, record.version)
+                params = {
+                    "spec_kind": record.spec_kind,
+                    "spec_id": record.spec_id,
+                    "version": record.version,
+                }
+                existing_hash = seen.get(key)
+                if existing_hash is None:
+                    row = (await session.execute(select_sql, params)).mappings().first()
+                    existing_hash = row["definition_hash"] if row else None
+                if existing_hash is not None and existing_hash != record.definition_hash:
+                    await session.rollback()
+                    raise SpecVersionHashConflictError(
+                        record.spec_kind,
+                        record.spec_id,
+                        record.version,
+                        existing_hash,
+                        record.definition_hash,
+                    )
+                seen[key] = record.definition_hash
+                await session.execute(
+                    insert_sql,
+                    {
+                        **params,
+                        "definition_hash": record.definition_hash,
+                        "content": json.dumps(record.content),
+                        "status": record.status,
+                        "publisher": record.publisher,
+                        "created_at": record.created_at,
+                        "published_at": record.published_at,
+                        "retired_at": record.retired_at,
+                    },
+                )
+            await session.commit()
+        stored: list[PublishedSpecRecord] = []
+        for record in records:
+            row_record = await self.get(record.spec_kind, record.spec_id, record.version)
+            stored.append(row_record if row_record is not None else record)
         return stored
 
     async def get(self, spec_kind: str, spec_id: str, version: str) -> PublishedSpecRecord | None:

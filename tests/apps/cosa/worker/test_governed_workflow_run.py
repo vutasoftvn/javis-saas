@@ -11,10 +11,14 @@ from types import SimpleNamespace
 import pytest
 from agent.capabilities.approval_service import DurableApprovalService
 from agent.contracts.run import RunStatus
+from agent.contracts.spec import AgentSpec
 from agent.coordination.scheduler import RunScheduler
+from agent.registry.publisher import publish_agent_spec
+from agent.registry.repository import InMemorySpecRegistryRepository
 from agent.runs.leases import RunLeaseManager
 from agent.runs.repository import InMemoryRunRepository
 from agent.runs.stream_events import InMemoryRunStreamEventRepository
+from agent.workflows.agent_spec_resolver import RegistryAgentSpecResolver
 from agent.workflows.engine import WorkflowEngine
 from agent.workflows.manifest import make_manifest
 from agent.workflows.repository import InMemoryWorkflowDefinitionRepository
@@ -31,6 +35,10 @@ WORKSPACE_ID = "ws-governed-1"
 PROJECT_ID = "proj-governed-1"
 DEPLOYMENT_ID = "dep-governed-1"
 AGENT_SPEC_ID = "agentspec-governed-1"
+GOVERNED_SPEC = AgentSpec(
+    id=AGENT_SPEC_ID, version="1.0.0", instructions="Thực thi tác vụ governed."
+).with_hash()
+GOVERNED_HASH = GOVERNED_SPEC.definition_hash
 
 
 class FakeDeploymentResolver:
@@ -48,7 +56,7 @@ class FakeDeploymentResolver:
             "state": self.state,
             "workspaceId": workspace_id,
             "projectId": project_id,
-            "agentSpec": {"id": AGENT_SPEC_ID, "version": "1.0.0", "definitionHash": "hash1"},
+            "agentSpec": {"id": AGENT_SPEC_ID, "version": "1.0.0", "definitionHash": GOVERNED_HASH},
         }
 
     def pause(self) -> None:
@@ -59,7 +67,10 @@ class FakeKernel:
     def __init__(self) -> None:
         self.calls = 0
 
-    async def run(self, request):
+    async def run(self, request, spec):
+        # Chữ ký 2 đối số của `ExecutionKernel`; spec phải là AgentSpec đầy đủ đúng pin.
+        assert isinstance(spec, AgentSpec)
+        assert spec.compute_hash() == GOVERNED_HASH
         self.calls += 1
         return SimpleNamespace(status="COMPLETED", final_output={"ok": True})
 
@@ -165,6 +176,7 @@ def _approval_only_spec(workflow_id: str) -> WorkflowSpec:
 
 
 def _build_plane(*, resolver=None, kernel=None, gateway=None):
+    spec_registry = InMemorySpecRegistryRepository()
     run_repository = InMemoryRunRepository()
     workflow_definition_repository = InMemoryWorkflowDefinitionRepository()
     approval_service = DurableApprovalService(run_repository)
@@ -173,6 +185,7 @@ def _build_plane(*, resolver=None, kernel=None, gateway=None):
         kernel=kernel,
         gateway=gateway,
         approval_service=approval_service,
+        spec_resolver=RegistryAgentSpecResolver(spec_registry),
     )
     workflow_orchestration = WorkflowOrchestration(
         gateway=gateway,
@@ -182,6 +195,7 @@ def _build_plane(*, resolver=None, kernel=None, gateway=None):
         workflow_definition_repository=workflow_definition_repository,
     )
     return SimpleNamespace(
+        spec_registry=spec_registry,
         run_repository=run_repository,
         approval_service=approval_service,
         workflow_definition_repository=workflow_definition_repository,
@@ -263,6 +277,7 @@ async def test_revoked_project_agent_blocks_effect_after_resume():
     resolver = FakeDeploymentResolver()
     kernel = FakeKernel()
     plane = _build_plane(resolver=resolver, kernel=kernel)
+    await publish_agent_spec(GOVERNED_SPEC, repository=plane.spec_registry, publisher="test")
     await plane.workflow_definition_repository.save_definition(spec, workspace_id=WORKSPACE_ID)
 
     run_id = f"run_{uuid.uuid4().hex[:12]}"
@@ -275,7 +290,7 @@ async def test_revoked_project_agent_blocks_effect_after_resume():
             workflow_version="1.0.0",
             workflow_definition_hash=spec.definition_hash,
             project_agent_deployment_id=DEPLOYMENT_ID,
-            pinned_agent_specs={AGENT_SPEC_ID: {"version": "1.0.0", "definition_hash": "hash1"}},
+            pinned_agent_specs={AGENT_SPEC_ID: {"version": "1.0.0", "definition_hash": GOVERNED_HASH}},
         )
     )
 
@@ -313,6 +328,7 @@ async def test_resume_with_active_deployment_completes_the_agent_effect():
     resolver = FakeDeploymentResolver()
     kernel = FakeKernel()
     plane = _build_plane(resolver=resolver, kernel=kernel)
+    await publish_agent_spec(GOVERNED_SPEC, repository=plane.spec_registry, publisher="test")
     await plane.workflow_definition_repository.save_definition(spec, workspace_id=WORKSPACE_ID)
 
     run_id = f"run_{uuid.uuid4().hex[:12]}"
@@ -325,7 +341,7 @@ async def test_resume_with_active_deployment_completes_the_agent_effect():
             workflow_version="1.0.0",
             workflow_definition_hash=spec.definition_hash,
             project_agent_deployment_id=DEPLOYMENT_ID,
-            pinned_agent_specs={AGENT_SPEC_ID: {"version": "1.0.0", "definition_hash": "hash1"}},
+            pinned_agent_specs={AGENT_SPEC_ID: {"version": "1.0.0", "definition_hash": GOVERNED_HASH}},
         )
     )
 
@@ -447,6 +463,7 @@ async def test_approved_workflow_gate_is_actually_relayed_to_a_resume_task():
     resolver = FakeDeploymentResolver()
     kernel = FakeKernel()
     plane = _build_plane(resolver=resolver, kernel=kernel)
+    await publish_agent_spec(GOVERNED_SPEC, repository=plane.spec_registry, publisher="test")
     await plane.workflow_definition_repository.save_definition(spec, workspace_id=WORKSPACE_ID)
 
     run_id = f"run_{uuid.uuid4().hex[:12]}"
@@ -459,7 +476,7 @@ async def test_approved_workflow_gate_is_actually_relayed_to_a_resume_task():
             workflow_version="1.0.0",
             workflow_definition_hash=spec.definition_hash,
             project_agent_deployment_id=DEPLOYMENT_ID,
-            pinned_agent_specs={AGENT_SPEC_ID: {"version": "1.0.0", "definition_hash": "hash1"}},
+            pinned_agent_specs={AGENT_SPEC_ID: {"version": "1.0.0", "definition_hash": GOVERNED_HASH}},
         )
     )
 
@@ -523,6 +540,7 @@ async def test_workflow_gate_resume_round_trips_a_run_id_containing_a_colon():
     resolver = FakeDeploymentResolver()
     kernel = FakeKernel()
     plane = _build_plane(resolver=resolver, kernel=kernel)
+    await publish_agent_spec(GOVERNED_SPEC, repository=plane.spec_registry, publisher="test")
     await plane.workflow_definition_repository.save_definition(spec, workspace_id=WORKSPACE_ID)
 
     # Deliberately colon-bearing, mirroring `run_wf_{workspace_id}_{idempotency_key}`
@@ -537,7 +555,7 @@ async def test_workflow_gate_resume_round_trips_a_run_id_containing_a_colon():
             workflow_version="1.0.0",
             workflow_definition_hash=spec.definition_hash,
             project_agent_deployment_id=DEPLOYMENT_ID,
-            pinned_agent_specs={AGENT_SPEC_ID: {"version": "1.0.0", "definition_hash": "hash1"}},
+            pinned_agent_specs={AGENT_SPEC_ID: {"version": "1.0.0", "definition_hash": GOVERNED_HASH}},
         )
     )
 

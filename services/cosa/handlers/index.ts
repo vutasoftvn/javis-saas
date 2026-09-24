@@ -9,3 +9,4 @@ export * from "./venture-workspace.handler";
 export * from "./runtime-node.handler";
 export * from "./workspace-settings.handler";
 export * from "./ai-governance-snapshot.handler";
+export * from "./advisor-overlay.handler";

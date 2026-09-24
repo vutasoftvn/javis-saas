@@ -16,6 +16,9 @@ import {
   isExecutiveRoleKey,
   ExecutiveAdvisorRoleDef,
 } from "../../shared/contracts/executive-advisor-roles.generated";
+import type { PinnedSkillIdentity } from "../../shared/contracts/executive-advisor-overlays.generated";
+import { fetchAdvisorOverlayIdentity } from "./advisor-overlay.client";
+import { computeDeploymentPinHash, computeOverlayPinHash } from "./executive-pin-hash";
 import { requireExecutiveBoardFounderAuthority } from "./executive-role-activation.service";
 import { resolveProjectAgentAuthorityV2 } from "./founder-agent-compatibility.service";
 import {
@@ -58,13 +61,29 @@ export type ExecutiveDecisionType =
   | "EXPIRE"
   | "CANCEL";
 
-export interface SelectedRolePin {
-  roleKey: string;
-  assignmentId: string;
+/** Project deployment (Company là chủ) — quyền dùng profile trong đúng Project. */
+export interface ProjectDeploymentPin {
+  projectAgentDeploymentId: string;
+  profileKey: string;
   specId: string;
   specVersion: string;
   specHash: string;
-  skillPins: readonly string[];
+}
+
+/** Advisor overlay bất biến (AgentSpec built-in) — không có quyền Project độc lập. */
+export interface AdvisorOverlayPin {
+  roleKey: string;
+  overlaySpecId: string;
+  overlaySpecVersion: string;
+  overlaySpecHash: string;
+  skillPins: readonly PinnedSkillIdentity[];
+}
+
+/** Pin thực thi persist trong frame; `roleKey` giữ ở top-level để tra cứu theo role. */
+export interface SelectedAdvisorExecutionPin {
+  roleKey: string;
+  deployment: ProjectDeploymentPin;
+  overlay: AdvisorOverlayPin;
 }
 
 export interface EvidenceSourceInput {
@@ -118,7 +137,7 @@ export interface DeliberationDetails {
     deliberationType: string;
     deadline?: string;
     decisionOwnerId: string;
-    selectedRoles: SelectedRolePin[];
+    selectedRoles: SelectedAdvisorExecutionPin[];
     evidenceSources: EvidenceSourceInput[];
     criticRequired: boolean;
     redactedContextRef?: string;
@@ -189,12 +208,12 @@ export async function createDraftDeliberation(
  * Trả về pin snapshot cho frame; vi phạm điều kiện nào thì ném lỗi tương ứng,
  * không bao giờ fallback sang role/profile/spec khác.
  */
-async function resolveRoleProjectPin(
+async function resolveProjectDeploymentPin(
   workspaceId: string,
   projectId: string,
   roleKey: string,
   roleDef: ExecutiveAdvisorRoleDef
-): Promise<SelectedRolePin> {
+): Promise<ProjectDeploymentPin> {
   const wsId = BigInt(workspaceId);
   const projId = BigInt(projectId);
 
@@ -270,12 +289,11 @@ async function resolveRoleProjectPin(
   }
 
   return {
-    roleKey,
-    assignmentId: deployment.deploymentId,
+    projectAgentDeploymentId: deployment.deploymentId,
+    profileKey: roleDef.requiredProfileKey,
     specId: spec.id,
     specVersion: spec.version,
     specHash: spec.hash,
-    skillPins: roleDef.requiredSkillPins,
   };
 }
 
@@ -330,7 +348,7 @@ export async function frameDeliberation(
 
   // 1. Verify every role và resolve pin từ Workspace office + Project V2
   // deployment (không còn tra legacy `project_agent_assignments`).
-  const rolePins: SelectedRolePin[] = [];
+  const rolePins: SelectedAdvisorExecutionPin[] = [];
 
   for (const roleKey of input.roleKeys) {
     if (!isExecutiveRoleKey(roleKey)) {
@@ -344,9 +362,34 @@ export async function frameDeliberation(
       );
     }
 
-    rolePins.push(
-      await resolveRoleProjectPin(ctx.workspaceId, projectId, roleKey, roleDef)
+    // Deployment pin trước (quyền Project), rồi mới hỏi COSA overlay identity — lỗi
+    // ở bước nào cũng dừng trước khi có bất kỳ bản ghi frame/outbox nào.
+    const deployment = await resolveProjectDeploymentPin(
+      ctx.workspaceId,
+      projectId,
+      roleKey,
+      roleDef
     );
+    const overlay = await fetchAdvisorOverlayIdentity(ctx.workspaceId, roleKey);
+    if (
+      overlay.overlaySpecId !== roleDef.requiredAgentSpec ||
+      overlay.requiredProfileKey !== roleDef.requiredProfileKey
+    ) {
+      throw APIError.failedPrecondition(
+        `ADVISOR_OVERLAY_MISMATCH: overlay for role '${roleKey}' does not match role catalog`
+      );
+    }
+    rolePins.push({
+      roleKey,
+      deployment,
+      overlay: {
+        roleKey,
+        overlaySpecId: overlay.overlaySpecId,
+        overlaySpecVersion: overlay.overlaySpecVersion,
+        overlaySpecHash: overlay.overlayDefinitionHash,
+        skillPins: overlay.skillPins,
+      },
+    });
   }
 
   // 2. Transaction: advance state, insert frame, and atomically write outbox
@@ -659,7 +702,7 @@ export async function getDeliberation(
         deliberationType: frame.deliberationType,
         deadline: frame.deadline?.toISOString(),
         decisionOwnerId: frame.decisionOwnerId.toString(),
-        selectedRoles: frame.selectedRoles as SelectedRolePin[],
+        selectedRoles: frame.selectedRoles as SelectedAdvisorExecutionPin[],
         evidenceSources: frame.evidenceSources as EvidenceSourceInput[],
         criticRequired: frame.criticRequired,
         redactedContextRef: frame.redactedContextRef ?? undefined,
@@ -730,6 +773,19 @@ export interface ExecutiveAnalysisCallbackInput {
   role_key: string;
   descriptor?: Record<string, any>;
   error_detail?: string;
+  /** Hash pin worker đã thực thi — phải bằng đúng pin đã persist trong frame. */
+  deployment_pin_hash?: string;
+  overlay_pin_hash?: string;
+}
+
+/** JSON ổn định (khóa sắp xếp) để so sánh 2 descriptor không phụ thuộc thứ tự khóa. */
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value) ?? "null";
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  const entries = Object.entries(value as Record<string, unknown>)
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v)}`);
+  return `{${entries.join(",")}}`;
 }
 
 export interface AnalysisRecordResult {
@@ -799,11 +855,27 @@ export async function recordExecutiveAnalysisCallback(
       throw APIError.notFound("Deliberation frame not found");
     }
 
-    const selectedRoles = (frame.selectedRoles as SelectedRolePin[]) || [];
-    const isRolePinned = selectedRoles.some((r) => r.roleKey === callback.role_key);
-    if (!isRolePinned) {
+    const selectedRoles = (frame.selectedRoles as SelectedAdvisorExecutionPin[]) || [];
+    const rolePin = selectedRoles.find((r) => r.roleKey === callback.role_key);
+    if (!rolePin) {
       throw APIError.failedPrecondition(
         `Role '${callback.role_key}' was not selected in frame version ${callback.frame_version}`
+      );
+    }
+
+    // Identity gate TRƯỚC idempotency: callback (kể cả replay) phải mang đúng pin của frame.
+    if (
+      !rolePin.deployment ||
+      !rolePin.overlay ||
+      callback.deployment_pin_hash !== computeDeploymentPinHash(rolePin.deployment)
+    ) {
+      throw APIError.failedPrecondition(
+        `EXECUTIVE_CALLBACK_DEPLOYMENT_PIN_MISMATCH: role '${callback.role_key}' deployment pin differs from frame`
+      );
+    }
+    if (callback.overlay_pin_hash !== computeOverlayPinHash(rolePin.overlay)) {
+      throw APIError.failedPrecondition(
+        `EXECUTIVE_CALLBACK_OVERLAY_PIN_MISMATCH: role '${callback.role_key}' overlay pin differs from frame`
       );
     }
 
@@ -821,6 +893,18 @@ export async function recordExecutiveAnalysisCallback(
       .limit(1);
 
     if (existing) {
+      const incomingStatus =
+        callback.kind === "executive.analysis.completed.v1" ? "COMPLETED" : "FAILED";
+      const incomingDescriptor = callback.descriptor ?? { error: callback.error_detail };
+      // Replay giống hệt thì idempotent; khác nội dung thì từ chối, không ghi đè phân tích.
+      if (
+        existing.status !== incomingStatus ||
+        stableStringify(existing.descriptor) !== stableStringify(incomingDescriptor)
+      ) {
+        throw APIError.aborted(
+          `EXECUTIVE_CALLBACK_CONFLICT: role '${callback.role_key}' already has a different analysis for frame ${callback.frame_version}`
+        );
+      }
       return {
         id: existing.id.toString(),
         deliberationId,
@@ -950,7 +1034,7 @@ export async function getDeliberationAuthority(
   frameVersion: number;
   roleKey: string;
   state: DeliberationState;
-  rolePin: SelectedRolePin;
+  rolePin: SelectedAdvisorExecutionPin;
   question: string;
   evidenceSources: EvidenceSourceInput[];
 }> {
@@ -999,7 +1083,7 @@ export async function getDeliberationAuthority(
     throw APIError.notFound("Frame not found");
   }
 
-  const selectedRoles = (frame.selectedRoles as SelectedRolePin[]) || [];
+  const selectedRoles = (frame.selectedRoles as SelectedAdvisorExecutionPin[]) || [];
   const rolePin = selectedRoles.find((r) => r.roleKey === roleKey);
   if (!rolePin) {
     throw APIError.failedPrecondition(
@@ -1012,7 +1096,19 @@ export async function getDeliberationAuthority(
   if (isExecutiveRoleKey(roleKey)) {
     const roleDef = EXECUTIVE_ROLE_CATALOG[roleKey];
     if (roleDef) {
-      await resolveRoleProjectPin(workspaceId, projectId, roleKey, roleDef);
+      const live = await resolveProjectDeploymentPin(workspaceId, projectId, roleKey, roleDef);
+      const stored = rolePin.deployment;
+      if (
+        !stored ||
+        stored.projectAgentDeploymentId !== live.projectAgentDeploymentId ||
+        stored.specHash !== live.specHash ||
+        stored.specVersion !== live.specVersion ||
+        stored.specId !== live.specId
+      ) {
+        throw APIError.failedPrecondition(
+          `EXECUTIVE_ROLE_PIN_DRIFT: Role '${roleKey}' Project deployment changed since frame`
+        );
+      }
     }
   }
 

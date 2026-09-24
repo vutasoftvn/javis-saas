@@ -44,6 +44,8 @@ Future<void> _pumpTab(
 }
 
 void main() {
+  truthfulHubTests();
+
   testWidgets(
     'renders an honest unavailable message when loadState is unavailable, '
     'not a silently-empty grid',
@@ -127,3 +129,14 @@ void main() {
     );
   }
 
+
+// Task 12 (2026-09-20 truthful hub) — Hub không còn bề mặt "Test Run": chưa có
+// endpoint sandbox-run bền vững, nên nút và drawer báo "đang thực thi" giả đã bị gỡ.
+void truthfulHubTests() {
+  testWidgets('workforce tab exposes no Test Run action', (tester) async {
+    await _pumpTab(tester, packs: [_pack('sales')]);
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('Test Run'), findsNothing);
+  });
+}

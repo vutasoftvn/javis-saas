@@ -28,7 +28,7 @@ def test_legal_profile_has_explicit_spec_and_read_only_capability():
 def test_gc_is_capability_empty_and_carries_not_legal_advice_disclaimer():
     assert AGENT_PROFILE_SPECS["gc"] is COSA_EXECUTIVE_GC_AGENT_SPEC
     assert COSA_EXECUTIVE_GC_AGENT_SPEC.id == "cosa.executive.gc"
-    assert COSA_EXECUTIVE_GC_AGENT_SPEC.version == "1.0.0"
+    assert COSA_EXECUTIVE_GC_AGENT_SPEC.version == "1.1.0"  # overlay pin skill (advisor overlay contract)
     assert COSA_EXECUTIVE_GC_AGENT_SPEC.autonomy_level is AutonomyLevel.L1_PROPOSE
     assert EXECUTIVE_AGENT_SPECS["cosa.executive.gc"].capability_refs == []
     assert COSA_EXECUTIVE_GC_AGENT_SPEC.metadata.get("advisory_only") is True

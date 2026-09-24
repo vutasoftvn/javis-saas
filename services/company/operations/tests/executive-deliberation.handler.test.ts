@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   createTestWorkspaceWithMember,
   addMemberToWorkspace,
@@ -14,6 +14,16 @@ import {
 } from "../handlers/executive-deliberation.handler";
 import { activateWorkspaceExecutiveRole } from "../services/workspace-executive-role-activation.service";
 import { TenantContext } from "../../shared/types/tenant_context";
+
+// COSA Control Plane là app khác — giả lập đúng catalog generated (xem executive-deliberation.service.test.ts).
+vi.mock("../services/advisor-overlay.client", () => ({
+  fetchAdvisorOverlayIdentity: vi.fn(async (_ws: string, roleKey: string) => {
+    const { ADVISOR_OVERLAY_CATALOG: catalog } = await import(
+      "../../shared/contracts/executive-advisor-overlays.generated"
+    );
+    return catalog[roleKey];
+  }),
+}));
 
 describe("Executive Deliberation Handler", () => {
   let founderToken: string;

@@ -61,6 +61,7 @@ from agent.coordination.scheduler import RunScheduler
 from agent.runs.leases import RunLeaseManager
 from agent.skills.candidate_store import PostgresSkillCandidateStore
 from agent.skills.contracts import SkillStatus
+from agent.workflows.repository import InMemoryWorkflowDefinitionRepository
 from agent.skills.eval_contract import SkillEvalCase, SkillEvalExpected, SkillEvalSuite
 from agent.skills.improvement_repository import PostgresSkillImprovementRepository
 from agent_testkit.fake_sdk_model import FakeSDKModel
@@ -176,6 +177,7 @@ async def main():
         kernel=kernel,
         workflow_registry=None,
         workflow_engine=None,
+        workflow_definition_repository=InMemoryWorkflowDefinitionRepository(),
         company_client=None,
         tenant_policy_client=None,
         scheduler=scheduler,
@@ -262,6 +264,7 @@ async def main():
 
     # Spec registry has CHANGED definition hash
     from agent.registry.repository import InMemorySpecRegistryRepository
+    from agent.workflows.repository import InMemoryWorkflowDefinitionRepository
     spec_reg = InMemorySpecRegistryRepository()
     from agent.registry.models import PublishedSpecRecord
     await spec_reg.publish(
@@ -286,6 +289,7 @@ async def main():
         kernel=None,
         workflow_registry=None,
         workflow_engine=None,
+        workflow_definition_repository=InMemoryWorkflowDefinitionRepository(),
         company_client=None,
         tenant_policy_client=None,
         scheduler=scheduler,

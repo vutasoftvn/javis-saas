@@ -41,6 +41,12 @@ EXPLICIT_UNAUTHENTICATED_ALLOWLIST = {
     # pattern B5 ở trên, khác secret (Gateway PLATFORM_JWT_SECRET không hiểu
     # được token này). auth:false có chủ đích, đã kiểm tra.
     ("cosa", "POST", "/cosa/ai-governance/snapshot"),
+    # Advisor overlay lookup (2026-09-20): services/company là Encore app riêng nên gọi qua
+    # HTTP thật, không dùng được `expose:false`. Handler tự verify service token
+    # (COSA_ADVISOR_OVERLAY_SERVICE_SECRET — Company ký, COSA verify, một chiều) qua
+    # verifyAdvisorOverlayServiceToken; endpoint chỉ đọc catalog overlay đã publish, không
+    # mutate. auth:false ở Gateway có chủ đích, đã kiểm tra.
+    ("cosa", "GET", "/platform/internal/executive-advisor-overlay"),
 }
 
 

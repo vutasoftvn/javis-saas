@@ -146,7 +146,7 @@ async def test_seed_builtin_skillpacks_propagates_immutable_version_conflict(
     """Version/hash conflict phải giữ nguyên để caller trả 409 chính xác."""
     monkeypatch.setattr(
         skillpack_seed,
-        "publish_skill_spec",
+        "publish_skill_batch",
         AsyncMock(
             side_effect=SpecVersionHashConflictError(
                 "skill", "core.weekly-review", "1.0.0"
@@ -207,3 +207,61 @@ async def test_seed_cosa_runtime_specs_fails_closed_on_pin_hash_mismatch(
     assert original_pin.skill_id in message
     assert original_pin.version in message
     assert "hash" in message.lower()
+
+
+@pytest.mark.asyncio
+async def test_skillpack_batch_is_atomic_when_a_later_manifest_conflicts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Manifest thứ 2 xung đột hash với bản đã publish -> manifest thứ 1 không được hiển thị."""
+    from agent.registry.models import PublishedSpecRecord
+    from apps.cosa.api.skillpack_mapper import parse_skillpack_spec
+
+    # Tree validation có test riêng; ở đây chỉ cô lập hành vi publish atomic.
+    monkeypatch.setattr(skillpack_seed, "validate_skillpack_tree", lambda *a, **k: [])
+    packs = ["core/weekly-review", "executive/cfo-advisor"]
+    root = tmp_path / "skillpacks"
+    for pack in packs:
+        (root / pack).parent.mkdir(parents=True, exist_ok=True)
+        import shutil
+
+        shutil.copytree(SKILLPACKS_ROOT / pack, root / pack)
+    ordered = sorted(root.rglob("manifest.yaml"))
+    first_spec = parse_skillpack_spec(ordered[0].parent)
+    second_spec = parse_skillpack_spec(ordered[1].parent)
+
+    registry = InMemorySpecRegistryRepository()
+    # Bản đã publish cho skill thứ 2 với nội dung khác -> conflict khi batch tới nó.
+    await registry.publish(
+        PublishedSpecRecord(
+            spec_kind="skill",
+            spec_id=second_spec.id,
+            version=second_spec.version,
+            definition_hash="f" * 64,
+            content={},
+            publisher="test",
+        )
+    )
+
+    with pytest.raises(SpecVersionHashConflictError):
+        await seed_builtin_skillpacks(registry, capability_ids=set(), skillpacks_root=root)
+
+    assert await registry.get("skill", first_spec.id, first_spec.version) is None
+
+
+@pytest.mark.asyncio
+async def test_skillpack_batch_publishes_nothing_when_one_manifest_cannot_parse(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import shutil
+
+    root = tmp_path / "skillpacks"
+    shutil.copytree(SKILLPACKS_ROOT / "executive/cfo-advisor", root / "executive/cfo-advisor")
+    registry = InMemorySpecRegistryRepository()
+    monkeypatch.setattr(skillpack_seed, "validate_skillpack_tree", lambda *a, **k: [])
+    (root / "broken").mkdir()
+    (root / "broken" / "manifest.yaml").write_text("not: [valid", encoding="utf-8")
+    with pytest.raises(BuiltinSkillpackSeedError):
+        await seed_builtin_skillpacks(registry, capability_ids=set(), skillpacks_root=root)
+
+    assert await registry.list_all("skill") == []

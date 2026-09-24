@@ -65,4 +65,25 @@ void main() {
     expect(resolveLegacyDashboardTarget(1), '/work/tasks');
     expect(resolveLegacyDashboardTarget(0), '/hub');
   });
+
+  test('chỉ 4 module có màn hình thật; mọi module còn lại là PLANNED không binding/CTA', () {
+    // Route PLANNED render `SurfaceStateView(planned)` — roadmap card không action — và
+    // không có binding controller nào; route live luôn có binding. Đổi tập này phải
+    // có màn hình thật kèm test, không mở CTA cho module chưa có API.
+    const live = {
+      WorkspaceModule.tasks,
+      WorkspaceModule.strategy,
+      WorkspaceModule.finance,
+      WorkspaceModule.settings,
+    };
+    for (final module in WorkspaceModule.values) {
+      if (module == WorkspaceModule.hub) continue;
+      final route = routesFor(module.path).single;
+      expect(
+        route.binding != null,
+        live.contains(module),
+        reason: '${module.name}: ${live.contains(module) ? 'live cần binding' : 'planned không được có binding'}',
+      );
+    }
+  });
 }

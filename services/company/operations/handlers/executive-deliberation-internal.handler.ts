@@ -51,6 +51,8 @@ interface DeliberationCallbackParams {
   role_key: string;
   descriptor?: Record<string, any>;
   error_detail?: string;
+  deployment_pin_hash?: string;
+  overlay_pin_hash?: string;
 }
 
 export const receiveExecutiveAnalysisCallbackApi = api(
@@ -73,6 +75,8 @@ export const receiveExecutiveAnalysisCallbackApi = api(
       role_key: params.role_key,
       descriptor: params.descriptor,
       error_detail: params.error_detail,
+      deployment_pin_hash: params.deployment_pin_hash,
+      overlay_pin_hash: params.overlay_pin_hash,
     };
 
     return await recordExecutiveAnalysisCallback(

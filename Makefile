@@ -158,11 +158,15 @@ contracts-gen:            ## Sinh mã enum canonical cho 3 runtime từ shared/c
 	node scripts/gen-contracts.mjs
 	node scripts/gen-startup-team-profiles.mjs
 	node scripts/gen-executive-advisor-roles.mjs
+	$(PYTHON) scripts/sync_executive_advisor_overlays.py
+	node scripts/gen-executive-advisor-overlays.mjs
 
 contracts-check:          ## CI: fail nếu mã enum generated lệch nguồn
 	node scripts/gen-contracts.mjs --check
 	$(MAKE) startup-team-profiles-regression-check
 	$(MAKE) executive-advisor-roles-regression-check
+	$(PYTHON) scripts/sync_executive_advisor_overlays.py --check
+	node scripts/gen-executive-advisor-overlays.mjs --check
 
 startup-team-profiles-gen: ## Sinh mã startup team catalog cho TS và Python từ shared/contracts/startup-team-profiles.json
 	node scripts/gen-startup-team-profiles.mjs

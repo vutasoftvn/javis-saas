@@ -22,6 +22,7 @@ import psycopg2
 import httpx
 import pytest
 
+from apps.cosa.agents.startup_team_profiles_generated import STARTUP_TEAM_PROFILE_KEYS
 from apps.cosa.company.project_team_client import (
     ProjectTeamClient,
     ProjectTeamAuthorityError,
@@ -166,7 +167,7 @@ def test_invariant_4_and_5_startup_team_activation_pause_and_authority(e2e_tenan
     assert resp.status_code == 200, resp.text
     body = resp.json()
     items = body["items"]
-    assert len(items) == 10
+    assert {item["profileKey"] for item in items} == set(STARTUP_TEAM_PROFILE_KEYS)
 
     # Verify operations initial state
     ops = next(m for m in items if m["profileKey"] == "operations")

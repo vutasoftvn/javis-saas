@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from typing import Any
+import uuid
+from collections.abc import Callable
+from typing import Any, Protocol
 
-from agent.contracts.kernel import ExecutionKernel
-from agent.contracts.run import RunRequest, RunStatus
+from agent.contracts.run import RunRequest, RunResult, RunStatus
 from agent.contracts.spec import AgentSpec
 from agent.executive_board.models import (
-    EXECUTIVE_ANALYSIS_OUTPUT_SCHEMA,
     BindingCriteria,
     BoardroomMemo,
     DissentRecord,
@@ -14,9 +14,16 @@ from agent.executive_board.models import (
     ExecutiveAnalysisRequest,
     ExecutiveBoardInputError,
 )
-from agent.executive_board.skill_pins import resolve_role_pin_skills
-from agent.governance.contracts import AutonomyLevel
 from agent.registry.repository import SpecRegistryRepository
+
+OverlayValidator = Callable[[AgentSpec, AgentSpec], list[str]]
+
+
+class AdvisorKernel(Protocol):
+    """Phần tối thiểu của `ExecutionKernel` mà runner dùng — kernel thật hay adapter đi qua
+    compliance/model routing (`apps/cosa`) đều thỏa."""
+
+    async def run(self, request: RunRequest, spec: AgentSpec) -> RunResult: ...
 
 
 class ExecutiveBoardRunner:
@@ -24,11 +31,30 @@ class ExecutiveBoardRunner:
     Enforces no-peer-drafts, cross-project data fencing, and strict claim-evidence mapping.
     """
 
-    def __init__(self, kernel: ExecutionKernel, spec_registry: SpecRegistryRepository) -> None:
+    def __init__(
+        self,
+        kernel: AdvisorKernel,
+        spec_registry: SpecRegistryRepository,
+        overlay_validator: OverlayValidator,
+    ) -> None:
         self._kernel = kernel
         self._spec_registry = spec_registry
+        # Kiểm tra overlay ⊆ profile do composition layer (apps/cosa) cung cấp — bắt buộc,
+        # không có mặc định "cho qua" để không thể chạy overlay chưa được kiểm phạm vi.
+        self._overlay_validator = overlay_validator
 
     async def run(self, req: ExecutiveAnalysisRequest) -> ExecutiveAnalysisOutcome:
+        """Chạy phân tích và gắn hash 2 pin (deployment + overlay) vào outcome — kể cả khi
+        thất bại — để Company đối chiếu callback với frame đã persist."""
+        outcome = await self._run_analysis(req)
+        return outcome.model_copy(
+            update={
+                "deployment_pin_hash": req.execution_pin.deployment.identity_hash(),
+                "overlay_pin_hash": req.execution_pin.overlay.identity_hash(),
+            }
+        )
+
+    async def _run_analysis(self, req: ExecutiveAnalysisRequest) -> ExecutiveAnalysisOutcome:
         # 1. Isolation check: Peer drafts strictly forbidden
         if req.peer_drafts is not None and len(req.peer_drafts) > 0:
             raise ExecutiveBoardInputError(
@@ -44,10 +70,11 @@ class ExecutiveBoardRunner:
 
         # 3. Model execution: mock_model_output là test override; mặc định gọi kernel thật
         output: dict[str, Any] | None
+        run_id: str | None = None
         if req.mock_model_output is not None:
             output = req.mock_model_output
         else:
-            output = await self._run_kernel(req)
+            output, run_id = await self._run_kernel(req)
 
         if output is None:
             return ExecutiveAnalysisOutcome(
@@ -98,8 +125,10 @@ class ExecutiveBoardRunner:
             "risks_and_unknowns": output.get("risks_and_unknowns", []),
             "confidence": float(output.get("confidence", 0.8)),
             "human_review_required": bool(output.get("human_review_required", True)),
-            "role_pin": req.role_pin.model_dump(),
+            "execution_pin": req.execution_pin.model_dump(),
         }
+        if run_id is not None:
+            descriptor["run_id"] = run_id
 
         evidence_tag: str | None = None
         if req.context_snapshot_age_weeks > 2:
@@ -196,22 +225,52 @@ class ExecutiveBoardRunner:
             evidence_tag=memo_evidence_tag,
         )
 
-    async def _run_kernel(self, req: ExecutiveAnalysisRequest) -> dict[str, Any] | None:
-        pinned_skills = await resolve_role_pin_skills(req.role_pin.skill_pins, self._spec_registry)
+    async def _resolve_exact_agent_spec(
+        self, *, spec_id: str, version: str, expected_hash: str, drift_code: str
+    ) -> AgentSpec:
+        """Resolve AgentSpec theo đúng id+version và bắt buộc hash khớp pin — không dùng
+        "latest", không tin object Python đang import (drift khi rolling deploy)."""
+        record = await self._spec_registry.get(spec_kind="agent", spec_id=spec_id, version=version)
+        if record is None or record.definition_hash != expected_hash:
+            raise ExecutiveBoardInputError(
+                f"{drift_code}: '{spec_id}@{version}' is missing from registry or its hash "
+                f"differs from the pinned {expected_hash[:12]}"
+            )
+        spec = AgentSpec(**record.content)
+        if spec.compute_hash() != expected_hash:
+            raise ExecutiveBoardInputError(
+                f"{drift_code}: registry content of '{spec_id}@{version}' does not hash to the pin"
+            )
+        return spec
 
-        spec = AgentSpec(
-            id=f"executive.board.{req.role_key}",
-            version="1.0.0",
-            instructions=(
-                f"Bạn là thành viên Hội đồng Cố vấn Điều hành (Executive Advisory Board) "
-                f"giữ vai trò '{req.role_key}'. Chỉ đọc và đề xuất (advisory L1_PROPOSE) — "
-                f"không tự quyết định hay thực thi bất kỳ hành động nào. Trả lời bằng đúng "
-                f"cấu trúc JSON được yêu cầu, không thêm văn bản ngoài JSON."
-            ),
-            autonomy_level=AutonomyLevel.L1,
-            pinned_skills=pinned_skills,
-            output_schema=EXECUTIVE_ANALYSIS_OUTPUT_SCHEMA,
-        ).with_hash()
+    async def _run_kernel(self, req: ExecutiveAnalysisRequest) -> tuple[dict[str, Any] | None, str]:
+        pin = req.execution_pin
+        # Cả 2 pin phải resolve đúng exact hash TRƯỚC khi gọi model.
+        overlay_spec = await self._resolve_exact_agent_spec(
+            spec_id=pin.overlay.overlay_spec_id,
+            version=pin.overlay.overlay_spec_version,
+            expected_hash=pin.overlay.overlay_spec_hash,
+            drift_code="OVERLAY_PIN_DRIFT",
+        )
+        deployment_spec = await self._resolve_exact_agent_spec(
+            spec_id=pin.deployment.spec_id,
+            version=pin.deployment.spec_version,
+            expected_hash=pin.deployment.spec_hash,
+            drift_code="DEPLOYMENT_PIN_DRIFT",
+        )
+        pinned_skills = [
+            (s.skill_id, s.version, s.definition_hash) for s in overlay_spec.pinned_skills
+        ]
+        expected_skills = [
+            (s.skill_id, s.version, s.definition_hash) for s in pin.overlay.skill_pins
+        ]
+        if pinned_skills != expected_skills:
+            raise ExecutiveBoardInputError(
+                "OVERLAY_PIN_DRIFT: overlay skill pins differ from the frame's pinned skills"
+            )
+        violations = self._overlay_validator(overlay_spec, deployment_spec)
+        if violations:
+            raise ExecutiveBoardInputError(f"OVERLAY_SCOPE_VIOLATION: {'; '.join(violations)}")
 
         evidence_text = (
             "\n".join(
@@ -222,15 +281,45 @@ class ExecutiveBoardRunner:
         )
 
         run_req = RunRequest(
+            run_id=f"run_exec_{uuid.uuid4().hex[:16]}",
             principal=f"executive_board:{req.role_key}",
             workspace_id=req.workspace_id,
-            root_executable_ref=spec.id,
-            input={"prompt": f"Câu hỏi deliberation: {req.question}\n\nEvidence:\n{evidence_text}"},
+            conversation_id=f"deliberation:{req.deliberation_id}",
+            root_executable_ref=overlay_spec.to_pinned_identity(),
+            correlation_id=f"{req.deliberation_id}:{req.frame_version}:{req.role_key}",
+            # `input` là phần duy nhất RunRecord persist (input_payload) — đặt 2 pin + scope ở đây
+            # để run durable truy ngược được overlay và deployment đã dùng.
+            input={
+                "prompt": (
+                    f"Câu hỏi deliberation: {req.question}\n\nEvidence:\n{evidence_text}\n\n"
+                    "Chỉ đọc và đề xuất (advisory, L1_PROPOSE), không tự thực thi hành động nào. "
+                    "Trả lời bằng đúng cấu trúc JSON được yêu cầu, không thêm văn bản ngoài JSON."
+                ),
+                "advisor_execution": {
+                    "project_id": req.project_id,
+                    "deliberation_id": req.deliberation_id,
+                    "frame_version": req.frame_version,
+                    "role_key": req.role_key,
+                    "deployment": pin.deployment.model_dump(),
+                    "overlay": pin.overlay.model_dump(),
+                },
+            },
+            metadata={
+                "project_id": req.project_id,
+                "deliberation_id": req.deliberation_id,
+                "frame_version": req.frame_version,
+                "role_key": req.role_key,
+                "project_agent_deployment_id": pin.deployment.project_agent_deployment_id,
+                "deployment_spec_id": pin.deployment.spec_id,
+                "deployment_spec_version": pin.deployment.spec_version,
+                "deployment_spec_hash": pin.deployment.spec_hash,
+                "advisor_overlay_spec_hash": pin.overlay.overlay_spec_hash,
+            },
         )
 
-        result = await self._kernel.run(run_req, spec)
+        result = await self._kernel.run(run_req, overlay_spec)
         if result.status != RunStatus.COMPLETED:
-            return None
+            return None, result.run_id
         if not isinstance(result.final_output, dict):
-            return None
-        return result.final_output
+            return None, result.run_id
+        return result.final_output, result.run_id

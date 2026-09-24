@@ -109,6 +109,55 @@ def _validate_automation_payload(payload: dict) -> str | None:
     return None
 
 
+# Executive Advisory Board — Company frame một deliberation (project-scoped) và phát event
+# mang pin thực thi (deployment + overlay) của từng role. Worker chạy từng role độc lập rồi
+# callback về Company; payload pin được worker parse nghiêm ngặt, không có giá trị mặc định.
+EXECUTIVE_DELIBERATION_FRAMED_EVENT = "executive.deliberation.framed.v1"
+
+
+def _executive_deliberation_task_payload(env: object) -> tuple[dict | None, str | None, str | None]:
+    """Trả (input_payload, target_spec_id, error) cho event framed."""
+    payload = getattr(env, "payload", {}) or {}
+    project_id = getattr(env, "projectId", None)
+    if not project_id:
+        return None, None, "executive deliberation event missing projectId"
+    selected = payload.get("selectedRoles")
+    if not isinstance(selected, list) or not selected:
+        return None, None, "executive deliberation event missing selectedRoles"
+    for key in ("deliberationId", "frameVersion", "question"):
+        if payload.get(key) in (None, ""):
+            return None, None, f"executive deliberation event missing '{key}'"
+    first = selected[0] if isinstance(selected[0], dict) else {}
+    overlay_raw = first.get("overlay")
+    overlay = overlay_raw if isinstance(overlay_raw, dict) else {}
+    target_spec_id = overlay.get("overlaySpecId")
+    if not target_spec_id:
+        return None, None, "executive deliberation event selectedRoles missing overlay pin"
+    evidence = [
+        {
+            "source_ref": e.get("sourceRef", ""),
+            "source_hash": e.get("sourceHash", ""),
+            "classification": e.get("classification", "internal"),
+        }
+        for e in (payload.get("evidenceSources") or [])
+        if isinstance(e, dict)
+    ]
+    return (
+        {
+            "workspace_id": getattr(env, "workspaceId", ""),
+            "project_id": project_id,
+            "deliberation_id": payload["deliberationId"],
+            "frame_version": payload["frameVersion"],
+            "question": payload["question"],
+            "selected_roles": selected,
+            "evidence_refs": evidence,
+            "correlation_id": getattr(env, "correlationId", ""),
+        },
+        str(target_spec_id),
+        None,
+    )
+
+
 # Signed Company→Agent work-package dispatch (Task 3/4) — schedule một run
 # workforce dùng chung spec operations. target_spec_id giữ ổn định; employee/
 # assignment/skill exact được resolve theo attribution trong payload ở worker.
@@ -358,6 +407,28 @@ async def handle_event(deps: Any, raw_body: bytes, signature: str) -> IntakeResu
                     "correlation_id": payload.get("correlation_id") or env.correlationId,
                 },
                 coalescing_key=f"governed_workflow_run:{payload['workspace_id']}:{run_id}",
+            )
+            await inbox_store.set_outcome(
+                conn, env.workspaceId, env.eventId, CONSUMER, "accepted", task_id
+            )
+            return IntakeResult(outcome="accepted", scheduledTaskId=task_id)
+
+        if env.eventType == EXECUTIVE_DELIBERATION_FRAMED_EVENT:
+            input_payload, target_spec_id, error = _executive_deliberation_task_payload(env)
+            if input_payload is None or target_spec_id is None:
+                await inbox_store.set_outcome(
+                    conn, env.workspaceId, env.eventId, CONSUMER, "rejected"
+                )
+                return IntakeResult(outcome="rejected", reason=error)
+            # Một frame version = một task: retry/duplicate event cùng frame gộp lại.
+            task_id = await deps.execution_plane.schedule_platform_task(
+                target_spec_id=target_spec_id,
+                task_type="executive_deliberation_framed",
+                input_payload=input_payload,
+                coalescing_key=(
+                    f"exec_delib:{env.workspaceId}:{input_payload['deliberation_id']}:"
+                    f"{input_payload['frame_version']}"
+                ),
             )
             await inbox_store.set_outcome(
                 conn, env.workspaceId, env.eventId, CONSUMER, "accepted", task_id

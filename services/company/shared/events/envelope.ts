@@ -20,6 +20,8 @@ const PROJECT_SCOPED_EVENT_TYPES = new Set([
   "operations.evidence.linked.v1",
   "operations.risk.raised.v1",
   "operations.risk.resolved.v1",
+  // Worker chỉ chạy advisor cho đúng Project của frame — projectId là bắt buộc.
+  "executive.deliberation.framed.v1",
 ]);
 
 export interface BusinessEventEnvelope<TPayload extends Record<string, any>> {

@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 
 class AgentCard extends StatelessWidget {
   final Map<String, dynamic> agent;
-  final VoidCallback onTestRun;
+  /// Null = không có bề mặt test-run thật (vd. Hub): không hiển thị nút.
+  final VoidCallback? onTestRun;
   final VoidCallback? onDetails;
   final VoidCallback? onToggleStatus;
 
   const AgentCard({
     super.key,
     required this.agent,
-    required this.onTestRun,
+    this.onTestRun,
     this.onDetails,
     this.onToggleStatus,
   });
@@ -218,22 +219,23 @@ class AgentCard extends StatelessWidget {
           // Footer: Action Buttons
           Row(
             children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: onTestRun,
-                  icon: const Icon(Icons.play_arrow_rounded, size: 18, color: Colors.blueAccent),
-                  label: const Text(
-                    'Test Run',
-                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.white),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFF475569)),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    backgroundColor: const Color(0xFF0F172A).withValues(alpha: 0.6),
+              if (onTestRun != null)
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: onTestRun,
+                    icon: const Icon(Icons.play_arrow_rounded, size: 18, color: Colors.blueAccent),
+                    label: const Text(
+                      'Test Run',
+                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.white),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFF475569)),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      backgroundColor: const Color(0xFF0F172A).withValues(alpha: 0.6),
+                    ),
                   ),
                 ),
-              ),
               if (onDetails != null) ...[
                 const SizedBox(width: 8),
                 IconButton(

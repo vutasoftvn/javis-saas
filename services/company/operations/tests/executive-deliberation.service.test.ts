@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { APIError } from "encore.dev/api";
 import { and, eq } from "drizzle-orm";
 import {
@@ -24,7 +24,21 @@ import { createProjectService } from "../services/project.service";
 import { transitionProjectLifecycle } from "../services/project-lifecycle.service";
 import { AGENT_PROFILE_SPEC_HASH } from "../services/ai-member.service";
 
-const { eventOutbox } = schema;
+import { ADVISOR_OVERLAY_CATALOG } from "../../shared/contracts/executive-advisor-overlays.generated";
+import { fetchAdvisorOverlayIdentity } from "../services/advisor-overlay.client";
+
+// COSA Control Plane là process/app khác — tại đây chỉ giả lập phản hồi HTTP của nó bằng
+// đúng catalog generated; hợp đồng HTTP thật do services/cosa/tests/advisor-overlay.test.ts phủ.
+vi.mock("../services/advisor-overlay.client", () => ({
+  fetchAdvisorOverlayIdentity: vi.fn(async (_ws: string, roleKey: string) => {
+    const { ADVISOR_OVERLAY_CATALOG: catalog } = await import(
+      "../../shared/contracts/executive-advisor-overlays.generated"
+    );
+    return catalog[roleKey];
+  }),
+}));
+
+const { eventOutbox, projectExecutiveDeliberationFrames } = schema;
 
 describe("Executive Deliberation Service", () => {
   let founderCtx: TenantContext;
@@ -263,36 +277,95 @@ describe("Executive Deliberation Service", () => {
       );
     expect(outboxRows).toHaveLength(1);
 
-    interface SelectedRolePinPayload {
+    interface FramedPinPayload {
       roleKey: string;
-      assignmentId: string;
-      specId: string;
-      specVersion: string;
-      specHash: string;
-      skillPins: string[];
+      deployment: {
+        projectAgentDeploymentId: string;
+        profileKey: string;
+        specId: string;
+        specVersion: string;
+        specHash: string;
+      };
+      overlay: {
+        roleKey: string;
+        overlaySpecId: string;
+        overlaySpecVersion: string;
+        overlaySpecHash: string;
+        skillPins: Array<{ skillId: string; version: string; definitionHash: string }>;
+      };
     }
-    const envelope = outboxRows[0].envelope as { payload: { selectedRoles: SelectedRolePinPayload[] } };
+    const envelope = outboxRows[0].envelope as { payload: { selectedRoles: FramedPinPayload[] } };
     const selectedRoles = envelope.payload.selectedRoles;
     expect(selectedRoles).toHaveLength(2);
 
-    const cosRole = selectedRoles.find((r) => r.roleKey === "chief_of_staff");
-    expect(cosRole).toBeDefined();
-    expect(cosRole?.specId).toBe("cosa.agents.operations");
-    expect(cosRole?.specVersion).toBe("1.3.0");
-    expect(cosRole?.specHash).toBe(AGENT_PROFILE_SPEC_HASH.operations);
-    expect(cosRole?.skillPins).toEqual([
-      "skillpack:executive/board-protocol@1.0.0",
-      "skillpack:executive/chief-of-staff@1.0.0",
-    ]);
+    for (const roleKey of ["chief_of_staff", "coo"]) {
+      const pin = selectedRoles.find((r) => r.roleKey === roleKey);
+      expect(pin).toBeDefined();
+      // Deployment pin: đúng profile operations của Project.
+      expect(pin?.deployment.profileKey).toBe("operations");
+      expect(pin?.deployment.specId).toBe("cosa.agents.operations");
+      expect(pin?.deployment.specVersion).toBe("1.3.0");
+      expect(pin?.deployment.specHash).toBe(AGENT_PROFILE_SPEC_HASH.operations);
+      expect(pin?.deployment.projectAgentDeploymentId).toBeTruthy();
+      // Overlay pin: exact identity từ catalog, tách biệt với deployment.
+      const expected = ADVISOR_OVERLAY_CATALOG[roleKey];
+      expect(pin?.overlay.overlaySpecId).toBe(expected.overlaySpecId);
+      expect(pin?.overlay.overlaySpecVersion).toBe(expected.overlaySpecVersion);
+      expect(pin?.overlay.overlaySpecHash).toBe(expected.overlayDefinitionHash);
+      expect(pin?.overlay.skillPins).toEqual(expected.skillPins);
+    }
+    expect(
+      selectedRoles.find((r) => r.roleKey === "chief_of_staff")?.overlay.skillPins.map((p) => p.skillId)
+    ).toEqual(["executive.board-protocol", "executive.chief-of-staff"]);
 
-    const cooRole = selectedRoles.find((r) => r.roleKey === "coo");
-    expect(cooRole).toBeDefined();
-    expect(cooRole?.specId).toBe("cosa.agents.operations");
-    expect(cooRole?.specVersion).toBe("1.3.0");
-    expect(cooRole?.specHash).toBe(AGENT_PROFILE_SPEC_HASH.operations);
-    expect(cooRole?.skillPins).toEqual([
-      "skillpack:executive/coo-advisor@1.0.0",
-    ]);
+    // Frame persist cùng pin với outbox.
+    const [frameRow] = await db
+      .select()
+      .from(projectExecutiveDeliberationFrames)
+      .where(eq(projectExecutiveDeliberationFrames.deliberationId, BigInt(draft.id)));
+    expect(frameRow.selectedRoles).toEqual(selectedRoles);
+  });
+
+  it("does not write a frame or outbox event when COSA cannot return the overlay", async () => {
+    vi.mocked(fetchAdvisorOverlayIdentity).mockRejectedValueOnce(
+      APIError.unavailable("ADVISOR_OVERLAY_UNAVAILABLE: down")
+    );
+    const draft = await createDraftDeliberation(founderCtx, projectId, { title: "Overlay outage" });
+
+    await expect(
+      frameDeliberation(founderCtx, projectId, draft.id, {
+        expectedVersion: 1,
+        question: "Runway?",
+        roleKeys: ["cfo"],
+      })
+    ).rejects.toThrow(/ADVISOR_OVERLAY_UNAVAILABLE/);
+
+    const frames = await db
+      .select()
+      .from(projectExecutiveDeliberationFrames)
+      .where(eq(projectExecutiveDeliberationFrames.deliberationId, BigInt(draft.id)));
+    const outbox = await db
+      .select()
+      .from(eventOutbox)
+      .where(and(eq(eventOutbox.eventType, "executive.deliberation.framed.v1"), eq(eventOutbox.aggregateId, draft.id)));
+    expect(frames).toHaveLength(0);
+    expect(outbox).toHaveLength(0);
+  });
+
+  it("rejects an overlay identity that does not match the role catalog", async () => {
+    vi.mocked(fetchAdvisorOverlayIdentity).mockResolvedValueOnce({
+      ...ADVISOR_OVERLAY_CATALOG.coo,
+      roleKey: "cfo",
+    });
+    const draft = await createDraftDeliberation(founderCtx, projectId, { title: "Wrong overlay" });
+
+    await expect(
+      frameDeliberation(founderCtx, projectId, draft.id, {
+        expectedVersion: 1,
+        question: "Runway?",
+        roleKeys: ["cfo"],
+      })
+    ).rejects.toThrow(/ADVISOR_OVERLAY_MISMATCH/);
   });
 
   it("frame deliberation for Project B fails EXECUTIVE_ROLE_PROJECT_DEPLOYMENT_INACTIVE when agent is only deployed to Project A", async () => {

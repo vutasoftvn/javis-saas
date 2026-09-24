@@ -25,9 +25,10 @@ def test_cro_executive_profile_has_explicit_capability_empty_spec():
     spec = AGENT_PROFILE_SPECS["cro"]
     assert spec is COSA_EXECUTIVE_CRO_AGENT_SPEC
     assert spec.id == "cosa.executive.cro"
-    assert spec.version == "1.0.0"
+    assert spec.version == "1.1.0"  # overlay pin skill (advisor overlay contract)
     assert spec.autonomy_level is AutonomyLevel.L1_PROPOSE
     assert spec.capability_refs == []
-    assert spec.pinned_skills == []
+    # Overlay advisory pin đúng 1 skill cro-advisor (contract executive-advisor-overlays).
+    assert [pin.skill_id for pin in spec.pinned_skills] == ["executive.cro-advisor"]
     assert spec.metadata.get("advisory_only") is True
-    assert spec.compute_hash() == "4735a8fa0a75e935e803d71ac72f6d94f494e180855bd2d9ed7d7474a2f308fe"
+    assert spec.compute_hash() == "55b0df2e6bdde7cbb3ad4a86122639514adfb262d06eff4eba9dc7598cbd1f75"

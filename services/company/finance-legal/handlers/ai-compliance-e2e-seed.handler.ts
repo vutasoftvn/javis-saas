@@ -14,6 +14,9 @@ export interface SeedE2eComplianceRequest {
   systemKey?: string;
   /** Capability bổ sung AgentSpec thật yêu cầu ngoài 2 capability mặc định. */
   additionalBoundCapabilityIds?: string[];
+  /** Xem `E2eSeedOptions.workspaceId` — seed cho workspace đã tồn tại. */
+  workspaceId?: string;
+  founderMemberId?: string;
 }
 
 // Khai báo tường minh (không suy diễn qua re-export type từ service module
@@ -61,6 +64,8 @@ export const seedE2eComplianceApi = api(
     const result = await seedE2eComplianceScenario(req.scenario, {
       systemKey: req.systemKey,
       additionalBoundCapabilityIds: req.additionalBoundCapabilityIds,
+      workspaceId: req.workspaceId,
+      founderMemberId: req.founderMemberId,
     });
     return {
       workspaceId: result.workspaceId,

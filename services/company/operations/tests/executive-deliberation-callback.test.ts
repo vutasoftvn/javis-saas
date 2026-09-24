@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   createTestWorkspaceWithMember,
   createSecondWorkspace,
@@ -15,6 +15,30 @@ import {
 import {
   activateWorkspaceExecutiveRole,
 } from "../services/workspace-executive-role-activation.service";
+
+import { computeDeploymentPinHash, computeOverlayPinHash } from "../services/executive-pin-hash";
+import type { SelectedAdvisorExecutionPin } from "../services/executive-deliberation.service";
+
+// COSA Control Plane là app khác — giả lập đúng catalog generated (xem executive-deliberation.service.test.ts).
+vi.mock("../services/advisor-overlay.client", () => ({
+  fetchAdvisorOverlayIdentity: vi.fn(async (_ws: string, roleKey: string) => {
+    const { ADVISOR_OVERLAY_CATALOG: catalog } = await import(
+      "../../shared/contracts/executive-advisor-overlays.generated"
+    );
+    return catalog[roleKey];
+  }),
+}));
+
+async function pinHashes(ctx: TenantContext, projectId: string, delibId: string, roleKey: string) {
+  const details = await getDeliberation(ctx, projectId, delibId);
+  const pin = (details.activeFrame?.selectedRoles as SelectedAdvisorExecutionPin[]).find(
+    (r) => r.roleKey === roleKey
+  )!;
+  return {
+    deployment_pin_hash: computeDeploymentPinHash(pin.deployment),
+    overlay_pin_hash: computeOverlayPinHash(pin.overlay),
+  };
+}
 
 describe("Executive Deliberation Callback & Transitions", () => {
   let founderCtx: TenantContext;
@@ -57,6 +81,7 @@ describe("Executive Deliberation Callback & Transitions", () => {
       deliberation_id: draft.id,
       frame_version: 1,
       role_key: "cfo",
+      ...(await pinHashes(founderCtx, projectId, draft.id, "cfo")),
       descriptor: {
         run_id: "run-cfo-1",
         conclusion: "Financially sound, expected ARR increase 25%.",
@@ -95,6 +120,7 @@ describe("Executive Deliberation Callback & Transitions", () => {
       deliberation_id: draft.id,
       frame_version: 1,
       role_key: "cmo",
+      ...(await pinHashes(founderCtx, projectId, draft.id, "cmo")),
       descriptor: {
         run_id: "run-cmo-1",
         conclusion: "Marketing conversion might drop 10%, but net positive.",
@@ -130,6 +156,7 @@ describe("Executive Deliberation Callback & Transitions", () => {
       deliberation_id: draft.id,
       frame_version: 1,
       role_key: "cfo",
+      ...(await pinHashes(founderCtx, projectId, draft.id, "cfo")),
       descriptor: { conclusion: "Ok" },
     };
 
@@ -164,6 +191,7 @@ describe("Executive Deliberation Callback & Transitions", () => {
       deliberation_id: draft.id,
       frame_version: 1,
       role_key: "cfo",
+      ...(await pinHashes(founderCtx, projectId, draft.id, "cfo")),
       descriptor: { conclusion: "Ok" },
     };
 
@@ -175,5 +203,44 @@ describe("Executive Deliberation Callback & Transitions", () => {
         callbackPayload
       )
     ).rejects.toThrow(/terminal state 'CANCELLED'/);
+  });
+
+  it("rejects stale frame, overlay drift and deployment drift; conflicting replay does not overwrite", async () => {
+    const draft = await createDraftDeliberation(founderCtx, projectId, { title: "Identity checks" });
+    await frameDeliberation(founderCtx, projectId, draft.id, {
+      question: "Identity safety?",
+      roleKeys: ["cfo"],
+    });
+    const hashes = await pinHashes(founderCtx, projectId, draft.id, "cfo");
+    const base = {
+      kind: "executive.analysis.completed.v1",
+      deliberation_id: draft.id,
+      frame_version: 1,
+      role_key: "cfo",
+      descriptor: { run_id: "run-cfo-1", conclusion: "A", confidence: "HIGH" },
+      ...hashes,
+    };
+    const call = (payload: typeof base) =>
+      recordExecutiveAnalysisCallback(founderCtx.workspaceId, projectId, draft.id, payload);
+
+    await expect(call({ ...base, frame_version: 2 })).rejects.toThrow(/Frame version mismatch/);
+    await expect(call({ ...base, overlay_pin_hash: "0".repeat(64) })).rejects.toThrow(
+      /EXECUTIVE_CALLBACK_OVERLAY_PIN_MISMATCH/
+    );
+    await expect(call({ ...base, deployment_pin_hash: "0".repeat(64) })).rejects.toThrow(
+      /EXECUTIVE_CALLBACK_DEPLOYMENT_PIN_MISMATCH/
+    );
+    const { deployment_pin_hash: _d, ...noHash } = base;
+    await expect(call(noHash as typeof base)).rejects.toThrow(/DEPLOYMENT_PIN_MISMATCH/);
+
+    // Callback đúng được nhận; replay giống hệt idempotent; replay khác nội dung bị từ chối.
+    const first = await call(base);
+    expect((await call(base)).id).toBe(first.id);
+    await expect(
+      call({ ...base, descriptor: { ...base.descriptor, conclusion: "B" } })
+    ).rejects.toThrow(/EXECUTIVE_CALLBACK_CONFLICT/);
+    const details = await getDeliberation(founderCtx, projectId, draft.id);
+    expect(details.analyses).toHaveLength(1);
+    expect(details.analyses?.[0].descriptor.conclusion).toBe("A");
   });
 });

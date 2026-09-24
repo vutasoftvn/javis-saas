@@ -7,11 +7,12 @@ from agent.executive_board.models import (
     EvidenceRef,
     ExecutiveAnalysisRequest,
     ExecutiveBoardInputError,
-    RolePin,
 )
 from agent.executive_board.runner import ExecutiveBoardRunner
-from agent.registry.models import PublishedSpecRecord
 from agent.registry.repository import InMemorySpecRegistryRepository
+
+from apps.cosa.agents.advisor_overlay_validation import validate_advisor_overlay
+from tests.agent.executive_board.advisor_support import build_pin, seed_advisor_registry
 
 
 
@@ -23,14 +24,7 @@ def make_request(**kwargs) -> ExecutiveAnalysisRequest:
         "frame_version": 1,
         "role_key": "cfo",
         "question": "Assess Q3 cash runway with 20% burn increase",
-        "role_pin": RolePin(
-            role_key="cfo",
-            assignment_id="assign_1",
-            spec_id="cosa.executive.cfo",
-            spec_version="1.0.0",
-            spec_hash="hash_cfo",
-            skill_pins=("skillpack:executive/cfo-advisor@1.0.0",),
-        ),
+        "execution_pin": build_pin("cfo"),
         "evidence_refs": (
             EvidenceRef(
                 source_ref="object://finance/q2-report",
@@ -59,6 +53,7 @@ def make_runner(kernel: ExecutionKernel | None = None, spec_registry: InMemorySp
     return ExecutiveBoardRunner(
         kernel=kernel or _StubKernel(),
         spec_registry=spec_registry or InMemorySpecRegistryRepository(),
+        overlay_validator=validate_advisor_overlay,
     )
 
 
@@ -134,32 +129,17 @@ async def test_successful_isolated_analysis_produces_completed_descriptor():
 
 
 
-async def make_outcome_request(runner: ExecutiveBoardRunner, *, role_pin: RolePin):
-    request = ExecutiveAnalysisRequest(
-        workspace_id="ws-1",
-        project_id="proj-1",
-        deliberation_id="delib-1",
-        frame_version=1,
-        role_key=role_pin.role_key,
-        question="Founder muốn biết tình hình runway.",
-        role_pin=role_pin,
+async def _seeded_runner(stub: _StubKernel) -> tuple[ExecutiveBoardRunner, InMemorySpecRegistryRepository]:
+    registry = InMemorySpecRegistryRepository()
+    await seed_advisor_registry(registry, "cfo")
+    runner = ExecutiveBoardRunner(
+        kernel=stub, spec_registry=registry, overlay_validator=validate_advisor_overlay
     )
-    return await runner.run(request)
+    return runner, registry
 
 
 @pytest.mark.asyncio
-async def test_run_calls_kernel_when_no_mock_output_provided():
-    registry = InMemorySpecRegistryRepository()
-    await registry.publish(
-        PublishedSpecRecord(
-            spec_kind="skill",
-            spec_id="executive.cfo-advisor",
-            version="1.0.0",
-            definition_hash="hash-cfo-1",
-            content={"id": "executive.cfo-advisor", "version": "1.0.0", "instructions": "..."},
-            publisher="cosa_built_in",
-        )
-    )
+async def test_run_uses_pinned_overlay_as_root_and_records_both_pins():
     kernel_output = {
         "conclusion": "Runway đủ 12 tháng.",
         "options": [{"title": "Giữ nguyên", "trade_off": "An toàn"}],
@@ -169,57 +149,81 @@ async def test_run_calls_kernel_when_no_mock_output_provided():
     stub = _StubKernel(
         RunResult(run_id="run-1", status=RunStatus.COMPLETED, final_output=kernel_output)
     )
-    runner = ExecutiveBoardRunner(kernel=stub, spec_registry=registry)
+    runner, _ = await _seeded_runner(stub)
+    request = make_request()
 
-    outcome = await make_outcome_request(
-        runner,
-        role_pin=RolePin(
-            role_key="cfo",
-            assignment_id="assign-cfo",
-            spec_id="cosa.agents.finance",
-            spec_version="1.1.0",
-            spec_hash="fin-hash",
-            skill_pins=("skillpack:executive/cfo-advisor@1.0.0",),
-        ),
-    )
+    outcome = await runner.run(request)
 
+    pin = request.execution_pin
     assert outcome.kind == "executive.analysis.completed.v1"
     assert outcome.descriptor["conclusion"] == "Runway đủ 12 tháng."
-    assert stub.last_spec.pinned_skills[0].skill_id == "executive.cfo-advisor"
+    assert outcome.descriptor["run_id"] == "run-1"
+    assert outcome.deployment_pin_hash == pin.deployment.identity_hash()
+    assert outcome.overlay_pin_hash == pin.overlay.identity_hash()
+    # Root executable là overlay (không còn spec tổng hợp `executive.board.<role>`).
+    assert stub.last_spec.id == pin.overlay.overlay_spec_id
+    assert stub.last_spec.compute_hash() == pin.overlay.overlay_spec_hash
     assert stub.last_spec.autonomy_level.value == "L1"
-    assert stub.last_request.workspace_id == "ws-1"
+    assert stub.last_spec.output_schema is not None
+    assert stub.last_request.root_executable_ref.definition_hash == pin.overlay.overlay_spec_hash
+    assert stub.last_request.workspace_id == "ws_1001"
+    assert stub.last_request.metadata["project_id"] == "proj_1001"
+    assert stub.last_request.metadata["deployment_spec_hash"] == pin.deployment.spec_hash
+    advisor = stub.last_request.input["advisor_execution"]
+    assert advisor["project_id"] == "proj_1001"
+    assert advisor["deployment"]["project_agent_deployment_id"] == "dep-1"
+    assert advisor["overlay"]["overlay_spec_hash"] == pin.overlay.overlay_spec_hash
+
+
+@pytest.mark.asyncio
+async def test_overlay_hash_drift_fails_before_model_invocation():
+    stub = _StubKernel()
+    runner, _ = await _seeded_runner(stub)
+    pin = build_pin("cfo")
+    drifted = pin.model_copy(
+        update={"overlay": pin.overlay.model_copy(update={"overlay_spec_hash": "0" * 64})}
+    )
+
+    with pytest.raises(ExecutiveBoardInputError, match="OVERLAY_PIN_DRIFT"):
+        await runner.run(make_request(execution_pin=drifted))
+    assert stub.last_request is None
+
+
+@pytest.mark.asyncio
+async def test_deployment_hash_drift_fails_before_model_invocation():
+    stub = _StubKernel()
+    runner, _ = await _seeded_runner(stub)
+    pin = build_pin("cfo")
+    drifted = pin.model_copy(
+        update={"deployment": pin.deployment.model_copy(update={"spec_hash": "1" * 64})}
+    )
+
+    with pytest.raises(ExecutiveBoardInputError, match="DEPLOYMENT_PIN_DRIFT"):
+        await runner.run(make_request(execution_pin=drifted))
+    assert stub.last_request is None
+
+
+@pytest.mark.asyncio
+async def test_overlay_outside_deployment_scope_is_rejected_before_model_invocation():
+    stub = _StubKernel()
+    runner, _ = await _seeded_runner(stub)
+
+    with pytest.raises(ExecutiveBoardInputError, match="OVERLAY_SCOPE_VIOLATION"):
+        runner._overlay_validator = lambda overlay, profile: ["capabilities_outside_profile:x"]
+        await runner.run(make_request())
+    assert stub.last_request is None
 
 
 @pytest.mark.asyncio
 async def test_run_fails_when_kernel_status_not_completed():
-    registry = InMemorySpecRegistryRepository()
-    await registry.publish(
-        PublishedSpecRecord(
-            spec_kind="skill",
-            spec_id="executive.cfo-advisor",
-            version="1.0.0",
-            definition_hash="hash-cfo-1",
-            content={},
-            publisher="cosa_built_in",
-        )
-    )
     stub = _StubKernel(RunResult(run_id="run-2", status=RunStatus.FAILED, errors=["boom"]))
-    runner = ExecutiveBoardRunner(kernel=stub, spec_registry=registry)
+    runner, _ = await _seeded_runner(stub)
 
-    outcome = await make_outcome_request(
-        runner,
-        role_pin=RolePin(
-            role_key="cfo",
-            assignment_id="assign-cfo",
-            spec_id="cosa.agents.finance",
-            spec_version="1.1.0",
-            spec_hash="fin-hash",
-            skill_pins=("skillpack:executive/cfo-advisor@1.0.0",),
-        ),
-    )
+    outcome = await runner.run(make_request())
 
     assert outcome.kind == "executive.analysis.failed.v1"
     assert "KERNEL_RUN_FAILED" in outcome.error_detail
+    assert outcome.overlay_pin_hash == make_request().execution_pin.overlay.identity_hash()
 
 
 @pytest.mark.asyncio

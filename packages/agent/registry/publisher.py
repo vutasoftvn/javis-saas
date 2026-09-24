@@ -11,6 +11,7 @@ __all__ = [
     "publish_agent_spec",
     "publish_model_policy_spec",
     "publish_prompt_spec",
+    "publish_skill_batch",
     "publish_skill_spec",
 ]
 
@@ -72,6 +73,31 @@ async def publish_skill_spec(
         publisher=publisher,
     )
     return await repository.publish(record)
+
+
+async def publish_skill_batch(
+    specs: list[SkillSpec],
+    *,
+    repository: SpecRegistryRepository,
+    publisher: str | None = None,
+) -> list[PublishedSpecRecord]:
+    """Publish nhiều SkillSpec atomically: mọi skill hoặc không skill nào hiển thị."""
+    records: list[PublishedSpecRecord] = []
+    for spec in specs:
+        pinned_hash = spec.definition_hash or spec.compute_hash()
+        content = spec.model_dump(mode="json")
+        content["definition_hash"] = pinned_hash
+        records.append(
+            PublishedSpecRecord(
+                spec_kind="skill",
+                spec_id=spec.id,
+                version=spec.version,
+                definition_hash=pinned_hash,
+                content=content,
+                publisher=publisher,
+            )
+        )
+    return await repository.publish_batch(records)
 
 
 async def publish_prompt_spec(

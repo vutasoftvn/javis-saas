@@ -90,6 +90,12 @@ export interface E2eSeedOptions {
    * `resolveApprovedComplianceSnapshot`), không phải riêng phần thiếu.
    */
   additionalBoundCapabilityIds?: string[];
+  /**
+   * Seed compliance cho một workspace/founder ĐÃ TỒN TẠI (vd. workspace do session E2E tạo)
+   * thay vì sinh id tổng hợp — cần cho process E2E chạy agent thật trong đúng workspace đó.
+   */
+  workspaceId?: string;
+  founderMemberId?: string;
 }
 
 /**
@@ -103,8 +109,8 @@ export async function seedE2eComplianceScenario(
   scenario: E2eSeedScenario,
   options?: E2eSeedOptions
 ): Promise<E2eSeedResult> {
-  const wsId = String(generateSnowflake());
-  const founderId = String(generateSnowflake());
+  const wsId = options?.workspaceId ?? String(generateSnowflake());
+  const founderId = options?.founderMemberId ?? String(generateSnowflake());
   const requiredCapabilityIds = [
     BOUND_CAPABILITY_ID,
     MODEL_INPUT_CAPABILITY_ID,

@@ -1,47 +1,50 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../agents/services/agents_service.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../core/localization/supported_locale.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../chat/models/data_access_declaration.dart';
+import '../../chat/services/agent_chat_service.dart';
+import '../../tasks/services/task_service.dart';
+import '../controllers/direct_agent_chat_controller.dart';
 
+/// Chat trực tiếp với 1 specialist của Project đang hoạt động. Toàn bộ trạng thái đến từ
+/// [DirectAgentChatController] (API thật); sheet không tự sinh câu trả lời hay toast thành công.
 class AgentDirectChatSheet extends StatefulWidget {
   final Map<String, dynamic> agent;
+
+  /// Project đang hoạt động của Hub; null thì sheet báo lỗi và không gửi gì.
+  final String? projectId;
+
+  /// Profile key backend (vd. `finance`), khác `agent['key']` dùng cho hiển thị.
+  final String profileKey;
   final VoidCallback onClose;
-  final Function(String taskTitle, String description)? onTaskCreated;
+  final void Function(String taskId)? onTaskCreated;
+
+  /// Chỉ dùng cho test: tiêm controller đã dựng sẵn.
+  final DirectAgentChatController? controller;
 
   const AgentDirectChatSheet({
     super.key,
     required this.agent,
+    required this.projectId,
+    required this.profileKey,
     required this.onClose,
     this.onTaskCreated,
+    this.controller,
   });
 
   @override
   State<AgentDirectChatSheet> createState() => _AgentDirectChatSheetState();
 }
 
-class _ChatMessageItem {
-  final bool isUser;
-  final String text;
-  final DateTime timestamp;
-  final String? executionMetrics;
-
-  _ChatMessageItem({
-    required this.isUser,
-    required this.text,
-    required this.timestamp,
-    this.executionMetrics,
-  });
-}
-
 class _AgentDirectChatSheetState extends State<AgentDirectChatSheet> {
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final List<_ChatMessageItem> _messages = [];
-  bool _isThinking = false;
-  late final AgentsService _agentsService;
+  late final DirectAgentChatController _controller;
+  late final bool _ownsController;
+  DataAccessDeclaration _dataAccess = const DataAccessDeclaration();
 
   bool _isEnglish() {
     if (Get.isRegistered<LocaleController>()) {
@@ -53,27 +56,21 @@ class _AgentDirectChatSheetState extends State<AgentDirectChatSheet> {
   @override
   void initState() {
     super.initState();
-    _agentsService = AgentsService();
-
-    final isEn = _isEnglish();
-    final agentName = widget.agent['name'] ?? (isEn ? 'AI Specialist' : 'Chuyên viên AI');
-    final role = widget.agent['role_title'] ?? (isEn ? 'Domain Advisor' : 'Cố vấn chuyên môn');
-    final dept = widget.agent['department'] ?? 'Operations';
-
-    // Tin nhắn chào đón khởi tạo
-    _messages.add(
-      _ChatMessageItem(
-        isUser: false,
-        text: isEn
-            ? 'Hello Founder! I am **$agentName** ($role - $dept Department). I am ready to receive instructions and analyze missions. How can I assist you today?'
-            : 'Xin chào Founder! Tôi là **$agentName** ($role - Ban $dept). Tôi đã sẵn sàng nhận chỉ thị và phân tích nhiệm vụ. Bạn cần tôi hỗ trợ việc gì ngay hôm nay?',
-        timestamp: DateTime.now(),
-      ),
-    );
+    _ownsController = widget.controller == null;
+    _controller = widget.controller ??
+        DirectAgentChatController(
+          projectId: widget.projectId,
+          profileKey: widget.profileKey,
+          chatService: AgentChatService(),
+          taskService: TaskService(),
+        );
+    _controller.addListener(_scrollToBottom);
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_scrollToBottom);
+    if (_ownsController) _controller.dispose();
     _textController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -165,84 +162,9 @@ class _AgentDirectChatSheetState extends State<AgentDirectChatSheet> {
 
   Future<void> _sendMessage(String text) async {
     final trimmed = text.trim();
-    if (trimmed.isEmpty || _isThinking) return;
-
+    if (trimmed.isEmpty || _controller.isBusy) return;
     _textController.clear();
-    setState(() {
-      _messages.add(
-        _ChatMessageItem(
-          isUser: true,
-          text: trimmed,
-          timestamp: DateTime.now(),
-        ),
-      );
-      _isThinking = true;
-    });
-
-    _scrollToBottom();
-
-    final agentKey = widget.agent['key']?.toString() ?? 'specialist';
-    final agentName = widget.agent['name']?.toString() ?? 'Chuyên viên AI';
-    final startTime = DateTime.now();
-
-    try {
-      final res = await _agentsService.testRunAgent(
-        agentKey,
-        prompt: trimmed,
-        systemPromptOverride:
-            'Bạn là $agentName, chuyên viên cao cấp trong hệ điều hành doanh nghiệp COSA. Hãy trả lời ngắn gọn, có cấu trúc gạch đầu dòng rõ ràng, hành động thực thi được ngay và bám sát thực tế của Founder.',
-      );
-
-      final elapsed = DateTime.now().difference(startTime).inMilliseconds;
-      String outputText = '';
-      String metrics = '${elapsed}ms';
-
-      if (res != null && res['output'] != null) {
-        outputText = res['output'].toString();
-        final tokens = res['tokens_used'] ?? res['token_usage'];
-        if (tokens != null) metrics += ' • $tokens tokens';
-      } else {
-        // Trả lời phân tích chuyên sâu tự động nếu backend test-run chưa cấu hình model ngoài
-        outputText = _generateSpecialistResponse(agentName, trimmed);
-        metrics += ' • COSA Agent Core';
-      }
-
-      setState(() {
-        _messages.add(
-          _ChatMessageItem(
-            isUser: false,
-            text: outputText,
-            timestamp: DateTime.now(),
-            executionMetrics: metrics,
-          ),
-        );
-        _isThinking = false;
-      });
-    } catch (e) {
-      final elapsed = DateTime.now().difference(startTime).inMilliseconds;
-      setState(() {
-        _messages.add(
-          _ChatMessageItem(
-            isUser: false,
-            text: _generateSpecialistResponse(agentName, trimmed),
-            timestamp: DateTime.now(),
-            executionMetrics: '${elapsed}ms • Local Fallback',
-          ),
-        );
-        _isThinking = false;
-      });
-    }
-
-    _scrollToBottom();
-  }
-
-  String _generateSpecialistResponse(String agentName, String prompt) {
-    final dept = widget.agent['department'] ?? 'Chuyên môn';
-    return 'Dựa trên chỉ đạo: "$prompt"\n\nTôi đã phân tích theo tiêu chuẩn ban $dept và đề xuất các hành động cụ thể sau:\n\n'
-        '1. **Hành động then chốt 1**: Khảo sát và đo lường trực tiếp chỉ số liên quan trong 2 ngày đầu tuần.\n'
-        '2. **Hành động then chốt 2**: Hoàn thiện tài liệu/kế hoạch triển khai và thông qua với Co-Founder.\n'
-        '3. **Hành động then chốt 3**: Đo lường phản hồi thực tế và điều chỉnh chiến thuật.\n\n'
-        'Bạn có thể bấm nút **"Đưa vào Kế hoạch Tuần"** bên dưới để tôi lưu ngay các nhiệm vụ này vào chu kỳ thực thi!';
+    await _controller.send(trimmed, _dataAccess);
   }
 
   void _scrollToBottom() {
@@ -257,13 +179,29 @@ class _AgentDirectChatSheetState extends State<AgentDirectChatSheet> {
     });
   }
 
-  void _convertLastMessageToTask(String text) {
+  String _taskTitleFor(String responseText) {
     final agentName = widget.agent['name'] ?? 'AI Agent';
-    final taskTitle = '[$agentName] Nhiệm vụ từ chỉ đạo của Founder';
-    if (widget.onTaskCreated != null) {
-      widget.onTaskCreated!(taskTitle, text);
-    } else {
-      AppToast.success('Đã lưu nhiệm vụ từ $agentName vào danh sách tuần!');
+    final firstLine = responseText.trim().split('\n').first.trim();
+    final summary = firstLine.length > 100 ? '${firstLine.substring(0, 100)}…' : firstLine;
+    return '[$agentName] $summary';
+  }
+
+  /// Toast thành công CHỈ sau khi Company trả task id; lỗi giữ nguyên câu trả lời để retry.
+  Future<void> _convertToTask(DirectChatMessage message) async {
+    final isEn = _isEnglish();
+    try {
+      final taskId = await _controller.createTaskFromResponse(
+        message,
+        title: _taskTitleFor(message.text),
+      );
+      AppToast.success(
+        isEn ? 'Task created (id $taskId)' : 'Đã tạo task (id $taskId)',
+      );
+      widget.onTaskCreated?.call(taskId);
+    } catch (e) {
+      AppToast.error(
+        isEn ? 'Could not create task: $e' : 'Không tạo được task: $e',
+      );
     }
   }
 
@@ -295,27 +233,38 @@ class _AgentDirectChatSheetState extends State<AgentDirectChatSheet> {
           // 1. Header Bar
           _buildHeader(agentName, role, dept),
 
-          // 2. Chat Messages Area
+          // 2. Chat Messages Area (trạng thái thật từ controller)
           Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              itemCount: _messages.length + (_isThinking ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index == _messages.length && _isThinking) {
-                  return _buildThinkingBubble(agentName);
-                }
-                final msg = _messages[index];
-                return _buildMessageBubble(msg, agentName);
+            child: ListenableBuilder(
+              listenable: _controller,
+              builder: (context, _) {
+                final messages = _controller.messages;
+                if (messages.isEmpty) return _buildEmptyState();
+                return ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  itemCount: messages.length,
+                  itemBuilder: (context, index) => _buildMessageBubble(messages[index], agentName),
+                );
               },
             ),
           ),
 
-          // 3. Quick Suggestions Bar
-          _buildQuickPromptsBar(quickPrompts),
+          // 3. Lỗi recoverable / thiếu Project
+          ListenableBuilder(
+            listenable: _controller,
+            builder: (context, _) => _buildStatusBanner(),
+          ),
 
-          // 4. Input Field & Action Buttons
-          _buildInputField(),
+          // 4. Quick Suggestions Bar + data access + input
+          if (_controller.hasProject) ...[
+            _buildQuickPromptsBar(quickPrompts),
+            _buildDataAccessBar(),
+          ],
+          ListenableBuilder(
+            listenable: _controller,
+            builder: (context, _) => _buildInputField(),
+          ),
         ],
       ),
     );
@@ -426,7 +375,55 @@ class _AgentDirectChatSheetState extends State<AgentDirectChatSheet> {
     );
   }
 
-  Widget _buildMessageBubble(_ChatMessageItem msg, String agentName) {
+  Widget _buildEmptyState() {
+    final isEn = _isEnglish();
+    final text = _controller.hasProject
+        ? (isEn
+            ? 'Send an instruction. The answer comes from a real agent run in this Project.'
+            : 'Gửi chỉ đạo. Câu trả lời đến từ một run agent thật trong Project này.')
+        : (_controller.unavailableReason ?? '');
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 13),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusBanner() {
+    final error = _controller.hasProject ? _controller.errorMessage : _controller.unavailableReason;
+    if (error == null) return const SizedBox.shrink();
+    return Container(
+      key: const Key('direct_chat_error_banner'),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      color: const Color(0xFF2A1B1B),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline, color: Color(0xFFF87171), size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              error,
+              style: const TextStyle(color: Color(0xFFFCA5A5), fontSize: 12),
+            ),
+          ),
+          if (_controller.hasProject)
+            TextButton(
+              onPressed: _controller.clearError,
+              child: Text(_isEnglish() ? 'Dismiss' : 'Đóng'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMessageBubble(DirectChatMessage msg, String agentName) {
+    final failed = msg.state == DirectChatMessageState.failed;
     if (msg.isUser) {
       return Padding(
         padding: const EdgeInsets.only(bottom: 16),
@@ -445,23 +442,31 @@ class _AgentDirectChatSheetState extends State<AgentDirectChatSheet> {
                 bottomLeft: Radius.circular(16),
                 bottomRight: Radius.circular(16),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.primary.withValues(alpha: 0.25),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
             ),
-            child: Text(
-              msg.text,
-              style: const TextStyle(color: Colors.white, fontSize: 13.5, height: 1.45),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  msg.text,
+                  style: const TextStyle(color: Colors.white, fontSize: 13.5, height: 1.45),
+                ),
+                if (failed)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      _isEnglish() ? 'Not sent' : 'Chưa gửi được',
+                      style: const TextStyle(color: Color(0xFFFCA5A5), fontSize: 11),
+                    ),
+                  ),
+              ],
             ),
           ),
         ),
       );
     }
 
+    final running = msg.state == DirectChatMessageState.running;
+    final completed = msg.state == DirectChatMessageState.completed;
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
       child: Column(
@@ -475,10 +480,10 @@ class _AgentDirectChatSheetState extends State<AgentDirectChatSheet> {
                 agentName,
                 style: const TextStyle(color: AppTheme.primaryLight, fontSize: 11.5, fontWeight: FontWeight.bold),
               ),
-              if (msg.executionMetrics != null) ...[
+              if (msg.runId != null) ...[
                 const SizedBox(width: 8),
                 Text(
-                  '• ${msg.executionMetrics}',
+                  '• run ${msg.runId}',
                   style: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 10.5),
                 ),
               ],
@@ -496,35 +501,61 @@ class _AgentDirectChatSheetState extends State<AgentDirectChatSheet> {
                 bottomLeft: Radius.circular(16),
                 bottomRight: Radius.circular(16),
               ),
-              border: Border.all(color: const Color(0xFF334155)),
+              border: Border.all(color: failed ? const Color(0xFFF87171) : const Color(0xFF334155)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  msg.text,
-                  style: const TextStyle(color: Colors.white, fontSize: 13.5, height: 1.5),
-                ),
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton.icon(
-                    onPressed: () => _convertLastMessageToTask(msg.text),
-                    icon: const Icon(Icons.playlist_add_check, size: 16, color: Color(0xFF34D399)),
-                    label: Text(
-                      _isEnglish() ? 'Add to Weekly Plan' : 'Đưa vào Kế hoạch Tuần',
-                      style: const TextStyle(color: Color(0xFF34D399), fontSize: 12, fontWeight: FontWeight.w600),
-                    ),
-                    style: TextButton.styleFrom(
-                      backgroundColor: const Color(0xFF064E3B).withValues(alpha: 0.4),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6),
-                        side: const BorderSide(color: Color(0x4434D399)),
+                if (running && msg.text.isEmpty)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary),
                       ),
+                      const SizedBox(width: 10),
+                      Text(
+                        _isEnglish() ? '$agentName is running...' : '$agentName đang chạy...',
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12),
+                      ),
+                    ],
+                  )
+                else if (msg.text.isNotEmpty)
+                  Text(
+                    msg.text,
+                    style: const TextStyle(color: Colors.white, fontSize: 13.5, height: 1.5),
+                  ),
+                if (failed && msg.error != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      msg.error!,
+                      style: const TextStyle(color: Color(0xFFFCA5A5), fontSize: 12),
                     ),
                   ),
-                ),
+                if (completed && msg.text.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: msg.taskId != null
+                        ? Text(
+                            _isEnglish() ? 'Task ${msg.taskId} created' : 'Đã tạo task ${msg.taskId}',
+                            key: const Key('direct_chat_task_created'),
+                            style: const TextStyle(color: Color(0xFF34D399), fontSize: 12),
+                          )
+                        : TextButton.icon(
+                            key: const Key('direct_chat_create_task_button'),
+                            onPressed: () => _convertToTask(msg),
+                            icon: const Icon(Icons.playlist_add_check, size: 16, color: Color(0xFF34D399)),
+                            label: Text(
+                              _isEnglish() ? 'Create task' : 'Tạo task',
+                              style: const TextStyle(color: Color(0xFF34D399), fontSize: 12, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -533,36 +564,50 @@ class _AgentDirectChatSheetState extends State<AgentDirectChatSheet> {
     );
   }
 
-  Widget _buildThinkingBubble(String name) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
+  Widget _buildDataAccessBar() {
+    final isEn = _isEnglish();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      color: const Color(0xFF111A2E),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E293B),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF334155)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  _isEnglish()
-                      ? '$name is analyzing the mission...'
-                      : '$name đang phân tích nhiệm vụ...',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12),
-                ),
-              ],
-            ),
+          Text(
+            isEn ? 'Data this message may contain' : 'Dữ liệu tin nhắn có thể chứa',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
           ),
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: DataAccessCategory.values.map((category) {
+              final selected = _dataAccess.categories.contains(category);
+              return FilterChip(
+                key: Key('direct_chat_category_${category.apiValue}'),
+                label: Text(category.label, style: const TextStyle(fontSize: 12)),
+                selected: selected,
+                onSelected: (value) {
+                  final next = {..._dataAccess.categories};
+                  value ? next.add(category) : next.remove(category);
+                  setState(() {
+                    _dataAccess = _dataAccess.copyWith(categories: next);
+                  });
+                },
+              );
+            }).toList(),
+          ),
+          if (_dataAccess.requiresSubjectReference)
+            TextField(
+              key: const Key('direct_chat_subject_reference_field'),
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              decoration: InputDecoration(
+                hintText: isEn ? 'Data subject reference' : 'Mã đối tượng dữ liệu (subject reference)',
+                isDense: true,
+              ),
+              onChanged: (value) => setState(() {
+                _dataAccess = _dataAccess.copyWith(subjectReference: value);
+              }),
+            ),
         ],
       ),
     );
@@ -648,6 +693,7 @@ class _AgentDirectChatSheetState extends State<AgentDirectChatSheet> {
                   borderSide: BorderSide(color: AppTheme.primary),
                 ),
               ),
+              enabled: _controller.hasProject,
               onSubmitted: _sendMessage,
             ),
           ),
@@ -660,7 +706,9 @@ class _AgentDirectChatSheetState extends State<AgentDirectChatSheet> {
               borderRadius: BorderRadius.circular(10),
             ),
             child: IconButton(
-              onPressed: _isThinking ? null : () => _sendMessage(_textController.text),
+              onPressed: (_controller.isBusy || !_controller.hasProject)
+                  ? null
+                  : () => _sendMessage(_textController.text),
               icon: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
               tooltip: _isEnglish() ? 'Send instruction' : 'Gửi chỉ đạo',
             ),

@@ -25,6 +25,7 @@ from agent.runs.stream_events import RunStreamEventRepository
 from agent.skills.candidate_store import SkillCandidateStore
 from agent.skills.improvement_repository import SkillImprovementRepository
 from agent.vault import VaultRepository
+from agent.workflows.agent_spec_resolver import RegistryAgentSpecResolver
 from agent.workflows.definition_registry import WorkflowDefinitionRegistry
 from agent.workflows.engine import WorkflowEngine
 from agent.workflows.repository import (
@@ -479,6 +480,12 @@ def build_cosa_agent_plane(
         governance_store=storage.governance_store,
         kernel=kernel,
         resolver=workflow_authority_resolver,
+        # Không có registry -> không resolver -> AGENT step fail closed.
+        spec_resolver=(
+            RegistryAgentSpecResolver(storage.spec_registry)
+            if storage.spec_registry is not None
+            else None
+        ),
     )
 
     # 7. Knowledge ingestion dependencies (Task 4) — chỉ dựng khi feature flag

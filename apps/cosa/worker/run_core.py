@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 __all__ = [
     "RunCoreError",
     "RunCorePrep",
+    "apply_compliance",
     "bind_route_to_run",
     "prepare_request",
     "prepare_run",
@@ -111,12 +112,30 @@ async def prepare_request(
         metadata=run_metadata,
     )
 
+    return await apply_compliance(plane, req=req, spec=spec)
+
+
+async def apply_compliance(
+    plane: CosaAgentPlane,
+    *,
+    req: RunRequest,
+    spec: AgentSpec,
+    compliance_spec: AgentSpec | None = None,
+) -> RunCorePrep:
+    """Resolve compliance (mint company delegation) cho 1 RunRequest đã dựng sẵn.
+
+    `compliance_spec` cho phép gate đánh giá theo spec khác với executable — dùng cho
+    advisor overlay: overlay không có quyền Project độc lập nên compliance đánh giá theo
+    spec của Project deployment (system_key = deployment spec id), chạy executable là overlay.
+    """
     compliance_resolver = getattr(plane, "compliance_resolver", None)
     if compliance_resolver is None:
         raise RunCoreError("compliance_resolver_unavailable")
 
     try:
-        compliance_metadata = await compliance_resolver.resolve_for_run(req, spec)
+        compliance_metadata = await compliance_resolver.resolve_for_run(
+            req, compliance_spec or spec
+        )
     except ComplianceDenied as exc:
         raise RunCoreError("compliance_denied", compliance_code=exc.code) from exc
 

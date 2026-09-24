@@ -33,7 +33,6 @@ import '../../../core/shell/chat_panel_controller.dart';
 
 import '../widgets/agent_direct_chat_sheet.dart';
 import '../widgets/project_startup_team_sidebar.dart';
-import '../../agents/views/widgets/agent_test_run_drawer.dart';
 import 'executive_advisory_board_view.dart';
 
 class HologramHubView extends StatefulWidget {
@@ -46,7 +45,6 @@ class HologramHubView extends StatefulWidget {
 class _HologramHubViewState extends State<HologramHubView> {
   bool _isMobileWorkforceExpanded = false;
   Map<String, dynamic>? _selectedAgentForChat;
-  Map<String, dynamic>? _selectedAgentForTestRun;
 
   @override
   Widget build(BuildContext context) {
@@ -123,50 +121,13 @@ class _HologramHubViewState extends State<HologramHubView> {
                 alignment: Alignment.centerRight,
                 child: AgentDirectChatSheet(
                   agent: _selectedAgentForChat!,
+                  // Chat luôn thuộc Project đang hoạt động; thiếu Project thì sheet báo lỗi.
+                  projectId: controller.activeProjectId.value,
+                  profileKey: (_selectedAgentForChat!['profile_key'] ??
+                          _selectedAgentForChat!['key'] ??
+                          '')
+                      .toString(),
                   onClose: () => setState(() => _selectedAgentForChat = null),
-                  onTaskCreated: (title, desc) {
-                    final isEn = (Get.isRegistered<LocaleController>() &&
-                            Get.find<LocaleController>().current.value ==
-                                SupportedLocale.enUS) ||
-                        Get.locale?.languageCode == 'en';
-                    AppToast.success(
-                      isEn
-                          ? 'Saved task to weekly plan!'
-                          : 'Đã lưu nhiệm vụ vào kế hoạch tuần!',
-                    );
-                    setState(() => _selectedAgentForChat = null);
-                  },
-                ),
-              ),
-            ],
-
-            // Test Run Drawer (nếu bấm Test)
-            if (_selectedAgentForTestRun != null) ...[
-              Positioned.fill(
-                child: GestureDetector(
-                  onTap: () => setState(() => _selectedAgentForTestRun = null),
-                  child: Container(
-                    color: Colors.black.withValues(alpha: 0.5),
-                  ),
-                ),
-              ),
-              Align(
-                alignment: Alignment.centerRight,
-                child: AgentTestRunDrawer(
-                  agent: _selectedAgentForTestRun!,
-                  isLoading: false,
-                  onClose: () => setState(() => _selectedAgentForTestRun = null),
-                  onExecute: (prompt, model, temp) {
-                    final isEn = (Get.isRegistered<LocaleController>() &&
-                            Get.find<LocaleController>().current.value ==
-                                SupportedLocale.enUS) ||
-                        Get.locale?.languageCode == 'en';
-                    AppToast.success(
-                      isEn
-                          ? 'Executing test run with Agent...'
-                          : 'Đang thực thi thử nghiệm với Agent...',
-                    );
-                  },
                 ),
               ),
             ],

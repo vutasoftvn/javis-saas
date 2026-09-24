@@ -57,6 +57,7 @@ class ExecutiveBoardClient:
         project_id: str,
         deliberation_id: str,
         role_key: str,
+        frame_version: int | None = None,
     ) -> dict[str, Any]:
         """GET /internal/operations/projects/:projectId/deliberations/:deliberationId/authority?roleKey=:roleKey"""
         url = (
@@ -68,7 +69,9 @@ class ExecutiveBoardClient:
             "X-Service-Token": self.service_token,
             "Authorization": f"Bearer {self.service_token}",
         }
-        params = {"roleKey": role_key}
+        params: dict[str, Any] = {"roleKey": role_key}
+        if frame_version is not None:
+            params["frameVersion"] = frame_version
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 res = await client.get(url, headers=headers, params=params)

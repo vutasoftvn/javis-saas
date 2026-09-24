@@ -195,6 +195,7 @@ from agent.runs.leases import RunLeaseManager
 from agent.runs.repository import PostgresRunRepository
 from agent.runs.stream_events import PostgresRunStreamEventRepository
 from agent.skills.candidate_store import PostgresSkillCandidateStore
+from agent.workflows.repository import InMemoryWorkflowDefinitionRepository
 from agent.skills.contracts import SkillStatus
 from apps.cosa.composition.agent_plane import CosaAgentPlane
 from apps.cosa.worker.approval_actions import (
@@ -228,6 +229,7 @@ async def main():
         kernel=None,
         workflow_registry=None,
         workflow_engine=None,
+        workflow_definition_repository=InMemoryWorkflowDefinitionRepository(),
         company_client=None,
         tenant_policy_client=None,
         scheduler=scheduler,
@@ -360,6 +362,7 @@ from agent.runs.repository import PostgresRunRepository
 from agent.runs.stream_events import PostgresRunStreamEventRepository
 from agent.skills.candidate_store import PostgresSkillCandidateStore
 from agent.skills.contracts import SkillStatus
+from agent.workflows.repository import InMemoryWorkflowDefinitionRepository
 from apps.cosa.composition.agent_plane import CosaAgentPlane
 from apps.cosa.worker.approval_actions import execute_skill_candidate_promotion
 
@@ -389,6 +392,7 @@ async def main():
         kernel=None,
         workflow_registry=None,
         workflow_engine=None,
+        workflow_definition_repository=InMemoryWorkflowDefinitionRepository(),
         company_client=None,
         tenant_policy_client=None,
         scheduler=RunScheduler(),

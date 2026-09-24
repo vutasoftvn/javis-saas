@@ -49,9 +49,17 @@ class FakeSDKModel(Model):
     trong conformance test của `RealOpenAIAgentsSDKKernel` VÀ trong
     `apps/cosa` integration test (Task 6) để không cần DEEPSEEK_API_KEY."""
 
-    def __init__(self, responses: list[ModelResponse] | None = None, error: Exception | None = None) -> None:
+    def __init__(
+        self,
+        responses: list[ModelResponse] | None = None,
+        error: Exception | None = None,
+        default_text: str | None = None,
+    ) -> None:
         self._responses = list(responses or [])
         self._error = error
+        # Khi hết hàng đợi, lặp lại `default_text` thay vì câu "no more responses" — dùng cho
+        # process E2E (subprocess worker không thể tiêm hàng đợi response từ test).
+        self._default_text = default_text
         self.call_count = 0
 
     async def get_response(self, *args, **kwargs) -> ModelResponse:
@@ -59,7 +67,7 @@ class FakeSDKModel(Model):
         if self._error:
             raise self._error
         if not self._responses:
-            return text_response("no more responses configured")
+            return text_response(self._default_text or "no more responses configured")
         return self._responses.pop(0)
 
     def stream_response(self, *args, **kwargs):  # pragma: no cover - unused ở conformance này

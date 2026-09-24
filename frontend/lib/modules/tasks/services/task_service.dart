@@ -63,6 +63,7 @@ class TaskService extends WorkspaceService {
     String? function,
     String? projectId,
     String? weeklyCommitmentId,
+    String? idempotencyKey,
   }) async {
     final wId = await _requireWorkspaceId();
     final body = <String, dynamic>{
@@ -75,6 +76,7 @@ class TaskService extends WorkspaceService {
       'assigneeMemberId': ?assigneeMemberId?.toString(),
       'executionMode': ?executionMode,
       'function': ?function,
+      'idempotencyKey': ?idempotencyKey,
     };
 
 
