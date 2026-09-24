@@ -306,7 +306,7 @@ describe("venture-workspace handler", () => {
       const token = signPlatformToken(testUser1Id.toString());
       // This will throw because resolveAuthData() can't import ~encore/auth
       await expect(
-        getWorkspaceEntitlementEndpoint({ id: testWorkspaceId.toString() })
+        getWorkspaceEntitlementEndpoint({ organizationId: testWorkspaceId.toString() })
       ).rejects.toThrow();
     });
   });
