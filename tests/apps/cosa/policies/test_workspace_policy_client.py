@@ -16,12 +16,12 @@ def _client_with_handler(handler) -> CosaTenantPolicyClient:
 async def test_get_snapshot_success():
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/platform/auth/me/agent-policy-snapshot"
-        assert request.url.params["workspaceId"] == "c1"
+        assert request.url.params["organizationId"] == "c1"
         assert request.headers["authorization"] == "Bearer tok"
         return httpx.Response(
             200,
             json={
-                "workspaceId": "c1",
+                "organizationId": "c1",
                 "workspaceStatus": "active",
                 "principalStatus": "active",
                 "rules": [
@@ -66,7 +66,7 @@ async def test_get_snapshot_network_error_raises():
 @pytest.mark.asyncio
 async def test_get_snapshot_missing_field_raises():
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"workspaceId": "c1"})  # thiếu workspaceStatus/rules/...
+        return httpx.Response(200, json={"organizationId": "c1"})  # thiếu workspaceStatus/rules/...
 
     client = _client_with_handler(handler)
     with pytest.raises(CosaTenantPolicyError):

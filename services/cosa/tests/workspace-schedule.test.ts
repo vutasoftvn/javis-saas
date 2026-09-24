@@ -21,7 +21,7 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
   it("creates one_time schedule with valid future timestamp", async () => {
     const future = new Date(Date.now() + 3600000);
     const def = await scheduleSvc.createWorkspaceSchedule({
-      workspaceId: "ws_1",
+      organizationId: "ws_1",
       createdBy: "user_alice",
       scheduleKind: "one_time",
       runAt: future,
@@ -39,7 +39,7 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
     const past = new Date(Date.now() - 10000);
     await expect(
       scheduleSvc.createWorkspaceSchedule({
-        workspaceId: "ws_1",
+        organizationId: "ws_1",
         createdBy: "user_alice",
         scheduleKind: "one_time",
         runAt: past,
@@ -50,7 +50,7 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
 
     await expect(
       scheduleSvc.createWorkspaceSchedule({
-        workspaceId: "ws_1",
+        organizationId: "ws_1",
         createdBy: "user_alice",
         scheduleKind: "daily",
         timezone: "Invalid/Timezone_Name",
@@ -82,7 +82,7 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
   it("dispatches due schedules with snapshot and enqueues low-level scheduled_task", async () => {
     const pastDue = new Date(Date.now() - 5000);
     const def = await scheduleSvc.createWorkspaceSchedule({
-      workspaceId: "ws_1",
+      organizationId: "ws_1",
       createdBy: "user_alice",
       scheduleKind: "daily",
       timezone: "Asia/Ho_Chi_Minh",
@@ -125,7 +125,7 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
   it("handles scheduleTask failure gracefully with enqueue_retry and retries on next tick", async () => {
     const pastDue = new Date(Date.now() - 5000);
     const def = await scheduleSvc.createWorkspaceSchedule({
-      workspaceId: "ws_1",
+      organizationId: "ws_1",
       createdBy: "user_alice",
       scheduleKind: "daily",
       timezone: "Asia/Ho_Chi_Minh",
@@ -192,7 +192,7 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
   it("terminates into enqueue_failed after MAX_ENQUEUE_RETRIES consecutive enqueue failures (no infinite retry, no duplicate occurrence)", async () => {
     const pastDue = new Date(Date.now() - 5000);
     const def = await scheduleSvc.createWorkspaceSchedule({
-      workspaceId: "ws_1",
+      organizationId: "ws_1",
       createdBy: "user_alice",
       scheduleKind: "daily",
       timezone: "Asia/Ho_Chi_Minh",
@@ -260,7 +260,7 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
 
   it("allows runScheduleNow to trigger immediate execution", async () => {
     const def = await scheduleSvc.createWorkspaceSchedule({
-      workspaceId: "ws_1",
+      organizationId: "ws_1",
       createdBy: "user_alice",
       scheduleKind: "daily",
       hour: 18,
@@ -271,7 +271,7 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
 
     const execution = await scheduleSvc.runScheduleNow({
       scheduleId: def.id,
-      workspaceId: "ws_1",
+      organizationId: "ws_1",
       principalId: "user_alice",
     });
 
@@ -294,7 +294,7 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
 
     // Schedule hợp lệ, có projectId — phải được dispatch.
     const scoped = await scheduleSvc.createWorkspaceSchedule({
-      workspaceId: "ws_1",
+      organizationId: "ws_1",
       createdBy: "user_alice",
       scheduleKind: "daily",
       timezone: "Asia/Ho_Chi_Minh",
@@ -315,7 +315,7 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
       .insert(workspaceScheduleDefinitions)
       .values({
         id: "sched_legacy_null_project",
-        workspaceId: "ws_1",
+        organizationId: "ws_1",
         createdBy: "user_alice",
         scheduleKind: "daily",
         timezone: "Asia/Ho_Chi_Minh",
@@ -347,7 +347,7 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
     const id = `sched_legacy_rebind_${Date.now()}`;
     await db.insert(workspaceScheduleDefinitions).values({
       id,
-      workspaceId: "ws_1",
+      organizationId: "ws_1",
       createdBy: "user_alice",
       scheduleKind: "daily",
       promptTemplate: "Scan",
@@ -358,7 +358,7 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
 
     const rebound = await scheduleSvc.rebindLegacyWorkspaceSchedule({
       scheduleId: id,
-      workspaceId: "ws_1",
+      organizationId: "ws_1",
       projectId: "proj_new_123",
       principalId: "user_alice",
     });
@@ -372,7 +372,7 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
     await expect(
       scheduleSvc.rebindLegacyWorkspaceSchedule({
         scheduleId: id,
-        workspaceId: "ws_1",
+        organizationId: "ws_1",
         projectId: "proj_another",
       })
     ).rejects.toThrow();

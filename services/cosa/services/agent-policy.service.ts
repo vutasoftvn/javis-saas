@@ -10,7 +10,7 @@ const { workspaceAgentPolicy, users } = schema;
 export type TenantPolicyDecision = "ALLOW" | "REQUIRE_APPROVAL" | "DENY";
 
 export interface GetTenantPolicyParams {
-  workspaceId?: string;
+  organizationId?: string;
   companyId?: string;
   toolName: string;
 }
@@ -22,7 +22,7 @@ export interface GetTenantPolicyResult {
 }
 
 export interface UpsertTenantPolicyParams {
-  workspaceId?: string;
+  organizationId?: string;
   companyId?: string;
   toolPattern: string;
   decision: TenantPolicyDecision;
@@ -36,7 +36,7 @@ export interface UpsertTenantPolicyParams {
  * `decision: null` (agentos coi là "không có tenant policy", không phải DENY).
  */
 export async function getTenantPolicyForTool(params: GetTenantPolicyParams): Promise<GetTenantPolicyResult> {
-  const rawId = params.workspaceId || params.companyId;
+  const rawId = params.organizationId || params.companyId;
   if (!rawId) {
     return { decision: null, matchedPattern: null, reason: null };
   }
@@ -44,7 +44,7 @@ export async function getTenantPolicyForTool(params: GetTenantPolicyParams): Pro
   const rows = await db
     .select()
     .from(workspaceAgentPolicy)
-    .where(eq(workspaceAgentPolicy.workspaceId, workspaceIdBig));
+    .where(eq(workspaceAgentPolicy.organizationId, workspaceIdBig));
 
   if (rows.length === 0) {
     return { decision: null, matchedPattern: null, reason: null };
@@ -78,13 +78,13 @@ export interface TenantPolicyRule {
 }
 
 export interface TenantPolicySnapshotResult {
-  workspaceId: string;
+  organizationId: string;
   workspaceStatus: string;
   principalStatus: string;
   rules: TenantPolicyRule[];
   snapshotHash: string;
   businessPolicyRef?: {
-    workspaceId: string;
+    organizationId: string;
     version: number;
     hash: string;
   } | null;
@@ -97,7 +97,7 @@ export interface TenantPolicySnapshotResult {
  */
 export async function getTenantPolicySnapshotForCaller(
   userIdStr: string,
-  workspaceId: string,
+  organizationId: string,
   authorizationHeader?: string
 ): Promise<TenantPolicySnapshotResult> {
   // Verify workspace membership (throws if not a member) — đường xác thực gốc,
@@ -106,8 +106,8 @@ export async function getTenantPolicySnapshotForCaller(
   // 1 access token của core sẽ luôn fail ở đây (khác
   // secret) — xem `buildTenantPolicySnapshot` bên dưới cho đường B5 fix
   // (control-plane delegation, KHÔNG round-trip sang company).
-  await verifyWorkspaceMembership(workspaceId, authorizationHeader);
-  return buildTenantPolicySnapshot(userIdStr, workspaceId);
+  await verifyWorkspaceMembership(organizationId, authorizationHeader);
+  return buildTenantPolicySnapshot(userIdStr, organizationId);
 }
 
 /**
@@ -120,7 +120,7 @@ export async function getTenantPolicySnapshotForCaller(
  */
 export async function buildTenantPolicySnapshot(
   userIdStr: string,
-  workspaceId: string
+  organizationId: string
 ): Promise<TenantPolicySnapshotResult> {
   const userId = BigInt(userIdStr);
 
@@ -129,7 +129,7 @@ export async function buildTenantPolicySnapshot(
     throw APIError.notFound("platform user không tồn tại");
   }
 
-  const workspaceIdBig = BigInt(workspaceId);
+  const workspaceIdBig = BigInt(organizationId);
   const policyRows = await db
     .select({
       toolPattern: workspaceAgentPolicy.toolPattern,
@@ -137,7 +137,7 @@ export async function buildTenantPolicySnapshot(
       reason: workspaceAgentPolicy.reason,
     })
     .from(workspaceAgentPolicy)
-    .where(eq(workspaceAgentPolicy.workspaceId, workspaceIdBig));
+    .where(eq(workspaceAgentPolicy.organizationId, workspaceIdBig));
 
   const rules: TenantPolicyRule[] = policyRows.map((r) => ({
     toolPattern: r.toolPattern,
@@ -153,7 +153,7 @@ export async function buildTenantPolicySnapshot(
 
   const businessPolicyRef = bRef
     ? {
-        workspaceId: bRef.businessWorkspaceId,
+        organizationId: bRef.businessWorkspaceId,
         version: bRef.version,
         hash: bRef.policyHash,
       }
@@ -164,7 +164,7 @@ export async function buildTenantPolicySnapshot(
     .digest("hex");
 
   return {
-    workspaceId,
+    organizationId,
     workspaceStatus: "active",
     principalStatus: userRow.status,
     rules,
@@ -174,15 +174,15 @@ export async function buildTenantPolicySnapshot(
 }
 
 export async function upsertTenantPolicy(params: UpsertTenantPolicyParams): Promise<void> {
-  const rawId = params.workspaceId || params.companyId;
+  const rawId = params.organizationId || params.companyId;
   if (!rawId) {
-    throw APIError.invalidArgument("workspaceId hoặc companyId là bắt buộc");
+    throw APIError.invalidArgument("organizationId hoặc companyId là bắt buộc");
   }
   const workspaceIdBig = BigInt(rawId);
   const existing = await db
     .select()
     .from(workspaceAgentPolicy)
-    .where(and(eq(workspaceAgentPolicy.workspaceId, workspaceIdBig), eq(workspaceAgentPolicy.toolPattern, params.toolPattern)));
+    .where(and(eq(workspaceAgentPolicy.organizationId, workspaceIdBig), eq(workspaceAgentPolicy.toolPattern, params.toolPattern)));
 
   if (existing.length > 0) {
     await db
@@ -194,7 +194,7 @@ export async function upsertTenantPolicy(params: UpsertTenantPolicyParams): Prom
 
   await db.insert(workspaceAgentPolicy).values({
     id: generateSnowflake(),
-    workspaceId: workspaceIdBig,
+    organizationId: workspaceIdBig,
     toolPattern: params.toolPattern,
     decision: params.decision,
     reason: params.reason ?? null,

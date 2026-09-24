@@ -196,7 +196,7 @@ describe("Control Plane Service", () => {
     });
     await db.insert(workspaceMemberships).values({
       id: BigInt(`9223372036854775806`),
-      workspaceId: MAX_PRECISION_ID,
+      organizationId: MAX_PRECISION_ID,
       userId: BigInt(founderUserId),
       roleId: "founder",
     });

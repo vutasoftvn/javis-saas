@@ -6,9 +6,9 @@ import { registerPlatformUser } from "./support/test-identity";
 
 const TEST_SECRET = "cosa-control-delegation-dev-secret-change-in-prod";
 
-function signControlDelegation(opts: { sub: string; workspaceId: string; role?: string }): string {
+function signControlDelegation(opts: { sub: string; organizationId: string; role?: string }): string {
   return jwt.sign(
-    { sub: opts.sub, workspace_id: opts.workspaceId, role: opts.role ?? "member" },
+    { sub: opts.sub, workspace_id: opts.organizationId, role: opts.role ?? "member" },
     process.env.COSA_CONTROL_DELEGATION_SECRET || TEST_SECRET,
     { audience: "cosa_control", issuer: "cosa_apps", expiresIn: "10m" }
   );
@@ -63,15 +63,15 @@ describe("Auth Profile Locale", () => {
 
     const validDelegation = signControlDelegation({
       sub: session.user!.id,
-      workspaceId: session.platform_workspace_id!,
+      organizationId: session.platform_workspace_id!,
     });
     const foreignDelegation = signControlDelegation({
       sub: foreign.user!.id,
-      workspaceId: foreign.platform_workspace_id!,
+      organizationId: foreign.platform_workspace_id!,
     });
 
     const snapshot = await getLocaleSnapshotForWorkspace({
-      workspaceId: session.platform_workspace_id!,
+      organizationId: session.platform_workspace_id!,
       authorization: `Bearer ${validDelegation}`,
     });
     expect(snapshot.workspace_id).toBe(session.platform_workspace_id!);
@@ -80,7 +80,7 @@ describe("Auth Profile Locale", () => {
     // Foreign workspace delegation must be rejected
     await expect(
       getLocaleSnapshotForWorkspace({
-        workspaceId: session.platform_workspace_id!,
+        organizationId: session.platform_workspace_id!,
         authorization: `Bearer ${foreignDelegation}`,
       })
     ).rejects.toThrow();

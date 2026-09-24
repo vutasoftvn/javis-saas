@@ -36,7 +36,7 @@ export interface AiGovernanceRef {
 }
 
 export interface GetAiGovernanceSnapshotParams {
-  workspaceId: string;
+  organizationId: string;
   projectId: string;
   policyRefs: AiGovernanceRef[];
   evaluatorRefs: AiGovernanceRef[];
@@ -45,7 +45,7 @@ export interface GetAiGovernanceSnapshotParams {
 export type AiGovernanceSnapshotStatus = "VERIFIED";
 
 export interface AiGovernanceSnapshotResult {
-  workspaceId: string;
+  organizationId: string;
   projectId: string;
   policy: AiGovernanceRef[];
   evaluators: AiGovernanceRef[];
@@ -90,7 +90,7 @@ function canonicalPayload(
   envelope: Omit<AiGovernanceSnapshotResult, "signature">
 ): string {
   return JSON.stringify({
-    workspaceId: envelope.workspaceId,
+    organizationId: envelope.organizationId,
     projectId: envelope.projectId,
     policy: envelope.policy.map(canonicalizeRef),
     evaluators: envelope.evaluators.map(canonicalizeRef),
@@ -109,18 +109,18 @@ function sign(envelope: Omit<AiGovernanceSnapshotResult, "signature">): string {
  * Verify tại boundary control-plane-delegation: caller phải trình 1
  * `COSA_CONTROL_DELEGATION_SECRET`-signed token (mint bởi apps/cosa, cùng cơ
  * chế `getMyTenantPolicySnapshot`/agent-policy) VÀ token đó phải scoped đúng
- * `workspaceId` được yêu cầu. Khác `resolveCallerAuthorizedForWorkspace`
+ * `organizationId` được yêu cầu. Khác `resolveCallerAuthorizedForWorkspace`
  * (agent-policy) — cố tình KHÔNG fallback sang platform-token/company
  * round-trip, vì caller hợp lệ duy nhất của port này là apps/cosa (service-
  * to-service), không phải phiên người dùng trực tiếp.
  */
-function authenticateControlDelegation(authorizationHeader: string | undefined, workspaceId: string): void {
+function authenticateControlDelegation(authorizationHeader: string | undefined, organizationId: string): void {
   if (!authorizationHeader) {
     throw APIError.unauthenticated("missing control-plane delegation authorization header");
   }
   const token = authorizationHeader.replace(/^Bearer\s+/i, "");
   const delegation = verifyControlDelegationToken(token);
-  if (delegation.workspaceId !== workspaceId) {
+  if (delegation.organizationId !== organizationId) {
     throw APIError.permissionDenied("control-plane delegation token scoped cho workspace khác");
   }
 }
@@ -134,20 +134,20 @@ export async function getAiGovernanceSnapshot(
   params: GetAiGovernanceSnapshotParams,
   authorizationHeader: string | undefined
 ): Promise<AiGovernanceSnapshotResult> {
-  if (!isNonEmptyString(params.workspaceId)) {
-    throw APIError.invalidArgument("workspaceId là bắt buộc");
+  if (!isNonEmptyString(params.organizationId)) {
+    throw APIError.invalidArgument("organizationId là bắt buộc");
   }
   if (!isNonEmptyString(params.projectId)) {
     throw APIError.invalidArgument("projectId là bắt buộc");
   }
 
-  authenticateControlDelegation(authorizationHeader, params.workspaceId);
+  authenticateControlDelegation(authorizationHeader, params.organizationId);
 
   assertValidRefList(params.policyRefs, "policyRefs");
   assertValidRefList(params.evaluatorRefs, "evaluatorRefs");
 
   const envelopeWithoutSignature: Omit<AiGovernanceSnapshotResult, "signature"> = {
-    workspaceId: params.workspaceId,
+    organizationId: params.organizationId,
     projectId: params.projectId,
     policy: params.policyRefs.map(canonicalizeRef),
     evaluators: params.evaluatorRefs.map(canonicalizeRef),

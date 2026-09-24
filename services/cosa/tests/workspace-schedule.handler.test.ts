@@ -5,7 +5,7 @@ describe("POST /cosa/schedules handler", () => {
   it("rejects a request without projectId", async () => {
     await expect(
       createScheduleEndpoint({
-        workspaceId: "ws_handler_test",
+        organizationId: "ws_handler_test",
         scheduleKind: "daily",
         promptTemplate: "test",
       } as any)

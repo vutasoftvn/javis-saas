@@ -15,10 +15,10 @@ describe("backfillLegacyScheduleProjectIds", () => {
 
   it("pauses an unscoped legacy schedule without calling Company project list", async () => {
     const id = `sched_def_backfill_${Date.now()}`;
-    const workspaceId = "ws_backfill_1";
+    const organizationId = "ws_backfill_1";
     await db.insert(schema.workspaceScheduleDefinitions).values({
       id,
-      workspaceId,
+      organizationId,
       createdBy: "user_1",
       scheduleKind: "daily",
       promptTemplate: "test",
@@ -46,7 +46,7 @@ describe("backfillLegacyScheduleProjectIds", () => {
     const pastDue = new Date(Date.now() - 5000);
     await db.insert(schema.workspaceScheduleDefinitions).values({
       id,
-      workspaceId: "ws_backfill_unscoped",
+      organizationId: "ws_backfill_unscoped",
       createdBy: "user_1",
       scheduleKind: "daily",
       promptTemplate: "test",

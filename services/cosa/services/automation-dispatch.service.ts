@@ -29,7 +29,7 @@ export interface AutomationDispatchEnvelope {
 
 export interface AutomationDispatchRow {
   invocationId: string;
-  workspaceId: string;
+  organizationId: string;
   automationKey: string;
   revision: number;
   revisionHash: string;
@@ -74,7 +74,7 @@ export function assertOpaqueEnvelope(envelope: Record<string, unknown>): void {
 function rowFrom(r: Record<string, unknown>): AutomationDispatchRow {
   return {
     invocationId: String(r.invocation_id),
-    workspaceId: String(r.organization_id),
+    organizationId: String(r.organization_id),
     automationKey: String(r.automation_key),
     revision: Number(r.revision),
     revisionHash: String(r.revision_hash),

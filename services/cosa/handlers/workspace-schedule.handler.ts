@@ -2,7 +2,6 @@ import { api, Header } from "encore.dev/api";
 import * as scheduleSvc from "../services/workspace-schedule.service";
 import { resolveCallerAuthorizedForWorkspace } from "../services/workspace-connector.service";
 import { requireWorkerServiceAuth } from "../services/token.service";
-import { withOrganizationId } from "../shared/organization-wire";
 
 // Encore.ts (phân tích static AST lúc compile để sinh response schema) chỉ
 // chấp nhận response type là `interface` phẳng — KHÔNG chấp nhận type alias
@@ -108,7 +107,7 @@ export const createScheduleEndpoint = api(
     const caller = await resolveCallerAuthorizedForWorkspace(params.authorization, params.organizationId);
 
     const res = await scheduleSvc.createWorkspaceSchedule({
-      workspaceId: params.organizationId,
+      organizationId: params.organizationId,
       createdBy: caller.sub,
       scheduleKind: params.scheduleKind,
       timezone: params.timezone,
@@ -121,7 +120,7 @@ export const createScheduleEndpoint = api(
       connectorGrantIds: params.connectorGrantIds,
       projectId: params.projectId,
     });
-    return withOrganizationId(res);
+    return res;
   }
 );
 
@@ -132,7 +131,7 @@ export const listSchedulesEndpoint = api(
   ): Promise<{ items: ScheduleDefinitionResponse[]; total: number }> => {
     await resolveCallerAuthorizedForWorkspace(params.authorization, params.organizationId);
     const list = await scheduleSvc.listWorkspaceSchedules(params.organizationId);
-    return { items: list.items.map(withOrganizationId), total: list.total };
+    return { items: list.items, total: list.total };
   }
 );
 
@@ -143,10 +142,10 @@ export const runScheduleNowEndpoint = api(
 
     const execution = await scheduleSvc.runScheduleNow({
       scheduleId: params.scheduleId,
-      workspaceId: params.organizationId,
+      organizationId: params.organizationId,
       principalId: caller.sub,
     });
-    return withOrganizationId(execution);
+    return execution;
   }
 );
 
@@ -159,7 +158,7 @@ export const getScheduleExecutionEndpoint = api(
     // Internal worker authentication
     requireWorkerServiceAuth(params.authorization);
 
-    return withOrganizationId(await scheduleSvc.getScheduleExecution(params.executionId));
+    return await scheduleSvc.getScheduleExecution(params.executionId);
   }
 );
 

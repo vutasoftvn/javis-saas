@@ -39,7 +39,7 @@ export const setTenantPolicy = api(
 );
 
 export interface GetMyTenantPolicySnapshotParams {
-  workspaceId: string;
+  organizationId: string;
   authorization?: Header<"Authorization">;
 }
 
@@ -62,7 +62,7 @@ export interface GetMyTenantPolicySnapshotParams {
 export const getMyTenantPolicySnapshot = api(
   { method: "GET", path: "/platform/auth/me/agent-policy-snapshot", expose: true, auth: false },
   async (params: GetMyTenantPolicySnapshotParams): Promise<TenantPolicySnapshotResult> => {
-    const caller = await resolveCallerAuthorizedForWorkspace(params.authorization, params.workspaceId);
-    return buildTenantPolicySnapshot(caller.sub, params.workspaceId);
+    const caller = await resolveCallerAuthorizedForWorkspace(params.authorization, params.organizationId);
+    return buildTenantPolicySnapshot(caller.sub, params.organizationId);
   }
 );

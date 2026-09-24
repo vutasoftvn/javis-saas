@@ -2,7 +2,6 @@ import { api, Header, APIError } from "encore.dev/api";
 import * as connectorSvc from "../services/workspace-connector.service";
 import { requireWorkerServiceAuth } from "../services/token.service";
 import { extractAuthContext } from "../middleware";
-import { withOrganizationId } from "../shared/organization-wire";
 
 export interface InstallConnectorParams {
   authorization?: Header<"Authorization">;
@@ -106,7 +105,7 @@ export const installConnectorEndpoint = api(
       connectorKey: params.connectorKey,
       installedBy: authCtx.userID,
     });
-    return withOrganizationId(res);
+    return res;
   }
 );
 
@@ -159,7 +158,7 @@ export const grantConnectorEndpoint = api(
       callerPrincipalId: authCtx.userID,
       allowManageOthers,
     });
-    return withOrganizationId(res);
+    return res;
   }
 );
 

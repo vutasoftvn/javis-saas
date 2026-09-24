@@ -22,7 +22,7 @@ export type SyncFreshness = "FRESH" | "STALE" | "UNKNOWN";
 export const DEFAULT_LEASE_TTL_SEC = 60;
 
 export interface WriteLeaseView {
-  workspaceId: string;
+  organizationId: string;
   activeRuntimeNodeId: string;
   activeRuntimeRole: RuntimeRole;
   leaseEpoch: string;
@@ -38,7 +38,7 @@ type LeaseRow = typeof workspaceExecutionLeases.$inferSelect;
 
 function toView(row: LeaseRow, now: Date = new Date()): WriteLeaseView {
   return {
-    workspaceId: row.workspaceId.toString(),
+    organizationId: row.organizationId.toString(),
     activeRuntimeNodeId: row.activeRuntimeNodeId.toString(),
     activeRuntimeRole: row.activeRuntimeRole as RuntimeRole,
     leaseEpoch: row.leaseEpoch.toString(),
@@ -63,7 +63,7 @@ async function nextFencingToken(tx: Tx): Promise<bigint> {
 async function grantLease(
   tx: Tx,
   params: {
-    workspaceId: bigint;
+    organizationId: bigint;
     nodeId: bigint;
     role: RuntimeRole;
     ttlSec: number;
@@ -72,7 +72,7 @@ async function grantLease(
     now: Date;
   }
 ): Promise<WriteLeaseView> {
-  const { workspaceId, nodeId, role, ttlSec, existing, now } = params;
+  const { organizationId, nodeId, role, ttlSec, existing, now } = params;
   const expiresAt = new Date(now.getTime() + ttlSec * 1000);
   const epoch = existing ? existing.leaseEpoch + 1n : 1n;
   const fencing = await nextFencingToken(tx);
@@ -91,7 +91,7 @@ async function grantLease(
         failoverPolicy: failover,
         updatedAt: now,
       })
-      .where(eq(workspaceExecutionLeases.workspaceId, workspaceId))
+      .where(eq(workspaceExecutionLeases.organizationId, organizationId))
       .returning();
     return toView(updated, now);
   }
@@ -99,7 +99,7 @@ async function grantLease(
   const [created] = await tx
     .insert(workspaceExecutionLeases)
     .values({
-      workspaceId,
+      organizationId,
       activeRuntimeNodeId: nodeId,
       activeRuntimeRole: role,
       leaseEpoch: epoch,
@@ -113,7 +113,7 @@ async function grantLease(
 }
 
 export interface AcquireWriteLeaseParams {
-  workspaceId: bigint;
+  organizationId: bigint;
   nodeId: bigint;
   runtimeRole?: RuntimeRole; // mặc định local
   ttlSec?: number;
@@ -140,7 +140,7 @@ export async function acquireWriteLease(p: AcquireWriteLeaseParams): Promise<Wri
     const [existing] = await tx
       .select()
       .from(workspaceExecutionLeases)
-      .where(eq(workspaceExecutionLeases.workspaceId, p.workspaceId))
+      .where(eq(workspaceExecutionLeases.organizationId, p.organizationId))
       .for("update");
 
     if (existing && existing.leaseExpiresAt > now) {
@@ -149,7 +149,7 @@ export async function acquireWriteLease(p: AcquireWriteLeaseParams): Promise<Wri
         const [renewed] = await tx
           .update(workspaceExecutionLeases)
           .set({ leaseExpiresAt: expiresAt, lastHeartbeatAt: now, updatedAt: now })
-          .where(eq(workspaceExecutionLeases.workspaceId, p.workspaceId))
+          .where(eq(workspaceExecutionLeases.organizationId, p.organizationId))
           .returning();
         return toView(renewed, now);
       }
@@ -159,7 +159,7 @@ export async function acquireWriteLease(p: AcquireWriteLeaseParams): Promise<Wri
     }
 
     return grantLease(tx, {
-      workspaceId: p.workspaceId,
+      organizationId: p.organizationId,
       nodeId: p.nodeId,
       role,
       ttlSec: ttl,
@@ -171,7 +171,7 @@ export async function acquireWriteLease(p: AcquireWriteLeaseParams): Promise<Wri
 }
 
 export interface PromoteCloudParams {
-  workspaceId: bigint;
+  organizationId: bigint;
   cloudNodeId: bigint;
   syncFreshness: SyncFreshness;
   ttlSec?: number;
@@ -191,7 +191,7 @@ export async function promoteCloudRuntime(p: PromoteCloudParams): Promise<WriteL
     const [existing] = await tx
       .select()
       .from(workspaceExecutionLeases)
-      .where(eq(workspaceExecutionLeases.workspaceId, p.workspaceId))
+      .where(eq(workspaceExecutionLeases.organizationId, p.organizationId))
       .for("update");
 
     if (!existing) {
@@ -216,7 +216,7 @@ export async function promoteCloudRuntime(p: PromoteCloudParams): Promise<WriteL
     }
 
     return grantLease(tx, {
-      workspaceId: p.workspaceId,
+      organizationId: p.organizationId,
       nodeId: p.cloudNodeId,
       role: "cloud_workspace_runtime",
       ttlSec: ttl,
@@ -227,7 +227,7 @@ export async function promoteCloudRuntime(p: PromoteCloudParams): Promise<WriteL
 }
 
 export interface FencingCheckResult {
-  workspaceId: string;
+  organizationId: string;
   leaseEpoch: string;
   fencingToken: string;
   activeRuntimeNodeId: string;
@@ -238,13 +238,13 @@ export interface FencingCheckResult {
  * Token cũ (epoch trước) ⇒ ABORTED (split-brain — writer đã bị fenced).
  */
 export async function assertFencingTokenCurrent(p: {
-  workspaceId: bigint;
+  organizationId: bigint;
   fencingToken: bigint;
 }): Promise<FencingCheckResult> {
   const [row] = await db
     .select()
     .from(workspaceExecutionLeases)
-    .where(eq(workspaceExecutionLeases.workspaceId, p.workspaceId));
+    .where(eq(workspaceExecutionLeases.organizationId, p.organizationId));
 
   if (!row) {
     throw APIError.failedPrecondition("workspace chưa có execution lease");
@@ -255,7 +255,7 @@ export async function assertFencingTokenCurrent(p: {
     );
   }
   return {
-    workspaceId: row.workspaceId.toString(),
+    organizationId: row.organizationId.toString(),
     leaseEpoch: row.leaseEpoch.toString(),
     fencingToken: row.fencingToken.toString(),
     activeRuntimeNodeId: row.activeRuntimeNodeId.toString(),
@@ -263,7 +263,7 @@ export async function assertFencingTokenCurrent(p: {
 }
 
 export async function heartbeatWriteLease(p: {
-  workspaceId: bigint;
+  organizationId: bigint;
   nodeId: bigint;
   fencingToken: bigint;
   ttlSec?: number;
@@ -275,7 +275,7 @@ export async function heartbeatWriteLease(p: {
     const [row] = await tx
       .select()
       .from(workspaceExecutionLeases)
-      .where(eq(workspaceExecutionLeases.workspaceId, p.workspaceId))
+      .where(eq(workspaceExecutionLeases.organizationId, p.organizationId))
       .for("update");
 
     if (!row) throw APIError.notFound("không có execution lease cho workspace này");
@@ -291,14 +291,14 @@ export async function heartbeatWriteLease(p: {
         lastSyncCursor: p.syncCursor ?? row.lastSyncCursor,
         updatedAt: now,
       })
-      .where(eq(workspaceExecutionLeases.workspaceId, p.workspaceId))
+      .where(eq(workspaceExecutionLeases.organizationId, p.organizationId))
       .returning();
     return toView(updated, now);
   });
 }
 
 export async function releaseWriteLease(p: {
-  workspaceId: bigint;
+  organizationId: bigint;
   nodeId: bigint;
   fencingToken: bigint;
 }): Promise<void> {
@@ -306,7 +306,7 @@ export async function releaseWriteLease(p: {
     const [row] = await tx
       .select()
       .from(workspaceExecutionLeases)
-      .where(eq(workspaceExecutionLeases.workspaceId, p.workspaceId))
+      .where(eq(workspaceExecutionLeases.organizationId, p.organizationId))
       .for("update");
     if (!row) return;
     if (row.activeRuntimeNodeId !== p.nodeId || row.fencingToken !== p.fencingToken) {
@@ -316,24 +316,24 @@ export async function releaseWriteLease(p: {
     await tx
       .update(workspaceExecutionLeases)
       .set({ leaseExpiresAt: new Date(0), updatedAt: new Date() })
-      .where(eq(workspaceExecutionLeases.workspaceId, p.workspaceId));
+      .where(eq(workspaceExecutionLeases.organizationId, p.organizationId));
   });
 }
 
 export async function setFailoverPolicy(p: {
-  workspaceId: bigint;
+  organizationId: bigint;
   policy: FailoverPolicy;
 }): Promise<void> {
   await db
     .update(workspaceExecutionLeases)
     .set({ failoverPolicy: p.policy, updatedAt: new Date() })
-    .where(eq(workspaceExecutionLeases.workspaceId, p.workspaceId));
+    .where(eq(workspaceExecutionLeases.organizationId, p.organizationId));
 }
 
-export async function getWriteLease(workspaceId: bigint): Promise<WriteLeaseView | null> {
+export async function getWriteLease(organizationId: bigint): Promise<WriteLeaseView | null> {
   const [row] = await db
     .select()
     .from(workspaceExecutionLeases)
-    .where(eq(workspaceExecutionLeases.workspaceId, workspaceId));
+    .where(eq(workspaceExecutionLeases.organizationId, organizationId));
   return row ? toView(row) : null;
 }

@@ -47,17 +47,17 @@ export const getWorkspaceEntitlementEndpoint = api(
   async ({ organizationId }: { organizationId: string }): Promise<WorkspaceEntitlementView> => {
     const authData = await resolveAuthData();
     const userId = BigInt(authData.userID);
-    const workspaceId = BigInt(organizationId);
+    const organizationIdBig = BigInt(organizationId);
 
     // Core quyết định thành viên và bản chiếu được cập nhật trước khi đọc bảng cục bộ.
     await authorizeAndProjectCoreAccess(authData.accessToken, organizationId, "cosa.workspace.read");
 
-    const membership = await validateWorkspaceMembership(userId, workspaceId);
+    const membership = await validateWorkspaceMembership(userId, organizationIdBig);
     if (!membership) {
       throw APIError.permissionDenied("Không có quyền truy cập entitlement của workspace này");
     }
 
-    return getWorkspaceEntitlement(workspaceId);
+    return getWorkspaceEntitlement(organizationIdBig);
   }
 );
 

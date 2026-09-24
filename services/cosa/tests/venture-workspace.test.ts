@@ -44,7 +44,7 @@ describe("venture-workspace service", () => {
     const [mem] = await db
       .select()
       .from(schema.workspaceMemberships)
-      .where(eq(schema.workspaceMemberships.workspaceId, BigInt(res.platformWorkspaceId)));
+      .where(eq(schema.workspaceMemberships.organizationId, BigInt(res.platformWorkspaceId)));
     expect(mem.roleId).toBe("founder");
   });
 
@@ -65,7 +65,7 @@ describe("venture-workspace service", () => {
     const licenses = await db
       .select()
       .from(schema.workspaceLicenses)
-      .where(eq(schema.workspaceLicenses.workspaceId, BigInt(a.platformWorkspaceId)));
+      .where(eq(schema.workspaceLicenses.organizationId, BigInt(a.platformWorkspaceId)));
     expect(licenses.length).toBe(1);
   });
 
@@ -118,7 +118,7 @@ describe("venture-workspace service", () => {
     const [ent] = await db
       .select()
       .from(schema.workspaceEntitlements)
-      .where(eq(schema.workspaceEntitlements.workspaceId, BigInt(res.platform_workspace_id!)));
+      .where(eq(schema.workspaceEntitlements.organizationId, BigInt(res.platform_workspace_id!)));
     expect(ent.planId).toBe("free");
   });
 
@@ -134,7 +134,7 @@ describe("venture-workspace service", () => {
 
     await db.insert(schema.workspaceSyncLogs).values({
       id: compId,
-      workspaceId: compId,
+      organizationId: compId,
       clientCreationId: logId,
       syncStatus: "pending",
     }).onConflictDoNothing();

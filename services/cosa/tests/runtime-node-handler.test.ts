@@ -20,24 +20,24 @@ function ws(): string {
   return id.toString();
 }
 
-function bearer(workspaceId: string): string {
-  return `Bearer ${signWorkerServiceToken("local-node-worker", workspaceId)}`;
+function bearer(organizationId: string): string {
+  return `Bearer ${signWorkerServiceToken("local-node-worker", organizationId)}`;
 }
 
 afterEach(async () => {
   if (usedWorkspaces.length) {
     await db
       .delete(workspaceRuntimeNodes)
-      .where(inArray(workspaceRuntimeNodes.workspaceId, usedWorkspaces.splice(0)));
+      .where(inArray(workspaceRuntimeNodes.organizationId, usedWorkspaces.splice(0)));
   }
 });
 
 describe("runtime node HTTP surface (M5 §1/§3)", () => {
   it("register requires a worker token scoped to the workspace", async () => {
-    const workspaceId = ws();
+    const organizationId = ws();
     await expect(
       registerRuntimeNodeEndpoint({
-        organizationId: workspaceId,
+        organizationId: organizationId,
         deviceKeyFingerprint: "fp",
         runtimeRole: "local_workspace_runtime",
         authorization: bearer("999999"), // wrong workspace
@@ -46,7 +46,7 @@ describe("runtime node HTTP surface (M5 §1/§3)", () => {
 
     await expect(
       registerRuntimeNodeEndpoint({
-        organizationId: workspaceId,
+        organizationId: organizationId,
         deviceKeyFingerprint: "fp",
         runtimeRole: "local_workspace_runtime",
       })
@@ -54,10 +54,10 @@ describe("runtime node HTTP surface (M5 §1/§3)", () => {
   });
 
   it("register → heartbeat → list round trip", async () => {
-    const workspaceId = ws();
-    const auth = bearer(workspaceId);
+    const organizationId = ws();
+    const auth = bearer(organizationId);
     const node = await registerRuntimeNodeEndpoint({
-      organizationId: workspaceId,
+      organizationId: organizationId,
       deviceKeyFingerprint: "fp-1",
       runtimeRole: "local_workspace_runtime",
       agentVersion: "2.0.0",
@@ -67,35 +67,35 @@ describe("runtime node HTTP surface (M5 §1/§3)", () => {
 
     const hb = await heartbeatRuntimeNodeEndpoint({
       nodeId: node.nodeId,
-      organizationId: workspaceId,
+      organizationId: organizationId,
       deviceKeyFingerprint: "fp-1",
       authorization: auth,
     });
     expect(hb.presence).toBe("ONLINE");
 
-    const list = await listRuntimeNodesEndpoint({ organizationId: workspaceId, authorization: auth });
+    const list = await listRuntimeNodesEndpoint({ organizationId: organizationId, authorization: auth });
     expect(list.nodes).toHaveLength(1);
     expect(list.nodes[0].nodeId).toBe(node.nodeId);
   });
 
   it("revoked node drops from list and cannot heartbeat", async () => {
-    const workspaceId = ws();
-    const auth = bearer(workspaceId);
+    const organizationId = ws();
+    const auth = bearer(organizationId);
     const node = await registerRuntimeNodeEndpoint({
-      organizationId: workspaceId,
+      organizationId: organizationId,
       deviceKeyFingerprint: "fp-2",
       runtimeRole: "local_workspace_runtime",
       authorization: auth,
     });
-    await revokeRuntimeNodeEndpoint({ nodeId: node.nodeId, organizationId: workspaceId, authorization: auth });
+    await revokeRuntimeNodeEndpoint({ nodeId: node.nodeId, organizationId: organizationId, authorization: auth });
 
-    const list = await listRuntimeNodesEndpoint({ organizationId: workspaceId, authorization: auth });
+    const list = await listRuntimeNodesEndpoint({ organizationId: organizationId, authorization: auth });
     expect(list.nodes).toHaveLength(0);
 
     await expect(
       heartbeatRuntimeNodeEndpoint({
         nodeId: node.nodeId,
-        organizationId: workspaceId,
+        organizationId: organizationId,
         deviceKeyFingerprint: "fp-2",
         authorization: auth,
       })
@@ -103,16 +103,16 @@ describe("runtime node HTTP surface (M5 §1/§3)", () => {
   });
 
   it("route: REMOTE_ACCESS + local node ONLINE ⇒ LOCAL_RELAY", async () => {
-    const workspaceId = ws();
-    const auth = bearer(workspaceId);
+    const organizationId = ws();
+    const auth = bearer(organizationId);
     await registerRuntimeNodeEndpoint({
-      organizationId: workspaceId,
+      organizationId: organizationId,
       deviceKeyFingerprint: "fp-r",
       runtimeRole: "local_workspace_runtime",
       authorization: auth,
     });
     const d = await resolveRuntimeRouteEndpoint({
-      organizationId: workspaceId,
+      organizationId: organizationId,
       runtimeMode: "REMOTE_ACCESS",
       authorization: auth,
     });
@@ -121,10 +121,10 @@ describe("runtime node HTTP surface (M5 §1/§3)", () => {
   });
 
   it("route: REMOTE_ACCESS + no registered local node ⇒ OFFLINE (không cloud-failover)", async () => {
-    const workspaceId = ws();
-    const auth = bearer(workspaceId);
+    const organizationId = ws();
+    const auth = bearer(organizationId);
     const d = await resolveRuntimeRouteEndpoint({
-      organizationId: workspaceId,
+      organizationId: organizationId,
       runtimeMode: "REMOTE_ACCESS",
       authorization: auth,
     });
@@ -133,10 +133,10 @@ describe("runtime node HTTP surface (M5 §1/§3)", () => {
   });
 
   it("route: REMOTE_ACCESS + local node stale heartbeat ⇒ OFFLINE", async () => {
-    const workspaceId = ws();
-    const auth = bearer(workspaceId);
+    const organizationId = ws();
+    const auth = bearer(organizationId);
     const node = await registerRuntimeNodeEndpoint({
-      organizationId: workspaceId,
+      organizationId: organizationId,
       deviceKeyFingerprint: "fp-s",
       runtimeRole: "local_workspace_runtime",
       authorization: auth,
@@ -147,7 +147,7 @@ describe("runtime node HTTP surface (M5 §1/§3)", () => {
       .where(inArray(workspaceRuntimeNodes.nodeId, [BigInt(node.nodeId)]));
 
     const d = await resolveRuntimeRouteEndpoint({
-      organizationId: workspaceId,
+      organizationId: organizationId,
       runtimeMode: "REMOTE_ACCESS",
       authorization: auth,
     });

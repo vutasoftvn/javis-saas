@@ -49,7 +49,7 @@ export const registerRuntimeNodeEndpoint = api(
   async (p: RegisterRuntimeNodeParamsHttp): Promise<RuntimeNodeView> => {
     assertWorkspaceScopedWorker(p.authorization, p.organizationId);
     return registerRuntimeNode({
-      workspaceId: BigInt(p.organizationId),
+      organizationId: BigInt(p.organizationId),
       deviceKeyFingerprint: p.deviceKeyFingerprint,
       runtimeRole: p.runtimeRole,
       agentVersion: p.agentVersion,
@@ -73,7 +73,7 @@ export const heartbeatRuntimeNodeEndpoint = api(
     assertWorkspaceScopedWorker(p.authorization, p.organizationId);
     return heartbeatRuntimeNode({
       nodeId: BigInt(p.nodeId),
-      workspaceId: BigInt(p.organizationId),
+      organizationId: BigInt(p.organizationId),
       deviceKeyFingerprint: p.deviceKeyFingerprint,
       agentVersion: p.agentVersion,
     });
@@ -92,7 +92,7 @@ export const revokeRuntimeNodeEndpoint = api(
   { method: "POST", path: "/cosa/runtime/nodes/revoke", expose: true },
   async (p: RevokeRuntimeNodeParamsHttp): Promise<{ ok: true }> => {
     assertWorkspaceScopedWorker(p.authorization, p.organizationId);
-    await revokeRuntimeNode({ nodeId: BigInt(p.nodeId), workspaceId: BigInt(p.organizationId) });
+    await revokeRuntimeNode({ nodeId: BigInt(p.nodeId), organizationId: BigInt(p.organizationId) });
     return { ok: true };
   }
 );

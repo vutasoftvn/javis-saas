@@ -33,11 +33,11 @@ describe('extractAuthContext (access token OIDC của core)', () => {
 
     expect(context).toMatchObject({
       userID: '42',
-      workspaceId: '100',
+      organizationId: '100',
       organizationRole: 'founder',
       membershipVersion: 4,
     });
-    expect(context.claims).toMatchObject({ sub: '42', aud: 'cosa', role: 'founder', workspaceId: '100' });
+    expect(context.claims).toMatchObject({ sub: '42', aud: 'cosa', role: 'founder', organizationId: '100' });
     expect(authorize).toHaveBeenCalledWith(CORE_TOKEN, '100', 'cosa.workspace.read');
   });
 
@@ -104,8 +104,8 @@ describe('extractAuthContext (control-plane delegation do apps/cosa ký)', () =>
 
     const context = await extractAuthContext(`Bearer ${token}`, '100');
 
-    expect(context).toMatchObject({ userID: '42', workspaceId: '100', organizationRole: 'founder' });
-    expect(context.claims).toMatchObject({ sub: '42', role: 'founder', workspaceId: '100' });
+    expect(context).toMatchObject({ userID: '42', organizationId: '100', organizationRole: 'founder' });
+    expect(context.claims).toMatchObject({ sub: '42', role: 'founder', organizationId: '100' });
     expect(authorize).not.toHaveBeenCalled();
   });
 

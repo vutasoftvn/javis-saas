@@ -217,13 +217,13 @@ describe("venture-workspace handler", () => {
         workspaceName: "Sync Test Workspace",
         clientCreationId: `vwh-sync-${Date.now()}`,
       });
-      const workspaceId = BigInt(wsResult.platformWorkspaceId);
+      const organizationId = BigInt(wsResult.platformWorkspaceId);
 
       // 초기 상태 확인: syncStatus는 "pending"이어야 함
       const [syncLogBefore] = await db
         .select()
         .from(workspaceSyncLogs)
-        .where(eq(workspaceSyncLogs.workspaceId, workspaceId))
+        .where(eq(workspaceSyncLogs.organizationId, organizationId))
         .limit(1);
       expect(syncLogBefore.syncStatus).toBe("pending");
       expect(syncLogBefore.syncedAt).toBeNull();
@@ -232,7 +232,7 @@ describe("venture-workspace handler", () => {
       const token = signPlatformToken(userId.toString());
       const response = await markWorkspaceSyncedEndpoint({
         platformToken: token,
-        platformWorkspaceId: workspaceId.toString(),
+        platformWorkspaceId: organizationId.toString(),
       });
 
       expect(response.success).toBe(true);
@@ -241,7 +241,7 @@ describe("venture-workspace handler", () => {
       const [syncLogAfter] = await db
         .select()
         .from(workspaceSyncLogs)
-        .where(eq(workspaceSyncLogs.workspaceId, workspaceId))
+        .where(eq(workspaceSyncLogs.organizationId, organizationId))
         .limit(1);
       expect(syncLogAfter.syncStatus).toBe("success");
       expect(syncLogAfter.syncedAt).not.toBeNull();

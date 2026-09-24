@@ -9,7 +9,7 @@ describe("workspace_schedule_definitions.project_id", () => {
       .insert(schema.workspaceScheduleDefinitions)
       .values({
         id,
-        workspaceId: "ws_schema_test",
+        organizationId: "ws_schema_test",
         createdBy: "test_user",
         scheduleKind: "daily",
         promptTemplate: "test prompt",

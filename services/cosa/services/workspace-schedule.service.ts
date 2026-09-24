@@ -41,7 +41,7 @@ export {
 };
 
 export async function createWorkspaceSchedule(input: {
-  workspaceId: string;
+  organizationId: string;
   createdBy: string;
   scheduleKind: ScheduleKind;
   timezone?: string;
@@ -65,7 +65,7 @@ export async function createWorkspaceSchedule(input: {
   }
 
   // Check active schedule quota
-  const activeCount = await repo.countActiveSchedulesByWorkspace(input.workspaceId);
+  const activeCount = await repo.countActiveSchedulesByWorkspace(input.organizationId);
   if (activeCount >= MAX_ACTIVE_SCHEDULES_PER_WORKSPACE) {
     throw APIError.resourceExhausted(
       `active schedule quota exceeded: maximum of ${MAX_ACTIVE_SCHEDULES_PER_WORKSPACE} enabled schedules allowed per workspace`
@@ -91,7 +91,7 @@ export async function createWorkspaceSchedule(input: {
   const id = `sched_def_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
   return repo.insertScheduleDefinition({
     id,
-    workspaceId: input.workspaceId,
+    organizationId: input.organizationId,
     createdBy: input.createdBy,
     scheduleKind: input.scheduleKind,
     timezone: tz,
@@ -160,11 +160,11 @@ export async function dispatchDueWorkspaceSchedules(
 
     // Check rolling 24h quota
     const twentyFourHoursAgo = new Date(now.getTime() - 24 * 3600000);
-    const executions24h = await repo.countExecutionsIn24Hours(def.workspaceId, twentyFourHoursAgo);
+    const executions24h = await repo.countExecutionsIn24Hours(def.organizationId, twentyFourHoursAgo);
 
     if (executions24h >= MAX_EXECUTIONS_24H) {
       console.warn(
-        `[ScheduleDispatcher] Quota reached for workspace ${def.workspaceId} (>= ${MAX_EXECUTIONS_24H} in 24h)`
+        `[ScheduleDispatcher] Quota reached for workspace ${def.organizationId} (>= ${MAX_EXECUTIONS_24H} in 24h)`
       );
       continue;
     }
@@ -176,7 +176,7 @@ export async function dispatchDueWorkspaceSchedules(
       execution = await repo.insertExecutionOnConflictDoNothing({
         id: execId,
         definitionId: def.id,
-        workspaceId: def.workspaceId,
+        organizationId: def.organizationId,
         scheduledFor,
         promptTemplateSnapshot: def.promptTemplate,
         agentProfileSnapshot: def.agentProfile,
@@ -224,10 +224,10 @@ export async function dispatchDueWorkspaceSchedules(
 
 export async function runScheduleNow(input: {
   scheduleId: string;
-  workspaceId: string;
+  organizationId: string;
   principalId: string;
 }) {
-  const def = await repo.findScheduleDefinitionByIdAndWorkspace(input.scheduleId, input.workspaceId);
+  const def = await repo.findScheduleDefinitionByIdAndWorkspace(input.scheduleId, input.organizationId);
   if (!def) {
     throw APIError.notFound("schedule definition not found in workspace");
   }
@@ -238,7 +238,7 @@ export async function runScheduleNow(input: {
   const execution = await repo.insertExecution({
     id: execId,
     definitionId: def.id,
-    workspaceId: def.workspaceId,
+    organizationId: def.organizationId,
     scheduledFor: now,
     promptTemplateSnapshot: def.promptTemplate,
     agentProfileSnapshot: def.agentProfile,
@@ -272,9 +272,9 @@ export async function completeScheduleExecution(input: {
 }
 
 export async function listWorkspaceSchedules(
-  workspaceId: string
+  organizationId: string
 ): Promise<{ items: repo.ScheduleDefinitionRow[]; total: number }> {
-  const items = await repo.listScheduleDefinitions(workspaceId);
+  const items = await repo.listScheduleDefinitions(organizationId);
   return { items, total: items.length };
 }
 
@@ -290,16 +290,16 @@ export async function getScheduleExecution(
 
 export async function rebindLegacyWorkspaceSchedule(input: {
   scheduleId: string;
-  workspaceId: string;
+  organizationId: string;
   projectId: string;
   principalId?: string;
 }): Promise<repo.ScheduleDefinitionRow> {
-  const { scheduleId, workspaceId, projectId } = input;
+  const { scheduleId, organizationId, projectId } = input;
   if (!projectId || !projectId.trim()) {
     throw APIError.invalidArgument("projectId is required for schedule rebind");
   }
 
-  const def = await repo.findScheduleDefinitionByIdAndWorkspace(scheduleId, workspaceId);
+  const def = await repo.findScheduleDefinitionByIdAndWorkspace(scheduleId, organizationId);
   if (!def) {
     throw APIError.notFound("schedule definition not found in workspace");
   }
@@ -310,7 +310,7 @@ export async function rebindLegacyWorkspaceSchedule(input: {
 
   const updated = await repo.rebindLegacyScheduleDefinition({
     scheduleId,
-    workspaceId,
+    organizationId,
     projectId: projectId.trim(),
   });
 

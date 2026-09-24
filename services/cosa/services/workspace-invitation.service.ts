@@ -76,7 +76,7 @@ type DbOrTx = Pick<typeof db, "insert">;
 
 async function writeInvitationAuditEvent(
   client: DbOrTx,
-  workspaceId: bigint,
+  organizationId: bigint,
   actorId: string,
   eventType: string,
   targetId: string,
@@ -84,7 +84,7 @@ async function writeInvitationAuditEvent(
 ): Promise<void> {
   await client.insert(workspaceSettingsAuditEvents).values({
     eventId: BigInt(generateSnowflakeStr()),
-    workspaceId,
+    organizationId,
     actorId,
     eventType,
     targetKind: "workspace_invitation",
@@ -103,7 +103,7 @@ export async function createWorkspaceInvitation(
   params: CreateWorkspaceInvitationParams
 ): Promise<CreateWorkspaceInvitationResponse> {
   const actorUserId = BigInt(actorId);
-  const workspaceId = BigInt(params.workspace_id);
+  const organizationId = BigInt(params.workspace_id);
   const email = normalizeEmail(params.email);
 
   if (!email || !email.includes("@")) {
@@ -116,7 +116,7 @@ export async function createWorkspaceInvitation(
   const [ws] = await db
     .select({ id: workspaces.id })
     .from(workspaces)
-    .where(and(eq(workspaces.id, workspaceId), eq(workspaces.status, "active")))
+    .where(and(eq(workspaces.id, organizationId), eq(workspaces.status, "active")))
     .limit(1);
   if (!ws) {
     throw APIError.notFound("workspace không tồn tại hoặc đã bị vô hiệu hóa");
@@ -127,7 +127,7 @@ export async function createWorkspaceInvitation(
   const [actorMembership] = await db
     .select({ roleId: workspaceMemberships.roleId })
     .from(workspaceMemberships)
-    .where(and(eq(workspaceMemberships.workspaceId, workspaceId), eq(workspaceMemberships.userId, actorUserId)))
+    .where(and(eq(workspaceMemberships.organizationId, organizationId), eq(workspaceMemberships.userId, actorUserId)))
     .limit(1);
 
   if (!actorMembership || !ISSUER_ALLOWED_ROLES.has(actorMembership.roleId)) {
@@ -150,7 +150,7 @@ export async function createWorkspaceInvitation(
   try {
     await db.insert(workspaceInvitations).values({
       id: invitationId,
-      workspaceId,
+      organizationId,
       emailNormalized: email,
       roleId: params.role_id,
       tokenHash,
@@ -168,7 +168,7 @@ export async function createWorkspaceInvitation(
     throw APIError.internal("không thể tạo lời mời do lỗi hệ thống, vui lòng thử lại");
   }
 
-  await writeInvitationAuditEvent(db, workspaceId, actorId, "invitation.created", invitationId.toString(), {
+  await writeInvitationAuditEvent(db, organizationId, actorId, "invitation.created", invitationId.toString(), {
     email,
     role_id: params.role_id,
     expires_at: expiresAt.toISOString(),
@@ -218,7 +218,7 @@ export async function acceptWorkspaceInvitation(
     const [ws] = await tx
       .select({ id: workspaces.id, name: workspaces.workspaceName })
       .from(workspaces)
-      .where(eq(workspaces.id, invitation.workspaceId))
+      .where(eq(workspaces.id, invitation.organizationId))
       .limit(1);
     if (!ws) {
       throw APIError.notFound("workspace của lời mời không còn tồn tại");
@@ -230,13 +230,13 @@ export async function acceptWorkspaceInvitation(
       const [existingMembership] = await tx
         .select({ roleId: workspaceMemberships.roleId })
         .from(workspaceMemberships)
-        .where(and(eq(workspaceMemberships.workspaceId, invitation.workspaceId), eq(workspaceMemberships.userId, actorUserId)))
+        .where(and(eq(workspaceMemberships.organizationId, invitation.organizationId), eq(workspaceMemberships.userId, actorUserId)))
         .limit(1);
       if (!existingMembership) {
         // Token đã accept nhưng không phải bởi principal hiện tại.
         throw APIError.permissionDenied("lời mời này đã được sử dụng");
       }
-      return buildCompanyActionResponse(invitation.workspaceId, ws.name, existingMembership.roleId);
+      return buildCompanyActionResponse(invitation.organizationId, ws.name, existingMembership.roleId);
     }
 
     if (invitation.status === "revoked") {
@@ -264,12 +264,12 @@ export async function acceptWorkspaceInvitation(
     const [existingMembership] = await tx
       .select({ roleId: workspaceMemberships.roleId })
       .from(workspaceMemberships)
-      .where(and(eq(workspaceMemberships.workspaceId, invitation.workspaceId), eq(workspaceMemberships.userId, actorUserId)))
+      .where(and(eq(workspaceMemberships.organizationId, invitation.organizationId), eq(workspaceMemberships.userId, actorUserId)))
       .limit(1);
 
     // Cấp membership ở core TRƯỚC khi ghi bản chiếu cục bộ. Core idempotent và trả role hiện tại; nếu
     // core lỗi, transaction rollback nên lời mời vẫn `pending` để thử lại.
-    const granted = await grantCoreMembership(invitation.workspaceId.toString(), actorId, invitation.roleId);
+    const granted = await grantCoreMembership(invitation.organizationId.toString(), actorId, invitation.roleId);
     const coreRoleId = mapCoreRoleToCosaRole(granted.role);
 
     let finalRoleId = coreRoleId;
@@ -282,7 +282,7 @@ export async function acceptWorkspaceInvitation(
           .set({ roleId: coreRoleId, updatedAt: now })
           .where(
             and(
-              eq(workspaceMemberships.workspaceId, invitation.workspaceId),
+              eq(workspaceMemberships.organizationId, invitation.organizationId),
               eq(workspaceMemberships.userId, actorUserId)
             )
           );
@@ -291,7 +291,7 @@ export async function acceptWorkspaceInvitation(
       const newMembershipId = BigInt(generateSnowflakeStr());
       await tx.insert(workspaceMemberships).values({
         id: newMembershipId,
-        workspaceId: invitation.workspaceId,
+        organizationId: invitation.organizationId,
         userId: actorUserId,
         roleId: finalRoleId,
       });
@@ -302,22 +302,22 @@ export async function acceptWorkspaceInvitation(
       .set({ status: "accepted", acceptedAt: now })
       .where(eq(workspaceInvitations.id, invitation.id));
 
-    await writeInvitationAuditEvent(tx, invitation.workspaceId, actorId, "invitation.accepted", invitation.id.toString(), {
+    await writeInvitationAuditEvent(tx, invitation.organizationId, actorId, "invitation.accepted", invitation.id.toString(), {
       email: invitation.emailNormalized,
       role_id: finalRoleId,
     });
 
-    return buildCompanyActionResponse(invitation.workspaceId, ws.name, finalRoleId);
+    return buildCompanyActionResponse(invitation.organizationId, ws.name, finalRoleId);
   });
 }
 
-function buildCompanyActionResponse(workspaceId: bigint, workspaceName: string, roleId: string): CompanyActionResponse {
+function buildCompanyActionResponse(organizationId: bigint, workspaceName: string, roleId: string): CompanyActionResponse {
   return {
-    company_id: workspaceId.toString(),
+    company_id: organizationId.toString(),
     name: workspaceName,
     role_id: roleId,
     workspace: {
-      workspace_id: workspaceId.toString(),
+      workspace_id: organizationId.toString(),
       workspace_name: workspaceName,
       role_id: roleId,
       status: "active",

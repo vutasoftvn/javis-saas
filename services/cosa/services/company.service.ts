@@ -102,7 +102,7 @@ export async function createNewCompany(
     ownerUserId: userId,
     workspaceName: coreOrg.name,
     clientCreationId: `core-org-${coreOrg.organizationId}`,
-    workspaceId: coreOrg.organizationId,
+    organizationId: coreOrg.organizationId,
   });
 
   // Tự động nâng profile role của người tạo lên founder nếu đang là member
@@ -149,7 +149,7 @@ export async function validateUserMembership(
   await authorizeAndProjectCoreAccess(params.platformToken, params.companyId, "cosa.workspace.read");
 
   const userId = BigInt(caller.userId);
-  const workspaceId = BigInt(params.companyId);
+  const organizationId = BigInt(params.companyId);
 
   const [userRow] = await db
     .select({
@@ -175,11 +175,11 @@ export async function validateUserMembership(
       updatedAt: workspaceMemberships.updatedAt,
     })
     .from(workspaceMemberships)
-    .innerJoin(workspaces, eq(workspaces.id, workspaceMemberships.workspaceId))
+    .innerJoin(workspaces, eq(workspaces.id, workspaceMemberships.organizationId))
     .where(
       and(
         eq(workspaceMemberships.userId, userId),
-        eq(workspaceMemberships.workspaceId, workspaceId),
+        eq(workspaceMemberships.organizationId, organizationId),
         eq(workspaces.status, "active")
       )
     )
@@ -195,7 +195,7 @@ export async function validateUserMembership(
     email: userRow.email,
     phone: userRow.phone,
     displayName: userRow.fullName,
-    companyId: workspaceId.toString(),
+    companyId: organizationId.toString(),
     companyName: membershipRow.workspaceName,
     roleId: membershipRow.roleId,
     membershipId: membershipRow.id.toString(),

@@ -56,7 +56,7 @@ type NodeRow = typeof workspaceRuntimeNodes.$inferSelect;
 function toView(row: NodeRow, now: Date = new Date()): RuntimeNodeView {
   return {
     nodeId: row.nodeId.toString(),
-    organizationId: row.workspaceId.toString(),
+    organizationId: row.organizationId.toString(),
     deviceKeyFingerprint: row.deviceKeyFingerprint,
     runtimeRole: row.runtimeRole as RuntimeRole,
     presence: computePresence(row.lastHeartbeatAt, row.revokedAt, now),
@@ -81,7 +81,7 @@ function isUniqueViolation(err: unknown): boolean {
 }
 
 export interface RegisterRuntimeNodeParams {
-  workspaceId: bigint;
+  organizationId: bigint;
   deviceKeyFingerprint: string;
   runtimeRole: RuntimeRole;
   agentVersion?: string;
@@ -111,7 +111,7 @@ export async function registerRuntimeNode(
         .from(workspaceRuntimeNodes)
         .where(
           and(
-            eq(workspaceRuntimeNodes.workspaceId, p.workspaceId),
+            eq(workspaceRuntimeNodes.organizationId, p.organizationId),
             eq(workspaceRuntimeNodes.deviceKeyFingerprint, fingerprint),
             isNull(workspaceRuntimeNodes.revokedAt)
           )
@@ -137,7 +137,7 @@ export async function registerRuntimeNode(
         .insert(workspaceRuntimeNodes)
         .values({
           nodeId: generateSnowflake(),
-          workspaceId: p.workspaceId,
+          organizationId: p.organizationId,
           deviceKeyFingerprint: fingerprint,
           runtimeRole: p.runtimeRole,
           presenceStatus: "ONLINE",
@@ -156,7 +156,7 @@ export async function registerRuntimeNode(
         .from(workspaceRuntimeNodes)
         .where(
           and(
-            eq(workspaceRuntimeNodes.workspaceId, p.workspaceId),
+            eq(workspaceRuntimeNodes.organizationId, p.organizationId),
             eq(workspaceRuntimeNodes.deviceKeyFingerprint, fingerprint),
             isNull(workspaceRuntimeNodes.revokedAt)
           )
@@ -169,7 +169,7 @@ export async function registerRuntimeNode(
 
 export interface HeartbeatParams {
   nodeId: bigint;
-  workspaceId: bigint;
+  organizationId: bigint;
   deviceKeyFingerprint: string;
   agentVersion?: string;
 }
@@ -181,7 +181,7 @@ export async function heartbeatRuntimeNode(p: HeartbeatParams): Promise<RuntimeN
     .where(
       and(
         eq(workspaceRuntimeNodes.nodeId, p.nodeId),
-        eq(workspaceRuntimeNodes.workspaceId, p.workspaceId)
+        eq(workspaceRuntimeNodes.organizationId, p.organizationId)
       )
     );
 
@@ -209,7 +209,7 @@ export async function heartbeatRuntimeNode(p: HeartbeatParams): Promise<RuntimeN
 
 export async function revokeRuntimeNode(p: {
   nodeId: bigint;
-  workspaceId: bigint;
+  organizationId: bigint;
 }): Promise<void> {
   const now = new Date();
   await db
@@ -218,14 +218,14 @@ export async function revokeRuntimeNode(p: {
     .where(
       and(
         eq(workspaceRuntimeNodes.nodeId, p.nodeId),
-        eq(workspaceRuntimeNodes.workspaceId, p.workspaceId),
+        eq(workspaceRuntimeNodes.organizationId, p.organizationId),
         isNull(workspaceRuntimeNodes.revokedAt)
       )
     );
 }
 
 export async function listWorkspaceRuntimeNodes(
-  workspaceId: bigint,
+  organizationId: bigint,
   opts: { includeRevoked?: boolean } = {}
 ): Promise<RuntimeNodeView[]> {
   const now = new Date();
@@ -234,9 +234,9 @@ export async function listWorkspaceRuntimeNodes(
     .from(workspaceRuntimeNodes)
     .where(
       opts.includeRevoked
-        ? eq(workspaceRuntimeNodes.workspaceId, workspaceId)
+        ? eq(workspaceRuntimeNodes.organizationId, organizationId)
         : and(
-            eq(workspaceRuntimeNodes.workspaceId, workspaceId),
+            eq(workspaceRuntimeNodes.organizationId, organizationId),
             isNull(workspaceRuntimeNodes.revokedAt)
           )
     );
@@ -245,7 +245,7 @@ export async function listWorkspaceRuntimeNodes(
 
 export interface CommandEligibility {
   nodeId: string;
-  workspaceId: string;
+  organizationId: string;
   runtimeRole: RuntimeRole;
   presence: PresenceStatus;
 }
@@ -257,7 +257,7 @@ export interface CommandEligibility {
  */
 export async function assertNodeMayReceiveCommand(p: {
   nodeId: bigint;
-  workspaceId: bigint;
+  organizationId: bigint;
   deviceKeyFingerprint: string;
 }): Promise<CommandEligibility> {
   const [row] = await db
@@ -266,7 +266,7 @@ export async function assertNodeMayReceiveCommand(p: {
     .where(
       and(
         eq(workspaceRuntimeNodes.nodeId, p.nodeId),
-        eq(workspaceRuntimeNodes.workspaceId, p.workspaceId)
+        eq(workspaceRuntimeNodes.organizationId, p.organizationId)
       )
     );
 
@@ -281,7 +281,7 @@ export async function assertNodeMayReceiveCommand(p: {
 
   return {
     nodeId: row.nodeId.toString(),
-    workspaceId: row.workspaceId.toString(),
+    organizationId: row.organizationId.toString(),
     runtimeRole: row.runtimeRole as RuntimeRole,
     presence,
   };

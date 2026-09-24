@@ -213,7 +213,7 @@ def _assert_governance_fails_closed(
     r_snapshot = stack.platform.get(
         "/platform/auth/me/agent-policy-snapshot",
         token=seeded.owner_token,
-        params={"workspaceId": workspace_id},
+        params={"organizationId": workspace_id},
     )
     assert r_snapshot.status_code == 401, (
         f"policy snapshot với token company kỳ vọng 401 (gateway từ chối), "

@@ -62,7 +62,7 @@ describe("projectCoreAccess", () => {
     const [m] = await db
       .select()
       .from(workspaceMemberships)
-      .where(and(eq(workspaceMemberships.workspaceId, BigInt(organizationId)), eq(workspaceMemberships.userId, BigInt(userId))));
+      .where(and(eq(workspaceMemberships.organizationId, BigInt(organizationId)), eq(workspaceMemberships.userId, BigInt(userId))));
     expect(m.roleId).toBe("founder");
   });
 
@@ -88,7 +88,7 @@ describe("projectCoreAccess", () => {
     const members = await db
       .select()
       .from(workspaceMemberships)
-      .where(eq(workspaceMemberships.workspaceId, BigInt(organizationId)));
+      .where(eq(workspaceMemberships.organizationId, BigInt(organizationId)));
     expect(members).toHaveLength(1);
     expect(members[0].roleId).toBe("admin");
   });

@@ -20,7 +20,7 @@ export interface ProvisionParams {
   clientCreationId: string;
   planId?: string;
   /** id organization do backend/core cấp; bỏ trống thì COSA tự sinh id (luồng cũ). */
-  workspaceId?: string;
+  organizationId?: string;
 }
 
 export interface ProvisionResult {
@@ -64,11 +64,11 @@ export async function provisionVentureWorkspace(params: ProvisionParams): Promis
     const [ent] = await db
       .select()
       .from(workspaceEntitlements)
-      .where(eq(workspaceEntitlements.workspaceId, prev.workspaceId))
+      .where(eq(workspaceEntitlements.organizationId, prev.organizationId))
       .limit(1);
 
     return {
-      platformWorkspaceId: prev.workspaceId.toString(),
+      platformWorkspaceId: prev.organizationId.toString(),
       planId: ent?.planId ?? planId,
       effectiveFeatures: (ent?.effectiveFeatures ?? {}) as Record<string, unknown>,
       effectiveLimits: (ent?.effectiveLimits ?? {}) as Record<string, unknown>,
@@ -80,7 +80,7 @@ export async function provisionVentureWorkspace(params: ProvisionParams): Promis
     throw APIError.internal(`plan ${planId} chưa được seed`);
   }
 
-  const wsId = params.workspaceId ? BigInt(params.workspaceId) : BigInt(generateSnowflakeStr());
+  const wsId = params.organizationId ? BigInt(params.organizationId) : BigInt(generateSnowflakeStr());
   await db.transaction(async (tx) => {
     // Bản chiếu từ core có thể đã tạo workspace và membership cùng id: không được lỗi trùng khoá.
     await tx
@@ -95,20 +95,20 @@ export async function provisionVentureWorkspace(params: ProvisionParams): Promis
       .insert(workspaceMemberships)
       .values({
         id: BigInt(generateSnowflakeStr()),
-        workspaceId: wsId,
+        organizationId: wsId,
         userId: params.ownerUserId,
         roleId: "founder",
       })
       .onConflictDoNothing();
     await tx.insert(workspaceLicenses).values({
       id: BigInt(generateSnowflakeStr()),
-      workspaceId: wsId,
+      organizationId: wsId,
       planId,
       licenseKey: `wl_${wsId.toString()}`,
       status: "active",
     });
     await tx.insert(workspaceEntitlements).values({
-      workspaceId: wsId,
+      organizationId: wsId,
       planId,
       effectiveLimits: plan.defaultLimits as object,
       effectiveFeatures: plan.defaultFeatures as object,
@@ -116,7 +116,7 @@ export async function provisionVentureWorkspace(params: ProvisionParams): Promis
     });
     await tx.insert(workspaceSyncLogs).values({
       id: BigInt(generateSnowflakeStr()),
-      workspaceId: wsId,
+      organizationId: wsId,
       clientCreationId: params.clientCreationId,
       syncStatus: "pending",
     });
@@ -134,7 +134,7 @@ export async function listWorkspaceMembershipsForUser(userId: bigint): Promise<W
   const rows = await db
     .select({
       membershipId: workspaceMemberships.id,
-      workspaceId: workspaceMemberships.workspaceId,
+      organizationId: workspaceMemberships.organizationId,
       roleId: workspaceMemberships.roleId,
       membershipUpdatedAt: workspaceMemberships.updatedAt,
       workspaceName: workspaces.workspaceName,
@@ -143,13 +143,13 @@ export async function listWorkspaceMembershipsForUser(userId: bigint): Promise<W
       fullName: profiles.fullName,
     })
     .from(workspaceMemberships)
-    .innerJoin(workspaces, eq(workspaceMemberships.workspaceId, workspaces.id))
+    .innerJoin(workspaces, eq(workspaceMemberships.organizationId, workspaces.id))
     .innerJoin(users, eq(workspaceMemberships.userId, users.id))
     .leftJoin(profiles, eq(users.id, profiles.id))
     .where(eq(workspaceMemberships.userId, userId));
 
   return rows.map((r) => ({
-    platformWorkspaceId: r.workspaceId.toString(),
+    platformWorkspaceId: r.organizationId.toString(),
     workspaceName: r.workspaceName,
     userId: r.userId.toString(),
     email: r.email,
@@ -167,7 +167,7 @@ export async function validateWorkspaceMembership(
   const [row] = await db
     .select({
       membershipId: workspaceMemberships.id,
-      workspaceId: workspaceMemberships.workspaceId,
+      organizationId: workspaceMemberships.organizationId,
       roleId: workspaceMemberships.roleId,
       membershipUpdatedAt: workspaceMemberships.updatedAt,
       workspaceName: workspaces.workspaceName,
@@ -176,13 +176,13 @@ export async function validateWorkspaceMembership(
       fullName: profiles.fullName,
     })
     .from(workspaceMemberships)
-    .innerJoin(workspaces, eq(workspaceMemberships.workspaceId, workspaces.id))
+    .innerJoin(workspaces, eq(workspaceMemberships.organizationId, workspaces.id))
     .innerJoin(users, eq(workspaceMemberships.userId, users.id))
     .leftJoin(profiles, eq(users.id, profiles.id))
     .where(
       and(
         eq(workspaceMemberships.userId, userId),
-        eq(workspaceMemberships.workspaceId, platformWorkspaceId)
+        eq(workspaceMemberships.organizationId, platformWorkspaceId)
       )
     )
     .limit(1);
@@ -190,7 +190,7 @@ export async function validateWorkspaceMembership(
   if (!row) return null;
 
   return {
-    platformWorkspaceId: row.workspaceId.toString(),
+    platformWorkspaceId: row.organizationId.toString(),
     workspaceName: row.workspaceName,
     userId: row.userId.toString(),
     email: row.email,
@@ -205,7 +205,7 @@ export async function getWorkspaceEntitlement(platformWorkspaceId: bigint): Prom
   const [row] = await db
     .select()
     .from(workspaceEntitlements)
-    .where(eq(workspaceEntitlements.workspaceId, platformWorkspaceId))
+    .where(eq(workspaceEntitlements.organizationId, platformWorkspaceId))
     .limit(1);
 
   if (!row) {
@@ -213,7 +213,7 @@ export async function getWorkspaceEntitlement(platformWorkspaceId: bigint): Prom
   }
 
   return {
-    platformWorkspaceId: row.workspaceId.toString(),
+    platformWorkspaceId: row.organizationId.toString(),
     planId: row.planId,
     effectiveLimits: (row.effectiveLimits ?? {}) as Record<string, unknown>,
     effectiveFeatures: (row.effectiveFeatures ?? {}) as Record<string, unknown>,
@@ -228,6 +228,6 @@ export async function markWorkspaceSynced(platformWorkspaceId: bigint): Promise<
       syncStatus: "success",
       syncedAt: new Date(),
     })
-    .where(eq(workspaceSyncLogs.workspaceId, platformWorkspaceId));
+    .where(eq(workspaceSyncLogs.organizationId, platformWorkspaceId));
 }
 

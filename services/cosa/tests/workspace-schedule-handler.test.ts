@@ -15,11 +15,11 @@ const { workspaceScheduleDefinitions, workspaceScheduleExecutions } = schema;
 
 const TEST_CONTROL_DELEGATION_SECRET = "test-control-delegation-secret-min-32-chars";
 
-function signControlDelegation(opts: { sub: string; workspaceId: string; role?: string }): string {
+function signControlDelegation(opts: { sub: string; organizationId: string; role?: string }): string {
   // Claim JWT thô là workspace_id (snake_case) — cùng convention với
   // mint_control_plane_delegation (apps/cosa/auth/jwt.py) qua wire thật.
   return jwt.sign(
-    { sub: opts.sub, workspace_id: opts.workspaceId, role: opts.role ?? "member" },
+    { sub: opts.sub, workspace_id: opts.organizationId, role: opts.role ?? "member" },
     TEST_CONTROL_DELEGATION_SECRET,
     { audience: "cosa_control", issuer: "cosa_apps", expiresIn: "10m" }
   );
@@ -80,7 +80,7 @@ describe("Workspace Schedule Handler Authorization (Gate 0)", () => {
     // First create a schedule in workspace A (where user_a is a member)
     const tokenUserA = signPlatformToken(userA);
     const schedule = await scheduleSvc.createWorkspaceSchedule({
-      workspaceId: wsA,
+      organizationId: wsA,
       createdBy: userA,
       scheduleKind: "daily",
       hour: 9,
@@ -144,7 +144,7 @@ describe("Workspace Schedule Handler Authorization (Gate 0)", () => {
   it("calls verifyWorkspaceMembership with correct params for run-now", async () => {
     const tokenUserA = signPlatformToken(userA);
     const schedule = await scheduleSvc.createWorkspaceSchedule({
-      workspaceId: wsA,
+      organizationId: wsA,
       createdBy: userA,
       scheduleKind: "daily",
       hour: 9,
@@ -195,7 +195,7 @@ describe("Workspace Schedule Handler Authorization (Gate 0)", () => {
 
     // Create a schedule first
     await scheduleSvc.createWorkspaceSchedule({
-      workspaceId: wsA,
+      organizationId: wsA,
       createdBy: userA,
       scheduleKind: "daily",
       hour: 9,
@@ -216,7 +216,7 @@ describe("Workspace Schedule Handler Authorization (Gate 0)", () => {
   it("allows successful run-now when caller is workspace member", async () => {
     const tokenUserA = signPlatformToken(userA);
     const schedule = await scheduleSvc.createWorkspaceSchedule({
-      workspaceId: wsA,
+      organizationId: wsA,
       createdBy: userA,
       scheduleKind: "daily",
       hour: 9,
@@ -288,7 +288,7 @@ describe("Workspace Schedule Service", () => {
 
   it("listWorkspaceSchedules returns schedules for workspace", async () => {
     const created = await scheduleSvc.createWorkspaceSchedule({
-      workspaceId: "ws_a",
+      organizationId: "ws_a",
       createdBy: "user_a",
       scheduleKind: "daily",
       hour: 9,
@@ -305,7 +305,7 @@ describe("Workspace Schedule Service", () => {
 
   it("getScheduleExecution returns execution by ID", async () => {
     const schedule = await scheduleSvc.createWorkspaceSchedule({
-      workspaceId: "ws_a",
+      organizationId: "ws_a",
       createdBy: "user_a",
       scheduleKind: "daily",
       hour: 9,
@@ -316,7 +316,7 @@ describe("Workspace Schedule Service", () => {
 
     const execution = await scheduleSvc.runScheduleNow({
       scheduleId: schedule.id,
-      workspaceId: "ws_a",
+      organizationId: "ws_a",
       principalId: "user_a",
     });
 
@@ -351,7 +351,7 @@ describe("Workspace Schedule Handler — B5 control-plane delegation", () => {
     });
     vi.stubGlobal("fetch", fetchSpy);
 
-    const delegation = signControlDelegation({ sub: "user_a", workspaceId: "ws_a" });
+    const delegation = signControlDelegation({ sub: "user_a", organizationId: "ws_a" });
     const authHeader = `Bearer ${delegation}`;
 
     const created = await createScheduleEndpoint({
@@ -379,7 +379,7 @@ describe("Workspace Schedule Handler — B5 control-plane delegation", () => {
   });
 
   it("từ chối delegation scoped cho workspace khác", async () => {
-    const delegation = signControlDelegation({ sub: "user_a", workspaceId: "ws_b" });
+    const delegation = signControlDelegation({ sub: "user_a", organizationId: "ws_b" });
 
     await expect(
       createScheduleEndpoint({

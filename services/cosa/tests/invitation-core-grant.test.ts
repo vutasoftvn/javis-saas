@@ -48,9 +48,9 @@ describe("acceptWorkspaceInvitation qua core", () => {
     const [m] = await db
       .select()
       .from(workspaceMemberships)
-      .where(and(eq(workspaceMemberships.workspaceId, BigInt(orgId)), eq(workspaceMemberships.userId, BigInt(inviteeId))));
+      .where(and(eq(workspaceMemberships.organizationId, BigInt(orgId)), eq(workspaceMemberships.userId, BigInt(inviteeId))));
     expect(m.roleId).toBe("member");
-    const [inv] = await db.select().from(workspaceInvitations).where(eq(workspaceInvitations.workspaceId, BigInt(orgId)));
+    const [inv] = await db.select().from(workspaceInvitations).where(eq(workspaceInvitations.organizationId, BigInt(orgId)));
     expect(inv.status).toBe("accepted");
   });
 
@@ -64,7 +64,7 @@ describe("acceptWorkspaceInvitation qua core", () => {
     const [m] = await db
       .select()
       .from(workspaceMemberships)
-      .where(and(eq(workspaceMemberships.workspaceId, BigInt(orgId)), eq(workspaceMemberships.userId, BigInt(inviteeId))));
+      .where(and(eq(workspaceMemberships.organizationId, BigInt(orgId)), eq(workspaceMemberships.userId, BigInt(inviteeId))));
     expect(m.roleId).toBe("founder");
   });
 
@@ -81,9 +81,9 @@ describe("acceptWorkspaceInvitation qua core", () => {
     const members = await db
       .select()
       .from(workspaceMemberships)
-      .where(and(eq(workspaceMemberships.workspaceId, BigInt(orgId)), eq(workspaceMemberships.userId, BigInt(inviteeId))));
+      .where(and(eq(workspaceMemberships.organizationId, BigInt(orgId)), eq(workspaceMemberships.userId, BigInt(inviteeId))));
     expect(members).toHaveLength(0);
-    const [inv] = await db.select().from(workspaceInvitations).where(eq(workspaceInvitations.workspaceId, BigInt(orgId)));
+    const [inv] = await db.select().from(workspaceInvitations).where(eq(workspaceInvitations.organizationId, BigInt(orgId)));
     expect(inv.status).toBe("pending");
   });
 

@@ -167,7 +167,7 @@ export const costLedger = controlPlaneSchema.table("cost_ledger", {
 
 export const workspaceConnectorInstallations = controlPlaneSchema.table("organization_connector_installations", {
   id: text("id").primaryKey(),
-  workspaceId: text("organization_id").notNull(),
+  organizationId: text("organization_id").notNull(),
   connectorKey: text("connector_key").notNull(),
   installedBy: text("installed_by").notNull(),
   status: text("status").default("enabled").notNull(),
@@ -186,14 +186,14 @@ export const connectorAuthorizations = controlPlaneSchema.table("connector_autho
   state: text("state").default("active").notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
-  workspaceId: text("organization_id").notNull(),
+  organizationId: text("organization_id").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const sessionConnectorGrants = controlPlaneSchema.table("session_connector_grants", {
   id: text("id").primaryKey(),
-  workspaceId: text("organization_id").notNull(),
+  organizationId: text("organization_id").notNull(),
   conversationId: text("conversation_id").notNull(),
   authorizationId: text("authorization_id")
     .notNull()
@@ -209,7 +209,7 @@ export const sessionConnectorGrants = controlPlaneSchema.table("session_connecto
 
 export const workspaceScheduleDefinitions = controlPlaneSchema.table("organization_schedule_definitions", {
   id: text("id").primaryKey(),
-  workspaceId: text("organization_id").notNull(),
+  organizationId: text("organization_id").notNull(),
   createdBy: text("created_by").notNull(),
   scheduleKind: text("schedule_kind").notNull(),
   timezone: text("timezone").default("Asia/Ho_Chi_Minh").notNull(),
@@ -234,7 +234,7 @@ export const workspaceScheduleExecutions = controlPlaneSchema.table("organizatio
   definitionId: text("definition_id")
     .notNull()
     .references(() => workspaceScheduleDefinitions.id, { onDelete: "cascade" }),
-  workspaceId: text("organization_id").notNull(),
+  organizationId: text("organization_id").notNull(),
   scheduledFor: timestamp("scheduled_for", { withTimezone: true }).notNull(),
   promptTemplateSnapshot: text("prompt_template_snapshot").notNull(),
   agentProfileSnapshot: text("agent_profile_snapshot").notNull(),
@@ -258,7 +258,7 @@ export const workspaceScheduleExecutions = controlPlaneSchema.table("organizatio
 // Document ingestion lifecycle: immutable, server-authoritative records for knowledge ingestion
 export const documentIngestions = controlPlaneSchema.table("document_ingestions", {
   id: text("id").primaryKey(),
-  workspaceId: text("organization_id").notNull(),
+  organizationId: text("organization_id").notNull(),
   createdBy: text("created_by").notNull(),
   originalFilename: text("original_filename").notNull(),
   declaredMediaType: text("declared_media_type").notNull(),
@@ -311,7 +311,7 @@ export const snowflakeGeneratorSlots = controlPlaneSchema.table("snowflake_gener
 // theo độ tươi của last_heartbeat_at (now() không IMMUTABLE ⇒ không đặt trong index).
 export const workspaceRuntimeNodes = controlPlaneSchema.table("organization_runtime_nodes", {
   nodeId: bigint("node_id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("organization_id", { mode: "bigint" }).notNull(),
+  organizationId: bigint("organization_id", { mode: "bigint" }).notNull(),
   deviceKeyFingerprint: text("device_key_fingerprint").notNull(),
   runtimeRole: text("runtime_role").notNull(), // local_workspace_runtime | cloud_workspace_runtime
   presenceStatus: text("presence_status").default("OFFLINE").notNull(), // ONLINE | OFFLINE | DEGRADED
@@ -326,7 +326,7 @@ export const workspaceRuntimeNodes = controlPlaneSchema.table("organization_runt
 // M6 §2 — WorkspaceExecutionLease: một workspace CHỈ MỘT write-authoritative
 // runtime tại một thời điểm. lease_epoch + fencing_token chống split-brain.
 export const workspaceExecutionLeases = controlPlaneSchema.table("organization_execution_leases", {
-  workspaceId: bigint("organization_id", { mode: "bigint" }).primaryKey(),
+  organizationId: bigint("organization_id", { mode: "bigint" }).primaryKey(),
   activeRuntimeNodeId: bigint("active_runtime_node_id", { mode: "bigint" }).notNull(),
   activeRuntimeRole: text("active_runtime_role").notNull(), // local_workspace_runtime | cloud_workspace_runtime
   leaseEpoch: bigint("lease_epoch", { mode: "bigint" }).default(1n).notNull(),
@@ -345,7 +345,7 @@ export const workspaceExecutionLeases = controlPlaneSchema.table("organization_e
 // no business content, prompt, credential or connector grant is ever stored here.
 export const automationDispatches = controlPlaneSchema.table("automation_dispatches", {
   invocationId: text("invocation_id").primaryKey(),
-  workspaceId: text("organization_id").notNull(),
+  organizationId: text("organization_id").notNull(),
   automationKey: text("automation_key").notNull(),
   revision: integer("revision").notNull(),
   revisionHash: text("revision_hash").notNull(),

@@ -46,13 +46,13 @@ def run(
 
 def _assert_auth_gate(platform: ServiceClient, workspace_id: str) -> None:
     # Không Authorization -> 401 `unauthenticated`.
-    r_anon = platform.get(_SNAPSHOT_PATH, params={"workspaceId": workspace_id})
+    r_anon = platform.get(_SNAPSHOT_PATH, params={"organizationId": workspace_id})
     assert r_anon.status_code == 401, r_anon.text
     assert r_anon.json().get("code") == "unauthenticated", r_anon.text
 
     # Bearer dạng JWT nhưng không phải delegation hợp lệ -> 401 (handler verify ký + audience).
     r_garbage = platform.get(
-        _SNAPSHOT_PATH, token="not.a.real-jwt-token", params={"workspaceId": workspace_id}
+        _SNAPSHOT_PATH, token="not.a.real-jwt-token", params={"organizationId": workspace_id}
     )
     assert r_garbage.status_code == 401, r_garbage.text
     assert r_garbage.json().get("code") == "unauthenticated", r_garbage.text
@@ -73,18 +73,18 @@ def _assert_tenant_scoped_snapshot(
     r_ops = platform.get(
         _SNAPSHOT_PATH,
         token=delegation_for(seeded_ops.workspace_id),
-        params={"workspaceId": seeded_ops.workspace_id},
+        params={"organizationId": seeded_ops.workspace_id},
     )
     assert r_ops.status_code == 200, r_ops.text
     body_ops = r_ops.json()
-    assert body_ops["workspaceId"] == seeded_ops.workspace_id, body_ops
+    assert body_ops["organizationId"] == seeded_ops.workspace_id, body_ops
     assert isinstance(body_ops["snapshotHash"], str) and body_ops["snapshotHash"], body_ops
     assert _rule_patterns(body_ops) == {"operations.*"}, body_ops
 
     r_fin = platform.get(
         _SNAPSHOT_PATH,
         token=delegation_for(seeded_fin.workspace_id),
-        params={"workspaceId": seeded_fin.workspace_id},
+        params={"organizationId": seeded_fin.workspace_id},
     )
     assert r_fin.status_code == 200, r_fin.text
     patterns_fin = _rule_patterns(r_fin.json())
@@ -96,7 +96,7 @@ def _assert_tenant_scoped_snapshot(
     r_bare = platform.get(
         _SNAPSHOT_PATH,
         token=delegation_for(seeded_bare.workspace_id),
-        params={"workspaceId": seeded_bare.workspace_id},
+        params={"organizationId": seeded_bare.workspace_id},
     )
     assert r_bare.status_code == 200, r_bare.text
     patterns_bare = _rule_patterns(r_bare.json())
@@ -108,7 +108,7 @@ def _assert_tenant_scoped_snapshot(
     r_cross = platform.get(
         _SNAPSHOT_PATH,
         token=delegation_for(seeded_ops.workspace_id),
-        params={"workspaceId": seeded_fin.workspace_id},
+        params={"organizationId": seeded_fin.workspace_id},
     )
     assert r_cross.status_code == 403, (
         f"delegation của ws ops truy cập ws finance: kỳ vọng 403, thực tế {r_cross.status_code}: {r_cross.text}"

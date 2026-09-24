@@ -104,12 +104,12 @@ export async function projectCoreAccess(input: ProjectCoreAccessInput): Promise<
       .insert(workspaceMemberships)
       .values({
         id: BigInt(generateSnowflakeStr()),
-        workspaceId: organizationId,
+        organizationId: organizationId,
         userId,
         roleId: cosaRole,
       })
       .onConflictDoUpdate({
-        target: [workspaceMemberships.workspaceId, workspaceMemberships.userId],
+        target: [workspaceMemberships.organizationId, workspaceMemberships.userId],
         set: { roleId: cosaRole, updatedAt: now },
       });
   });

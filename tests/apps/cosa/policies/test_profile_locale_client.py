@@ -21,7 +21,7 @@ def _client_with_handler(handler) -> ProfileLocaleClient:
 async def test_get_locale_snapshot_success():
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/platform/auth/me/locale-snapshot"
-        assert request.url.params["workspaceId"] == "ws-123"
+        assert request.url.params["organizationId"] == "ws-123"
         assert request.headers["authorization"] == "Bearer delegation-token"
         return httpx.Response(
             200,

@@ -78,7 +78,7 @@ export interface WorkspaceMembershipInfo {
  * - Network error or non-2xx from services/company → APIError.unavailable
  */
 export async function verifyWorkspaceMembership(
-  workspaceId: string,
+  organizationId: string,
   authorizationHeader: string | undefined
 ): Promise<WorkspaceMembershipInfo> {
   // Access token OIDC của core: core quyết định thành viên.
@@ -89,12 +89,12 @@ export async function verifyWorkspaceMembership(
   // Control-plane delegation do apps/cosa ký (đã kiểm tra thành viên thật): tin claim, không hỏi lại core.
   if (looksLikeJwt(bearer)) {
     const delegation = verifyControlDelegationToken(bearer);
-    if (delegation.workspaceId !== workspaceId) {
+    if (delegation.organizationId !== organizationId) {
       throw APIError.permissionDenied("control-plane delegation token scoped cho workspace khác");
     }
     return { platformCompanyId: null, membershipRole: delegation.role };
   }
-  const access = await authorizeAndProjectCoreAccess(bearer, workspaceId, "cosa.workspace.read");
+  const access = await authorizeAndProjectCoreAccess(bearer, organizationId, "cosa.workspace.read");
   return { platformCompanyId: null, membershipRole: access.cosaRole };
 }
 
@@ -102,12 +102,12 @@ export async function verifyWorkspaceMembership(
  * Điểm vào DÙNG CHUNG cho mọi endpoint cần "caller đã chứng minh thuộc workspace này"
  * (agent-policy-snapshot, /cosa/schedules*). Ưu tiên control-plane delegation (apps/cosa tự mint sau khi
  * đã cross-check membership thật — xem apps/cosa/auth/jwt.py::mint_control_plane_delegation) — TIN claim
- * workspaceId/sub trong đó. Nếu không phải delegation hợp lệ thì là access token OIDC của core: core quyết
+ * organizationId/sub trong đó. Nếu không phải delegation hợp lệ thì là access token OIDC của core: core quyết
  * định thành viên (introspect + `/me/organizations/:id/authorize`).
  */
 export async function resolveCallerAuthorizedForWorkspace(
   authorizationHeader: string | undefined,
-  workspaceId: string
+  organizationId: string
 ): Promise<{ sub: string }> {
   if (!authorizationHeader) {
     throw APIError.unauthenticated("missing authorization header");
@@ -116,7 +116,7 @@ export async function resolveCallerAuthorizedForWorkspace(
 
   try {
     const delegation = verifyControlDelegationToken(token);
-    if (delegation.workspaceId !== workspaceId) {
+    if (delegation.organizationId !== organizationId) {
       throw APIError.permissionDenied("control-plane delegation token scoped cho workspace khác");
     }
     return { sub: delegation.sub };
@@ -130,7 +130,7 @@ export async function resolveCallerAuthorizedForWorkspace(
   if (looksLikeJwt(token)) {
     throw APIError.unauthenticated("invalid or expired access token");
   }
-  const access = await authorizeAndProjectCoreAccess(token, workspaceId, "cosa.workspace.read");
+  const access = await authorizeAndProjectCoreAccess(token, organizationId, "cosa.workspace.read");
   return { sub: access.userId };
 }
 
@@ -146,7 +146,7 @@ export async function installWorkspaceConnector(input: {
     .from(workspaceConnectorInstallations)
     .where(
       and(
-        eq(workspaceConnectorInstallations.workspaceId, input.organizationId),
+        eq(workspaceConnectorInstallations.organizationId, input.organizationId),
         eq(workspaceConnectorInstallations.connectorKey, input.connectorKey)
       )
     );
@@ -167,7 +167,7 @@ export async function installWorkspaceConnector(input: {
     .insert(workspaceConnectorInstallations)
     .values({
       id,
-      workspaceId: input.organizationId,
+      organizationId: input.organizationId,
       connectorKey: input.connectorKey,
       installedBy: input.installedBy,
       status: "enabled",
@@ -193,7 +193,7 @@ export async function registerConnectorAuthorization(input: {
     .where(
       and(
         eq(workspaceConnectorInstallations.id, input.installationId),
-        eq(workspaceConnectorInstallations.workspaceId, input.organizationId)
+        eq(workspaceConnectorInstallations.organizationId, input.organizationId)
       )
     );
 
@@ -210,7 +210,7 @@ export async function registerConnectorAuthorization(input: {
     .values({
       id,
       installationId: input.installationId,
-      workspaceId: input.organizationId,
+      organizationId: input.organizationId,
       principalId: input.principalId,
       secretRef: input.secretRef,
       grantedScopes: input.grantedScopes,
@@ -252,7 +252,7 @@ export async function grantConnectorToSession(input: {
     .where(
       and(
         eq(connectorAuthorizations.id, input.authorizationId),
-        eq(workspaceConnectorInstallations.workspaceId, input.organizationId)
+        eq(workspaceConnectorInstallations.organizationId, input.organizationId)
       )
     );
 
@@ -304,7 +304,7 @@ export async function grantConnectorToSession(input: {
     .insert(sessionConnectorGrants)
     .values({
       id,
-      workspaceId: input.organizationId,
+      organizationId: input.organizationId,
       conversationId: input.conversationId,
       authorizationId: input.authorizationId,
       grantedBy: input.grantedBy,
@@ -336,9 +336,9 @@ export async function revokeSessionGrant(input: {
     .where(
       and(
         eq(sessionConnectorGrants.id, input.grantId),
-        eq(sessionConnectorGrants.workspaceId, input.organizationId),
+        eq(sessionConnectorGrants.organizationId, input.organizationId),
         eq(sessionConnectorGrants.conversationId, input.conversationId),
-        eq(connectorAuthorizations.workspaceId, input.organizationId)
+        eq(connectorAuthorizations.organizationId, input.organizationId)
       )
     );
 
@@ -384,7 +384,7 @@ export async function assertConnectorInvocation(input: {
     .innerJoin(workspaceConnectorInstallations, eq(connectorAuthorizations.installationId, workspaceConnectorInstallations.id))
     .where(
       and(
-        eq(sessionConnectorGrants.workspaceId, input.organizationId),
+        eq(sessionConnectorGrants.organizationId, input.organizationId),
         eq(sessionConnectorGrants.conversationId, input.conversationId),
         eq(workspaceConnectorInstallations.connectorKey, input.connectorKey)
       )

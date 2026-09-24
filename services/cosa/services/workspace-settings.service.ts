@@ -62,16 +62,16 @@ function mvpItem<T>(item: T, sources: readonly MvpSourceRef[]): MvpSuccess<T> {
 
 const SOURCE_CONTROL_PLANE: MvpSourceRef = { kind: "control_plane", ref: "control_plane.settings" };
 
-async function verifyWorkspaceMembershipRow(authorization: string | undefined, workspaceId: string) {
-  const authCtx = await extractAuthContext(authorization, workspaceId);
+async function verifyWorkspaceMembershipRow(authorization: string | undefined, organizationId: string) {
+  const authCtx = await extractAuthContext(authorization, organizationId);
 
-  const wsIdBigInt = BigInt(workspaceId);
+  const wsIdBigInt = BigInt(organizationId);
   const userIdBigInt = BigInt(authCtx.userID);
 
   const mem = await db
     .select()
     .from(workspaceMemberships)
-    .where(and(eq(workspaceMemberships.workspaceId, wsIdBigInt), eq(workspaceMemberships.userId, userIdBigInt)))
+    .where(and(eq(workspaceMemberships.organizationId, wsIdBigInt), eq(workspaceMemberships.userId, userIdBigInt)))
     .limit(1);
 
   if (mem.length === 0) {
@@ -82,8 +82,8 @@ async function verifyWorkspaceMembershipRow(authorization: string | undefined, w
   return { actorId: authCtx.userID, membership: mem[0] };
 }
 
-async function verifyWorkspaceMembership(authorization: string | undefined, workspaceId: string): Promise<string> {
-  const { actorId } = await verifyWorkspaceMembershipRow(authorization, workspaceId);
+async function verifyWorkspaceMembership(authorization: string | undefined, organizationId: string): Promise<string> {
+  const { actorId } = await verifyWorkspaceMembershipRow(authorization, organizationId);
   return actorId;
 }
 
@@ -93,8 +93,8 @@ async function verifyWorkspaceMembership(authorization: string | undefined, work
 // nhất khái niệm "operator" dù kiểm tra ở 2 tầng khác nhau.
 const WORKSPACE_OPERATOR_ROLES = new Set(["founder", "co-founder", "admin"]);
 
-async function requireWorkspaceOperator(authorization: string | undefined, workspaceId: string): Promise<string> {
-  const { actorId, membership } = await verifyWorkspaceMembershipRow(authorization, workspaceId);
+async function requireWorkspaceOperator(authorization: string | undefined, organizationId: string): Promise<string> {
+  const { actorId, membership } = await verifyWorkspaceMembershipRow(authorization, organizationId);
   if (!WORKSPACE_OPERATOR_ROLES.has((membership.roleId || "").toLowerCase())) {
     throw APIError.permissionDenied("workspace operator role required");
   }
@@ -114,11 +114,11 @@ export interface WorkspaceMemberDTO {
 }
 
 export async function listWorkspaceMembersService(
-  workspaceId: string,
+  organizationId: string,
   authorization?: string
 ): Promise<MvpSuccess<readonly WorkspaceMemberDTO[]>> {
-  await verifyWorkspaceMembership(authorization, workspaceId);
-  const wsIdBigInt = BigInt(workspaceId);
+  await verifyWorkspaceMembership(authorization, organizationId);
+  const wsIdBigInt = BigInt(organizationId);
 
   const rows = await db
     .select({
@@ -129,11 +129,11 @@ export async function listWorkspaceMembersService(
     .from(workspaceMemberships)
     .innerJoin(users, eq(workspaceMemberships.userId, users.id))
     .leftJoin(profiles, eq(users.id, profiles.id))
-    .where(eq(workspaceMemberships.workspaceId, wsIdBigInt));
+    .where(eq(workspaceMemberships.organizationId, wsIdBigInt));
 
   const items: WorkspaceMemberDTO[] = rows.map(({ mem, u, p }) => ({
     id: mem.id.toString(),
-    organizationId: mem.workspaceId.toString(),
+    organizationId: mem.organizationId.toString(),
     userId: mem.userId.toString(),
     roleId: mem.roleId,
     email: u.email,
@@ -157,15 +157,15 @@ export interface ConnectorStatusView {
 }
 
 export async function listWorkspaceConnectorsService(
-  workspaceId: string,
+  organizationId: string,
   authorization?: string
 ): Promise<MvpSuccess<readonly ConnectorStatusView[]>> {
-  await verifyWorkspaceMembership(authorization, workspaceId);
+  await verifyWorkspaceMembership(authorization, organizationId);
 
   const rows = await db
     .select()
     .from(workspaceConnectorInstallations)
-    .where(eq(workspaceConnectorInstallations.workspaceId, workspaceId));
+    .where(eq(workspaceConnectorInstallations.organizationId, organizationId));
 
   const items: ConnectorStatusView[] = rows.map((r) => ({
     id: r.id,
@@ -181,11 +181,11 @@ export async function listWorkspaceConnectorsService(
 }
 
 export async function installWorkspaceConnectorService(
-  workspaceId: string,
+  organizationId: string,
   connectorKey: string,
   authorization?: string
 ): Promise<MvpSuccess<ConnectorStatusView>> {
-  const actorId = await verifyWorkspaceMembership(authorization, workspaceId);
+  const actorId = await verifyWorkspaceMembership(authorization, organizationId);
 
   const id = `conn_${Date.now()}`;
   const now = new Date();
@@ -194,7 +194,7 @@ export async function installWorkspaceConnectorService(
     .insert(workspaceConnectorInstallations)
     .values({
       id,
-      workspaceId,
+      organizationId,
       connectorKey,
       installedBy: actorId,
       status: "enabled",
@@ -202,7 +202,7 @@ export async function installWorkspaceConnectorService(
       updatedAt: now,
     })
     .onConflictDoUpdate({
-      target: [workspaceConnectorInstallations.workspaceId, workspaceConnectorInstallations.connectorKey],
+      target: [workspaceConnectorInstallations.organizationId, workspaceConnectorInstallations.connectorKey],
       set: {
         status: "enabled",
         updatedAt: now,
@@ -212,7 +212,7 @@ export async function installWorkspaceConnectorService(
   // Audit log
   await db.insert(workspaceSettingsAuditEvents).values({
     eventId: BigInt(Date.now()),
-    workspaceId: BigInt(workspaceId),
+    organizationId: BigInt(organizationId),
     actorId,
     eventType: "connector.installed",
     targetKind: "connector",
@@ -233,11 +233,11 @@ export async function installWorkspaceConnectorService(
 }
 
 export async function revokeWorkspaceConnectorService(
-  workspaceId: string,
+  organizationId: string,
   connectorKey: string,
   authorization?: string
 ): Promise<MvpSuccess<ConnectorStatusView>> {
-  const actorId = await verifyWorkspaceMembership(authorization, workspaceId);
+  const actorId = await verifyWorkspaceMembership(authorization, organizationId);
   const now = new Date();
 
   await db
@@ -245,7 +245,7 @@ export async function revokeWorkspaceConnectorService(
     .set({ status: "disabled", updatedAt: now })
     .where(
       and(
-        eq(workspaceConnectorInstallations.workspaceId, workspaceId),
+        eq(workspaceConnectorInstallations.organizationId, organizationId),
         eq(workspaceConnectorInstallations.connectorKey, connectorKey)
       )
     );
@@ -253,7 +253,7 @@ export async function revokeWorkspaceConnectorService(
   // Audit log
   await db.insert(workspaceSettingsAuditEvents).values({
     eventId: BigInt(Date.now()),
-    workspaceId: BigInt(workspaceId),
+    organizationId: BigInt(organizationId),
     actorId,
     eventType: "connector.revoked",
     targetKind: "connector",
@@ -286,16 +286,16 @@ export interface RuntimeNodeView {
 }
 
 export async function listWorkspaceRuntimeNodesService(
-  workspaceId: string,
+  organizationId: string,
   authorization?: string
 ): Promise<MvpSuccess<readonly RuntimeNodeView[]>> {
-  await verifyWorkspaceMembership(authorization, workspaceId);
-  const wsIdBigInt = BigInt(workspaceId);
+  await verifyWorkspaceMembership(authorization, organizationId);
+  const wsIdBigInt = BigInt(organizationId);
 
   const rows = await db
     .select()
     .from(workspaceRuntimeNodes)
-    .where(eq(workspaceRuntimeNodes.workspaceId, wsIdBigInt));
+    .where(eq(workspaceRuntimeNodes.organizationId, wsIdBigInt));
 
   const now = Date.now();
   const items: RuntimeNodeView[] = rows.map((r) => {
@@ -305,7 +305,7 @@ export async function listWorkspaceRuntimeNodesService(
     const status = isRevoked ? "revoked" : (r.presenceStatus || "active");
     return {
       id: r.nodeId.toString(),
-      organizationId: r.workspaceId.toString(),
+      organizationId: r.organizationId.toString(),
       nodeId: r.nodeId.toString(),
       runtimeRole: r.runtimeRole,
       presence: isOnline ? "ONLINE" : "OFFLINE",
@@ -318,22 +318,22 @@ export async function listWorkspaceRuntimeNodesService(
 }
 
 export async function revokeWorkspaceRuntimeNodeService(
-  workspaceId: string,
+  organizationId: string,
   nodeId: string,
   authorization?: string
 ): Promise<MvpSuccess<{ revoked: boolean }>> {
-  const actorId = await verifyWorkspaceMembership(authorization, workspaceId);
-  const wsIdBigInt = BigInt(workspaceId);
+  const actorId = await verifyWorkspaceMembership(authorization, organizationId);
+  const wsIdBigInt = BigInt(organizationId);
   const nodeIdBigInt = BigInt(nodeId);
 
   await db
     .update(workspaceRuntimeNodes)
     .set({ revokedAt: new Date(), presenceStatus: "OFFLINE", updatedAt: new Date() })
-    .where(and(eq(workspaceRuntimeNodes.workspaceId, wsIdBigInt), eq(workspaceRuntimeNodes.nodeId, nodeIdBigInt)));
+    .where(and(eq(workspaceRuntimeNodes.organizationId, wsIdBigInt), eq(workspaceRuntimeNodes.nodeId, nodeIdBigInt)));
 
   await db.insert(workspaceSettingsAuditEvents).values({
     eventId: BigInt(Date.now()),
-    workspaceId: wsIdBigInt,
+    organizationId: wsIdBigInt,
     actorId,
     eventType: "runtime_node.revoked",
     targetKind: "runtime_node",
@@ -358,22 +358,22 @@ export interface WorkspaceAuditEventDTO {
 }
 
 export async function listWorkspaceAuditEventsService(
-  workspaceId: string,
+  organizationId: string,
   authorization?: string
 ): Promise<MvpSuccess<readonly WorkspaceAuditEventDTO[]>> {
-  await verifyWorkspaceMembership(authorization, workspaceId);
-  const wsIdBigInt = BigInt(workspaceId);
+  await verifyWorkspaceMembership(authorization, organizationId);
+  const wsIdBigInt = BigInt(organizationId);
 
   const rows = await db
     .select()
     .from(workspaceSettingsAuditEvents)
-    .where(eq(workspaceSettingsAuditEvents.workspaceId, wsIdBigInt))
+    .where(eq(workspaceSettingsAuditEvents.organizationId, wsIdBigInt))
     .orderBy(desc(workspaceSettingsAuditEvents.createdAt))
     .limit(100);
 
   const items: WorkspaceAuditEventDTO[] = rows.map((r) => ({
     eventId: r.eventId.toString(),
-    organizationId: r.workspaceId.toString(),
+    organizationId: r.organizationId.toString(),
     actorId: r.actorId,
     eventType: r.eventType,
     targetKind: r.targetKind,
@@ -390,7 +390,7 @@ export async function listWorkspaceAuditEventsService(
 // Nguồn sự thật DUY NHẤT cho "workspace/role/runtimeMode/presence hiện tại
 // của phiên đăng nhập" phải nằm ở server: Flutter tuyệt đối không được coi
 // runtimeMode/role/presence do CHÍNH NÓ gửi lên là một assertion bảo mật.
-// Endpoint chỉ nhận workspaceId (path) + Authorization — không nhận
+// Endpoint chỉ nhận organizationId (path) + Authorization — không nhận
 // runtimeMode/role/presence trong body/query — mọi giá trị trả về đều được
 // tính lại từ dữ liệu server (membership row + heartbeat thật).
 export interface WorkspaceSessionContextView {
@@ -464,13 +464,13 @@ function deriveWorkspaceCapabilities(roleId: string): readonly string[] {
 //   - chỉ có local node, presence hiệu lực khác     → REMOTE_ACCESS
 //   - chưa đăng ký node nào                         → LOCAL_ONLY mặc định,
 //     presence OFFLINE (chưa có runtime nào để kết nối)
-async function resolveWorkspaceRuntimeSnapshot(workspaceId: bigint): Promise<{
+async function resolveWorkspaceRuntimeSnapshot(organizationId: bigint): Promise<{
   runtimeMode: WorkspaceSessionContextView["runtimeMode"];
   runtimeModeSource: WorkspaceSessionContextView["runtimeModeSource"];
   presenceStatus: WorkspaceSessionContextView["presenceStatus"];
   lastHeartbeatAt: string | null;
 }> {
-  const nodes = await listRegisteredRuntimeNodes(workspaceId);
+  const nodes = await listRegisteredRuntimeNodes(organizationId);
   const local = nodes.find((n) => n.runtimeRole === "local_workspace_runtime") ?? null;
   const cloud = nodes.find((n) => n.runtimeRole === "cloud_workspace_runtime") ?? null;
 
@@ -511,17 +511,17 @@ async function resolveWorkspaceRuntimeSnapshot(workspaceId: bigint): Promise<{
 }
 
 export async function getWorkspaceSessionContextService(
-  workspaceId: string,
+  organizationId: string,
   authorization?: string
 ): Promise<WorkspaceSessionContextView> {
-  const { membership } = await verifyWorkspaceMembershipRow(authorization, workspaceId);
-  const wsIdBigInt = BigInt(workspaceId);
+  const { membership } = await verifyWorkspaceMembershipRow(authorization, organizationId);
+  const wsIdBigInt = BigInt(organizationId);
 
   const { runtimeMode, runtimeModeSource, presenceStatus, lastHeartbeatAt } =
     await resolveWorkspaceRuntimeSnapshot(wsIdBigInt);
 
   return {
-    organizationId: workspaceId,
+    organizationId: organizationId,
     role: membership.roleId,
     runtimeMode,
     runtimeModeSource,
@@ -545,20 +545,20 @@ export interface WorkspaceSkillPolicyView {
 }
 
 export async function listWorkspaceSkillPoliciesService(
-  workspaceId: string,
+  organizationId: string,
   authorization?: string
 ): Promise<MvpSuccess<readonly WorkspaceSkillPolicyView[]>> {
-  await verifyWorkspaceMembership(authorization, workspaceId);
-  const wsIdBigInt = BigInt(workspaceId);
+  await verifyWorkspaceMembership(authorization, organizationId);
+  const wsIdBigInt = BigInt(organizationId);
 
   const rows = await db
     .select()
     .from(workspaceSkillPolicies)
-    .where(eq(workspaceSkillPolicies.workspaceId, wsIdBigInt))
+    .where(eq(workspaceSkillPolicies.organizationId, wsIdBigInt))
     .orderBy(desc(workspaceSkillPolicies.updatedAt));
 
   const items: WorkspaceSkillPolicyView[] = rows.map((r) => ({
-    organizationId: r.workspaceId.toString(),
+    organizationId: r.organizationId.toString(),
     skillKey: r.skillKey,
     enabled: r.enabled,
     config: (r.config as Record<string, unknown>) ?? {},
@@ -571,7 +571,7 @@ export async function listWorkspaceSkillPoliciesService(
 }
 
 export async function putWorkspaceSkillPolicyService(
-  workspaceId: string,
+  organizationId: string,
   skillKey: string,
   enabled: boolean,
   config: Record<string, unknown>,
@@ -579,8 +579,8 @@ export async function putWorkspaceSkillPolicyService(
 ): Promise<MvpSuccess<WorkspaceSkillPolicyView>> {
   // Chỉ workspace operator (founder/co-founder/admin) được mutate policy —
   // member thường chỉ được đọc (list ở trên chỉ yêu cầu membership).
-  const actorId = await requireWorkspaceOperator(authorization, workspaceId);
-  const wsIdBigInt = BigInt(workspaceId);
+  const actorId = await requireWorkspaceOperator(authorization, organizationId);
+  const wsIdBigInt = BigInt(organizationId);
 
   // Upsert + audit event trong CÙNG 1 transaction — không được ghi policy mà
   // thiếu audit event tương ứng (và ngược lại).
@@ -588,7 +588,7 @@ export async function putWorkspaceSkillPolicyService(
     const [row] = await tx
       .insert(workspaceSkillPolicies)
       .values({
-        workspaceId: wsIdBigInt,
+        organizationId: wsIdBigInt,
         skillKey,
         enabled,
         config,
@@ -596,7 +596,7 @@ export async function putWorkspaceSkillPolicyService(
         updatedBy: actorId,
       })
       .onConflictDoUpdate({
-        target: [workspaceSkillPolicies.workspaceId, workspaceSkillPolicies.skillKey],
+        target: [workspaceSkillPolicies.organizationId, workspaceSkillPolicies.skillKey],
         set: {
           enabled,
           config,
@@ -609,7 +609,7 @@ export async function putWorkspaceSkillPolicyService(
 
     await tx.insert(workspaceSettingsAuditEvents).values({
       eventId: BigInt(Date.now()) * 1000n + BigInt(Math.floor(Math.random() * 1000)),
-      workspaceId: wsIdBigInt,
+      organizationId: wsIdBigInt,
       actorId,
       eventType: "skill_policy.updated",
       targetKind: "skill_policy",
@@ -621,7 +621,7 @@ export async function putWorkspaceSkillPolicyService(
   });
 
   const out: WorkspaceSkillPolicyView = {
-    organizationId: saved.workspaceId.toString(),
+    organizationId: saved.organizationId.toString(),
     skillKey: saved.skillKey,
     enabled: saved.enabled,
     config: (saved.config as Record<string, unknown>) ?? {},
@@ -658,24 +658,24 @@ export interface WorkspaceModuleVisibilityDTO {
 }
 
 export async function listWorkspaceModuleVisibilityService(
-  workspaceId: string,
+  organizationId: string,
   authorization?: string
 ): Promise<MvpSuccess<WorkspaceModuleVisibilityDTO>> {
-  const actorId = await verifyWorkspaceMembership(authorization, workspaceId);
-  const wsIdBigInt = BigInt(workspaceId);
+  const actorId = await verifyWorkspaceMembership(authorization, organizationId);
+  const wsIdBigInt = BigInt(organizationId);
   const userIdBigInt = BigInt(actorId);
 
   const [wsConfigs, userPrefs] = await Promise.all([
     db
       .select()
       .from(workspaceModuleConfigs)
-      .where(eq(workspaceModuleConfigs.workspaceId, wsIdBigInt)),
+      .where(eq(workspaceModuleConfigs.organizationId, wsIdBigInt)),
     db
       .select()
       .from(userWorkspaceModulePreferences)
       .where(
         and(
-          eq(userWorkspaceModulePreferences.workspaceId, wsIdBigInt),
+          eq(userWorkspaceModulePreferences.organizationId, wsIdBigInt),
           eq(userWorkspaceModulePreferences.userId, userIdBigInt)
         )
       ),
@@ -695,30 +695,30 @@ export async function listWorkspaceModuleVisibilityService(
     };
   });
 
-  return mvpItem({ organizationId: workspaceId, modules }, [SOURCE_CONTROL_PLANE]);
+  return mvpItem({ organizationId: organizationId, modules }, [SOURCE_CONTROL_PLANE]);
 }
 
 export async function setWorkspaceModuleEnabledService(
-  workspaceId: string,
+  organizationId: string,
   rawModuleKey: string,
   enabled: boolean,
   authorization?: string
 ): Promise<MvpSuccess<WorkspaceModuleVisibilityDTO>> {
-  const actorId = await requireWorkspaceOperator(authorization, workspaceId);
+  const actorId = await requireWorkspaceOperator(authorization, organizationId);
   const moduleKey = parseOptionalModuleKey(rawModuleKey);
-  const wsIdBigInt = BigInt(workspaceId);
+  const wsIdBigInt = BigInt(organizationId);
 
   await db
     .insert(workspaceModuleConfigs)
     .values({
-      workspaceId: wsIdBigInt,
+      organizationId: wsIdBigInt,
       moduleKey,
       enabled,
       updatedBy: actorId,
       updatedAt: new Date(),
     })
     .onConflictDoUpdate({
-      target: [workspaceModuleConfigs.workspaceId, workspaceModuleConfigs.moduleKey],
+      target: [workspaceModuleConfigs.organizationId, workspaceModuleConfigs.moduleKey],
       set: {
         enabled,
         updatedBy: actorId,
@@ -728,7 +728,7 @@ export async function setWorkspaceModuleEnabledService(
 
   await db.insert(workspaceSettingsAuditEvents).values({
     eventId: BigInt(Date.now()) * 1000n + BigInt(Math.floor(Math.random() * 1000)),
-    workspaceId: wsIdBigInt,
+    organizationId: wsIdBigInt,
     actorId,
     eventType: "module_visibility.workspace_changed",
     targetKind: "workspace_module",
@@ -736,24 +736,24 @@ export async function setWorkspaceModuleEnabledService(
     details: { moduleKey, enabled },
   });
 
-  return listWorkspaceModuleVisibilityService(workspaceId, authorization);
+  return listWorkspaceModuleVisibilityService(organizationId, authorization);
 }
 
 export async function setUserModulePreferenceService(
-  workspaceId: string,
+  organizationId: string,
   rawModuleKey: string,
   visible: boolean,
   authorization?: string
 ): Promise<MvpSuccess<WorkspaceModuleVisibilityDTO>> {
-  const actorId = await verifyWorkspaceMembership(authorization, workspaceId);
+  const actorId = await verifyWorkspaceMembership(authorization, organizationId);
   const moduleKey = parseOptionalModuleKey(rawModuleKey);
-  const wsIdBigInt = BigInt(workspaceId);
+  const wsIdBigInt = BigInt(organizationId);
   const userIdBigInt = BigInt(actorId);
 
   await db
     .insert(userWorkspaceModulePreferences)
     .values({
-      workspaceId: wsIdBigInt,
+      organizationId: wsIdBigInt,
       userId: userIdBigInt,
       moduleKey,
       visible,
@@ -761,7 +761,7 @@ export async function setUserModulePreferenceService(
     })
     .onConflictDoUpdate({
       target: [
-        userWorkspaceModulePreferences.workspaceId,
+        userWorkspaceModulePreferences.organizationId,
         userWorkspaceModulePreferences.userId,
         userWorkspaceModulePreferences.moduleKey,
       ],
@@ -771,7 +771,7 @@ export async function setUserModulePreferenceService(
       },
     });
 
-  return listWorkspaceModuleVisibilityService(workspaceId, authorization);
+  return listWorkspaceModuleVisibilityService(organizationId, authorization);
 }
 
 // ─── Workspace Capability Manifest (Founder Trial R1 — spec §7.1) ───
@@ -806,26 +806,26 @@ const OVERRIDABLE_STATUSES: ReadonlySet<string> = new Set([
 ]);
 
 export async function getWorkspaceCapabilityManifestService(
-  workspaceId: string,
+  organizationId: string,
   authorization?: string
 ): Promise<MvpSuccess<WorkspaceCapabilityManifest>> {
-  await verifyWorkspaceMembership(authorization, workspaceId);
-  const wsIdBigInt = BigInt(workspaceId);
+  await verifyWorkspaceMembership(authorization, organizationId);
+  const wsIdBigInt = BigInt(organizationId);
   const nowIso = new Date().toISOString();
 
   const [moduleConfigs, connectorRows, overrideRows] = await Promise.all([
     db
       .select()
       .from(workspaceModuleConfigs)
-      .where(eq(workspaceModuleConfigs.workspaceId, wsIdBigInt)),
+      .where(eq(workspaceModuleConfigs.organizationId, wsIdBigInt)),
     db
       .select()
       .from(workspaceConnectorInstallations)
-      .where(eq(workspaceConnectorInstallations.workspaceId, workspaceId)),
+      .where(eq(workspaceConnectorInstallations.organizationId, organizationId)),
     db
       .select()
       .from(workspaceSurfaceOverrides)
-      .where(eq(workspaceSurfaceOverrides.workspaceId, wsIdBigInt)),
+      .where(eq(workspaceSurfaceOverrides.organizationId, wsIdBigInt)),
   ]);
 
   const moduleEnabled = new Map(moduleConfigs.map((c) => [c.moduleKey, c.enabled]));
@@ -886,19 +886,19 @@ export async function getWorkspaceCapabilityManifestService(
   });
 
   return mvpItem(
-    { version: SURFACE_POLICY_VERSION, organizationId: workspaceId, surfaces },
+    { version: SURFACE_POLICY_VERSION, organizationId: organizationId, surfaces },
     [SOURCE_CONTROL_PLANE]
   );
 }
 
 export async function setWorkspaceSurfaceOverrideService(
-  workspaceId: string,
+  organizationId: string,
   surfaceKey: string,
   statusOverride: string,
   reason: string | undefined,
   authorization?: string
 ): Promise<MvpSuccess<WorkspaceCapabilityManifest>> {
-  const actorId = await requireWorkspaceOperator(authorization, workspaceId);
+  const actorId = await requireWorkspaceOperator(authorization, organizationId);
 
   const known = FOUNDER_TRIAL_SURFACE_POLICY.some((e) => e.surfaceKey === surfaceKey);
   if (!known) {
@@ -910,11 +910,11 @@ export async function setWorkspaceSurfaceOverrideService(
     );
   }
 
-  const wsIdBigInt = BigInt(workspaceId);
+  const wsIdBigInt = BigInt(organizationId);
   await db
     .insert(workspaceSurfaceOverrides)
     .values({
-      workspaceId: wsIdBigInt,
+      organizationId: wsIdBigInt,
       surfaceKey,
       statusOverride,
       reason: reason ?? null,
@@ -922,13 +922,13 @@ export async function setWorkspaceSurfaceOverrideService(
       updatedAt: new Date(),
     })
     .onConflictDoUpdate({
-      target: [workspaceSurfaceOverrides.workspaceId, workspaceSurfaceOverrides.surfaceKey],
+      target: [workspaceSurfaceOverrides.organizationId, workspaceSurfaceOverrides.surfaceKey],
       set: { statusOverride, reason: reason ?? null, updatedBy: actorId, updatedAt: new Date() },
     });
 
   await db.insert(workspaceSettingsAuditEvents).values({
     eventId: BigInt(Date.now()) * 1000n + BigInt(Math.floor(Math.random() * 1000)),
-    workspaceId: wsIdBigInt,
+    organizationId: wsIdBigInt,
     actorId,
     eventType: "capability_manifest.surface_override_set",
     targetKind: "workspace_surface",
@@ -936,6 +936,6 @@ export async function setWorkspaceSurfaceOverrideService(
     details: { surfaceKey, statusOverride, reason: reason ?? null },
   });
 
-  return getWorkspaceCapabilityManifestService(workspaceId, authorization);
+  return getWorkspaceCapabilityManifestService(organizationId, authorization);
 }
 

@@ -70,7 +70,7 @@ class CosaTenantPolicyClient:
         try:
             resp = await self._client.get(
                 "/platform/auth/me/agent-policy-snapshot",
-                params={"workspaceId": workspace_id},
+                params={"organizationId": workspace_id},
                 headers={"Authorization": f"Bearer {bearer_token}"},
             )
         except httpx.HTTPError as exc:
@@ -90,7 +90,7 @@ class CosaTenantPolicyClient:
 
         try:
             return PolicySnapshot(
-                workspace_id=data["workspaceId"],
+                workspace_id=data["organizationId"],
                 workspace_status=data["workspaceStatus"],
                 principal_status=data["principalStatus"],
                 rules=[

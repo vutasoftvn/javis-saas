@@ -64,8 +64,8 @@ async function membershipOf(userId: string, orgId: string): Promise<ExtraMembers
       status: workspaces.status,
     })
     .from(workspaceMemberships)
-    .innerJoin(workspaces, eq(workspaces.id, workspaceMemberships.workspaceId))
-    .where(and(eq(workspaceMemberships.userId, BigInt(userId)), eq(workspaceMemberships.workspaceId, BigInt(orgId))))
+    .innerJoin(workspaces, eq(workspaces.id, workspaceMemberships.organizationId))
+    .where(and(eq(workspaceMemberships.userId, BigInt(userId)), eq(workspaceMemberships.organizationId, BigInt(orgId))))
     .limit(1);
   if (!row || row.status !== "active") return null;
   return { role: row.role, organizationName: row.name, ownerUserId: row.ownerId.toString() };
@@ -83,7 +83,7 @@ async function orgsOf(userId: string): Promise<Array<{ organizationId: string } 
         status: workspaces.status,
       })
       .from(workspaceMemberships)
-      .innerJoin(workspaces, eq(workspaces.id, workspaceMemberships.workspaceId))
+      .innerJoin(workspaces, eq(workspaces.id, workspaceMemberships.organizationId))
       .where(eq(workspaceMemberships.userId, BigInt(userId)));
     for (const r of rows) {
       if (r.status !== "active") continue;
@@ -243,7 +243,7 @@ export async function registerTestUser(params: TestUserParams = {}): Promise<Tes
       .where(eq(profiles.id, BigInt(userId)));
   }
 
-  let workspaceId: string | undefined;
+  let organizationId: string | undefined;
   const workspaceName = params.workspace_name ?? params.company_name;
   if (workspaceName) {
     const res = await provisionVentureWorkspace({
@@ -251,7 +251,7 @@ export async function registerTestUser(params: TestUserParams = {}): Promise<Tes
       workspaceName,
       clientCreationId: params.client_workspace_creation_id ?? `test-ws-${userId}`,
     });
-    workspaceId = res.platformWorkspaceId;
+    organizationId = res.platformWorkspaceId;
     // Như createNewCompany: người tạo workspace được nâng profile role lên founder.
     await db
       .update(profiles)
@@ -269,7 +269,7 @@ export async function registerTestUser(params: TestUserParams = {}): Promise<Tes
       full_name: params.full_name ?? null,
       preferred_locale: params.preferred_locale ?? "vi-VN",
     },
-    platform_workspace_id: workspaceId,
+    platform_workspace_id: organizationId,
   };
 }
 

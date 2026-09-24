@@ -232,7 +232,7 @@ describe("Workspace schedule enqueue-retry crash recovery (Task 8)", () => {
 
   it("hai dispatch tick chạy đồng thời khi có 1 occurrence đang enqueue_retry -> chỉ 1 tick enqueue thành công, không double-advance definition", async () => {
     const def = await workspaceScheduleSvc.createWorkspaceSchedule({
-      workspaceId: "ws_race",
+      organizationId: "ws_race",
       createdBy: "user_alice",
       scheduleKind: "daily",
       timezone: "Asia/Ho_Chi_Minh",
@@ -253,7 +253,7 @@ describe("Workspace schedule enqueue-retry crash recovery (Task 8)", () => {
     await db.insert(workspaceScheduleExecutions).values({
       id: execId,
       definitionId: def.id,
-      workspaceId: def.workspaceId,
+      organizationId: def.organizationId,
       scheduledFor: pastDue,
       promptTemplateSnapshot: def.promptTemplate,
       agentProfileSnapshot: def.agentProfile,

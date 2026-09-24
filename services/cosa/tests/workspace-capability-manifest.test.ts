@@ -147,7 +147,7 @@ describe("Workspace Capability Manifest", () => {
     });
     await db.insert(schema.workspaceMemberships).values({
       id: BigInt(Date.now()) * 1000n + BigInt(Math.floor(Math.random() * 1000)),
-      workspaceId: BigInt(wsId),
+      organizationId: BigInt(wsId),
       userId: BigInt(member.user!.id),
       roleId: "member",
     });

@@ -64,7 +64,7 @@ describe("authorizeAndProjectCoreAccess", () => {
     const [m] = await db
       .select()
       .from(schema.workspaceMemberships)
-      .where(eq(schema.workspaceMemberships.workspaceId, BigInt(orgId)));
+      .where(eq(schema.workspaceMemberships.organizationId, BigInt(orgId)));
     expect(m.roleId).toBe("admin");
   });
 

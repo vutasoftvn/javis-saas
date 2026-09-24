@@ -8,7 +8,7 @@ import {
 export { AiGovernanceRef, AiGovernanceSnapshotResult };
 
 export interface GetAiGovernanceSnapshotRequest {
-  workspaceId: string;
+  organizationId: string;
   projectId: string;
   policyRefs: AiGovernanceRef[];
   evaluatorRefs: AiGovernanceRef[];
@@ -29,7 +29,7 @@ export interface GetAiGovernanceSnapshotRequest {
 export const getAiGovernanceSnapshotHandler = api(
   { method: "POST", path: "/cosa/ai-governance/snapshot", expose: true, auth: false },
   async (params: GetAiGovernanceSnapshotRequest): Promise<AiGovernanceSnapshotResult> => {
-    const { workspaceId, projectId, policyRefs, evaluatorRefs, authorization } = params;
-    return getAiGovernanceSnapshot({ workspaceId, projectId, policyRefs, evaluatorRefs }, authorization);
+    const { organizationId, projectId, policyRefs, evaluatorRefs, authorization } = params;
+    return getAiGovernanceSnapshot({ organizationId, projectId, policyRefs, evaluatorRefs }, authorization);
   }
 );

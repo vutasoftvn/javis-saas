@@ -30,7 +30,7 @@ describe("Document Ingestion Lifecycle", () => {
   describe("createDocumentIngestion", () => {
     it("creates a new UPLOADING record when called with valid workspace/creator", async () => {
       const record = await createDocumentIngestion({
-        workspaceId: "ws-test-1",
+        organizationId: "ws-test-1",
         createdBy: "user-alice",
         originalFilename: "document.md",
         declaredMediaType: "text/markdown",
@@ -38,7 +38,7 @@ describe("Document Ingestion Lifecycle", () => {
       });
 
       expect(record.id).toBeDefined();
-      expect(record.workspaceId).toBe("ws-test-1");
+      expect(record.organizationId).toBe("ws-test-1");
       expect(record.createdBy).toBe("user-alice");
       expect(record.originalFilename).toBe("document.md");
       expect(record.declaredMediaType).toBe("text/markdown");
@@ -49,7 +49,7 @@ describe("Document Ingestion Lifecycle", () => {
 
     it("returns same record when called with same idempotency key (idempotent)", async () => {
       const first = await createDocumentIngestion({
-        workspaceId: "ws-test-1",
+        organizationId: "ws-test-1",
         createdBy: "user-alice",
         originalFilename: "document.md",
         declaredMediaType: "text/markdown",
@@ -57,7 +57,7 @@ describe("Document Ingestion Lifecycle", () => {
       });
 
       const second = await createDocumentIngestion({
-        workspaceId: "ws-test-1",
+        organizationId: "ws-test-1",
         createdBy: "user-alice",
         originalFilename: "document.md",
         declaredMediaType: "text/markdown",
@@ -72,14 +72,14 @@ describe("Document Ingestion Lifecycle", () => {
       // Fire two concurrent creates with identical idempotency key
       const [first, second] = await Promise.all([
         createDocumentIngestion({
-          workspaceId: "ws-test-1",
+          organizationId: "ws-test-1",
           createdBy: "user-alice",
           originalFilename: "document.md",
           declaredMediaType: "text/markdown",
           idempotencyKey: "concurrent-key-1",
         }),
         createDocumentIngestion({
-          workspaceId: "ws-test-1",
+          organizationId: "ws-test-1",
           createdBy: "user-alice",
           originalFilename: "document.md",
           declaredMediaType: "text/markdown",
@@ -94,7 +94,7 @@ describe("Document Ingestion Lifecycle", () => {
       // Verify exactly one row exists in DB with this idempotency key
       const allRecords = await db.select().from(documentIngestions);
       const matching = allRecords.filter(
-        (r) => r.workspaceId === "ws-test-1" && r.idempotencyKey === "concurrent-key-1"
+        (r) => r.organizationId === "ws-test-1" && r.idempotencyKey === "concurrent-key-1"
       );
       expect(matching.length).toBe(1);
     });
@@ -131,7 +131,7 @@ describe("Document Ingestion Lifecycle", () => {
   describe("completeUpload", () => {
     it("transitions UPLOADING → QUARANTINED → QUEUED with two separate audit events", async () => {
       const created = await createDocumentIngestion({
-        workspaceId: "ws-test-1",
+        organizationId: "ws-test-1",
         createdBy: "user-alice",
         originalFilename: "document.md",
         declaredMediaType: "text/markdown",
@@ -174,7 +174,7 @@ describe("Document Ingestion Lifecycle", () => {
 
     it("rejects when ingestion is not in UPLOADING state", async () => {
       const created = await createDocumentIngestion({
-        workspaceId: "ws-test-1",
+        organizationId: "ws-test-1",
         createdBy: "user-alice",
         originalFilename: "document.md",
         declaredMediaType: "text/markdown",
@@ -207,7 +207,7 @@ describe("Document Ingestion Lifecycle", () => {
   describe("transitionDocumentIngestionForWorker", () => {
     it("rejects platform JWT (public endpoint must use worker-only auth)", async () => {
       const created = await createDocumentIngestion({
-        workspaceId: "ws-test-1",
+        organizationId: "ws-test-1",
         createdBy: "user-alice",
         originalFilename: "document.md",
         declaredMediaType: "text/markdown",
@@ -238,7 +238,7 @@ describe("Document Ingestion Lifecycle", () => {
 
     it("accepts worker service token and transitions state", async () => {
       const created = await createDocumentIngestion({
-        workspaceId: "ws-test-1",
+        organizationId: "ws-test-1",
         createdBy: "user-alice",
         originalFilename: "document.md",
         declaredMediaType: "text/markdown",
@@ -269,7 +269,7 @@ describe("Document Ingestion Lifecycle", () => {
 
     it("rejects invalid state transitions via local transition table", async () => {
       const created = await createDocumentIngestion({
-        workspaceId: "ws-test-1",
+        organizationId: "ws-test-1",
         createdBy: "user-alice",
         originalFilename: "document.md",
         declaredMediaType: "text/markdown",
@@ -303,7 +303,7 @@ describe("Document Ingestion Lifecycle", () => {
   describe("completeDocumentIngestionUpload (HTTP endpoint)", () => {
     it("rejects when no authorization header", async () => {
       const created = await createDocumentIngestion({
-        workspaceId: "ws-test-1",
+        organizationId: "ws-test-1",
         createdBy: "user-alice",
         originalFilename: "document.md",
         declaredMediaType: "text/markdown",
@@ -324,7 +324,7 @@ describe("Document Ingestion Lifecycle", () => {
 
     it("rejects platform JWT (member token) — endpoint requires worker auth", async () => {
       const created = await createDocumentIngestion({
-        workspaceId: "ws-test-1",
+        organizationId: "ws-test-1",
         createdBy: "user-alice",
         originalFilename: "document.md",
         declaredMediaType: "text/markdown",
@@ -347,7 +347,7 @@ describe("Document Ingestion Lifecycle", () => {
 
     it("accepts valid worker service token and completes upload", async () => {
       const created = await createDocumentIngestion({
-        workspaceId: "ws-test-1",
+        organizationId: "ws-test-1",
         createdBy: "user-alice",
         originalFilename: "document.md",
         declaredMediaType: "text/markdown",
@@ -377,7 +377,7 @@ describe("Document Ingestion Lifecycle", () => {
 
     it("persists object details and creates audit events for both transitions", async () => {
       const created = await createDocumentIngestion({
-        workspaceId: "ws-test-1",
+        organizationId: "ws-test-1",
         createdBy: "user-alice",
         originalFilename: "document.md",
         declaredMediaType: "text/markdown",
@@ -421,7 +421,7 @@ describe("Document Ingestion Lifecycle", () => {
   describe("reviewDocumentIngestion", () => {
     it("allows reviewer to publish when in REVIEW_PENDING state", async () => {
       const created = await createDocumentIngestion({
-        workspaceId: "ws-test-1",
+        organizationId: "ws-test-1",
         createdBy: "user-alice",
         originalFilename: "document.md",
         declaredMediaType: "text/markdown",
@@ -457,7 +457,7 @@ describe("Document Ingestion Lifecycle", () => {
 
     it("rejects review when not in REVIEW_PENDING state", async () => {
       const created = await createDocumentIngestion({
-        workspaceId: "ws-test-1",
+        organizationId: "ws-test-1",
         createdBy: "user-alice",
         originalFilename: "document.md",
         declaredMediaType: "text/markdown",
@@ -487,7 +487,7 @@ describe("Document Ingestion Lifecycle", () => {
   describe("Audit Events", () => {
     it("creates immutable audit events for state transitions", async () => {
       const created = await createDocumentIngestion({
-        workspaceId: "ws-test-1",
+        organizationId: "ws-test-1",
         createdBy: "user-alice",
         originalFilename: "document.md",
         declaredMediaType: "text/markdown",
@@ -516,7 +516,7 @@ describe("Document Ingestion Lifecycle", () => {
 
     it("audit events contain old/new state and reason, never object key", async () => {
       const created = await createDocumentIngestion({
-        workspaceId: "ws-test-1",
+        organizationId: "ws-test-1",
         createdBy: "user-alice",
         originalFilename: "document.md",
         declaredMediaType: "text/markdown",
@@ -552,7 +552,7 @@ describe("Document Ingestion Lifecycle", () => {
   describe("Worker Transition with expectedStates (Retry Safety)", () => {
     it("transitionDocumentIngestionForWorker succeeds when current state in expectedStates", async () => {
       const created = await createDocumentIngestion({
-        workspaceId: "ws-test-1",
+        organizationId: "ws-test-1",
         createdBy: "user-alice",
         originalFilename: "document.md",
         declaredMediaType: "text/markdown",
@@ -586,7 +586,7 @@ describe("Document Ingestion Lifecycle", () => {
 
     it("transitionDocumentIngestionForWorker fails when current state NOT in expectedStates", async () => {
       const created = await createDocumentIngestion({
-        workspaceId: "ws-test-1",
+        organizationId: "ws-test-1",
         createdBy: "user-alice",
         originalFilename: "document.md",
         declaredMediaType: "text/markdown",
@@ -624,7 +624,7 @@ describe("Document Ingestion Lifecycle", () => {
     it("transitionDocumentIngestionForWorker CAS protects against duplicate scheduler delivery", async () => {
       // Simulate at-least-once scheduler delivery: same task delivered twice
       const created = await createDocumentIngestion({
-        workspaceId: "ws-test-1",
+        organizationId: "ws-test-1",
         createdBy: "user-alice",
         originalFilename: "document.md",
         declaredMediaType: "text/markdown",
@@ -671,7 +671,7 @@ describe("Document Ingestion Lifecycle", () => {
   describe("Authorization Boundary", () => {
     it("returns 403 non-enumerating when Workspace B member tries to access Workspace A record", async () => {
       const created = await createDocumentIngestion({
-        workspaceId: "ws-a",
+        organizationId: "ws-a",
         createdBy: "user-alice",
         originalFilename: "document.md",
         declaredMediaType: "text/markdown",
@@ -688,7 +688,7 @@ describe("Document Ingestion Lifecycle", () => {
   describe("Public response never exposes worker fencing fields (Task 1)", () => {
     it("transitionDocumentIngestionForWorkerEndpoint response has no claimToken", async () => {
       const created = await createDocumentIngestion({
-        workspaceId: "ws-test-1",
+        organizationId: "ws-test-1",
         createdBy: "user-alice",
         originalFilename: "document.md",
         declaredMediaType: "text/markdown",

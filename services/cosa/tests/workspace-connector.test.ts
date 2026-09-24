@@ -49,7 +49,7 @@ beforeAll(async () => {
   // Create membership for test user in test workspace
   await db.insert(workspaceMemberships).values({
     id: 3001n,
-    workspaceId: TEST_WORKSPACE_ID,
+    organizationId: TEST_WORKSPACE_ID,
     userId: TEST_USER_ID,
     roleId: "member",
   });
@@ -243,7 +243,7 @@ describe("Workspace Connector Consent & Session Grants (Task 3)", () => {
     // Directly insert grant or bypass check for test
     await db.insert(sessionConnectorGrants).values({
       id: "grant_exp_1",
-      workspaceId: stableId("ws_1"),
+      organizationId: stableId("ws_1"),
       conversationId: "conv_1",
       authorizationId: expiredAuth.id,
       grantedBy: stableId("user_alice"),
@@ -347,15 +347,15 @@ describe("Task 4: connector authorization ownership enforcement", () => {
     setFakeCoreDefaultMembership("member");
   });
 
-  async function setupAuthorizationOwnedByB(workspaceId: string) {
+  async function setupAuthorizationOwnedByB(organizationId: string) {
     const inst = await connectorSvc.installWorkspaceConnector({
-      organizationId: workspaceId,
+      organizationId: organizationId,
       connectorKey: "sandbox-read",
       installedBy: PRINCIPAL_B,
     });
     const auth = await connectorSvc.registerConnectorAuthorization({
       installationId: inst.id,
-      organizationId: workspaceId,
+      organizationId: organizationId,
       principalId: PRINCIPAL_B,
       secretRef: "secret://cosa-connectors/task4-b-secret",
       grantedScopes: ["read"],

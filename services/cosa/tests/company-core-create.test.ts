@@ -70,12 +70,12 @@ describe("createNewCompany với access token của core", () => {
     const [ws] = await db.select().from(workspaces).where(eq(workspaces.id, BigInt(orgId)));
     expect(ws.workspaceName).toBe("Core Made Co");
     expect(ws.ownerId).toBe(BigInt(userId));
-    const [mem] = await db.select().from(workspaceMemberships).where(eq(workspaceMemberships.workspaceId, BigInt(orgId)));
+    const [mem] = await db.select().from(workspaceMemberships).where(eq(workspaceMemberships.organizationId, BigInt(orgId)));
     expect(mem.roleId).toBe("founder");
     expect(mem.userId).toBe(BigInt(userId));
-    const lic = await db.select().from(workspaceLicenses).where(eq(workspaceLicenses.workspaceId, BigInt(orgId)));
+    const lic = await db.select().from(workspaceLicenses).where(eq(workspaceLicenses.organizationId, BigInt(orgId)));
     expect(lic).toHaveLength(1);
-    const ent = await db.select().from(workspaceEntitlements).where(eq(workspaceEntitlements.workspaceId, BigInt(orgId)));
+    const ent = await db.select().from(workspaceEntitlements).where(eq(workspaceEntitlements.organizationId, BigInt(orgId)));
     expect(ent).toHaveLength(1);
   });
 
@@ -94,7 +94,7 @@ describe("createNewCompany với access token của core", () => {
     const res = await createNewCompany(userId, { name: "Pre Projected" }, { accessToken: "tok-1" });
 
     expect(res.company_id).toBe(orgId);
-    const members = await db.select().from(workspaceMemberships).where(eq(workspaceMemberships.workspaceId, BigInt(orgId)));
+    const members = await db.select().from(workspaceMemberships).where(eq(workspaceMemberships.organizationId, BigInt(orgId)));
     expect(members).toHaveLength(1);
   });
 

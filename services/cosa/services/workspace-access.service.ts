@@ -28,12 +28,12 @@ export interface TokenMembershipResult {
 
 export async function validateMembershipForToken(
   token: string,
-  workspaceId: string
+  organizationId: string
 ): Promise<TokenMembershipResult> {
   const caller = await resolveCallerIdentity(token);
 
   try {
-    await authorizeAndProjectCoreAccess(token, workspaceId, "cosa.workspace.read");
+    await authorizeAndProjectCoreAccess(token, organizationId, "cosa.workspace.read");
   } catch (err) {
     if (err instanceof APIError && err.code === "permission_denied") {
       return { userId: caller.userId, membership: null };
@@ -41,7 +41,7 @@ export async function validateMembershipForToken(
     throw err;
   }
 
-  const membership = await validateWorkspaceMembership(BigInt(caller.userId), BigInt(workspaceId));
+  const membership = await validateWorkspaceMembership(BigInt(caller.userId), BigInt(organizationId));
   return { userId: caller.userId, membership };
 }
 

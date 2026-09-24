@@ -56,7 +56,7 @@ export function getAiGovernanceSigningSecret(): string {
 
 export interface ControlDelegationPayload {
   sub: string;
-  workspaceId: string;
+  organizationId: string;
   role: string;
 }
 
@@ -89,15 +89,15 @@ export function verifyControlDelegationToken(token: string): ControlDelegationPa
   } catch {
     throw APIError.unauthenticated("invalid or expired control-plane delegation token");
   }
-  const workspaceId = (decoded as Record<string, unknown>).workspace_id;
+  const organizationId = (decoded as Record<string, unknown>).workspace_id;
   if (
     typeof decoded.sub !== "string" ||
-    typeof workspaceId !== "string" ||
+    typeof organizationId !== "string" ||
     typeof decoded.role !== "string"
   ) {
     throw APIError.unauthenticated("control-plane delegation token missing required claims");
   }
-  return { sub: decoded.sub, workspaceId, role: decoded.role };
+  return { sub: decoded.sub, organizationId, role: decoded.role };
 }
 
 /** Claim của JWT dịch vụ worker (audience control_plane). Danh tính người dùng dùng access token OIDC của backend/core. */

@@ -61,7 +61,7 @@ export const workspaces = cosaSchema.table("organizations", {
 
 export const workspaceMemberships = cosaSchema.table("organization_memberships", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("organization_id", { mode: "bigint" }).notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  organizationId: bigint("organization_id", { mode: "bigint" }).notNull().references(() => workspaces.id, { onDelete: "cascade" }),
   userId: bigint("user_id", { mode: "bigint" }).notNull().references(() => users.id, { onDelete: "cascade" }),
   roleId: text("role").default("member").notNull().references(() => roles.id),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -73,7 +73,7 @@ export const workspaceMemberships = cosaSchema.table("organization_memberships",
 // giờ lưu token thô.
 export const workspaceInvitations = cosaSchema.table("organization_invitations", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("organization_id", { mode: "bigint" }).notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  organizationId: bigint("organization_id", { mode: "bigint" }).notNull().references(() => workspaces.id, { onDelete: "cascade" }),
   emailNormalized: text("email_normalized").notNull(),
   roleId: text("role_id").notNull().references(() => roles.id),
   tokenHash: text("token_hash").notNull(),
@@ -87,7 +87,7 @@ export const workspaceInvitations = cosaSchema.table("organization_invitations",
 
 export const workspaceAgentPolicy = cosaSchema.table("organization_agent_policy", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("organization_id", { mode: "bigint" }).notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  organizationId: bigint("organization_id", { mode: "bigint" }).notNull().references(() => workspaces.id, { onDelete: "cascade" }),
   toolPattern: text("tool_pattern").notNull(),
   decision: text("decision").notNull(),
   reason: text("reason"),
@@ -105,7 +105,7 @@ export const workspaceBusinessPolicyReferences = cosaSchema.table("organization_
 
 export const workspaceLicenses = cosaSchema.table("organization_licenses", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("organization_id", { mode: "bigint" }).notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  organizationId: bigint("organization_id", { mode: "bigint" }).notNull().references(() => workspaces.id, { onDelete: "cascade" }),
   planId: text("plan_id").notNull().references(() => plans.id),
   licenseKey: text("license_key").notNull().unique(),
   status: text("status").default("active").notNull(),
@@ -118,7 +118,7 @@ export const workspaceLicenses = cosaSchema.table("organization_licenses", {
 });
 
 export const workspaceEntitlements = cosaSchema.table("organization_entitlements", {
-  workspaceId: bigint("organization_id", { mode: "bigint" }).primaryKey().references(() => workspaces.id, { onDelete: "cascade" }),
+  organizationId: bigint("organization_id", { mode: "bigint" }).primaryKey().references(() => workspaces.id, { onDelete: "cascade" }),
   planId: text("plan_id").notNull().references(() => plans.id),
   effectiveLimits: jsonb("effective_limits").default({}).notNull(),
   effectiveFeatures: jsonb("effective_features").default({}).notNull(),
@@ -130,7 +130,7 @@ export const workspaceEntitlements = cosaSchema.table("organization_entitlements
 
 export const workspaceSyncLogs = cosaSchema.table("organization_sync_log", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("organization_id", { mode: "bigint" }).notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  organizationId: bigint("organization_id", { mode: "bigint" }).notNull().references(() => workspaces.id, { onDelete: "cascade" }),
   clientCreationId: text("client_creation_id").notNull().unique(),
   syncStatus: text("sync_status").default("pending").notNull(),
   errorMsg: text("error_msg"),
@@ -145,7 +145,7 @@ export const platformWorkspaceSyncLog = workspaceSyncLogs;
 
 export const workspaceSettingsAuditEvents = controlPlaneSchema.table("organization_settings_audit_events", {
   eventId: bigint("event_id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("organization_id", { mode: "bigint" }).notNull(),
+  organizationId: bigint("organization_id", { mode: "bigint" }).notNull(),
   actorId: text("actor_id").notNull(),
   eventType: text("event_type").notNull(),
   targetKind: text("target_kind").notNull(),
@@ -161,7 +161,7 @@ export const workspaceSettingsAuditEvents = controlPlaneSchema.table("organizati
 export const workspaceSkillPolicies = controlPlaneSchema.table(
   "organization_skill_policies",
   {
-    workspaceId: bigint("organization_id", { mode: "bigint" }).notNull(),
+    organizationId: bigint("organization_id", { mode: "bigint" }).notNull(),
     skillKey: text("skill_key").notNull(),
     enabled: boolean("enabled").default(true).notNull(),
     config: jsonb("config").default({}).notNull(),
@@ -171,15 +171,15 @@ export const workspaceSkillPolicies = controlPlaneSchema.table(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
-    pk: primaryKey({ columns: [t.workspaceId, t.skillKey] }),
-    wsUpdatedIdx: index("idx_workspace_skill_policies_ws_updated").on(t.workspaceId, t.updatedAt.desc()),
+    pk: primaryKey({ columns: [t.organizationId, t.skillKey] }),
+    wsUpdatedIdx: index("idx_workspace_skill_policies_ws_updated").on(t.organizationId, t.updatedAt.desc()),
   })
 );
 
 export const workspaceModuleConfigs = cosaSchema.table(
   "organization_module_configs",
   {
-    workspaceId: bigint("organization_id", { mode: "bigint" })
+    organizationId: bigint("organization_id", { mode: "bigint" })
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
     moduleKey: text("module_key").notNull(),
@@ -188,14 +188,14 @@ export const workspaceModuleConfigs = cosaSchema.table(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
-    pk: primaryKey({ columns: [t.workspaceId, t.moduleKey] }),
+    pk: primaryKey({ columns: [t.organizationId, t.moduleKey] }),
   })
 );
 
 export const userWorkspaceModulePreferences = cosaSchema.table(
   "user_organization_module_preferences",
   {
-    workspaceId: bigint("organization_id", { mode: "bigint" })
+    organizationId: bigint("organization_id", { mode: "bigint" })
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
     userId: bigint("user_id", { mode: "bigint" })
@@ -206,7 +206,7 @@ export const userWorkspaceModulePreferences = cosaSchema.table(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
-    pk: primaryKey({ columns: [t.workspaceId, t.userId, t.moduleKey] }),
+    pk: primaryKey({ columns: [t.organizationId, t.userId, t.moduleKey] }),
   })
 );
 
@@ -216,7 +216,7 @@ export const userWorkspaceModulePreferences = cosaSchema.table(
 export const workspaceSurfaceOverrides = cosaSchema.table(
   "organization_surface_overrides",
   {
-    workspaceId: bigint("organization_id", { mode: "bigint" })
+    organizationId: bigint("organization_id", { mode: "bigint" })
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
     surfaceKey: text("surface_key").notNull(),
@@ -226,7 +226,7 @@ export const workspaceSurfaceOverrides = cosaSchema.table(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
-    pk: primaryKey({ columns: [t.workspaceId, t.surfaceKey] }),
+    pk: primaryKey({ columns: [t.organizationId, t.surfaceKey] }),
   })
 );
 

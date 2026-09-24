@@ -8,9 +8,9 @@ import {
 
 const TEST_CONTROL_DELEGATION_SECRET = "test-control-delegation-secret-min-32-chars";
 
-function signControlDelegation(opts: { sub: string; workspaceId: string; role?: string }): string {
+function signControlDelegation(opts: { sub: string; organizationId: string; role?: string }): string {
   return jwt.sign(
-    { sub: opts.sub, workspace_id: opts.workspaceId, role: opts.role ?? "member" },
+    { sub: opts.sub, workspace_id: opts.organizationId, role: opts.role ?? "member" },
     process.env.COSA_CONTROL_DELEGATION_SECRET || TEST_CONTROL_DELEGATION_SECRET,
     { audience: "cosa_control", issuer: "cosa_apps", expiresIn: "10m" }
   );
@@ -21,7 +21,7 @@ const validEvaluatorRef = { id: "eval.safety_bench", version: "2.1.0", definitio
 
 function baseParams(overrides: Partial<Parameters<typeof getAiGovernanceSnapshot>[0]> = {}) {
   return {
-    workspaceId: "ws_1",
+    organizationId: "ws_1",
     projectId: "proj_1",
     policyRefs: [validRef],
     evaluatorRefs: [validEvaluatorRef],
@@ -54,14 +54,14 @@ describe("getAiGovernanceSnapshot", () => {
   });
 
   it("(b) rejects a request for a workspace the delegation token isn't scoped to (foreign)", async () => {
-    const delegation = signControlDelegation({ sub: "user_1", workspaceId: "ws_other" });
+    const delegation = signControlDelegation({ sub: "user_1", organizationId: "ws_other" });
     await expect(
-      getAiGovernanceSnapshot(baseParams({ workspaceId: "ws_1" }), `Bearer ${delegation}`)
+      getAiGovernanceSnapshot(baseParams({ organizationId: "ws_1" }), `Bearer ${delegation}`)
     ).rejects.toMatchObject({ code: "permission_denied" });
   });
 
   it("(c) rejects a policyRefs/evaluatorRefs entry missing id/version/definitionHash", async () => {
-    const delegation = signControlDelegation({ sub: "user_1", workspaceId: "ws_1" });
+    const delegation = signControlDelegation({ sub: "user_1", organizationId: "ws_1" });
 
     await expect(
       getAiGovernanceSnapshot(
@@ -89,20 +89,20 @@ describe("getAiGovernanceSnapshot", () => {
     ).rejects.toMatchObject({ code: "invalid_argument" });
   });
 
-  it("rejects empty workspaceId/projectId", async () => {
-    const delegation = signControlDelegation({ sub: "user_1", workspaceId: "" });
+  it("rejects empty organizationId/projectId", async () => {
+    const delegation = signControlDelegation({ sub: "user_1", organizationId: "" });
     await expect(
-      getAiGovernanceSnapshot(baseParams({ workspaceId: "", projectId: "proj_1" }), `Bearer ${delegation}`)
+      getAiGovernanceSnapshot(baseParams({ organizationId: "", projectId: "proj_1" }), `Bearer ${delegation}`)
     ).rejects.toMatchObject({ code: "invalid_argument" });
 
-    const delegation2 = signControlDelegation({ sub: "user_1", workspaceId: "ws_1" });
+    const delegation2 = signControlDelegation({ sub: "user_1", organizationId: "ws_1" });
     await expect(
-      getAiGovernanceSnapshot(baseParams({ workspaceId: "ws_1", projectId: "" }), `Bearer ${delegation2}`)
+      getAiGovernanceSnapshot(baseParams({ organizationId: "ws_1", projectId: "" }), `Bearer ${delegation2}`)
     ).rejects.toMatchObject({ code: "invalid_argument" });
   });
 
   it("(d) produces a valid signature that a separate verification function can confirm", async () => {
-    const delegation = signControlDelegation({ sub: "user_1", workspaceId: "ws_1" });
+    const delegation = signControlDelegation({ sub: "user_1", organizationId: "ws_1" });
     const snapshot = await getAiGovernanceSnapshot(baseParams(), `Bearer ${delegation}`);
 
     expect(snapshot.status).toBe("VERIFIED");
@@ -111,7 +111,7 @@ describe("getAiGovernanceSnapshot", () => {
   });
 
   it("(e) signature changes if any bound field changes (tamper-evidence)", async () => {
-    const delegation = signControlDelegation({ sub: "user_1", workspaceId: "ws_1" });
+    const delegation = signControlDelegation({ sub: "user_1", organizationId: "ws_1" });
     const snapshot = await getAiGovernanceSnapshot(baseParams(), `Bearer ${delegation}`);
 
     const tampered: AiGovernanceSnapshotResult = {

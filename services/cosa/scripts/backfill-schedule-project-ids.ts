@@ -28,7 +28,7 @@ export async function backfillLegacyScheduleProjectIds(
   for (const row of rows) {
     try {
       console.log(
-        `[ScheduleRemediation] Pausing legacy schedule definition_id=${row.id} workspace_id=${row.workspaceId} reason=PROJECT_CONTEXT_REQUIRED`
+        `[ScheduleRemediation] Pausing legacy schedule definition_id=${row.id} workspace_id=${row.organizationId} reason=PROJECT_CONTEXT_REQUIRED`
       );
       await db
         .update(schema.workspaceScheduleDefinitions)
@@ -41,7 +41,7 @@ export async function backfillLegacyScheduleProjectIds(
       pausedDefinitionIds.push(row.id);
     } catch (err) {
       console.error(
-        `[ScheduleRemediation] Failed to pause definition_id=${row.id} workspace_id=${row.workspaceId}: ${err instanceof Error ? err.message : String(err)}`
+        `[ScheduleRemediation] Failed to pause definition_id=${row.id} workspace_id=${row.organizationId}: ${err instanceof Error ? err.message : String(err)}`
       );
       skippedDefinitionIds.push(row.id);
     }

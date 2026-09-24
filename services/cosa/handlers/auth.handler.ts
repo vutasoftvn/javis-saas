@@ -81,7 +81,7 @@ export const updatePlatformUserMe = api(
 );
 
 export interface GetLocaleSnapshotParams {
-  workspaceId: string;
+  organizationId: string;
   authorization?: Header<"Authorization">;
 }
 
@@ -93,10 +93,10 @@ export interface LocaleSnapshot {
 export const getPlatformUserLocaleSnapshot = api(
   { method: "GET", path: "/platform/auth/me/locale-snapshot", expose: true, auth: false },
   async (params: GetLocaleSnapshotParams): Promise<LocaleSnapshot> => {
-    const caller = await resolveCallerAuthorizedForWorkspace(params.authorization, params.workspaceId);
+    const caller = await resolveCallerAuthorizedForWorkspace(params.authorization, params.organizationId);
     const profile = await getPlatformUserProfile(caller.sub);
     return {
-      workspace_id: params.workspaceId,
+      workspace_id: params.organizationId,
       preferred_locale: profile.preferred_locale,
     };
   }

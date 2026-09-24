@@ -50,7 +50,7 @@ class ProfileLocaleClient:
         try:
             resp = await self._client.get(
                 "/platform/auth/me/locale-snapshot",
-                params={"workspaceId": workspace_id},
+                params={"organizationId": workspace_id},
                 headers={"Authorization": f"Bearer {bearer_token}"},
             )
         except httpx.HTTPError as exc:

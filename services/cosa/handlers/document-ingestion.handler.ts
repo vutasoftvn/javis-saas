@@ -60,7 +60,7 @@ export const createDocumentIngestionEndpoint = api(
     await verifyWorkspaceMembership(params.organizationId, params.authorization);
 
     const record = await ingestionSvc.createDocumentIngestion({
-      workspaceId: params.organizationId,
+      organizationId: params.organizationId,
       createdBy: claims.sub,
       originalFilename: params.originalFilename,
       declaredMediaType: params.declaredMediaType,
@@ -92,7 +92,7 @@ export const getDocumentIngestionEndpoint = api(
     }
 
     // Verify ownership: ingestion must belong to requested workspace
-    if (record.workspaceId !== params.organizationId) {
+    if (record.organizationId !== params.organizationId) {
       throw APIError.permissionDenied("ingestion does not belong to this workspace");
     }
 
@@ -179,7 +179,7 @@ export const completeDocumentIngestionUploadEndpoint = api(
 function sanitizeRecordForPublic(record: ingestionSvc.DocumentIngestionRecord): any {
   return {
     id: record.id,
-    organizationId: record.workspaceId,
+    organizationId: record.organizationId,
     createdBy: record.createdBy,
     originalFilename: record.originalFilename,
     declaredMediaType: record.declaredMediaType,

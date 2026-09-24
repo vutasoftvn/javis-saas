@@ -10,7 +10,7 @@ export type DocumentIngestionState = "UPLOADING" | "QUARANTINED" | "QUEUED" | "V
 
 export interface DocumentIngestionRecord {
   id: string;
-  workspaceId: string;
+  organizationId: string;
   createdBy: string;
   originalFilename: string;
   declaredMediaType: string;
@@ -56,7 +56,7 @@ function assertValidTransition(from: DocumentIngestionState, to: DocumentIngesti
 }
 
 export async function createDocumentIngestion(input: {
-  workspaceId: string;
+  organizationId: string;
   createdBy: string;
   originalFilename: string;
   declaredMediaType: string;
@@ -71,7 +71,7 @@ export async function createDocumentIngestion(input: {
     .insert(documentIngestions)
     .values({
       id,
-      workspaceId: input.workspaceId,
+      organizationId: input.organizationId,
       createdBy: input.createdBy,
       originalFilename: input.originalFilename,
       declaredMediaType: input.declaredMediaType,
@@ -81,7 +81,7 @@ export async function createDocumentIngestion(input: {
       updatedAt: now,
     })
     .onConflictDoNothing({
-      target: [documentIngestions.workspaceId, documentIngestions.createdBy, documentIngestions.idempotencyKey],
+      target: [documentIngestions.organizationId, documentIngestions.createdBy, documentIngestions.idempotencyKey],
     })
     .returning();
 
@@ -92,7 +92,7 @@ export async function createDocumentIngestion(input: {
       .from(documentIngestions)
       .where(
         and(
-          eq(documentIngestions.workspaceId, input.workspaceId),
+          eq(documentIngestions.organizationId, input.organizationId),
           eq(documentIngestions.createdBy, input.createdBy),
           eq(documentIngestions.idempotencyKey, input.idempotencyKey)
         )

@@ -21,7 +21,7 @@ import { registerPlatformUser, signPlatformToken } from "./support/test-identity
 
 describe("Workspace Settings Endpoints", () => {
   let userId: string;
-  let workspaceId: string;
+  let organizationId: string;
   let validToken: string;
 
   beforeAll(async () => {
@@ -32,13 +32,13 @@ describe("Workspace Settings Endpoints", () => {
       workspace_name: "Settings Test Venture",
     });
     userId = reg.user!.id;
-    workspaceId = reg.platform_workspace_id!;
+    organizationId = reg.platform_workspace_id!;
     validToken = reg.access_token;
   });
 
   it("lists workspace members truthfully", async () => {
     const res = await listWorkspaceMembers({
-      organizationId: workspaceId,
+      organizationId: organizationId,
       authorization: `Bearer ${validToken}`,
     });
     expect(res.meta.dataState).toBe("populated");
@@ -49,7 +49,7 @@ describe("Workspace Settings Endpoints", () => {
   it("handles connector installation, list and revocation without exposing secrets", async () => {
     // 1. Initially connectors list is empty
     const initList = await listWorkspaceConnectors({
-      organizationId: workspaceId,
+      organizationId: organizationId,
       authorization: `Bearer ${validToken}`,
     });
     expect(initList.data).toEqual([]);
@@ -57,7 +57,7 @@ describe("Workspace Settings Endpoints", () => {
 
     // 2. Install connector
     const installRes = await installWorkspaceConnector({
-      organizationId: workspaceId,
+      organizationId: organizationId,
       connectorKey: "google-drive",
       authorization: `Bearer ${validToken}`,
     });
@@ -67,7 +67,7 @@ describe("Workspace Settings Endpoints", () => {
 
     // 3. List connectors shows installed
     const listAfter = await listWorkspaceConnectors({
-      organizationId: workspaceId,
+      organizationId: organizationId,
       authorization: `Bearer ${validToken}`,
     });
     expect(listAfter.data.length).toBe(1);
@@ -75,7 +75,7 @@ describe("Workspace Settings Endpoints", () => {
 
     // 4. Revoke connector
     const revokeRes = await revokeWorkspaceConnector({
-      organizationId: workspaceId,
+      organizationId: organizationId,
       connectorKey: "google-drive",
       authorization: `Bearer ${validToken}`,
     });
@@ -83,7 +83,7 @@ describe("Workspace Settings Endpoints", () => {
 
     // 5. Audit events recorded installation and revocation
     const auditRes = await listWorkspaceAuditEvents({
-      organizationId: workspaceId,
+      organizationId: organizationId,
       authorization: `Bearer ${validToken}`,
     });
     expect(auditRes.data.length).toBeGreaterThanOrEqual(2);
@@ -92,7 +92,7 @@ describe("Workspace Settings Endpoints", () => {
 
   it("lists runtime nodes truthfully", async () => {
     const res = await listWorkspaceRuntimeNodes({
-      organizationId: workspaceId,
+      organizationId: organizationId,
       authorization: `Bearer ${validToken}`,
     });
     expect(res.data).toBeDefined();
@@ -100,10 +100,10 @@ describe("Workspace Settings Endpoints", () => {
   });
 
   it("rejects worker token on human settings route", async () => {
-    const workerToken = signWorkerServiceToken("worker_1", workspaceId);
+    const workerToken = signWorkerServiceToken("worker_1", organizationId);
     await expect(
       listWorkspaceMembers({
-        organizationId: workspaceId,
+        organizationId: organizationId,
         authorization: `Bearer ${workerToken}`,
       })
     ).rejects.toMatchObject({ code: "unauthenticated" });
@@ -113,7 +113,7 @@ describe("Workspace Settings Endpoints", () => {
 // Task 4 — Persist Workspace Skill Policy tại COSA Control Plane.
 describe("Workspace Skill Policy Endpoints (Task 4)", () => {
   let founderToken: string;
-  let workspaceId: string;
+  let organizationId: string;
   let outsiderToken: string;
 
   beforeAll(async () => {
@@ -123,7 +123,7 @@ describe("Workspace Skill Policy Endpoints (Task 4)", () => {
       password: "SecurePassword123",
       workspace_name: "Skill Policy Test Venture",
     });
-    workspaceId = reg.platform_workspace_id!;
+    organizationId = reg.platform_workspace_id!;
     founderToken = reg.access_token;
 
     // Người dùng khác, không thuộc workspace trên — dùng để test rejection.
@@ -138,7 +138,7 @@ describe("Workspace Skill Policy Endpoints (Task 4)", () => {
 
   it("persists a skill policy and increments revision", async () => {
     const first = await putWorkspaceSkillPolicy({
-      organizationId: workspaceId,
+      organizationId: organizationId,
       skillKey: "lead_enricher",
       authorization: `Bearer ${founderToken}`,
       enabled: true,
@@ -149,7 +149,7 @@ describe("Workspace Skill Policy Endpoints (Task 4)", () => {
     expect(first.meta.sources[0].kind).toBe("control_plane");
 
     const second = await putWorkspaceSkillPolicy({
-      organizationId: workspaceId,
+      organizationId: organizationId,
       skillKey: "lead_enricher",
       authorization: `Bearer ${founderToken}`,
       enabled: false,
@@ -162,7 +162,7 @@ describe("Workspace Skill Policy Endpoints (Task 4)", () => {
   it("rejects a non-member mutation", async () => {
     await expect(
       putWorkspaceSkillPolicy({
-        organizationId: workspaceId,
+        organizationId: organizationId,
         authorization: `Bearer ${outsiderToken}`,
         skillKey: "lead_enricher",
         enabled: true,
@@ -173,7 +173,7 @@ describe("Workspace Skill Policy Endpoints (Task 4)", () => {
 
   it("records an audit event on every skill policy mutation", async () => {
     await putWorkspaceSkillPolicy({
-      organizationId: workspaceId,
+      organizationId: organizationId,
       skillKey: "growth_hacking",
       authorization: `Bearer ${founderToken}`,
       enabled: true,
@@ -181,7 +181,7 @@ describe("Workspace Skill Policy Endpoints (Task 4)", () => {
     });
 
     const auditRes = await listWorkspaceAuditEvents({
-      organizationId: workspaceId,
+      organizationId: organizationId,
       authorization: `Bearer ${founderToken}`,
     });
 
@@ -196,7 +196,7 @@ describe("Workspace Skill Policy Endpoints (Task 4)", () => {
 // tính lại mọi giá trị, không nhận runtimeMode/role/presence từ request.
 describe("Workspace Session Context Endpoint (Task 3 — Frontend Trust and UX Hardening)", () => {
   let founderToken: string;
-  let workspaceId: string;
+  let organizationId: string;
   let outsiderToken: string;
 
   beforeAll(async () => {
@@ -206,7 +206,7 @@ describe("Workspace Session Context Endpoint (Task 3 — Frontend Trust and UX H
       password: "SecurePassword123",
       workspace_name: "Session Context Test Venture",
     });
-    workspaceId = reg.platform_workspace_id!;
+    organizationId = reg.platform_workspace_id!;
     founderToken = reg.access_token;
 
     const outsiderEmail = `session-context-outsider-${Date.now()}@test.io`;
@@ -220,11 +220,11 @@ describe("Workspace Session Context Endpoint (Task 3 — Frontend Trust and UX H
 
   it("returns only the authenticated member workspace session context", async () => {
     const ctx = await getWorkspaceSessionContext({
-      organizationId: workspaceId,
+      organizationId: organizationId,
       authorization: `Bearer ${founderToken}`,
     });
 
-    expect(ctx.organizationId).toBe(workspaceId);
+    expect(ctx.organizationId).toBe(organizationId);
     expect(ctx.role).toBe("founder");
     expect(ctx.asOf).toMatch(/Z$/);
     // Chưa đăng ký runtime node nào ⇒ mặc định trung thực LOCAL_ONLY/OFFLINE,
@@ -241,7 +241,7 @@ describe("Workspace Session Context Endpoint (Task 3 — Frontend Trust and UX H
   it("denies a member of another workspace", async () => {
     await expect(
       getWorkspaceSessionContext({
-        organizationId: workspaceId,
+        organizationId: organizationId,
         authorization: `Bearer ${outsiderToken}`,
       })
     ).rejects.toMatchObject({ code: "permission_denied" });
@@ -249,7 +249,7 @@ describe("Workspace Session Context Endpoint (Task 3 — Frontend Trust and UX H
 
   it("reports REMOTE_ACCESS/OFFLINE when the local runtime node is registered but unreachable — no implicit cloud target", async () => {
     const node = await registerRuntimeNode({
-      workspaceId: BigInt(workspaceId),
+      organizationId: BigInt(organizationId),
       deviceKeyFingerprint: `session-context-device-${Date.now()}`,
       runtimeRole: "local_workspace_runtime",
     });
@@ -264,7 +264,7 @@ describe("Workspace Session Context Endpoint (Task 3 — Frontend Trust and UX H
       .where(eq(schema.workspaceRuntimeNodes.nodeId, BigInt(node.nodeId)));
 
     const ctx = await getWorkspaceSessionContext({
-      organizationId: workspaceId,
+      organizationId: organizationId,
       authorization: `Bearer ${founderToken}`,
     });
 
@@ -301,7 +301,7 @@ describe("Workspace Session Context Endpoint (Task 3 — Frontend Trust and UX H
     const token2 = reg.access_token;
 
     await registerRuntimeNode({
-      workspaceId: BigInt(ws2),
+      organizationId: BigInt(ws2),
       deviceKeyFingerprint: `session-context-device-healthy-${Date.now()}`,
       runtimeRole: "local_workspace_runtime",
     });
@@ -339,7 +339,7 @@ describe("Workspace Module Visibility", () => {
 
     await db.insert(schema.workspaceMemberships).values({
       id: BigInt(Date.now()) * 1000n + BigInt(Math.floor(Math.random() * 1000)),
-      workspaceId: BigInt(wsId),
+      organizationId: BigInt(wsId),
       userId: BigInt(member.user!.id),
       roleId: "member",
     });

@@ -26,35 +26,35 @@ afterEach(async () => {
   if (createdWorkspaces.length) {
     await db
       .delete(workspaceRuntimeNodes)
-      .where(inArray(workspaceRuntimeNodes.workspaceId, createdWorkspaces.splice(0)));
+      .where(inArray(workspaceRuntimeNodes.organizationId, createdWorkspaces.splice(0)));
   }
 });
 
 describe("runtime node registry (M5 §1)", () => {
   it("registers a node ONLINE with a minted snowflake node_id", async () => {
-    const workspaceId = ws();
+    const organizationId = ws();
     const node = await registerRuntimeNode({
-      workspaceId,
+      organizationId: organizationId,
       deviceKeyFingerprint: "fp-abc",
       runtimeRole: "local_workspace_runtime",
       agentVersion: "1.2.3",
     });
     expect(node.nodeId).toMatch(/^\d+$/);
-    expect(node.organizationId).toBe(workspaceId.toString());
+    expect(node.organizationId).toBe(organizationId.toString());
     expect(node.presence).toBe("ONLINE");
     expect(node.agentVersion).toBe("1.2.3");
   });
 
   it("register is idempotent per (workspace, fingerprint) — same node_id, refreshes version", async () => {
-    const workspaceId = ws();
+    const organizationId = ws();
     const a = await registerRuntimeNode({
-      workspaceId,
+      organizationId: organizationId,
       deviceKeyFingerprint: "fp-1",
       runtimeRole: "local_workspace_runtime",
       agentVersion: "1.0.0",
     });
     const b = await registerRuntimeNode({
-      workspaceId,
+      organizationId: organizationId,
       deviceKeyFingerprint: "fp-1",
       runtimeRole: "local_workspace_runtime",
       agentVersion: "1.1.0",
@@ -62,14 +62,14 @@ describe("runtime node registry (M5 §1)", () => {
     expect(b.nodeId).toBe(a.nodeId);
     expect(b.agentVersion).toBe("1.1.0");
 
-    const nodes = await listWorkspaceRuntimeNodes(workspaceId);
+    const nodes = await listWorkspaceRuntimeNodes(organizationId);
     expect(nodes).toHaveLength(1);
   });
 
   it("heartbeat requires matching device key fingerprint", async () => {
-    const workspaceId = ws();
+    const organizationId = ws();
     const node = await registerRuntimeNode({
-      workspaceId,
+      organizationId: organizationId,
       deviceKeyFingerprint: "fp-real",
       runtimeRole: "local_workspace_runtime",
     });
@@ -77,42 +77,42 @@ describe("runtime node registry (M5 §1)", () => {
     await expect(
       heartbeatRuntimeNode({
         nodeId: BigInt(node.nodeId),
-        workspaceId,
+        organizationId: organizationId,
         deviceKeyFingerprint: "fp-forged",
       })
     ).rejects.toMatchObject({ code: "permission_denied" });
 
     const ok = await heartbeatRuntimeNode({
       nodeId: BigInt(node.nodeId),
-      workspaceId,
+      organizationId: organizationId,
       deviceKeyFingerprint: "fp-real",
     });
     expect(ok.presence).toBe("ONLINE");
   });
 
   it("revoked node cannot heartbeat and is excluded from active list", async () => {
-    const workspaceId = ws();
+    const organizationId = ws();
     const node = await registerRuntimeNode({
-      workspaceId,
+      organizationId: organizationId,
       deviceKeyFingerprint: "fp-x",
       runtimeRole: "local_workspace_runtime",
     });
-    await revokeRuntimeNode({ nodeId: BigInt(node.nodeId), workspaceId });
+    await revokeRuntimeNode({ nodeId: BigInt(node.nodeId), organizationId: organizationId });
 
     await expect(
       heartbeatRuntimeNode({
         nodeId: BigInt(node.nodeId),
-        workspaceId,
+        organizationId: organizationId,
         deviceKeyFingerprint: "fp-x",
       })
     ).rejects.toMatchObject({ code: "permission_denied" });
 
-    expect(await listWorkspaceRuntimeNodes(workspaceId)).toHaveLength(0);
-    expect(await listWorkspaceRuntimeNodes(workspaceId, { includeRevoked: true })).toHaveLength(1);
+    expect(await listWorkspaceRuntimeNodes(organizationId)).toHaveLength(0);
+    expect(await listWorkspaceRuntimeNodes(organizationId, { includeRevoked: true })).toHaveLength(1);
 
     // Đăng ký lại sau khi thu hồi ⇒ node MỚI (fingerprint cũ giờ không đụng unique partial index).
     const fresh = await registerRuntimeNode({
-      workspaceId,
+      organizationId: organizationId,
       deviceKeyFingerprint: "fp-x",
       runtimeRole: "local_workspace_runtime",
     });
@@ -120,9 +120,9 @@ describe("runtime node registry (M5 §1)", () => {
   });
 
   it("assertNodeMayReceiveCommand: unregistered / wrong key / offline all rejected", async () => {
-    const workspaceId = ws();
+    const organizationId = ws();
     const node = await registerRuntimeNode({
-      workspaceId,
+      organizationId: organizationId,
       deviceKeyFingerprint: "fp-cmd",
       runtimeRole: "local_workspace_runtime",
     });
@@ -131,7 +131,7 @@ describe("runtime node registry (M5 §1)", () => {
     await expect(
       assertNodeMayReceiveCommand({
         nodeId: 999999999999n,
-        workspaceId,
+        organizationId: organizationId,
         deviceKeyFingerprint: "fp-cmd",
       })
     ).rejects.toMatchObject({ code: "permission_denied" });
@@ -140,7 +140,7 @@ describe("runtime node registry (M5 §1)", () => {
     await expect(
       assertNodeMayReceiveCommand({
         nodeId: BigInt(node.nodeId),
-        workspaceId,
+        organizationId: organizationId,
         deviceKeyFingerprint: "nope",
       })
     ).rejects.toMatchObject({ code: "permission_denied" });
@@ -148,7 +148,7 @@ describe("runtime node registry (M5 §1)", () => {
     // fresh heartbeat ⇒ eligible
     const elig = await assertNodeMayReceiveCommand({
       nodeId: BigInt(node.nodeId),
-      workspaceId,
+      organizationId: organizationId,
       deviceKeyFingerprint: "fp-cmd",
     });
     expect(elig.presence).toBe("ONLINE");
@@ -161,7 +161,7 @@ describe("runtime node registry (M5 §1)", () => {
     await expect(
       assertNodeMayReceiveCommand({
         nodeId: BigInt(node.nodeId),
-        workspaceId,
+        organizationId: organizationId,
         deviceKeyFingerprint: "fp-cmd",
       })
     ).rejects.toMatchObject({ code: "failed_precondition" });

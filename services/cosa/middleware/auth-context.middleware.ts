@@ -7,12 +7,12 @@ export interface AuthClaims {
   aud: "cosa";
   /** Role trong organization theo core. */
   role: string;
-  workspaceId: string;
+  organizationId: string;
 }
 
 export interface AuthContext {
   userID: string;
-  workspaceId: string;
+  organizationId: string;
   claims: AuthClaims;
   /** Role trong organization theo core. */
   organizationRole: string;
@@ -23,7 +23,7 @@ export interface AuthContext {
  * Extract and verify authentication context from HTTP headers.
  *
  * Danh tính và quyền do backend/core quyết định: access token OIDC (chuỗi opaque) được introspect, sau
- * đó core hỏi user có phải thành viên organization (id organization, lấy từ tham số đường dẫn `:workspaceId`)
+ * đó core hỏi user có phải thành viên organization (id organization, lấy từ tham số đường dẫn `:organizationId`)
  * không; kết quả được chiếu vào DB COSA. Ngoại lệ nội bộ: control-plane delegation (JWT) do apps/cosa ký.
  *
  * @param authHeader - Authorization header value (e.g., "Bearer <token>")
@@ -53,13 +53,13 @@ export async function extractAuthContext(
   // resolveCallerAuthorizedForWorkspace).
   if (looksLikeJwt(token)) {
     const delegation = verifyControlDelegationToken(token);
-    if (delegation.workspaceId !== workspaceHeader) {
+    if (delegation.organizationId !== workspaceHeader) {
       throw APIError.permissionDenied("control-plane delegation token scoped cho workspace khác");
     }
     return {
       userID: delegation.sub,
-      workspaceId: workspaceHeader,
-      claims: { sub: delegation.sub, aud: "cosa", role: delegation.role, workspaceId: workspaceHeader },
+      organizationId: workspaceHeader,
+      claims: { sub: delegation.sub, aud: "cosa", role: delegation.role, organizationId: workspaceHeader },
       organizationRole: delegation.role,
       membershipVersion: 0,
     };
@@ -70,12 +70,12 @@ export async function extractAuthContext(
 
   return {
     userID: access.userId,
-    workspaceId: workspaceHeader,
+    organizationId: workspaceHeader,
     claims: {
       sub: access.userId,
       aud: "cosa",
       role: access.role,
-      workspaceId: workspaceHeader,
+      organizationId: workspaceHeader,
     },
     organizationRole: access.role,
     membershipVersion: access.membershipVersion,

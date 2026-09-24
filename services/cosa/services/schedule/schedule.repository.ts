@@ -12,26 +12,26 @@ const {
 export type ScheduleDefinitionRow = typeof workspaceScheduleDefinitions.$inferSelect;
 export type ScheduleExecutionRow = typeof workspaceScheduleExecutions.$inferSelect;
 
-export async function countActiveSchedulesByWorkspace(workspaceId: string): Promise<number> {
+export async function countActiveSchedulesByWorkspace(organizationId: string): Promise<number> {
   const [{ value }] = await db
     .select({ value: count() })
     .from(workspaceScheduleDefinitions)
     .where(
       and(
-        eq(workspaceScheduleDefinitions.workspaceId, workspaceId),
+        eq(workspaceScheduleDefinitions.organizationId, organizationId),
         eq(workspaceScheduleDefinitions.state, "enabled")
       )
     );
   return Number(value);
 }
 
-export async function countExecutionsIn24Hours(workspaceId: string, since: Date): Promise<number> {
+export async function countExecutionsIn24Hours(organizationId: string, since: Date): Promise<number> {
   const [{ value }] = await db
     .select({ value: count() })
     .from(workspaceScheduleExecutions)
     .where(
       and(
-        eq(workspaceScheduleExecutions.workspaceId, workspaceId),
+        eq(workspaceScheduleExecutions.organizationId, organizationId),
         gte(workspaceScheduleExecutions.createdAt, since)
       )
     );
@@ -40,7 +40,7 @@ export async function countExecutionsIn24Hours(workspaceId: string, since: Date)
 
 export async function insertScheduleDefinition(values: {
   id: string;
-  workspaceId: string;
+  organizationId: string;
   createdBy: string;
   scheduleKind: ScheduleKind;
   timezone: string;
@@ -65,7 +65,7 @@ export async function insertScheduleDefinition(values: {
 
 export async function findScheduleDefinitionByIdAndWorkspace(
   id: string,
-  workspaceId: string
+  organizationId: string
 ): Promise<ScheduleDefinitionRow | undefined> {
   const [def] = await db
     .select()
@@ -73,7 +73,7 @@ export async function findScheduleDefinitionByIdAndWorkspace(
     .where(
       and(
         eq(workspaceScheduleDefinitions.id, id),
-        eq(workspaceScheduleDefinitions.workspaceId, workspaceId)
+        eq(workspaceScheduleDefinitions.organizationId, organizationId)
       )
     );
   return def;
@@ -87,11 +87,11 @@ export async function findScheduleDefinitionById(id: string): Promise<ScheduleDe
   return def;
 }
 
-export async function listScheduleDefinitions(workspaceId: string): Promise<ScheduleDefinitionRow[]> {
+export async function listScheduleDefinitions(organizationId: string): Promise<ScheduleDefinitionRow[]> {
   return db
     .select()
     .from(workspaceScheduleDefinitions)
-    .where(eq(workspaceScheduleDefinitions.workspaceId, workspaceId))
+    .where(eq(workspaceScheduleDefinitions.organizationId, organizationId))
     .orderBy(desc(workspaceScheduleDefinitions.createdAt));
 }
 
@@ -253,7 +253,7 @@ export async function advanceDefinitionAfterDispatch(
 export async function insertExecutionOnConflictDoNothing(values: {
   id: string;
   definitionId: string;
-  workspaceId: string;
+  organizationId: string;
   scheduledFor: Date;
   promptTemplateSnapshot: string;
   agentProfileSnapshot: string;
@@ -272,7 +272,7 @@ export async function insertExecutionOnConflictDoNothing(values: {
 export async function insertExecution(values: {
   id: string;
   definitionId: string;
-  workspaceId: string;
+  organizationId: string;
   scheduledFor: Date;
   promptTemplateSnapshot: string;
   agentProfileSnapshot: string;
@@ -338,7 +338,7 @@ export async function findExecutionById(executionId: string): Promise<ScheduleEx
 
 export async function rebindLegacyScheduleDefinition(input: {
   scheduleId: string;
-  workspaceId: string;
+  organizationId: string;
   projectId: string;
 }): Promise<ScheduleDefinitionRow | null> {
   const [updated] = await db
@@ -352,7 +352,7 @@ export async function rebindLegacyScheduleDefinition(input: {
     .where(
       and(
         eq(workspaceScheduleDefinitions.id, input.scheduleId),
-        eq(workspaceScheduleDefinitions.workspaceId, input.workspaceId),
+        eq(workspaceScheduleDefinitions.organizationId, input.organizationId),
         eq(workspaceScheduleDefinitions.isLegacyUnscoped, true),
         eq(workspaceScheduleDefinitions.state, "paused")
       )
