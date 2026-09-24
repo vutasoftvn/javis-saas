@@ -2,6 +2,7 @@ import { api, Header, APIError } from "encore.dev/api";
 import * as connectorSvc from "../services/workspace-connector.service";
 import { requireWorkerServiceAuth } from "../services/token.service";
 import { extractAuthContext } from "../middleware";
+import { withOrganizationId } from "../shared/organization-wire";
 
 export interface InstallConnectorParams {
   authorization?: Header<"Authorization">;
@@ -41,12 +42,6 @@ export interface AssertConnectorParams {
   connectorKey: string;
   action?: string;
   requiredScope?: string;
-}
-
-/** Dòng DB giữ khoá `workspaceId` (tên trường Drizzle); trên dây trả `organizationId`. */
-function withOrganizationId<T extends { workspaceId: string }>(row: T): Omit<T, "workspaceId"> & { organizationId: string } {
-  const { workspaceId, ...rest } = row;
-  return { ...rest, organizationId: workspaceId };
 }
 
 export interface ConnectorInstallationResponse {

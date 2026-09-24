@@ -200,7 +200,7 @@ async def test_scheduled_session_fails_closed_when_payload_project_mismatches_sn
     mock_resp = AsyncMock()
     mock_resp.status_code = 200
     mock_resp.json = lambda: {
-        "workspaceId": "ws_sched",
+        "organizationId": "ws_sched",
         "promptTemplateSnapshot": "Run quarterly risk review",
         "agentProfileSnapshot": "operations",
         "projectIdSnapshot": "proj_snapshot_a",
@@ -329,7 +329,7 @@ async def test_scheduled_session_fails_closed_when_snapshot_lacks_project_id(
 
         def json(self):
             return {
-                "workspaceId": "ws_sched",
+                "organizationId": "ws_sched",
                 "promptTemplateSnapshot": "Run quarterly risk review",
                 "agentProfileSnapshot": "operations",
                 # projectIdSnapshot intentionally omitted.

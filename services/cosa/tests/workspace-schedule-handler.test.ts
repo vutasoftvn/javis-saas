@@ -53,7 +53,7 @@ describe("Workspace Schedule Handler Authorization (Gate 0)", () => {
     await expect(
       createScheduleEndpoint({
         authorization: authHeader,
-        workspaceId: wsB,
+        organizationId: wsB,
         projectId: "proj_test",
         scheduleKind: "daily",
         hour: 9,
@@ -71,7 +71,7 @@ describe("Workspace Schedule Handler Authorization (Gate 0)", () => {
     await expect(
       listSchedulesEndpoint({
         authorization: authHeader,
-        workspaceId: wsB,
+        organizationId: wsB,
       })
     ).rejects.toMatchObject({ code: "permission_denied" });
   });
@@ -95,7 +95,7 @@ describe("Workspace Schedule Handler Authorization (Gate 0)", () => {
       runScheduleNowEndpoint({
         authorization: authHeader,
         scheduleId: schedule.id,
-        workspaceId: wsB,
+        organizationId: wsB,
       })
     ).rejects.toMatchObject({ code: "permission_denied" });
   });
@@ -108,7 +108,7 @@ describe("Workspace Schedule Handler Authorization (Gate 0)", () => {
 
     await createScheduleEndpoint({
       authorization: authHeader,
-      workspaceId: wsA,
+      organizationId: wsA,
       projectId: "proj_test",
       scheduleKind: "daily",
       hour: 9,
@@ -131,7 +131,7 @@ describe("Workspace Schedule Handler Authorization (Gate 0)", () => {
 
     await listSchedulesEndpoint({
       authorization: authHeader,
-      workspaceId: wsA,
+      organizationId: wsA,
     });
 
     // Verify fetch was called with correct workspace
@@ -160,7 +160,7 @@ describe("Workspace Schedule Handler Authorization (Gate 0)", () => {
     await runScheduleNowEndpoint({
       authorization: authHeader,
       scheduleId: schedule.id,
-      workspaceId: wsA,
+      organizationId: wsA,
     });
 
     // Verify fetch was called with correct workspace
@@ -176,7 +176,7 @@ describe("Workspace Schedule Handler Authorization (Gate 0)", () => {
 
     const result = await createScheduleEndpoint({
       authorization: authHeader,
-      workspaceId: wsA,
+      organizationId: wsA,
       projectId: "proj_test",
       scheduleKind: "daily",
       hour: 9,
@@ -185,7 +185,7 @@ describe("Workspace Schedule Handler Authorization (Gate 0)", () => {
     });
 
     expect(result.id).toBeDefined();
-    expect(result.workspaceId).toBe(wsA);
+    expect(result.organizationId).toBe(wsA);
     expect(result.state).toBe("enabled");
   });
 
@@ -206,7 +206,7 @@ describe("Workspace Schedule Handler Authorization (Gate 0)", () => {
 
     const result = await listSchedulesEndpoint({
       authorization: authHeader,
-      workspaceId: wsA,
+      organizationId: wsA,
     });
 
     expect(result.items).toBeDefined();
@@ -229,7 +229,7 @@ describe("Workspace Schedule Handler Authorization (Gate 0)", () => {
     const result = await runScheduleNowEndpoint({
       authorization: authHeader,
       scheduleId: schedule.id,
-      workspaceId: wsA,
+      organizationId: wsA,
     });
 
     expect(result.id).toBeDefined();
@@ -243,7 +243,7 @@ describe("Workspace Schedule Handler Authorization (Gate 0)", () => {
     await expect(
       createScheduleEndpoint({
         authorization: authHeader,
-        workspaceId: wsA,
+        organizationId: wsA,
         projectId: "proj_test",
         scheduleKind: "daily",
         timezone: "Invalid/Timezone",
@@ -256,7 +256,7 @@ describe("Workspace Schedule Handler Authorization (Gate 0)", () => {
     await expect(
       createScheduleEndpoint({
         authorization: authHeader,
-        workspaceId: wsA,
+        organizationId: wsA,
         projectId: "proj_test",
         scheduleKind: "daily",
         hour: 9,
@@ -356,22 +356,22 @@ describe("Workspace Schedule Handler — B5 control-plane delegation", () => {
 
     const created = await createScheduleEndpoint({
       authorization: authHeader,
-      workspaceId: "ws_a",
+      organizationId: "ws_a",
       projectId: "proj_test",
       scheduleKind: "daily",
       hour: 9,
       minute: 0,
       promptTemplate: "Daily report",
     });
-    expect(created.workspaceId).toBe("ws_a");
+    expect(created.organizationId).toBe("ws_a");
 
-    const listed = await listSchedulesEndpoint({ authorization: authHeader, workspaceId: "ws_a" });
+    const listed = await listSchedulesEndpoint({ authorization: authHeader, organizationId: "ws_a" });
     expect(listed.total).toBe(1);
 
     const ran = await runScheduleNowEndpoint({
       authorization: authHeader,
       scheduleId: created.id,
-      workspaceId: "ws_a",
+      organizationId: "ws_a",
     });
     expect(ran.state).toBe("queued");
 
@@ -384,7 +384,7 @@ describe("Workspace Schedule Handler — B5 control-plane delegation", () => {
     await expect(
       createScheduleEndpoint({
         authorization: `Bearer ${delegation}`,
-        workspaceId: "ws_a",
+        organizationId: "ws_a",
         projectId: "proj_test",
         scheduleKind: "daily",
         hour: 9,

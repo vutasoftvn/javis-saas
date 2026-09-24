@@ -2,6 +2,7 @@ import { api, Header } from "encore.dev/api";
 import * as scheduleSvc from "../services/workspace-schedule.service";
 import { resolveCallerAuthorizedForWorkspace } from "../services/workspace-connector.service";
 import { requireWorkerServiceAuth } from "../services/token.service";
+import { withOrganizationId } from "../shared/organization-wire";
 
 // Encore.ts (phân tích static AST lúc compile để sinh response schema) chỉ
 // chấp nhận response type là `interface` phẳng — KHÔNG chấp nhận type alias
@@ -14,7 +15,7 @@ import { requireWorkerServiceAuth } from "../services/token.service";
 // cấu trúc nhờ TypeScript structural typing.
 export interface ScheduleDefinitionResponse {
   id: string;
-  workspaceId: string;
+  organizationId: string;
   createdBy: string;
   scheduleKind: string;
   timezone: string;
@@ -37,7 +38,7 @@ export interface ScheduleDefinitionResponse {
 export interface ScheduleExecutionResponse {
   id: string;
   definitionId: string;
-  workspaceId: string;
+  organizationId: string;
   scheduledFor: Date;
   promptTemplateSnapshot: string;
   agentProfileSnapshot: string;
@@ -56,7 +57,7 @@ export interface ScheduleExecutionResponse {
 
 export interface CreateScheduleParams {
   authorization?: Header<"Authorization">;
-  workspaceId: string;
+  organizationId: string;
   projectId: string;
   scheduleKind: scheduleSvc.ScheduleKind;
   timezone?: string;
@@ -71,13 +72,13 @@ export interface CreateScheduleParams {
 
 export interface ListSchedulesParams {
   authorization?: Header<"Authorization">;
-  workspaceId: string;
+  organizationId: string;
 }
 
 export interface RunScheduleNowParams {
   authorization?: Header<"Authorization">;
   scheduleId: string;
-  workspaceId: string;
+  organizationId: string;
 }
 
 export interface CompleteExecutionParams {
@@ -104,10 +105,10 @@ export const createScheduleEndpoint = api(
     // delegation (apps/cosa đã cross-check membership thật), fallback
     // platform token + verifyWorkspaceMembership (hành vi cũ) — xem
     // workspace-connector.service.ts.
-    const caller = await resolveCallerAuthorizedForWorkspace(params.authorization, params.workspaceId);
+    const caller = await resolveCallerAuthorizedForWorkspace(params.authorization, params.organizationId);
 
     const res = await scheduleSvc.createWorkspaceSchedule({
-      workspaceId: params.workspaceId,
+      workspaceId: params.organizationId,
       createdBy: caller.sub,
       scheduleKind: params.scheduleKind,
       timezone: params.timezone,
@@ -120,7 +121,7 @@ export const createScheduleEndpoint = api(
       connectorGrantIds: params.connectorGrantIds,
       projectId: params.projectId,
     });
-    return res;
+    return withOrganizationId(res);
   }
 );
 
@@ -129,22 +130,23 @@ export const listSchedulesEndpoint = api(
   async (
     params: ListSchedulesParams
   ): Promise<{ items: ScheduleDefinitionResponse[]; total: number }> => {
-    await resolveCallerAuthorizedForWorkspace(params.authorization, params.workspaceId);
-    return scheduleSvc.listWorkspaceSchedules(params.workspaceId);
+    await resolveCallerAuthorizedForWorkspace(params.authorization, params.organizationId);
+    const list = await scheduleSvc.listWorkspaceSchedules(params.organizationId);
+    return { items: list.items.map(withOrganizationId), total: list.total };
   }
 );
 
 export const runScheduleNowEndpoint = api(
   { method: "POST", path: "/cosa/schedules/:scheduleId/run-now", expose: true },
   async (params: RunScheduleNowParams): Promise<ScheduleExecutionResponse> => {
-    const caller = await resolveCallerAuthorizedForWorkspace(params.authorization, params.workspaceId);
+    const caller = await resolveCallerAuthorizedForWorkspace(params.authorization, params.organizationId);
 
     const execution = await scheduleSvc.runScheduleNow({
       scheduleId: params.scheduleId,
-      workspaceId: params.workspaceId,
+      workspaceId: params.organizationId,
       principalId: caller.sub,
     });
-    return execution;
+    return withOrganizationId(execution);
   }
 );
 
@@ -157,7 +159,7 @@ export const getScheduleExecutionEndpoint = api(
     // Internal worker authentication
     requireWorkerServiceAuth(params.authorization);
 
-    return scheduleSvc.getScheduleExecution(params.executionId);
+    return withOrganizationId(await scheduleSvc.getScheduleExecution(params.executionId));
   }
 );
 

@@ -69,7 +69,7 @@ async def create_schedule(
     # viết E2E S10 (schedule-project-scope), không liên quan trực tiếp tới
     # project scoping nhưng chặn hoàn toàn route tạo schedule qua proxy.
     payload: dict[str, Any] = {
-        "workspaceId": identity.workspace_id,
+        "organizationId": identity.workspace_id,
         "projectId": verified_project.project_id,
         "scheduleKind": body.schedule_kind,
         "timezone": body.timezone,
@@ -97,7 +97,7 @@ async def create_schedule(
         data = resp.json()
         return ScheduleResponse(
             id=data["id"],
-            workspace_id=data["workspaceId"],
+            workspace_id=data["organizationId"],
             created_by=data["createdBy"],
             schedule_kind=data["scheduleKind"],
             timezone=data["timezone"],
@@ -123,7 +123,7 @@ async def list_schedules(
         resp = await client.get(
             f"{control_plane_url}/cosa/schedules",
             params={
-                "workspaceId": identity.workspace_id,
+                "organizationId": identity.workspace_id,
             },
             headers={"Authorization": token},
         )
@@ -133,7 +133,7 @@ async def list_schedules(
         items = [
             ScheduleResponse(
                 id=d["id"],
-                workspace_id=d["workspaceId"],
+                workspace_id=d["organizationId"],
                 created_by=d["createdBy"],
                 schedule_kind=d["scheduleKind"],
                 timezone=d["timezone"],
@@ -163,7 +163,7 @@ async def run_schedule_now_endpoint(
         resp = await client.post(
             f"{control_plane_url}/cosa/schedules/{schedule_id}/run-now",
             json={
-                "workspaceId": identity.workspace_id,
+                "organizationId": identity.workspace_id,
             },
             headers={"Authorization": token},
         )

@@ -89,7 +89,7 @@ async def test_connector_and_schedule_proxy_routes(proxy_setup):
             json={
                 "id": "sched_1",
                 "companyId": "company_A",
-                "workspaceId": "ws_A",
+                "organizationId": "ws_A",
                 "createdBy": "user:alice",
                 "scheduleKind": "daily",
                 "timezone": "Asia/Ho_Chi_Minh",
