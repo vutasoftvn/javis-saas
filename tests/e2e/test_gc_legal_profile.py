@@ -65,104 +65,14 @@ def gc_test_env(real_company_service):
     }
 
 
-def test_gc_activation_boundary_and_deliberation(gc_test_env):
-    """Test negative gates (inactive legal profile, cross-tenant) and positive GC activation."""
-    base_url = gc_test_env["base_url"]
-    headers_a = gc_test_env["headers_a"]
-    headers_b = gc_test_env["headers_b"]
-    proj_a_id = gc_test_env["proj_a_id"]
+@pytest.mark.cross_plane
+def test_gc_activation_boundary_and_deliberation(advisor_stack, advisor_cluster):
+    """Đường đầy đủ của role GC trên stack thật: profile nền -> office Workspace ->
+    Project deployment -> stage gate -> frame với pin overlay; cross-tenant bị từ chối."""
+    from tests.e2e.advisor_board import run_role_lifecycle
 
-    client = httpx.Client(base_url=base_url, timeout=15.0)
+    run_role_lifecycle(advisor_stack, advisor_cluster, "gc", "Do we have enough legal evidence to sign this partnership?")
 
-    # 1. Verify GC is initially UNAVAILABLE when Legal profile is only TEMPLATE
-    board_resp = client.get(
-        f"/operations/projects/{proj_a_id}/executive-roles",
-        headers=headers_a,
-    )
-    assert board_resp.status_code == 200, board_resp.text
-    roles = board_resp.json()["roles"]
-    gc_role = next((r for r in roles if r["roleKey"] == "gc"), None)
-    assert gc_role is not None
-    assert gc_role["displayState"] == "UNAVAILABLE"
-    assert gc_role["runtimeReadiness"] == "READY"
-    assert gc_role["requiredProfileKey"] == "legal"
-
-    # 2. Attempt to activate GC directly before Legal profile is ACTIVE -> must FAIL
-    early_act = client.post(
-        f"/operations/projects/{proj_a_id}/executive-roles/gc/activate",
-        json={"expectedVersion": 1},
-        headers=headers_a,
-    )
-    assert early_act.status_code in (400, 412), early_act.text
-
-    # 3. Cross-Tenant Attempt: Workspace B cannot activate or access GC on Project A1
-    denied_act = client.post(
-        f"/operations/projects/{proj_a_id}/executive-roles/gc/activate",
-        json={"expectedVersion": 1},
-        headers=headers_b,
-    )
-    assert denied_act.status_code in (403, 404), denied_act.text
-
-    # 4. Founder A activates Legal profile in Startup Team
-    legal_act = client.post(
-        f"/operations/projects/{proj_a_id}/startup-team/legal/activate",
-        json={"expectedVersion": 1},
-        headers=headers_a,
-    )
-    assert legal_act.status_code == 200, legal_act.text
-    legal_data = legal_act.json()
-    assert legal_data["displayState"] == "ACTIVE"
-
-    # 5. Check Executive Board: GC now transitions to AVAILABLE_NOT_ACTIVATED
-    board_resp2 = client.get(
-        f"/operations/projects/{proj_a_id}/executive-roles",
-        headers=headers_a,
-    )
-    assert board_resp2.status_code == 200, board_resp2.text
-    gc_role2 = next(r for r in board_resp2.json()["roles"] if r["roleKey"] == "gc")
-    assert gc_role2["displayState"] == "AVAILABLE_NOT_ACTIVATED"
-
-    # 6. Founder A explicitly activates GC role
-    act_gc = client.post(
-        f"/operations/projects/{proj_a_id}/executive-roles/gc/activate",
-        json={"expectedVersion": 1},
-        headers=headers_a,
-    )
-    assert act_gc.status_code == 200, act_gc.text
-    gc_act_data = act_gc.json()
-    assert gc_act_data["state"] == "ACTIVE"
-    assert gc_act_data["roleKey"] == "gc"
-
-    # 7. Board now reports GC as ACTIVE
-    board_resp3 = client.get(
-        f"/operations/projects/{proj_a_id}/executive-roles",
-        headers=headers_a,
-    )
-    assert board_resp3.status_code == 200, board_resp3.text
-    gc_role3 = next(r for r in board_resp3.json()["roles"] if r["roleKey"] == "gc")
-    assert gc_role3["displayState"] == "ACTIVE"
-
-    # 8. Create Draft Deliberation and Frame with GC selected
-    draft_resp = client.post(
-        f"/operations/projects/{proj_a_id}/deliberations/draft",
-        json={"title": "Should we sign the new vendor MSA this quarter?"},
-        headers=headers_a,
-    )
-    assert draft_resp.status_code == 200, draft_resp.text
-    delib_id = draft_resp.json()["id"]
-
-    frame_resp = client.post(
-        f"/operations/projects/{proj_a_id}/deliberations/{delib_id}/frame",
-        json={
-            "question": "Do we have enough classified legal issue evidence to justify signing now?",
-            "roleKeys": ["gc"],
-        },
-        headers=headers_a,
-    )
-    assert frame_resp.status_code == 200, frame_resp.text
-    framed_data = frame_resp.json()
-    assert framed_data["state"] == "ANALYSIS_QUEUED"
-    assert framed_data["activeFrameVersion"] >= 1
 
 
 def test_legal_issue_dossier_is_project_and_workspace_isolated(gc_test_env):

@@ -64,104 +64,14 @@ def cpo_test_env(real_company_service):
     }
 
 
-def test_cpo_activation_boundary_and_deliberation(cpo_test_env):
-    """Test negative gates (inactive product profile, cross-tenant) and positive CPO activation."""
-    base_url = cpo_test_env["base_url"]
-    headers_a = cpo_test_env["headers_a"]
-    headers_b = cpo_test_env["headers_b"]
-    proj_a_id = cpo_test_env["proj_a_id"]
+@pytest.mark.cross_plane
+def test_cpo_activation_boundary_and_deliberation(advisor_stack, advisor_cluster):
+    """Đường đầy đủ của role CPO trên stack thật: profile nền -> office Workspace ->
+    Project deployment -> stage gate -> frame với pin overlay; cross-tenant bị từ chối."""
+    from tests.e2e.advisor_board import run_role_lifecycle
 
-    client = httpx.Client(base_url=base_url, timeout=15.0)
+    run_role_lifecycle(advisor_stack, advisor_cluster, "cpo", "Should we prioritise onboarding over the reporting feature?")
 
-    # 1. Verify CPO is initially UNAVAILABLE when Product profile is only TEMPLATE
-    board_resp = client.get(
-        f"/operations/projects/{proj_a_id}/executive-roles",
-        headers=headers_a,
-    )
-    assert board_resp.status_code == 200, board_resp.text
-    roles = board_resp.json()["roles"]
-    cpo_role = next((r for r in roles if r["roleKey"] == "cpo"), None)
-    assert cpo_role is not None
-    assert cpo_role["displayState"] == "UNAVAILABLE"
-    assert cpo_role["runtimeReadiness"] == "READY"
-    assert cpo_role["requiredProfileKey"] == "product"
-
-    # 2. Attempt to activate CPO directly before Product profile is ACTIVE -> must FAIL
-    early_act = client.post(
-        f"/operations/projects/{proj_a_id}/executive-roles/cpo/activate",
-        json={"expectedVersion": 1},
-        headers=headers_a,
-    )
-    assert early_act.status_code in (400, 412), early_act.text
-
-    # 3. Cross-Tenant Attempt: Workspace B cannot activate or access CPO on Project A1
-    denied_act = client.post(
-        f"/operations/projects/{proj_a_id}/executive-roles/cpo/activate",
-        json={"expectedVersion": 1},
-        headers=headers_b,
-    )
-    assert denied_act.status_code in (403, 404), denied_act.text
-
-    # 4. Founder A activates Product profile in Startup Team
-    product_act = client.post(
-        f"/operations/projects/{proj_a_id}/startup-team/product/activate",
-        json={"expectedVersion": 1},
-        headers=headers_a,
-    )
-    assert product_act.status_code == 200, product_act.text
-    product_data = product_act.json()
-    assert product_data["displayState"] == "ACTIVE"
-
-    # 5. Check Executive Board: CPO now transitions to AVAILABLE_NOT_ACTIVATED
-    board_resp2 = client.get(
-        f"/operations/projects/{proj_a_id}/executive-roles",
-        headers=headers_a,
-    )
-    assert board_resp2.status_code == 200, board_resp2.text
-    cpo_role2 = next(r for r in board_resp2.json()["roles"] if r["roleKey"] == "cpo")
-    assert cpo_role2["displayState"] == "AVAILABLE_NOT_ACTIVATED"
-
-    # 6. Founder A explicitly activates CPO role
-    act_cpo = client.post(
-        f"/operations/projects/{proj_a_id}/executive-roles/cpo/activate",
-        json={"expectedVersion": 1},
-        headers=headers_a,
-    )
-    assert act_cpo.status_code == 200, act_cpo.text
-    cpo_act_data = act_cpo.json()
-    assert cpo_act_data["state"] == "ACTIVE"
-    assert cpo_act_data["roleKey"] == "cpo"
-
-    # 7. Board now reports CPO as ACTIVE
-    board_resp3 = client.get(
-        f"/operations/projects/{proj_a_id}/executive-roles",
-        headers=headers_a,
-    )
-    assert board_resp3.status_code == 200, board_resp3.text
-    cpo_role3 = next(r for r in board_resp3.json()["roles"] if r["roleKey"] == "cpo")
-    assert cpo_role3["displayState"] == "ACTIVE"
-
-    # 8. Create Draft Deliberation and Frame with CPO selected
-    draft_resp = client.post(
-        f"/operations/projects/{proj_a_id}/deliberations/draft",
-        json={"title": "Should we build the self-serve onboarding bet?"},
-        headers=headers_a,
-    )
-    assert draft_resp.status_code == 200, draft_resp.text
-    delib_id = draft_resp.json()["id"]
-
-    frame_resp = client.post(
-        f"/operations/projects/{proj_a_id}/deliberations/{delib_id}/frame",
-        json={
-            "question": "Do we have enough validated customer evidence to commit to this product bet?",
-            "roleKeys": ["cpo"],
-        },
-        headers=headers_a,
-    )
-    assert frame_resp.status_code == 200, frame_resp.text
-    framed_data = frame_resp.json()
-    assert framed_data["state"] == "ANALYSIS_QUEUED"
-    assert framed_data["activeFrameVersion"] >= 1
 
 
 def test_product_decision_dossier_is_project_and_workspace_isolated(cpo_test_env):

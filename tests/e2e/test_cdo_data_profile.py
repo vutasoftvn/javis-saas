@@ -65,104 +65,14 @@ def cdo_test_env(real_company_service):
     }
 
 
-def test_cdo_activation_boundary_and_deliberation(cdo_test_env):
-    """Test negative gates (inactive data profile, cross-tenant) and positive CDO activation."""
-    base_url = cdo_test_env["base_url"]
-    headers_a = cdo_test_env["headers_a"]
-    headers_b = cdo_test_env["headers_b"]
-    proj_a_id = cdo_test_env["proj_a_id"]
+@pytest.mark.cross_plane
+def test_cdo_activation_boundary_and_deliberation(advisor_stack, advisor_cluster):
+    """Đường đầy đủ của role CDO trên stack thật: profile nền -> office Workspace ->
+    Project deployment -> stage gate -> frame với pin overlay; cross-tenant bị từ chối."""
+    from tests.e2e.advisor_board import run_role_lifecycle
 
-    client = httpx.Client(base_url=base_url, timeout=15.0)
+    run_role_lifecycle(advisor_stack, advisor_cluster, "cdo", "Do we have enough classified data governance evidence to justify adopting the new data lake now?")
 
-    # 1. Verify CDO is initially UNAVAILABLE when Data profile is only TEMPLATE
-    board_resp = client.get(
-        f"/operations/projects/{proj_a_id}/executive-roles",
-        headers=headers_a,
-    )
-    assert board_resp.status_code == 200, board_resp.text
-    roles = board_resp.json()["roles"]
-    cdo_role = next((r for r in roles if r["roleKey"] == "cdo"), None)
-    assert cdo_role is not None
-    assert cdo_role["displayState"] == "UNAVAILABLE"
-    assert cdo_role["runtimeReadiness"] == "READY"
-    assert cdo_role["requiredProfileKey"] == "data"
-
-    # 2. Attempt to activate CDO directly before Data profile is ACTIVE -> must FAIL
-    early_act = client.post(
-        f"/operations/projects/{proj_a_id}/executive-roles/cdo/activate",
-        json={"expectedVersion": 1},
-        headers=headers_a,
-    )
-    assert early_act.status_code in (400, 412), early_act.text
-
-    # 3. Cross-Tenant Attempt: Workspace B cannot activate or access CDO on Project A1
-    denied_act = client.post(
-        f"/operations/projects/{proj_a_id}/executive-roles/cdo/activate",
-        json={"expectedVersion": 1},
-        headers=headers_b,
-    )
-    assert denied_act.status_code in (403, 404), denied_act.text
-
-    # 4. Founder A activates Data profile in Startup Team
-    data_act = client.post(
-        f"/operations/projects/{proj_a_id}/startup-team/data/activate",
-        json={"expectedVersion": 1},
-        headers=headers_a,
-    )
-    assert data_act.status_code == 200, data_act.text
-    data_data = data_act.json()
-    assert data_data["displayState"] == "ACTIVE"
-
-    # 5. Check Executive Board: CDO now transitions to AVAILABLE_NOT_ACTIVATED
-    board_resp2 = client.get(
-        f"/operations/projects/{proj_a_id}/executive-roles",
-        headers=headers_a,
-    )
-    assert board_resp2.status_code == 200, board_resp2.text
-    cdo_role2 = next(r for r in board_resp2.json()["roles"] if r["roleKey"] == "cdo")
-    assert cdo_role2["displayState"] == "AVAILABLE_NOT_ACTIVATED"
-
-    # 6. Founder A explicitly activates CDO role
-    act_cdo = client.post(
-        f"/operations/projects/{proj_a_id}/executive-roles/cdo/activate",
-        json={"expectedVersion": 1},
-        headers=headers_a,
-    )
-    assert act_cdo.status_code == 200, act_cdo.text
-    cdo_act_data = act_cdo.json()
-    assert cdo_act_data["state"] == "ACTIVE"
-    assert cdo_act_data["roleKey"] == "cdo"
-
-    # 7. Board now reports CDO as ACTIVE
-    board_resp3 = client.get(
-        f"/operations/projects/{proj_a_id}/executive-roles",
-        headers=headers_a,
-    )
-    assert board_resp3.status_code == 200, board_resp3.text
-    cdo_role3 = next(r for r in board_resp3.json()["roles"] if r["roleKey"] == "cdo")
-    assert cdo_role3["displayState"] == "ACTIVE"
-
-    # 8. Create Draft Deliberation and Frame with CDO selected
-    draft_resp = client.post(
-        f"/operations/projects/{proj_a_id}/deliberations/draft",
-        json={"title": "Should we adopt the new vendor's data lake for analytics?"},
-        headers=headers_a,
-    )
-    assert draft_resp.status_code == 200, draft_resp.text
-    delib_id = draft_resp.json()["id"]
-
-    frame_resp = client.post(
-        f"/operations/projects/{proj_a_id}/deliberations/{delib_id}/frame",
-        json={
-            "question": "Do we have enough classified data governance evidence to justify adoption now?",
-            "roleKeys": ["cdo"],
-        },
-        headers=headers_a,
-    )
-    assert frame_resp.status_code == 200, frame_resp.text
-    framed_data = frame_resp.json()
-    assert framed_data["state"] == "ANALYSIS_QUEUED"
-    assert framed_data["activeFrameVersion"] >= 1
 
 
 def test_data_governance_dossier_is_project_and_workspace_isolated(cdo_test_env):

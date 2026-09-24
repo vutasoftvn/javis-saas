@@ -400,8 +400,10 @@ class ProjectActivityEventDTO(BaseModel):
     project_id: str
     project_sequence: int
     kind: str  # "run.queued", "chat.accepted", "approval.resolved", v.v.
-    phase: str  # "runtime", "business_decision", v.v.
-    status: str  # "accepted", "pending", "completed", v.v.
+    # Event runtime chưa phân loại (kind "system.delivery") không có phase/status — Flutter
+    # `ProjectActivityEvent` cũng coi 2 field này là nullable; DTO bắt buộc str làm list activity 500.
+    phase: str | None = None  # "runtime", "business_decision", v.v.
+    status: str | None = None  # "accepted", "pending", "completed", v.v.
     actor_kind: str  # "human", "ai", "system"
     actor_id: str
     correlation_id: str | None = None

@@ -76,7 +76,7 @@ def test_worker_restart_after_claim_still_reaches_one_terminal_state(
     # Bounce only the Python processes — the durable scheduler + manifest must
     # carry the run to a single terminal state.
     if hasattr(real_cosa_stack, "restart_api_and_worker"):
-        real_cosa_stack.restart_api_and_worker()
+        real_cosa_stack.restart_api_and_worker(disposable_cluster)
 
     state = _wait_terminal(company, token, ws, inv["id"])
     assert state in _TERMINAL and state != "", f"no terminal state after restart (last={state})"

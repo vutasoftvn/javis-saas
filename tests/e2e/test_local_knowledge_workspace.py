@@ -62,7 +62,11 @@ def _create_and_upload_document(
             json={"title": title, "media_type": "text/plain"},
             headers={"Authorization": f"Bearer {token}", "X-Workspace-Id": workspace_id},
         )
-        assert created.status_code == 201, created.text
+        assert created.status_code == 201, (
+            created.text
+            + "\n"
+            + "\n".join(p.tail(60) for p in handles.procs if p.name == "apps_cosa_api")
+        )
         upload = created.json()["data"]
 
         upload_resp = client.put(upload["upload_url"], content=content)

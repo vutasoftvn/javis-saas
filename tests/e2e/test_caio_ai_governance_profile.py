@@ -12,7 +12,7 @@ Board activation lifecycle (also `services/company`).
 
 Cross-plane part: a real `services/cosa` (Encore/TS) process is booted via
 `tests/e2e/stack/subprocess_stack.py::boot_cosa_only` against a disposable Postgres
-cluster (`tests/e2e/conftest.py::disposable_cluster`, session-scoped, already used by
+cluster (`tests/e2e/conftest.py::advisor_cluster`, session-scoped, already used by
 `real_cosa_stack` in test_ai_compliance_company_http.py). A real
 `COSA_CONTROL_DELEGATION_SECRET`-signed delegation token is minted with the SAME
 Python helper the real composition root uses
@@ -51,9 +51,9 @@ _SERVICE_TOKEN = os.environ.get(
 
 
 @pytest.fixture(scope="session")
-def real_cosa_service(disposable_cluster: DisposableCluster) -> Iterator[str]:
+def real_cosa_service(advisor_cluster: DisposableCluster) -> Iterator[str]:
     """Boot a real `services/cosa` (Encore/TS) process against the shared
-    session-scoped `disposable_cluster` (defined in `tests/e2e/conftest.py`,
+    session-scoped `advisor_cluster` (defined in `tests/e2e/conftest.py`,
     already used by `real_cosa_stack`). Fails clearly (does not silently skip)
     if `encore` CLI is missing — mirrors `control_plane_service` in
     `tests/apps/cosa/worker/conftest.py`, the established precedent for
@@ -65,7 +65,7 @@ def real_cosa_service(disposable_cluster: DisposableCluster) -> Iterator[str]:
             "falling back to a mock/fake signer."
         )
 
-    base_url, proc = boot_cosa_only(disposable_cluster)
+    base_url, proc = boot_cosa_only(advisor_cluster)
     assert proc.popen.poll() is None, (
         f"[cosa] process died right after health check went green:\n{proc.tail()}"
     )
@@ -155,105 +155,14 @@ def caio_test_env(real_company_service):
     }
 
 
-def test_caio_activation_boundary_and_deliberation(caio_test_env):
-    """Test negative gates (inactive ai_governance profile, cross-tenant) and
-    positive CAIO activation."""
-    base_url = caio_test_env["base_url"]
-    headers_a = caio_test_env["headers_a"]
-    headers_b = caio_test_env["headers_b"]
-    proj_a_id = caio_test_env["proj_a_id"]
+@pytest.mark.cross_plane
+def test_caio_activation_boundary_and_deliberation(advisor_stack, advisor_cluster):
+    """Đường đầy đủ của role CAIO trên stack thật: profile nền -> office Workspace ->
+    Project deployment -> stage gate -> frame với pin overlay; cross-tenant bị từ chối."""
+    from tests.e2e.advisor_board import run_role_lifecycle
 
-    client = httpx.Client(base_url=base_url, timeout=15.0)
+    run_role_lifecycle(advisor_stack, advisor_cluster, "caio", "Do we have enough verified model evidence to justify the switch now?")
 
-    # 1. Verify CAIO is initially UNAVAILABLE when AI Governance profile is only TEMPLATE
-    board_resp = client.get(
-        f"/operations/projects/{proj_a_id}/executive-roles",
-        headers=headers_a,
-    )
-    assert board_resp.status_code == 200, board_resp.text
-    roles = board_resp.json()["roles"]
-    caio_role = next((r for r in roles if r["roleKey"] == "caio"), None)
-    assert caio_role is not None
-    assert caio_role["displayState"] == "UNAVAILABLE"
-    assert caio_role["runtimeReadiness"] == "READY"
-    assert caio_role["requiredProfileKey"] == "ai_governance"
-
-    # 2. Attempt to activate CAIO directly before AI Governance profile is ACTIVE -> must FAIL
-    early_act = client.post(
-        f"/operations/projects/{proj_a_id}/executive-roles/caio/activate",
-        json={"expectedVersion": 1},
-        headers=headers_a,
-    )
-    assert early_act.status_code in (400, 412), early_act.text
-
-    # 3. Cross-Tenant Attempt: Workspace B cannot activate or access CAIO on Project A1
-    denied_act = client.post(
-        f"/operations/projects/{proj_a_id}/executive-roles/caio/activate",
-        json={"expectedVersion": 1},
-        headers=headers_b,
-    )
-    assert denied_act.status_code in (403, 404), denied_act.text
-
-    # 4. Founder A activates AI Governance profile in Startup Team
-    ai_gov_act = client.post(
-        f"/operations/projects/{proj_a_id}/startup-team/ai_governance/activate",
-        json={"expectedVersion": 1},
-        headers=headers_a,
-    )
-    assert ai_gov_act.status_code == 200, ai_gov_act.text
-    ai_gov_data = ai_gov_act.json()
-    assert ai_gov_data["displayState"] == "ACTIVE"
-
-    # 5. Check Executive Board: CAIO now transitions to AVAILABLE_NOT_ACTIVATED
-    board_resp2 = client.get(
-        f"/operations/projects/{proj_a_id}/executive-roles",
-        headers=headers_a,
-    )
-    assert board_resp2.status_code == 200, board_resp2.text
-    caio_role2 = next(r for r in board_resp2.json()["roles"] if r["roleKey"] == "caio")
-    assert caio_role2["displayState"] == "AVAILABLE_NOT_ACTIVATED"
-
-    # 6. Founder A explicitly activates CAIO role
-    act_caio = client.post(
-        f"/operations/projects/{proj_a_id}/executive-roles/caio/activate",
-        json={"expectedVersion": 1},
-        headers=headers_a,
-    )
-    assert act_caio.status_code == 200, act_caio.text
-    caio_act_data = act_caio.json()
-    assert caio_act_data["state"] == "ACTIVE"
-    assert caio_act_data["roleKey"] == "caio"
-
-    # 7. Board now reports CAIO as ACTIVE
-    board_resp3 = client.get(
-        f"/operations/projects/{proj_a_id}/executive-roles",
-        headers=headers_a,
-    )
-    assert board_resp3.status_code == 200, board_resp3.text
-    caio_role3 = next(r for r in board_resp3.json()["roles"] if r["roleKey"] == "caio")
-    assert caio_role3["displayState"] == "ACTIVE"
-
-    # 8. Create Draft Deliberation and Frame with CAIO selected
-    draft_resp = client.post(
-        f"/operations/projects/{proj_a_id}/deliberations/draft",
-        json={"title": "Should we adopt the new model provider for production traffic?"},
-        headers=headers_a,
-    )
-    assert draft_resp.status_code == 200, draft_resp.text
-    delib_id = draft_resp.json()["id"]
-
-    frame_resp = client.post(
-        f"/operations/projects/{proj_a_id}/deliberations/{delib_id}/frame",
-        json={
-            "question": "Do we have enough verified model/evaluator evidence to justify the switch now?",
-            "roleKeys": ["caio"],
-        },
-        headers=headers_a,
-    )
-    assert frame_resp.status_code == 200, frame_resp.text
-    framed_data = frame_resp.json()
-    assert framed_data["state"] == "ANALYSIS_QUEUED"
-    assert framed_data["activeFrameVersion"] >= 1
 
 
 def test_signed_snapshot_accepted_into_ai_governance_dossier(caio_test_env, real_cosa_service):

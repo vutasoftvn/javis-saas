@@ -40,7 +40,7 @@ export const AGENT_PROFILE_SPEC_ID: Record<OwnerAgentProfile, string> = {
 // cho AI_AGENT).
 export const AGENT_PROFILE_SPEC_VERSION: Record<OwnerAgentProfile, string> = {
   operations: "1.3.0",
-  finance: "1.1.0",
+  finance: "1.2.0",
   marketing: "1.1.0",
   research_intelligence: "1.0.0",
   strategy: "1.0.0",
@@ -58,7 +58,7 @@ export const AGENT_PROFILE_SPEC_VERSION: Record<OwnerAgentProfile, string> = {
 // Pinned definition_hash theo specs.py AgentSpec.compute_hash().
 export const AGENT_PROFILE_SPEC_HASH: Record<OwnerAgentProfile, string> = {
   operations: "e013bfddbb49b8c9d0ba3e76e3bc53553ee5c90d03d160ef4f1116b8fb2969aa",
-  finance: "21bacc10efd681f204e62e827111853a468436fa2413857bdc1b1e7e0c38be96",
+  finance: "7c8bab30f70b75e856a5a3a4c83687047bda08988f58e8c498c455e362a4fc78",
   marketing: "4331a0729636df5470b5c5444f1b41d0eea0e1c7d2cc8a52b06832ef8c3cb172",
   research_intelligence: "2a3e445f343954dbad137100816be11226b9651a39ba91088adcbbbce1a9e705",
   strategy: "9e73d25f9399303e78556c7f3b881f2fe1ef738b9e95c978f7106f5e55343dd0",

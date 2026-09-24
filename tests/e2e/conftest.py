@@ -314,3 +314,41 @@ def real_cosa_stack(disposable_cluster: DisposableCluster) -> Iterator[MvpStack]
         yield stack
     finally:
         teardown_subprocess_stack(stack.handles or handles)
+
+
+@pytest.fixture(scope="session")
+def advisor_cluster() -> Iterator[DisposableCluster]:
+    """Cluster riêng cho advisor board. Các stack dùng chung một cluster sẽ dùng chung scheduler,
+    nên worker của stack khác (không có model giả) có thể nhận nhầm task của advisor."""
+    try:
+        cluster = create_disposable_cluster(secrets.token_hex(4))
+    except Exception as err:  # pragma: no cover - defensive
+        pytest.fail(f"Cannot create disposable Postgres cluster for advisor stack ({err}).")
+    try:
+        apply_migrations(cluster)
+        yield cluster
+    finally:
+        drop_disposable_cluster(cluster)
+
+
+@pytest.fixture(scope="session")
+def advisor_stack(advisor_cluster: DisposableCluster) -> Iterator[MvpStack]:
+    """Stack 4 plane riêng cho advisor board: worker dùng model fake trả JSON phân tích hợp lệ
+    (COSA_FAKE_MODEL_TEXT). Session-scoped để mọi file E2E advisor dùng chung một lần boot."""
+    from tests.e2e.advisor_board import FAKE_TEXT
+
+    handles = boot_subprocess_stack(
+        advisor_cluster, extra_py_env={"COSA_FAKE_MODEL_TEXT": FAKE_TEXT}
+    )
+    stack = MvpStack.from_base_urls(
+        company=handles.company_url,
+        platform=handles.cosa_url,
+        agent=handles.apps_cosa_url,
+        apps_cosa=handles.apps_cosa_url,
+        worker_health_url=handles.worker_health_url,
+    )
+    stack.handles = handles
+    try:
+        yield stack
+    finally:
+        teardown_subprocess_stack(stack.handles or handles)

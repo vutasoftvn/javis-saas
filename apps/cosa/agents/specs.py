@@ -306,14 +306,14 @@ COSA_COFOUNDER_ASSISTANT_AGENT_SPEC = AgentSpec(
 
 COSA_FINANCE_AGENT_SPEC = AgentSpec(
     id="cosa.agents.finance",
-    version="1.1.0",
+    version="1.2.0",
     autonomy_level=AutonomyLevel.L1_PROPOSE,
     instructions="Chuyên viên tài chính kế toán, theo dõi và ghi nhận sổ cái giao dịch của doanh nghiệp.",
     capability_refs=[
         "finance.connection.read",
         "finance.transaction.read",
         "finance.transaction.record",
-        "finance.transaction.classify.propose",
+        "finance.transaction.classify_propose",
         "finance.accounting_document.create_draft",
         "finance.accounting_document.confirm",
     ],

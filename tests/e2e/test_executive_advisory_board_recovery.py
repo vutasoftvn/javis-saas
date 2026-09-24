@@ -11,6 +11,8 @@ import time
 import httpx
 import pytest
 
+from tests.e2e.advisor_board import Board, worker_headers
+
 _SERVICE_TOKEN = os.environ.get(
     "COSA_WORKER_SERVICE_TOKEN",
     "dev-worker-service-token",
@@ -64,170 +66,52 @@ def e2e_recovery_env(real_company_service):
     }
 
 
-def test_revocation_after_frame_never_executes_an_action(e2e_recovery_env):
-    """If Founder revokes/disables advisor grant after framing, worker authority is denied
+@pytest.mark.cross_plane
+def test_revocation_after_frame_never_executes_an_action(advisor_stack, advisor_cluster):
+    """Founder vô hiệu hoá office role sau khi frame: authority của worker bị từ chối, callback bị
+    từ chối và không có analysis nào được ghi (zero side effect)."""
+    board = Board(advisor_stack, advisor_cluster)
+    delib_id, framed = board.frame("Should we issue convertible notes or safe notes?")
 
-    and callback is rejected, resulting in ZERO business side effects.
-    """
-    base_url = e2e_recovery_env["base_url"]
-    headers_a = e2e_recovery_env["headers_a"]
-    proj_id = e2e_recovery_env["proj_a_id"]
-    ws_a = e2e_recovery_env["ws_a"]
-
-    client = httpx.Client(base_url=base_url, timeout=10.0)
-
-    # 1. Activate preset & CFO
-    client.post(
-        f"/operations/projects/{proj_id}/executive-preset",
-        json={"presetKey": "startup-discovery"},
-        headers=headers_a,
-    )
-    client.post(
-        f"/operations/projects/{proj_id}/startup-team/finance/activate",
-        json={"expectedVersion": 1},
-        headers=headers_a,
-    )
-    act_cfo_resp = client.post(
-        f"/operations/projects/{proj_id}/executive-roles/cfo/activate",
-        json={"expectedVersion": 1},
-        headers=headers_a,
-    )
-    assert act_cfo_resp.status_code == 200
-
-    # 2. Create and Frame deliberation
-    draft_resp = client.post(
-        f"/operations/projects/{proj_id}/deliberations/draft",
-        json={"title": "Capital Strategy Deliberation"},
-        headers=headers_a,
-    )
-    assert draft_resp.status_code == 200
-    delib_id = draft_resp.json()["id"]
-
-    frame_resp = client.post(
-        f"/operations/projects/{proj_id}/deliberations/{delib_id}/frame",
-        json={
-            "question": "Should we issue convertible notes or safe notes?",
-            "roleKeys": ["cfo"],
-        },
-        headers=headers_a,
-    )
-    assert frame_resp.status_code == 200
-    frame_version = frame_resp.json()["activeFrameVersion"]
-
-    # 3. Founder revokes / disables the CFO role before execution
-    disable_resp = client.post(
-        f"/operations/projects/{proj_id}/executive-roles/cfo/disable",
+    disable = board.call(
+        "post",
+        f"/operations/workspaces/{board.ws}/executive-roles/cfo/disable",
         json={"reason": "Emergency role audit"},
-        headers=headers_a,
     )
-    assert disable_resp.status_code == 200
+    assert disable.status_code == 200, disable.text
 
-    # 4. Worker checks authority -> must be rejected because role is no longer active
-    worker_headers = {
-        "X-Workspace-Id": ws_a,
-        "X-Service-Token": _SERVICE_TOKEN,
-        "Authorization": f"Bearer {_SERVICE_TOKEN}",
-    }
-    auth_resp = client.get(
-        f"/internal/operations/projects/{proj_id}/deliberations/{delib_id}/authority",
-        params={"roleKey": "cfo"},
-        headers=worker_headers,
-    )
-    assert auth_resp.status_code in (400, 412), f"Expected 400/412 FailedPrecondition, got {auth_resp.status_code}: {auth_resp.text}"
-    assert auth_resp.json().get("code") == "failed_precondition"
+    auth = board.authority(delib_id, "cfo")
+    assert auth.status_code in (400, 412), f"Expected 400/412, got {auth.status_code}: {auth.text}"
+    assert auth.json().get("code") == "failed_precondition"
 
-    # 5. Worker tries to force-submit callback -> must also be rejected
-    cb_resp = client.post(
-        f"/internal/operations/projects/{proj_id}/deliberations/{delib_id}/callback",
-        json={
-            "kind": "executive.analysis.completed.v1",
-            "deliberation_id": delib_id,
-            "frame_version": frame_version,
-            "role_key": "cfo",
-            "descriptor": {
-                "conclusion": "Convertible notes with 20% discount.",
-                "confidence": "HIGH",
-            },
-        },
-        headers=worker_headers,
-    )
-    assert cb_resp.status_code in (400, 412), f"Expected 400/412, got {cb_resp.status_code}: {cb_resp.text}"
-    assert cb_resp.json().get("code") == "failed_precondition"
+    cb = board.completed_callback(delib_id, "cfo", frame_version=framed["activeFrameVersion"])
+    assert cb.status_code in (400, 412), f"Expected 400/412, got {cb.status_code}: {cb.text}"
+    assert cb.json().get("code") == "failed_precondition"
 
-    # 6. Verify zero side effects: no analyses recorded in ledger
-    delib_check = client.get(
-        f"/operations/projects/{proj_id}/deliberations/{delib_id}",
-        headers=headers_a,
-    )
-    assert delib_check.status_code == 200
-    analyses = delib_check.json().get("analyses", [])
-    assert len(analyses) == 0, "No analysis should be recorded after revocation"
-
-
-def test_stale_ticket_and_epoch_mismatch(e2e_recovery_env):
-    """Worker passing outdated frame version or unpinned role key is rejected."""
-    base_url = e2e_recovery_env["base_url"]
-    headers_a = e2e_recovery_env["headers_a"]
-    proj_id = e2e_recovery_env["proj_a_id"]
-    ws_a = e2e_recovery_env["ws_a"]
-
-    client = httpx.Client(base_url=base_url, timeout=10.0)
-
-    # Activate preset & CFO
-    client.post(
-        f"/operations/projects/{proj_id}/executive-preset",
-        json={"presetKey": "startup-discovery"},
-        headers=headers_a,
-    )
-    client.post(
-        f"/operations/projects/{proj_id}/startup-team/finance/activate",
-        json={"expectedVersion": 1},
-        headers=headers_a,
-    )
-    client.post(
-        f"/operations/projects/{proj_id}/executive-roles/cfo/activate",
-        json={"expectedVersion": 1},
-        headers=headers_a,
+    assert board.deliberation(delib_id).get("analyses") in (None, []), (
+        "No analysis should be recorded after revocation"
     )
 
-    # Create and frame deliberation
-    draft_resp = client.post(
-        f"/operations/projects/{proj_id}/deliberations/draft",
-        json={"title": "Stale ticket test"},
-        headers=headers_a,
-    )
-    delib_id = draft_resp.json()["id"]
 
-    frame_resp = client.post(
-        f"/operations/projects/{proj_id}/deliberations/{delib_id}/frame",
-        json={"question": "Budget test?", "roleKeys": ["cfo"]},
-        headers=headers_a,
-    )
-    assert frame_resp.status_code == 200
+@pytest.mark.cross_plane
+def test_stale_ticket_and_epoch_mismatch(advisor_stack, advisor_cluster):
+    """Worker dùng frame version cũ hoặc role không được pin thì bị từ chối."""
+    board = Board(advisor_stack, advisor_cluster)
+    delib_id, _ = board.frame("Budget test?")
 
-    worker_headers = {
-        "X-Workspace-Id": ws_a,
-        "X-Service-Token": _SERVICE_TOKEN,
-        "Authorization": f"Bearer {_SERVICE_TOKEN}",
-    }
-
-    # Stale frameVersion: 999 vs 1
-    stale_auth = client.get(
-        f"/internal/operations/projects/{proj_id}/deliberations/{delib_id}/authority",
+    stale = httpx.get(
+        f"{board.company.base_url}/internal/operations/projects/{board.project_id}"
+        f"/deliberations/{delib_id}/authority",
         params={"roleKey": "cfo", "frameVersion": 999},
-        headers=worker_headers,
+        headers=worker_headers(board.ws, advisor_cluster.run_id),
+        timeout=20.0,
     )
-    assert stale_auth.status_code in (400, 412), f"Expected 400/412 for stale frameVersion, got {stale_auth.status_code}"
-    assert stale_auth.json().get("code") == "failed_precondition"
+    assert stale.status_code in (400, 412), f"stale frameVersion: {stale.status_code}"
+    assert stale.json().get("code") == "failed_precondition"
 
-    # Unpinned role: cmo
-    unpinned_auth = client.get(
-        f"/internal/operations/projects/{proj_id}/deliberations/{delib_id}/authority",
-        params={"roleKey": "cmo"},
-        headers=worker_headers,
-    )
-    assert unpinned_auth.status_code in (400, 412), f"Expected 400/412 for unpinned role, got {unpinned_auth.status_code}"
-    assert unpinned_auth.json().get("code") == "failed_precondition"
+    unpinned = board.authority(delib_id, "cmo")
+    assert unpinned.status_code in (400, 412), f"unpinned role: {unpinned.status_code}"
+    assert unpinned.json().get("code") == "failed_precondition"
 
 
 def test_cross_tenant_evidence_expansion_rejected(e2e_recovery_env):
@@ -303,93 +187,27 @@ def test_cross_tenant_evidence_expansion_rejected(e2e_recovery_env):
     assert foreign_ws_resp.status_code == 403, f"Expected 403, got {foreign_ws_resp.status_code}: {foreign_ws_resp.text}"
 
 
-def test_consumer_restart_and_idempotent_replay(e2e_recovery_env):
-    """Crash/restart replay: duplicate callbacks return identical record without double-advancing state."""
-    base_url = e2e_recovery_env["base_url"]
-    headers_a = e2e_recovery_env["headers_a"]
-    proj_id = e2e_recovery_env["proj_a_id"]
-    ws_a = e2e_recovery_env["ws_a"]
+@pytest.mark.cross_plane
+def test_consumer_restart_and_idempotent_replay(advisor_stack, advisor_cluster):
+    """Outbox redelivery sau khi worker restart: callback trùng trả cùng bản ghi, không tiến state 2 lần."""
+    board = Board(advisor_stack, advisor_cluster)
+    delib_id, framed = board.frame("Replay test question?")
+    version = framed["activeFrameVersion"]
 
-    client = httpx.Client(base_url=base_url, timeout=10.0)
-
-    # Setup role
-    client.post(
-        f"/operations/projects/{proj_id}/executive-preset",
-        json={"presetKey": "startup-discovery"},
-        headers=headers_a,
+    first = board.completed_callback(
+        delib_id, "cfo", frame_version=version, conclusion="Initial and replayed conclusion are identical."
     )
-    client.post(
-        f"/operations/projects/{proj_id}/startup-team/finance/activate",
-        json={"expectedVersion": 1},
-        headers=headers_a,
+    assert first.status_code == 200, first.text
+    assert first.json()["status"] == "COMPLETED"
+    assert first.json()["state"] == "AWAITING_FOUNDER"
+
+    replay = board.completed_callback(
+        delib_id, "cfo", frame_version=version, conclusion="Initial and replayed conclusion are identical."
     )
-    client.post(
-        f"/operations/projects/{proj_id}/executive-roles/cfo/activate",
-        json={"expectedVersion": 1},
-        headers=headers_a,
-    )
-
-    draft_resp = client.post(
-        f"/operations/projects/{proj_id}/deliberations/draft",
-        json={"title": "Idempotent Replay Test"},
-        headers=headers_a,
-    )
-    delib_id = draft_resp.json()["id"]
-
-    frame_resp = client.post(
-        f"/operations/projects/{proj_id}/deliberations/{delib_id}/frame",
-        json={"question": "Replay test question?", "roleKeys": ["cfo"]},
-        headers=headers_a,
-    )
-    frame_version = frame_resp.json()["activeFrameVersion"]
-
-    worker_headers = {
-        "X-Workspace-Id": ws_a,
-        "X-Service-Token": _SERVICE_TOKEN,
-        "Authorization": f"Bearer {_SERVICE_TOKEN}",
-    }
-
-    callback_payload = {
-        "kind": "executive.analysis.completed.v1",
-        "deliberation_id": delib_id,
-        "frame_version": frame_version,
-        "role_key": "cfo",
-        "descriptor": {
-            "run_id": "run_replay_test_001",
-            "conclusion": "Initial and replayed conclusion are identical.",
-            "confidence": "HIGH",
-            "evidence_claims": [],
-        },
-    }
-
-    # Initial delivery
-    first_resp = client.post(
-        f"/internal/operations/projects/{proj_id}/deliberations/{delib_id}/callback",
-        json=callback_payload,
-        headers=worker_headers,
-    )
-    assert first_resp.status_code == 200
-    first_data = first_resp.json()
-    assert first_data["status"] == "COMPLETED"
-    assert first_data["state"] == "AWAITING_FOUNDER"
-
-    # Replayed delivery (e.g. outbox redelivery after worker restart)
-    replay_resp = client.post(
-        f"/internal/operations/projects/{proj_id}/deliberations/{delib_id}/callback",
-        json=callback_payload,
-        headers=worker_headers,
-    )
-    assert replay_resp.status_code == 200
-    replay_data = replay_resp.json()
-    assert replay_data["id"] == first_data["id"]
-    assert replay_data["state"] == "AWAITING_FOUNDER"
-
-    # Verify single analysis entry in ledger
-    delib_check = client.get(
-        f"/operations/projects/{proj_id}/deliberations/{delib_id}",
-        headers=headers_a,
-    ).json()
-    assert len(delib_check.get("analyses", [])) == 1
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["id"] == first.json()["id"]
+    assert replay.json()["state"] == "AWAITING_FOUNDER"
+    assert len(board.deliberation(delib_id).get("analyses", [])) == 1
 
 
 def test_tampered_or_missing_worker_service_token(e2e_recovery_env):

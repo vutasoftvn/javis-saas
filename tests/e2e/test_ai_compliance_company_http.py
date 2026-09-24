@@ -55,6 +55,7 @@ from apps.cosa.agents.specs import COSA_OPERATIONS_AGENT_SPEC
 from apps.cosa.api.app import create_cosa_app
 from apps.cosa.auth.jwt import mint_company_delegation
 from apps.cosa.capabilities.client import CompanyServiceClient
+from apps.cosa.company.project_team_client import ProjectTeamClient
 from apps.cosa.compliance import AiComplianceClient, ComplianceResolver
 from apps.cosa.compliance.contracts import (
     AiComplianceUnavailable,
@@ -123,19 +124,48 @@ async def _seed_for_direct_message_pipeline(
     worker luôn dùng spec cố định này, không thể tham số hoá theo test (xem
     `services/company/finance-legal/services/ai-compliance-e2e-seed.service.ts::
     E2eSeedOptions`)."""
+    import time as _time
+
     import httpx as _httpx
 
     async with _httpx.AsyncClient(timeout=15.0) as client:
+        # Route tạo message giờ bắt buộc `project_id` được Company xác minh: dùng một workspace +
+        # Project THẬT (session E2E), rồi seed compliance đúng workspace đó thay vì id tổng hợp.
+        session = (
+            await client.post(
+                f"{handle.base_url}/identity/_e2e/session",
+                json={"email": f"compliance-{_time.time()}@example.com", "displayName": "Compliance"},
+            )
+        ).json()
+        workspace_id = str(session["workspaceId"])
+        headers = {
+            "Authorization": f"Bearer {session['accessToken']}",
+            "X-Workspace-Id": workspace_id,
+        }
+        project = await client.post(
+            f"{handle.base_url}/operations/projects", json={"title": "Compliance Project"}, headers=headers
+        )
+        project.raise_for_status()
+        project_id = str(project.json()["id"])
+        # Worker chỉ chạy profile vận hành mà Project đã kích hoạt (run-authority).
+        activated = await client.post(
+            f"{handle.base_url}/operations/projects/{project_id}/startup-team/operations/activate",
+            json={"expectedVersion": 1},
+            headers=headers,
+        )
+        activated.raise_for_status()
         resp = await client.post(
             f"{handle.base_url}/finance-legal/ai-compliance/_e2e/seed",
             json={
                 "scenario": scenario,
                 "systemKey": _PRODUCTION_OPERATIONS_SYSTEM_KEY,
                 "additionalBoundCapabilityIds": _PRODUCTION_OPERATIONS_EXTRA_CAPABILITIES,
+                "workspaceId": workspace_id,
+                "founderMemberId": str(session["userId"]),
             },
         )
     resp.raise_for_status()
-    return resp.json()
+    return {**resp.json(), "projectId": project_id, "userId": str(session["userId"])}
 
 
 async def _build_real_pipeline_plane(base_url: str, fake_model: FakeSDKModel) -> CosaAgentPlane:
@@ -179,6 +209,12 @@ async def _build_real_pipeline_plane(base_url: str, fake_model: FakeSDKModel) ->
         model=fake_model,
     )
     plane.compliance_resolver = ComplianceResolver(AiComplianceClient(base_url=base_url))
+    # Worker xác minh Project team qua Company: phải trỏ vào Company E2E này, không phải
+    # COMPANY_SERVICE_URL mặc định (localhost:4000).
+    plane.project_team_client = ProjectTeamClient(base_url=base_url)
+    # Test hermetic: activity projection mặc định ghi vào Postgres theo AGENT_DATABASE_URL của shell
+    # (dev DB) — không thuộc phạm vi kiểm chứng compliance ở đây.
+    plane.project_activity_service = None
     # `build_execution_kernel()` coi `model=` là tín hiệu test và dựng
     # `CosaDataModelGate(client=None)` (kernel_factory.py: `is_mock_compliance`
     # → gate không có client) — nghĩa là gate egress bị VÔ HIỆU trong plane này.
@@ -613,15 +649,21 @@ async def test_approved_direct_business_input_reaches_model_once(
     plane = await _build_real_pipeline_plane(real_company_service.base_url, fake_model)
 
     app = create_cosa_app(plane=plane)
-    override_authenticated_identity(
+    identity = override_authenticated_identity(
         app,
-        principal_id="user:e2e_direct_msg_approved",
-        platform_user_id="e2e_direct_msg_approved",
+        principal_id=f"user:{seeded['userId']}",
+        platform_user_id=seeded["userId"],
         workspace_id=seeded["workspaceId"],
     )
+    # Delegation gửi Company phải ký như local session (JWT_SECRET, sub = user id Company) để
+    # Company xác minh Project thuộc workspace của đúng user này.
+    identity.token_kind = "local_session"
     client = TestClient(app)
 
-    conv_res = client.post("/agent/conversations", json={"title": "Direct message E2E — approved"})
+    conv_res = client.post(
+        "/agent/conversations",
+        json={"title": "Direct message E2E — approved", "project_id": seeded["projectId"]},
+    )
     assert conv_res.status_code == 201, conv_res.text
     conversation_id = conv_res.json()["id"]
 
@@ -629,6 +671,7 @@ async def test_approved_direct_business_input_reaches_model_once(
         f"/agent/conversations/{conversation_id}/messages",
         json={
             "content": "Summarize our confidential Q3 roadmap for the founder review.",
+            "project_id": seeded["projectId"],
             "data_access": {"categories": ["BUSINESS_CONFIDENTIAL"]},
         },
     )
@@ -663,15 +706,21 @@ async def test_withdrawn_personal_authorization_never_reaches_model(
     plane = await _build_real_pipeline_plane(real_company_service.base_url, fake_model)
 
     app = create_cosa_app(plane=plane)
-    override_authenticated_identity(
+    identity = override_authenticated_identity(
         app,
-        principal_id="user:e2e_direct_msg_withdrawn",
-        platform_user_id="e2e_direct_msg_withdrawn",
+        principal_id=f"user:{seeded['userId']}",
+        platform_user_id=seeded["userId"],
         workspace_id=seeded["workspaceId"],
     )
+    # Delegation gửi Company phải ký như local session (JWT_SECRET, sub = user id Company) để
+    # Company xác minh Project thuộc workspace của đúng user này.
+    identity.token_kind = "local_session"
     client = TestClient(app)
 
-    conv_res = client.post("/agent/conversations", json={"title": "Direct message E2E — withdrawn"})
+    conv_res = client.post(
+        "/agent/conversations",
+        json={"title": "Direct message E2E — withdrawn", "project_id": seeded["projectId"]},
+    )
     assert conv_res.status_code == 201, conv_res.text
     conversation_id = conv_res.json()["id"]
 
@@ -679,6 +728,7 @@ async def test_withdrawn_personal_authorization_never_reaches_model(
         f"/agent/conversations/{conversation_id}/messages",
         json={
             "content": "What is this customer's personal billing history?",
+            "project_id": seeded["projectId"],
             "data_access": {
                 "categories": ["PERSONAL"],
                 "subject_reference": seeded["subjectReference"],

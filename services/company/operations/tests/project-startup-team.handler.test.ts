@@ -273,9 +273,9 @@ describe("project-startup-team handler authorization & governance", () => {
     expect(auth.assignmentVersion).toBe(2);
     expect(auth.agentWorkforceMemberId).toBeDefined();
     expect(auth.spec.id).toBe("cosa.agents.finance");
-    expect(auth.spec.version).toBe("1.1.0");
+    expect(auth.spec.version).toBe("1.2.0");
     expect(auth.spec.hash).toBe(
-      "21bacc10efd681f204e62e827111853a468436fa2413857bdc1b1e7e0c38be96"
+      "7c8bab30f70b75e856a5a3a4c83687047bda08988f58e8c498c455e362a4fc78"
     );
 
     // 5. Pause finance -> run-authority returns 404

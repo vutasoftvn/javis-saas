@@ -48,17 +48,9 @@ def vpe_env(real_company_service):
     )
     assert activate_coding_resp.status_code == 200, activate_coding_resp.text
 
-    # Activate executive preset to make VPE role available
-    preset_resp = client.post(
-        f"/operations/projects/{proj_id}/executive-preset",
-        json={"presetKey": "startup-discovery"},
-        headers=headers_a,
-    )
-    assert preset_resp.status_code == 200, preset_resp.text
-
-    # Activate VPE advisory role (advisor only)
+    # Office VPE là Workspace-scoped (preset đã bị gỡ): kích hoạt qua route Workspace.
     act_vpe_resp = client.post(
-        f"/operations/projects/{proj_id}/executive-roles/vpe/activate",
+        f"/operations/workspaces/{ws_a}/executive-roles/vpe/activate",
         json={"expectedVersion": 1},
         headers=headers_a,
     )

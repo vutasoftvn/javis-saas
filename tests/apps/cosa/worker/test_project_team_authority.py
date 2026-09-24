@@ -103,7 +103,7 @@ async def test_spec_hash_mismatch_denied_before_kernel():
         agentWorkforceMemberId="wm_123",
         spec=SpecRef(
             id="cosa.agents.finance",
-            version="1.1.0",
+            version="1.2.0",
             hash="forged_or_stale_hash",
         ),
         policySnapshot={},
@@ -129,8 +129,8 @@ async def test_workspace_or_project_mismatch_denied_before_kernel():
         agentWorkforceMemberId="wm_123",
         spec=SpecRef(
             id="cosa.agents.finance",
-            version="1.1.0",
-            hash="21bacc10efd681f204e62e827111853a468436fa2413857bdc1b1e7e0c38be96",
+            version="1.2.0",
+            hash="7c8bab30f70b75e856a5a3a4c83687047bda08988f58e8c498c455e362a4fc78",
         ),
         policySnapshot={},
     )
@@ -218,8 +218,8 @@ async def test_active_matching_spec_hash_allows_execution():
         agentWorkforceMemberId="wm_123",
         spec=SpecRef(
             id="cosa.agents.finance",
-            version="1.1.0",
-            hash="21bacc10efd681f204e62e827111853a468436fa2413857bdc1b1e7e0c38be96",
+            version="1.2.0",
+            hash="7c8bab30f70b75e856a5a3a4c83687047bda08988f58e8c498c455e362a4fc78",
         ),
         policySnapshot={},
     )

@@ -22,7 +22,7 @@ def test_direct_chat_capable_agent_specs_use_new_immutable_version() -> None:
         COSA_OPERATIONS_AGENT_SPEC.version,
         COSA_FINANCE_AGENT_SPEC.version,
         COSA_MARKETING_AGENT_SPEC.version,
-    } == {"1.3.0", "1.1.0"}
+    } == {"1.3.0", "1.2.0", "1.1.0"}  # finance 1.2.0: sửa id capability classify_propose
     assert COSA_OPERATIONS_AGENT_SPEC.version == "1.3.0"
     assert "operations.task.create_draft" in COSA_OPERATIONS_AGENT_SPEC.capability_refs
     assert "workspace.context.read" in COSA_OPERATIONS_AGENT_SPEC.capability_refs

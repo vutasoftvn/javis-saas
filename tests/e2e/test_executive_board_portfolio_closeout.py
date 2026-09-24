@@ -128,9 +128,9 @@ def test_new_project_has_all_new_profiles_as_templates_and_no_new_executive_role
     assert not missing_roles, f"expected executive roles missing from board: {missing_roles}"
 
     active_new_roles = {
-        key: roles_by_key[key]["displayState"]
+        key: roles_by_key[key]["officeState"]
         for key in _NEW_ROLE_KEYS
-        if roles_by_key[key]["displayState"] == "ACTIVE"
+        if roles_by_key[key]["officeState"] == "ACTIVE"
     }
     assert not active_new_roles, f"new executive roles unexpectedly ACTIVE on a fresh project: {active_new_roles}"
 
@@ -138,9 +138,9 @@ def test_new_project_has_all_new_profiles_as_templates_and_no_new_executive_role
     # is not yet ACTIVE) — not merely "not ACTIVE" via some other unexpected
     # state such as an error placeholder.
     non_unavailable_new_roles = {
-        key: roles_by_key[key]["displayState"]
+        key: roles_by_key[key]["officeState"]
         for key in _NEW_ROLE_KEYS
-        if roles_by_key[key]["displayState"] != "UNAVAILABLE"
+        if roles_by_key[key]["officeState"] != "UNAVAILABLE"
     }
     assert not non_unavailable_new_roles, (
         f"new executive roles expected UNAVAILABLE (profile not yet active) on a "
