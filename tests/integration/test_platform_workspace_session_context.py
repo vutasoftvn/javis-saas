@@ -193,7 +193,7 @@ def test_session_context_returns_only_the_authenticated_member_workspace(real_co
     assert res.status_code == 200, res.text
     body = res.json()
 
-    assert body["workspaceId"] == workspace_id
+    assert body["organizationId"] == workspace_id
     assert body["role"] == "founder"
     assert body["asOf"].endswith("Z")
     # Server không nhận runtimeMode/presence từ request — workspace chưa đăng

@@ -58,7 +58,7 @@ class PlatformSessionContextService implements SessionContextService {
       );
     }
 
-    final workspaceIdFromServer = data['workspaceId']?.toString();
+    final workspaceIdFromServer = (data['organizationId'] ?? data['workspaceId'])?.toString();
     if (workspaceIdFromServer == null || workspaceIdFromServer.isEmpty) {
       throw SessionContextFetchException(
         statusCode: raw.statusCode,

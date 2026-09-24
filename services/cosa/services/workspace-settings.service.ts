@@ -105,7 +105,7 @@ async function requireWorkspaceOperator(authorization: string | undefined, works
 
 export interface WorkspaceMemberDTO {
   readonly id: string;
-  readonly workspaceId: string;
+  readonly organizationId: string;
   readonly userId: string;
   readonly roleId: string;
   readonly email: string | null;
@@ -133,7 +133,7 @@ export async function listWorkspaceMembersService(
 
   const items: WorkspaceMemberDTO[] = rows.map(({ mem, u, p }) => ({
     id: mem.id.toString(),
-    workspaceId: mem.workspaceId.toString(),
+    organizationId: mem.workspaceId.toString(),
     userId: mem.userId.toString(),
     roleId: mem.roleId,
     email: u.email,
@@ -277,7 +277,7 @@ export async function revokeWorkspaceConnectorService(
 
 export interface RuntimeNodeView {
   readonly id: string;
-  readonly workspaceId: string;
+  readonly organizationId: string;
   readonly nodeId: string;
   readonly runtimeRole: string;
   readonly presence: "ONLINE" | "OFFLINE" | "DEGRADED";
@@ -305,7 +305,7 @@ export async function listWorkspaceRuntimeNodesService(
     const status = isRevoked ? "revoked" : (r.presenceStatus || "active");
     return {
       id: r.nodeId.toString(),
-      workspaceId: r.workspaceId.toString(),
+      organizationId: r.workspaceId.toString(),
       nodeId: r.nodeId.toString(),
       runtimeRole: r.runtimeRole,
       presence: isOnline ? "ONLINE" : "OFFLINE",
@@ -348,7 +348,7 @@ export async function revokeWorkspaceRuntimeNodeService(
 
 export interface WorkspaceAuditEventDTO {
   readonly eventId: string;
-  readonly workspaceId: string;
+  readonly organizationId: string;
   readonly actorId: string;
   readonly eventType: string;
   readonly targetKind: string;
@@ -373,7 +373,7 @@ export async function listWorkspaceAuditEventsService(
 
   const items: WorkspaceAuditEventDTO[] = rows.map((r) => ({
     eventId: r.eventId.toString(),
-    workspaceId: r.workspaceId.toString(),
+    organizationId: r.workspaceId.toString(),
     actorId: r.actorId,
     eventType: r.eventType,
     targetKind: r.targetKind,
@@ -394,7 +394,7 @@ export async function listWorkspaceAuditEventsService(
 // runtimeMode/role/presence trong body/query — mọi giá trị trả về đều được
 // tính lại từ dữ liệu server (membership row + heartbeat thật).
 export interface WorkspaceSessionContextView {
-  readonly workspaceId: string;
+  readonly organizationId: string;
   readonly role: string;
   readonly runtimeMode: "LOCAL_ONLY" | "REMOTE_ACCESS" | "CLOUD_CONTINUITY";
   // Review fix (2026-09-02, Task 3 review "Needs fixes") — `runtimeMode` ở
@@ -521,7 +521,7 @@ export async function getWorkspaceSessionContextService(
     await resolveWorkspaceRuntimeSnapshot(wsIdBigInt);
 
   return {
-    workspaceId,
+    organizationId: workspaceId,
     role: membership.roleId,
     runtimeMode,
     runtimeModeSource,
@@ -535,7 +535,7 @@ export async function getWorkspaceSessionContextService(
 // ─── Skill Policies (Task 4 — Truthful MVP Hardening) ───
 
 export interface WorkspaceSkillPolicyView {
-  readonly workspaceId: string;
+  readonly organizationId: string;
   readonly skillKey: string;
   readonly enabled: boolean;
   readonly config: Record<string, unknown>;
@@ -558,7 +558,7 @@ export async function listWorkspaceSkillPoliciesService(
     .orderBy(desc(workspaceSkillPolicies.updatedAt));
 
   const items: WorkspaceSkillPolicyView[] = rows.map((r) => ({
-    workspaceId: r.workspaceId.toString(),
+    organizationId: r.workspaceId.toString(),
     skillKey: r.skillKey,
     enabled: r.enabled,
     config: (r.config as Record<string, unknown>) ?? {},
@@ -621,7 +621,7 @@ export async function putWorkspaceSkillPolicyService(
   });
 
   const out: WorkspaceSkillPolicyView = {
-    workspaceId: saved.workspaceId.toString(),
+    organizationId: saved.workspaceId.toString(),
     skillKey: saved.skillKey,
     enabled: saved.enabled,
     config: (saved.config as Record<string, unknown>) ?? {},
@@ -653,7 +653,7 @@ export interface ModuleVisibilityItem {
 }
 
 export interface WorkspaceModuleVisibilityDTO {
-  readonly workspaceId: string;
+  readonly organizationId: string;
   readonly modules: readonly ModuleVisibilityItem[];
 }
 
@@ -695,7 +695,7 @@ export async function listWorkspaceModuleVisibilityService(
     };
   });
 
-  return mvpItem({ workspaceId, modules }, [SOURCE_CONTROL_PLANE]);
+  return mvpItem({ organizationId: workspaceId, modules }, [SOURCE_CONTROL_PLANE]);
 }
 
 export async function setWorkspaceModuleEnabledService(
@@ -792,7 +792,7 @@ export interface CapabilityManifestSurface {
 
 export interface WorkspaceCapabilityManifest {
   readonly version: string;
-  readonly workspaceId: string;
+  readonly organizationId: string;
   readonly surfaces: readonly CapabilityManifestSurface[];
 }
 
@@ -886,7 +886,7 @@ export async function getWorkspaceCapabilityManifestService(
   });
 
   return mvpItem(
-    { version: SURFACE_POLICY_VERSION, workspaceId, surfaces },
+    { version: SURFACE_POLICY_VERSION, organizationId: workspaceId, surfaces },
     [SOURCE_CONTROL_PLANE]
   );
 }

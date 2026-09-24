@@ -36,7 +36,7 @@ describe("Workspace Capability Manifest", () => {
       authorization: `Bearer ${operatorToken}`,
     });
     expect(res.data.version).toBeTruthy();
-    expect(res.data.workspaceId).toBe(wsId);
+    expect(res.data.organizationId).toBe(wsId);
     const loop = res.data.surfaces.find((s) => s.surfaceKey === "project.operating_loop");
     expect(loop).toBeDefined();
     expect(loop!.surfaceStatus).toBe("AVAILABLE");

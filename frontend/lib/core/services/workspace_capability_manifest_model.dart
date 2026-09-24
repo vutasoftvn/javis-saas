@@ -90,7 +90,7 @@ class WorkspaceCapabilityManifest {
   factory WorkspaceCapabilityManifest.fromJson(Map<String, dynamic> json) {
     return WorkspaceCapabilityManifest(
       version: json['version']?.toString() ?? '',
-      workspaceId: json['workspaceId']?.toString() ?? '',
+      workspaceId: (json['organizationId'] ?? json['workspaceId'])?.toString() ?? '',
       surfaces: (json['surfaces'] as List?)
               ?.whereType<Map<String, dynamic>>()
               .map(CapabilityManifestSurface.fromJson)

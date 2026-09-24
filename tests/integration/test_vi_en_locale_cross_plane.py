@@ -306,7 +306,7 @@ async def test_cross_plane_locale_delegation_tenancy_and_vietnamese_accounting_i
     )
     assert res_session_ctx.status_code == 200
     # Legal / accounting jurisdiction invariant (TT58, VND) is strictly unchanged by UI locale switch
-    assert res_session_ctx.json()["workspaceId"] == alice_ws
+    assert res_session_ctx.json()["organizationId"] == alice_ws
 
     # Verify real data invariance: Read directly from PostgreSQL workspace database
     # Statutory accounting regime (TT58), fiscal profile regulation code, and transaction currency (VND)

@@ -23,7 +23,7 @@ class WorkspaceMemberModel {
   factory WorkspaceMemberModel.fromJson(Map<String, dynamic> json) {
     return WorkspaceMemberModel(
       id: json['id'] as String? ?? '',
-      workspaceId: json['workspaceId'] as String? ?? json['workspace_id'] as String? ?? '',
+      workspaceId: json['organizationId'] as String? ?? json['workspaceId'] as String? ?? json['workspace_id'] as String? ?? '',
       userId: json['userId'] as String? ?? json['user_id'] as String? ?? '',
       roleId: json['roleId'] as String? ?? json['role_id'] as String? ?? 'member',
       email: json['email'] as String?,
@@ -89,7 +89,7 @@ class RuntimeNodeModel {
   factory RuntimeNodeModel.fromJson(Map<String, dynamic> json) {
     return RuntimeNodeModel(
       id: json['id'] as String? ?? '',
-      workspaceId: json['workspaceId'] as String? ?? json['workspace_id'] as String? ?? '',
+      workspaceId: json['organizationId'] as String? ?? json['workspaceId'] as String? ?? json['workspace_id'] as String? ?? '',
       nodeId: json['nodeId'] as String? ?? json['node_id'] as String? ?? '',
       runtimeRole: json['runtimeRole'] as String? ?? json['runtime_role'] as String? ?? '',
       presence: json['presence'] as String? ?? 'OFFLINE',
@@ -176,7 +176,7 @@ class WorkspaceAuditEventModel {
   factory WorkspaceAuditEventModel.fromJson(Map<String, dynamic> json) {
     return WorkspaceAuditEventModel(
       eventId: json['eventId'] as String? ?? json['event_id'] as String? ?? '',
-      workspaceId: json['workspaceId'] as String? ?? json['workspace_id'] as String? ?? '',
+      workspaceId: json['organizationId'] as String? ?? json['workspaceId'] as String? ?? json['workspace_id'] as String? ?? '',
       actorId: json['actorId'] as String? ?? json['actor_id'] as String? ?? '',
       eventType: json['eventType'] as String? ?? json['event_type'] as String? ?? '',
       targetKind: json['targetKind'] as String? ?? json['target_kind'] as String? ?? '',

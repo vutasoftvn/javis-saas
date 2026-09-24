@@ -224,7 +224,7 @@ describe("Workspace Session Context Endpoint (Task 3 — Frontend Trust and UX H
       authorization: `Bearer ${founderToken}`,
     });
 
-    expect(ctx.workspaceId).toBe(workspaceId);
+    expect(ctx.organizationId).toBe(workspaceId);
     expect(ctx.role).toBe("founder");
     expect(ctx.asOf).toMatch(/Z$/);
     // Chưa đăng ký runtime node nào ⇒ mặc định trung thực LOCAL_ONLY/OFFLINE,
@@ -352,7 +352,7 @@ describe("Workspace Module Visibility", () => {
       organizationId: wsId,
       authorization: `Bearer ${operatorToken}`,
     });
-    expect(res.data.workspaceId).toBe(wsId);
+    expect(res.data.organizationId).toBe(wsId);
     expect(res.data.modules).toEqual([
       { moduleKey: "finance", workspaceEnabled: true, userVisible: true, effectiveVisible: true },
       { moduleKey: "legal", workspaceEnabled: true, userVisible: true, effectiveVisible: true },
