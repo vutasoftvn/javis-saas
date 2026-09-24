@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-09-12T09:35:37.663Z",
+  "generated_at": "2026-09-24T12:59:11.596Z",
   "groups": {
     "agent": {
       "fingerprint": "3b9a96bd97ba979eea6d705e46329f134ba0ff61defb46fb4c8e99f1d5694265",
@@ -6452,7 +6452,7 @@
       }
     },
     "cosa": {
-      "fingerprint": "1ad4f06433616eace851bc8faafcf80626f2ecb350bb2da00f8cc4dbd97f68c6",
+      "fingerprint": "90b975054cdc86f38e0d8ba1d7ea5e39975c3fd7b280474add036da3f99136ac",
       "schemas": [
         "control_plane",
         "cosa"
@@ -9614,6 +9614,26 @@
               "max_length": null,
               "precision": null,
               "scale": null
+            },
+            {
+              "name": "project_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "is_legacy_unscoped",
+              "type": "boolean",
+              "udt": "bool",
+              "nullable": false,
+              "default": "false",
+              "max_length": null,
+              "precision": null,
+              "scale": null
             }
           ],
           "primary_key": {
@@ -9804,6 +9824,16 @@
               "name": "next_attempt_at",
               "type": "timestamp with time zone",
               "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "project_id_snapshot",
+              "type": "text",
+              "udt": "text",
               "nullable": true,
               "default": null,
               "max_length": null,
@@ -10067,6 +10097,411 @@
             {
               "name": "workspace_skill_policies_pkey",
               "definition": "CREATE UNIQUE INDEX workspace_skill_policies_pkey ON control_plane.workspace_skill_policies USING btree (workspace_id, skill_key)"
+            }
+          ]
+        },
+        "cosa.organization_invitations": {
+          "schema": "cosa",
+          "name": "organization_invitations",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "organization_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "email_normalized",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "role_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "token_hash",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'pending'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "invited_by_user_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "expires_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "accepted_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "revoked_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "workspace_invitations_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "workspace_invitations_invited_by_user_id_fkey",
+              "columns": [
+                "invited_by_user_id"
+              ],
+              "foreign_table": "cosa.users",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            },
+            {
+              "name": "workspace_invitations_role_id_fkey",
+              "columns": [
+                "role_id"
+              ],
+              "foreign_table": "cosa.roles",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "NO ACTION"
+            },
+            {
+              "name": "workspace_invitations_workspace_id_fkey",
+              "columns": [
+                "organization_id"
+              ],
+              "foreign_table": "cosa.organizations",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [
+            {
+              "name": "workspace_invitations_role_id_check",
+              "clause": "((role_id = ANY (ARRAY['member'::text, 'admin'::text])))"
+            },
+            {
+              "name": "workspace_invitations_status_check",
+              "clause": "((status = ANY (ARRAY['pending'::text, 'accepted'::text, 'revoked'::text, 'expired'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_workspace_invitations_workspace",
+              "definition": "CREATE INDEX idx_workspace_invitations_workspace ON cosa.organization_invitations USING btree (organization_id)"
+            },
+            {
+              "name": "ux_workspace_invitations_pending_email",
+              "definition": "CREATE UNIQUE INDEX ux_workspace_invitations_pending_email ON cosa.organization_invitations USING btree (organization_id, email_normalized) WHERE (status = 'pending'::text)"
+            },
+            {
+              "name": "ux_workspace_invitations_token_hash",
+              "definition": "CREATE UNIQUE INDEX ux_workspace_invitations_token_hash ON cosa.organization_invitations USING btree (token_hash)"
+            },
+            {
+              "name": "workspace_invitations_pkey",
+              "definition": "CREATE UNIQUE INDEX workspace_invitations_pkey ON cosa.organization_invitations USING btree (id)"
+            }
+          ]
+        },
+        "cosa.organization_memberships": {
+          "schema": "cosa",
+          "name": "organization_memberships",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "organization_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "user_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "role",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'member'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "platform_workspace_memberships_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "platform_workspace_membership_platform_workspace_id_user_id_key",
+              "columns": [
+                "organization_id",
+                "user_id"
+              ]
+            }
+          ],
+          "foreign_keys": [
+            {
+              "name": "platform_workspace_memberships_platform_workspace_id_fkey",
+              "columns": [
+                "organization_id"
+              ],
+              "foreign_table": "cosa.organizations",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            },
+            {
+              "name": "platform_workspace_memberships_user_id_fkey",
+              "columns": [
+                "user_id"
+              ],
+              "foreign_table": "cosa.users",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [
+            {
+              "name": "workspace_memberships_role_check",
+              "clause": "((role = ANY (ARRAY['founder'::text, 'co-founder'::text, 'admin'::text, 'member'::text, 'viewer'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "platform_workspace_membership_platform_workspace_id_user_id_key",
+              "definition": "CREATE UNIQUE INDEX platform_workspace_membership_platform_workspace_id_user_id_key ON cosa.organization_memberships USING btree (organization_id, user_id)"
+            },
+            {
+              "name": "platform_workspace_memberships_pkey",
+              "definition": "CREATE UNIQUE INDEX platform_workspace_memberships_pkey ON cosa.organization_memberships USING btree (id)"
+            }
+          ]
+        },
+        "cosa.organizations": {
+          "schema": "cosa",
+          "name": "organizations",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "organization_name",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "owner_user_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'active'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "platform_workspaces_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [],
+          "check_constraints": [
+            {
+              "name": "platform_workspaces_status_check",
+              "clause": "((status = ANY (ARRAY['active'::text, 'archived'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_platform_workspaces_owner",
+              "definition": "CREATE INDEX idx_platform_workspaces_owner ON cosa.organizations USING btree (owner_user_id)"
+            },
+            {
+              "name": "platform_workspaces_pkey",
+              "definition": "CREATE UNIQUE INDEX platform_workspaces_pkey ON cosa.organizations USING btree (id)"
             }
           ]
         },
@@ -10489,7 +10924,7 @@
               "columns": [
                 "workspace_id"
               ],
-              "foreign_table": "cosa.workspaces",
+              "foreign_table": "cosa.organizations",
               "foreign_columns": [
                 "id"
               ],
@@ -10549,7 +10984,7 @@
               "name": "hashed_password",
               "type": "text",
               "udt": "text",
-              "nullable": false,
+              "nullable": true,
               "default": null,
               "max_length": null,
               "precision": null,
@@ -10778,7 +11213,7 @@
               "columns": [
                 "platform_workspace_id"
               ],
-              "foreign_table": "cosa.workspaces",
+              "foreign_table": "cosa.organizations",
               "foreign_columns": [
                 "id"
               ],
@@ -10876,7 +11311,7 @@
               "columns": [
                 "platform_workspace_id"
               ],
-              "foreign_table": "cosa.workspaces",
+              "foreign_table": "cosa.organizations",
               "foreign_columns": [
                 "id"
               ],
@@ -11003,7 +11438,7 @@
               "columns": [
                 "platform_workspace_id"
               ],
-              "foreign_table": "cosa.workspaces",
+              "foreign_table": "cosa.organizations",
               "foreign_columns": [
                 "id"
               ],
@@ -11016,196 +11451,6 @@
             {
               "name": "workspace_entitlements_pkey",
               "definition": "CREATE UNIQUE INDEX workspace_entitlements_pkey ON cosa.workspace_entitlements USING btree (platform_workspace_id)"
-            }
-          ]
-        },
-        "cosa.workspace_invitations": {
-          "schema": "cosa",
-          "name": "workspace_invitations",
-          "type": "BASE TABLE",
-          "columns": [
-            {
-              "name": "id",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "workspace_id",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "email_normalized",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "role_id",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "token_hash",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "status",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": "'pending'::text",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "invited_by_user_id",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "expires_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "accepted_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "revoked_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "created_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": false,
-              "default": "now()",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            }
-          ],
-          "primary_key": {
-            "name": "workspace_invitations_pkey",
-            "columns": [
-              "id"
-            ]
-          },
-          "unique_constraints": [],
-          "foreign_keys": [
-            {
-              "name": "workspace_invitations_invited_by_user_id_fkey",
-              "columns": [
-                "invited_by_user_id"
-              ],
-              "foreign_table": "cosa.users",
-              "foreign_columns": [
-                "id"
-              ],
-              "on_update": "NO ACTION",
-              "on_delete": "CASCADE"
-            },
-            {
-              "name": "workspace_invitations_role_id_fkey",
-              "columns": [
-                "role_id"
-              ],
-              "foreign_table": "cosa.roles",
-              "foreign_columns": [
-                "id"
-              ],
-              "on_update": "NO ACTION",
-              "on_delete": "NO ACTION"
-            },
-            {
-              "name": "workspace_invitations_workspace_id_fkey",
-              "columns": [
-                "workspace_id"
-              ],
-              "foreign_table": "cosa.workspaces",
-              "foreign_columns": [
-                "id"
-              ],
-              "on_update": "NO ACTION",
-              "on_delete": "CASCADE"
-            }
-          ],
-          "check_constraints": [
-            {
-              "name": "workspace_invitations_role_id_check",
-              "clause": "((role_id = ANY (ARRAY['member'::text, 'admin'::text])))"
-            },
-            {
-              "name": "workspace_invitations_status_check",
-              "clause": "((status = ANY (ARRAY['pending'::text, 'accepted'::text, 'revoked'::text, 'expired'::text])))"
-            }
-          ],
-          "indexes": [
-            {
-              "name": "idx_workspace_invitations_workspace",
-              "definition": "CREATE INDEX idx_workspace_invitations_workspace ON cosa.workspace_invitations USING btree (workspace_id)"
-            },
-            {
-              "name": "ux_workspace_invitations_pending_email",
-              "definition": "CREATE UNIQUE INDEX ux_workspace_invitations_pending_email ON cosa.workspace_invitations USING btree (workspace_id, email_normalized) WHERE (status = 'pending'::text)"
-            },
-            {
-              "name": "ux_workspace_invitations_token_hash",
-              "definition": "CREATE UNIQUE INDEX ux_workspace_invitations_token_hash ON cosa.workspace_invitations USING btree (token_hash)"
-            },
-            {
-              "name": "workspace_invitations_pkey",
-              "definition": "CREATE UNIQUE INDEX workspace_invitations_pkey ON cosa.workspace_invitations USING btree (id)"
             }
           ]
         },
@@ -11363,7 +11608,7 @@
               "columns": [
                 "platform_workspace_id"
               ],
-              "foreign_table": "cosa.workspaces",
+              "foreign_table": "cosa.organizations",
               "foreign_columns": [
                 "id"
               ],
@@ -11384,130 +11629,6 @@
             {
               "name": "workspace_licenses_platform_workspace_id_key",
               "definition": "CREATE UNIQUE INDEX workspace_licenses_platform_workspace_id_key ON cosa.workspace_licenses USING btree (platform_workspace_id)"
-            }
-          ]
-        },
-        "cosa.workspace_memberships": {
-          "schema": "cosa",
-          "name": "workspace_memberships",
-          "type": "BASE TABLE",
-          "columns": [
-            {
-              "name": "id",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "platform_workspace_id",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "user_id",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "role",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": "'member'::text",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "created_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": false,
-              "default": "now()",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "updated_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": false,
-              "default": "now()",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            }
-          ],
-          "primary_key": {
-            "name": "platform_workspace_memberships_pkey",
-            "columns": [
-              "id"
-            ]
-          },
-          "unique_constraints": [
-            {
-              "name": "platform_workspace_membership_platform_workspace_id_user_id_key",
-              "columns": [
-                "platform_workspace_id",
-                "user_id"
-              ]
-            }
-          ],
-          "foreign_keys": [
-            {
-              "name": "platform_workspace_memberships_platform_workspace_id_fkey",
-              "columns": [
-                "platform_workspace_id"
-              ],
-              "foreign_table": "cosa.workspaces",
-              "foreign_columns": [
-                "id"
-              ],
-              "on_update": "NO ACTION",
-              "on_delete": "CASCADE"
-            },
-            {
-              "name": "platform_workspace_memberships_user_id_fkey",
-              "columns": [
-                "user_id"
-              ],
-              "foreign_table": "cosa.users",
-              "foreign_columns": [
-                "id"
-              ],
-              "on_update": "NO ACTION",
-              "on_delete": "CASCADE"
-            }
-          ],
-          "check_constraints": [
-            {
-              "name": "workspace_memberships_role_check",
-              "clause": "((role = ANY (ARRAY['founder'::text, 'co-founder'::text, 'admin'::text, 'member'::text, 'viewer'::text])))"
-            }
-          ],
-          "indexes": [
-            {
-              "name": "platform_workspace_membership_platform_workspace_id_user_id_key",
-              "definition": "CREATE UNIQUE INDEX platform_workspace_membership_platform_workspace_id_user_id_key ON cosa.workspace_memberships USING btree (platform_workspace_id, user_id)"
-            },
-            {
-              "name": "platform_workspace_memberships_pkey",
-              "definition": "CREATE UNIQUE INDEX platform_workspace_memberships_pkey ON cosa.workspace_memberships USING btree (id)"
             }
           ]
         },
@@ -11581,7 +11702,7 @@
               "columns": [
                 "workspace_id"
               ],
-              "foreign_table": "cosa.workspaces",
+              "foreign_table": "cosa.organizations",
               "foreign_columns": [
                 "id"
               ],
@@ -11682,7 +11803,7 @@
               "columns": [
                 "workspace_id"
               ],
-              "foreign_table": "cosa.workspaces",
+              "foreign_table": "cosa.organizations",
               "foreign_columns": [
                 "id"
               ],
@@ -11803,7 +11924,7 @@
               "columns": [
                 "platform_workspace_id"
               ],
-              "foreign_table": "cosa.workspaces",
+              "foreign_table": "cosa.organizations",
               "foreign_columns": [
                 "id"
               ],
@@ -11825,110 +11946,6 @@
             {
               "name": "platform_workspace_sync_log_pkey",
               "definition": "CREATE UNIQUE INDEX platform_workspace_sync_log_pkey ON cosa.workspace_sync_log USING btree (id)"
-            }
-          ]
-        },
-        "cosa.workspaces": {
-          "schema": "cosa",
-          "name": "workspaces",
-          "type": "BASE TABLE",
-          "columns": [
-            {
-              "name": "id",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "workspace_name",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "owner_user_id",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "status",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": "'active'::text",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "created_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": false,
-              "default": "now()",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "updated_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": false,
-              "default": "now()",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            }
-          ],
-          "primary_key": {
-            "name": "platform_workspaces_pkey",
-            "columns": [
-              "id"
-            ]
-          },
-          "unique_constraints": [],
-          "foreign_keys": [
-            {
-              "name": "platform_workspaces_owner_user_id_fkey",
-              "columns": [
-                "owner_user_id"
-              ],
-              "foreign_table": "cosa.users",
-              "foreign_columns": [
-                "id"
-              ],
-              "on_update": "NO ACTION",
-              "on_delete": "CASCADE"
-            }
-          ],
-          "check_constraints": [
-            {
-              "name": "platform_workspaces_status_check",
-              "clause": "((status = ANY (ARRAY['active'::text, 'archived'::text])))"
-            }
-          ],
-          "indexes": [
-            {
-              "name": "idx_platform_workspaces_owner",
-              "definition": "CREATE INDEX idx_platform_workspaces_owner ON cosa.workspaces USING btree (owner_user_id)"
-            },
-            {
-              "name": "platform_workspaces_pkey",
-              "definition": "CREATE UNIQUE INDEX platform_workspaces_pkey ON cosa.workspaces USING btree (id)"
             }
           ]
         }
