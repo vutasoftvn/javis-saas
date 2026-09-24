@@ -62,6 +62,19 @@ describe("introspectCoreToken", () => {
     expect(JSON.parse(init.body)).toEqual({ token: "tok-1" });
   });
 
+  it("chuyển role hệ thống (tầng A) của tài khoản; thiếu hoặc sai kiểu thì bỏ qua", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(activeBody({ systemRoles: ["user", "auditor"] })));
+    expect((await introspectCoreToken("tok-a")).systemRoles).toEqual(["user", "auditor"]);
+
+    clearIntrospectCache();
+    fetchMock.mockResolvedValueOnce(jsonResponse(activeBody()));
+    expect((await introspectCoreToken("tok-b")).systemRoles).toBeUndefined();
+
+    clearIntrospectCache();
+    fetchMock.mockResolvedValueOnce(jsonResponse(activeBody({ systemRoles: "user" as never })));
+    expect((await introspectCoreToken("tok-c")).systemRoles).toBeUndefined();
+  });
+
   it("token inactive -> unauthenticated", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ active: false }));
     await expect(introspectCoreToken("tok-2")).rejects.toMatchObject({ code: "unauthenticated" });

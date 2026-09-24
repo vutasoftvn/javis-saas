@@ -28,6 +28,8 @@ export interface CoreTokenInfo {
   phone?: string | null;
   displayName?: string | null;
   avatarUrl?: string | null;
+  /** Role hệ thống của tài khoản (tầng A, backend/core). Không phải role trong tổ chức: role đó lấy từ authorize. */
+  systemRoles?: string[];
 }
 
 interface CoreIntrospectResponse {
@@ -40,6 +42,7 @@ interface CoreIntrospectResponse {
   clientPublicId?: string;
   scope?: string;
   exp?: number;
+  systemRoles?: string[];
 }
 
 interface CacheEntry {
@@ -123,6 +126,7 @@ export async function introspectCoreToken(token: string): Promise<CoreTokenInfo>
     phone: body.phone,
     displayName: body.displayName,
     avatarUrl: body.avatarUrl,
+    systemRoles: Array.isArray(body.systemRoles) ? body.systemRoles : undefined,
   };
 
   const cachedUntilMs = Math.min(now + MAX_CACHE_MS, expiresAt * 1000);
