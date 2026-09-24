@@ -32,7 +32,11 @@ from apps.cosa.policies.profile_locale_client import (
     ProfileLocaleUnavailable,
 )
 
-pytestmark = pytest.mark.integration
+pytestmark_core = pytest.mark.skip(
+    reason="Đăng ký/đăng nhập do backend/core quản lý (COSA đã gỡ /platform/auth/register); "
+    "test này cần harness chạy kèm backend/core thật để lấy access token OIDC — chưa có."
+)
+pytestmark = [pytest.mark.integration, pytestmark_core]
 
 COSA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "services", "cosa")
 

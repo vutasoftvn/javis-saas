@@ -38,6 +38,12 @@ _DEFAULT_COSA_APP_PASSWORD = "change-me-cosa-app"
 _READY_TIMEOUT_SECONDS = 60.0
 
 
+pytestmark_core = pytest.mark.skip(
+    reason="Đăng ký/đăng nhập do backend/core quản lý (COSA đã gỡ /platform/auth/register); "
+    "test này cần harness chạy kèm backend/core thật để lấy access token OIDC — chưa có."
+)
+pytestmark = pytestmark_core
+
 def _cosa_database_url() -> str:
     return os.environ.get(
         "COSA_DATABASE_URL",
