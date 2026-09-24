@@ -29,7 +29,7 @@ const RUNTIME_ROLES: readonly RuntimeRole[] = [
 
 export interface RuntimeNodeView {
   nodeId: string;
-  workspaceId: string;
+  organizationId: string;
   deviceKeyFingerprint: string;
   runtimeRole: RuntimeRole;
   presence: PresenceStatus;
@@ -56,7 +56,7 @@ type NodeRow = typeof workspaceRuntimeNodes.$inferSelect;
 function toView(row: NodeRow, now: Date = new Date()): RuntimeNodeView {
   return {
     nodeId: row.nodeId.toString(),
-    workspaceId: row.workspaceId.toString(),
+    organizationId: row.workspaceId.toString(),
     deviceKeyFingerprint: row.deviceKeyFingerprint,
     runtimeRole: row.runtimeRole as RuntimeRole,
     presence: computePresence(row.lastHeartbeatAt, row.revokedAt, now),

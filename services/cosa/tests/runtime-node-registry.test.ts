@@ -40,7 +40,7 @@ describe("runtime node registry (M5 §1)", () => {
       agentVersion: "1.2.3",
     });
     expect(node.nodeId).toMatch(/^\d+$/);
-    expect(node.workspaceId).toBe(workspaceId.toString());
+    expect(node.organizationId).toBe(workspaceId.toString());
     expect(node.presence).toBe("ONLINE");
     expect(node.agentVersion).toBe("1.2.3");
   });

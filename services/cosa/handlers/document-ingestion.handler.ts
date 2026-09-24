@@ -6,7 +6,7 @@ import { verifyWorkspaceMembership } from "../services/workspace-connector.servi
 
 export interface CreateDocumentIngestionParams {
   authorization?: Header<"Authorization">;
-  workspaceId: string;
+  organizationId: string;
   originalFilename: string;
   declaredMediaType: string;
   idempotencyKey: string;
@@ -15,7 +15,7 @@ export interface CreateDocumentIngestionParams {
 export interface GetDocumentIngestionParams {
   authorization?: Header<"Authorization">;
   ingestionId: string;
-  workspaceId: string;
+  organizationId: string;
 }
 
 export interface TransitionForWorkerParams {
@@ -30,7 +30,7 @@ export interface TransitionForWorkerParams {
 export interface ReviewDocumentIngestionParams {
   authorization?: Header<"Authorization">;
   ingestionId: string;
-  workspaceId: string;
+  organizationId: string;
   decision: "PUBLISHED" | "REJECTED";
   reason: string;
 }
@@ -57,10 +57,10 @@ export const createDocumentIngestionEndpoint = api(
     const claims = { sub: (await resolveCallerIdentity(token)).userId };
 
     // Verify caller is a member of the workspace
-    await verifyWorkspaceMembership(params.workspaceId, params.authorization);
+    await verifyWorkspaceMembership(params.organizationId, params.authorization);
 
     const record = await ingestionSvc.createDocumentIngestion({
-      workspaceId: params.workspaceId,
+      workspaceId: params.organizationId,
       createdBy: claims.sub,
       originalFilename: params.originalFilename,
       declaredMediaType: params.declaredMediaType,
@@ -84,7 +84,7 @@ export const getDocumentIngestionEndpoint = api(
     await resolveCallerIdentity(token);
 
     // Verify caller is a member of the workspace
-    await verifyWorkspaceMembership(params.workspaceId, params.authorization);
+    await verifyWorkspaceMembership(params.organizationId, params.authorization);
 
     const record = await ingestionSvc.getDocumentIngestion(params.ingestionId);
     if (!record) {
@@ -92,7 +92,7 @@ export const getDocumentIngestionEndpoint = api(
     }
 
     // Verify ownership: ingestion must belong to requested workspace
-    if (record.workspaceId !== params.workspaceId) {
+    if (record.workspaceId !== params.organizationId) {
       throw APIError.permissionDenied("ingestion does not belong to this workspace");
     }
 
@@ -136,7 +136,7 @@ export const reviewDocumentIngestionEndpoint = api(
     const claims = { sub: (await resolveCallerIdentity(token)).userId };
 
     // Verify caller is a member of the workspace
-    await verifyWorkspaceMembership(params.workspaceId, params.authorization);
+    await verifyWorkspaceMembership(params.organizationId, params.authorization);
 
     const record = await ingestionSvc.reviewDocumentIngestion({
       ingestionId: params.ingestionId,
@@ -179,7 +179,7 @@ export const completeDocumentIngestionUploadEndpoint = api(
 function sanitizeRecordForPublic(record: ingestionSvc.DocumentIngestionRecord): any {
   return {
     id: record.id,
-    workspaceId: record.workspaceId,
+    organizationId: record.workspaceId,
     createdBy: record.createdBy,
     originalFilename: record.originalFilename,
     declaredMediaType: record.declaredMediaType,

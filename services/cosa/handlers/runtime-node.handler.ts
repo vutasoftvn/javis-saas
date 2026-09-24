@@ -38,7 +38,7 @@ function assertWorkspaceScopedWorker(
 
 export interface RegisterRuntimeNodeParamsHttp {
   authorization?: Header<"Authorization">;
-  workspaceId: string;
+  organizationId: string;
   deviceKeyFingerprint: string;
   runtimeRole: RuntimeRole;
   agentVersion?: string;
@@ -47,9 +47,9 @@ export interface RegisterRuntimeNodeParamsHttp {
 export const registerRuntimeNodeEndpoint = api(
   { method: "POST", path: "/cosa/runtime/nodes/register", expose: true },
   async (p: RegisterRuntimeNodeParamsHttp): Promise<RuntimeNodeView> => {
-    assertWorkspaceScopedWorker(p.authorization, p.workspaceId);
+    assertWorkspaceScopedWorker(p.authorization, p.organizationId);
     return registerRuntimeNode({
-      workspaceId: BigInt(p.workspaceId),
+      workspaceId: BigInt(p.organizationId),
       deviceKeyFingerprint: p.deviceKeyFingerprint,
       runtimeRole: p.runtimeRole,
       agentVersion: p.agentVersion,
@@ -62,7 +62,7 @@ export const registerRuntimeNodeEndpoint = api(
 export interface HeartbeatRuntimeNodeParamsHttp {
   authorization?: Header<"Authorization">;
   nodeId: string;
-  workspaceId: string;
+  organizationId: string;
   deviceKeyFingerprint: string;
   agentVersion?: string;
 }
@@ -70,10 +70,10 @@ export interface HeartbeatRuntimeNodeParamsHttp {
 export const heartbeatRuntimeNodeEndpoint = api(
   { method: "POST", path: "/cosa/runtime/nodes/heartbeat", expose: true },
   async (p: HeartbeatRuntimeNodeParamsHttp): Promise<RuntimeNodeView> => {
-    assertWorkspaceScopedWorker(p.authorization, p.workspaceId);
+    assertWorkspaceScopedWorker(p.authorization, p.organizationId);
     return heartbeatRuntimeNode({
       nodeId: BigInt(p.nodeId),
-      workspaceId: BigInt(p.workspaceId),
+      workspaceId: BigInt(p.organizationId),
       deviceKeyFingerprint: p.deviceKeyFingerprint,
       agentVersion: p.agentVersion,
     });
@@ -85,14 +85,14 @@ export const heartbeatRuntimeNodeEndpoint = api(
 export interface RevokeRuntimeNodeParamsHttp {
   authorization?: Header<"Authorization">;
   nodeId: string;
-  workspaceId: string;
+  organizationId: string;
 }
 
 export const revokeRuntimeNodeEndpoint = api(
   { method: "POST", path: "/cosa/runtime/nodes/revoke", expose: true },
   async (p: RevokeRuntimeNodeParamsHttp): Promise<{ ok: true }> => {
-    assertWorkspaceScopedWorker(p.authorization, p.workspaceId);
-    await revokeRuntimeNode({ nodeId: BigInt(p.nodeId), workspaceId: BigInt(p.workspaceId) });
+    assertWorkspaceScopedWorker(p.authorization, p.organizationId);
+    await revokeRuntimeNode({ nodeId: BigInt(p.nodeId), workspaceId: BigInt(p.organizationId) });
     return { ok: true };
   }
 );
@@ -101,7 +101,7 @@ export const revokeRuntimeNodeEndpoint = api(
 
 export interface ListRuntimeNodesParamsHttp {
   authorization?: Header<"Authorization">;
-  workspaceId: string;
+  organizationId: string;
   includeRevoked?: boolean;
 }
 
@@ -112,8 +112,8 @@ export interface ListRuntimeNodesResponse {
 export const listRuntimeNodesEndpoint = api(
   { method: "GET", path: "/cosa/runtime/nodes", expose: true },
   async (p: ListRuntimeNodesParamsHttp): Promise<ListRuntimeNodesResponse> => {
-    assertWorkspaceScopedWorker(p.authorization, p.workspaceId);
-    const nodes = await listWorkspaceRuntimeNodes(BigInt(p.workspaceId), {
+    assertWorkspaceScopedWorker(p.authorization, p.organizationId);
+    const nodes = await listWorkspaceRuntimeNodes(BigInt(p.organizationId), {
       includeRevoked: p.includeRevoked,
     });
     return { nodes };
@@ -129,7 +129,7 @@ export const listRuntimeNodesEndpoint = api(
 
 export interface ResolveRouteParamsHttp {
   authorization?: Header<"Authorization">;
-  workspaceId: string;
+  organizationId: string;
   runtimeMode: RuntimeMode;
   syncFreshness?: SyncFreshness;
 }
@@ -137,9 +137,9 @@ export interface ResolveRouteParamsHttp {
 export const resolveRuntimeRouteEndpoint = api(
   { method: "POST", path: "/cosa/runtime/route", expose: true },
   async (p: ResolveRouteParamsHttp): Promise<RouteDecision> => {
-    assertWorkspaceScopedWorker(p.authorization, p.workspaceId);
+    assertWorkspaceScopedWorker(p.authorization, p.organizationId);
 
-    const nodes = await listWorkspaceRuntimeNodes(BigInt(p.workspaceId));
+    const nodes = await listWorkspaceRuntimeNodes(BigInt(p.organizationId));
     const local =
       nodes.find((n) => n.runtimeRole === "local_workspace_runtime") ?? null;
     const cloud =

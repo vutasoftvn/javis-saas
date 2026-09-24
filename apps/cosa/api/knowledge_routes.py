@@ -88,7 +88,7 @@ async def create_knowledge_upload(
             resp = await http_client.post(
                 f"{execution_plane_url}/cosa/document-ingestions",
                 json={
-                    "workspaceId": identity.workspace_id,
+                    "organizationId": identity.workspace_id,
                     "originalFilename": req.file_name,
                     "declaredMediaType": req.declared_media_type,
                     "idempotencyKey": req.idempotency_key,
@@ -274,7 +274,7 @@ async def review_knowledge_ingestion(
             resp = await http_client.post(
                 f"{execution_plane_url}/cosa/document-ingestions/{ingestion_id}/review",
                 json={
-                    "workspaceId": identity.workspace_id,
+                    "organizationId": identity.workspace_id,
                     "decision": ts_decision,
                     "reason": payload.reason,
                 },

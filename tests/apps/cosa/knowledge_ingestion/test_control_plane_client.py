@@ -53,7 +53,7 @@ async def test_claim_for_conversion_success():
             json={
                 "id": "ing_123",
                 "state": "VALIDATING",
-                "workspaceId": "ws_alpha",
+                "organizationId": "ws_alpha",
                 "originalObjectKey": "quarantine/ws_alpha/ing_123/obj",
                 "detectedMediaType": "text/plain",
                 "sourceSha256": "abc123def456",

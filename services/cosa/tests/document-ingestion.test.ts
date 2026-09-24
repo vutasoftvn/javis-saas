@@ -104,7 +104,7 @@ describe("Document Ingestion Lifecycle", () => {
 
       await expect(
         createDocumentIngestionEndpoint({
-          workspaceId: "ws-test-1",
+          organizationId: "ws-test-1",
           originalFilename: "document.md",
           declaredMediaType: "text/markdown",
           idempotencyKey: "test-key-1",
@@ -118,7 +118,7 @@ describe("Document Ingestion Lifecycle", () => {
 
       await expect(
         createDocumentIngestionEndpoint({
-          workspaceId: "ws-test-1",
+          organizationId: "ws-test-1",
           originalFilename: "document.md",
           declaredMediaType: "text/markdown",
           idempotencyKey: "test-key-1",

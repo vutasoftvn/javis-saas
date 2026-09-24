@@ -190,7 +190,7 @@ async def test_complete_knowledge_upload_uses_worker_token_and_mock_client(test_
     mock_http_response.status_code = 200
     mock_http_response.json = lambda: {
         "id": ingestion_id,
-        "workspaceId": "ws_a",
+        "organizationId": "ws_a",
         "state": "QUEUED",
         "detectedMediaType": "text/csv",
         "sizeBytes": 1024,
@@ -295,7 +295,7 @@ async def test_complete_knowledge_upload_response_omits_object_key(test_app):
     mock_http_response.status_code = 200
     mock_http_response.json = lambda: {
         "id": ingestion_id,
-        "workspaceId": "ws_a",
+        "organizationId": "ws_a",
         "state": "QUEUED",
     }
 
