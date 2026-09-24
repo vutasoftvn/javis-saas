@@ -22,6 +22,8 @@ import psycopg2
 import httpx
 import pytest
 
+from tests.e2e.conftest import _workspace_database_url
+
 from apps.cosa.agents.startup_team_profiles_generated import STARTUP_TEAM_PROFILE_KEYS
 from apps.cosa.company.project_team_client import (
     ProjectTeamClient,
@@ -32,10 +34,8 @@ _SERVICE_TOKEN = os.environ.get(
     "COSA_WORKER_SERVICE_TOKEN",
     "dev-worker-service-token",
 )
-_WORKSPACE_DB_URL = os.environ.get(
-    "WORKSPACE_DATABASE_URL",
-    "postgresql://workspace_app:change-me-workspace-app@127.0.0.1:5432/workspace?sslmode=disable",
-)
+# Cùng DB mà `real_company_service` đang chạy (ưu tiên WORKSPACE_TEST_DATABASE_URL), không phải DB dev.
+_WORKSPACE_DB_URL = _workspace_database_url()
 
 
 def _get_db_connection():
@@ -345,7 +345,7 @@ def test_invariant_6_non_founder_and_cross_tenant_isolation(e2e_tenants):
 
 
 def test_invariant_7_pending_and_deferred_profiles_cannot_activate(e2e_tenants):
-    """Invariant 7: Coding (DEFERRED_CODING) and CRM/Sales/Support (PENDING) cannot activate."""
+    """Invariant 7: profile PENDING (CRM) và Founder Assistant không kích hoạt được; profile chưa active không có run authority."""
     base_url = e2e_tenants["base_url"]
     headers_a = e2e_tenants["headers_a"]
     ws_a = e2e_tenants["ws_a"]
@@ -357,16 +357,8 @@ def test_invariant_7_pending_and_deferred_profiles_cannot_activate(e2e_tenants):
         service_token=_SERVICE_TOKEN,
     )
 
-    # Coding is deferred
-    coding_resp = client.post(
-        f"/operations/projects/{p1_id}/startup-team/coding/activate",
-        json={"expectedVersion": 1},
-        headers=headers_a,
-    )
-    assert coding_resp.status_code == 400
-    assert "DEFERRED_CODING" in coding_resp.text
-
-    # Coding run authority is rejected
+    # Coding đã READY (migration 009) nên không còn bị hoãn; profile chưa được kích hoạt thì
+    # không có run authority.
     with pytest.raises(ProjectTeamAuthorityError) as exc_coding:
         asyncio.run(
             pt_client.get_run_authority(
@@ -385,15 +377,6 @@ def test_invariant_7_pending_and_deferred_profiles_cannot_activate(e2e_tenants):
     )
     assert crm_resp.status_code == 400
     assert "PENDING_CRM_FOUNDATION" in crm_resp.text
-
-    # Sales is pending CRM foundation
-    sales_resp = client.post(
-        f"/operations/projects/{p1_id}/startup-team/sales/activate",
-        json={"expectedVersion": 1},
-        headers=headers_a,
-    )
-    assert sales_resp.status_code == 400
-    assert "PENDING_CRM_FOUNDATION" in sales_resp.text
 
     # Founder Assistant cannot be activated as an operating agent
     fa_resp = client.post(
@@ -419,7 +402,7 @@ def test_invariant_operations_profile_lifecycle_and_authority(e2e_tenants):
     assert resp.status_code == 200, resp.text
     body = resp.json()
     items = body["items"]
-    assert len(items) == 10
+    assert len(items) == len(STARTUP_TEAM_PROFILE_KEYS)
 
     ops = next(m for m in items if m["profileKey"] == "operations")
     assert ops["displayState"] == "TEMPLATE"

@@ -1,5 +1,6 @@
 import { api, Header } from "encore.dev/api";
 import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
+import type { RankedAssumption } from "../services/assumption-ranking.service";
 import {
   Assumption,
   CreateAssumptionInput,
@@ -82,9 +83,10 @@ export const deleteAssumption = api(
   }
 );
 
+// Kiểu trả về khai báo tường minh: thiếu nó Encore sinh response rỗng (body trống dù 200).
 export const getRankedAssumptionsByProject = api(
   { method: "GET", path: "/operations/strategy/projects/:projectId/ranked-assumptions", expose: true },
-  async ({ authorization, workspaceId, projectId }: { authorization?: Header<"Authorization">; workspaceId: Header<"X-Workspace-Id">; projectId: string }) => {
+  async ({ authorization, workspaceId, projectId }: { authorization?: Header<"Authorization">; workspaceId: Header<"X-Workspace-Id">; projectId: string }): Promise<{ items: RankedAssumption[] }> => {
     const ctx = await requireWorkspaceAccess(authorization, workspaceId);
     return getRankedAssumptionsByProjectInWorkspace(ctx, projectId);
   }

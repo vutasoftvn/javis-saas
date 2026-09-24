@@ -1,6 +1,5 @@
-"""E2E HTTP tests for MVP Strategy and Workspace Runtime.
-Ensures truth-only contracts and workspace isolation without mock transports.
-"""
+"""E2E HTTP cho Strategy interviews (bề mặt Startup Core hiện hành): vòng đời, evidence và cô lập
+workspace, không mock transport. Canvas/workspace-runtime đã bị gỡ ở clean-slate 2026-09-10."""
 
 from __future__ import annotations
 
@@ -9,106 +8,70 @@ import time
 import httpx
 
 
-def test_strategy_and_workspace_runtime_live(real_company_service):
-    """Test canvas creation, revision review, blockers and runtime source status."""
-    base_url = real_company_service.base_url
-
-    # Create test session 1 (workspace A)
-    client = httpx.Client(base_url=base_url, timeout=10.0)
-    email_a = f"test-user-a-{time.time()}@example.com"
-    reg_a = client.post(
+def _session(client: httpx.Client, label: str) -> dict:
+    reg = client.post(
         "/identity/_e2e/session",
-        json={"email": email_a, "displayName": "Workspace A Founder"},
+        json={"email": f"{label}-{time.time_ns()}@example.com", "displayName": label},
     )
-    assert reg_a.status_code == 200, (
-        f"Identity test session creation failed ({reg_a.status_code}): {reg_a.text}"
-    )
-
-    data_a = reg_a.json()
-    token_a = data_a["accessToken"]
-    ws_a = str(data_a["workspaceId"])
-
-    headers_a = {
-        "Authorization": f"Bearer {token_a}",
-        "X-Workspace-Id": ws_a,
+    assert reg.status_code == 200, f"Identity test session creation failed: {reg.text}"
+    data = reg.json()
+    return {
+        "Authorization": f"Bearer {data['accessToken']}",
+        "X-Workspace-Id": str(data["workspaceId"]),
     }
 
-    # 1. List canvases (should be empty initially)
-    list_res = client.get("/operations/strategy/canvases", headers=headers_a)
-    assert list_res.status_code == 200
-    list_json = list_res.json()
-    assert list_json["meta"]["dataState"] == "empty"
-    assert list_json["data"] == []
 
-    # 2. Create a Canvas
-    create_res = client.post(
-        "/operations/strategy/canvases",
-        headers=headers_a,
-        json={"name": "MVP Strategy Canvas", "description": "Problem-Solution Fit"},
-    )
-    assert create_res.status_code == 200
-    canvas_json = create_res.json()
-    assert canvas_json["meta"]["dataState"] == "populated"
-    canvas_id = canvas_json["data"]["id"]
-    assert canvas_json["data"]["name"] == "MVP Strategy Canvas"
+def test_strategy_interview_lifecycle_and_isolation(real_company_service):
+    client = httpx.Client(base_url=real_company_service.base_url, timeout=15.0)
+    headers_a = _session(client, "strategy-a")
+    project = client.post("/operations/projects", json={"title": "Strategy Project"}, headers=headers_a)
+    assert project.status_code == 200, project.text
+    project_id = str(project.json()["id"])
 
-    # 3. Create a Revision (USER origin)
-    rev_res = client.post(
-        f"/operations/strategy/canvases/{canvas_id}/revisions",
-        headers=headers_a,
-        json={
-            "content": {"problem": "Lack of AI automation", "solution": "Agent OS"},
-            "origin": "USER",
-        },
-    )
-    assert rev_res.status_code == 200
-    rev_json = rev_res.json()
-    assert rev_json["data"]["status"] == "DRAFT"
-    rev_id = rev_json["data"]["id"]
+    assert client.get("/operations/strategy/interviews", headers=headers_a).json()["items"] == []
 
-    # 4. Submit Revision for Review
-    submit_res = client.post(
-        f"/operations/strategy/canvas-revisions/{rev_id}/submit-review",
+    created = client.post(
+        "/operations/strategy/interviews",
+        json={"projectId": project_id, "notes": "Khách hàng đau ở bước đối soát"},
         headers=headers_a,
     )
-    assert submit_res.status_code == 200
-    assert submit_res.json()["data"]["status"] == "IN_REVIEW"
+    assert created.status_code == 200, created.text
+    interview = created.json()
+    assert interview["projectId"] == project_id
+    interview_id = interview["id"]
 
-    # 5. Approve Revision
-    approve_res = client.post(
-        f"/operations/strategy/canvas-revisions/{rev_id}/approve",
+    updated = client.patch(
+        f"/operations/strategy/interviews/{interview_id}",
+        json={"notes": "Khách hàng đau ở bước đối soát và xuất hoá đơn"},
         headers=headers_a,
-        json={"reviewNote": "Approved for execution"},
     )
-    assert approve_res.status_code == 200
-    assert approve_res.json()["data"]["status"] == "APPROVED"
+    assert updated.status_code == 200, updated.text
+    assert "xuất hoá đơn" in updated.json()["notes"]
 
-    # 6. Check Workspace Runtime Blockers
-    blockers_res = client.get("/operations/workspace-runtime/blockers", headers=headers_a)
-    assert blockers_res.status_code == 200
-    blockers_json = blockers_res.json()
-    assert blockers_json["meta"]["dataState"] in {"populated", "empty"}
-
-    # 7. Check Workspace Runtime Source Status
-    status_res = client.get("/operations/workspace-runtime/source-status", headers=headers_a)
-    assert status_res.status_code == 200
-    status_json = status_res.json()
-    assert len(status_json["data"]) > 0
-    assert status_json["data"][0]["status"] == "NOT_OBSERVED"
-
-    # 8. Workspace Isolation Check: Query canvas from Workspace B
-    email_b = f"test-user-b-{time.time()}@example.com"
-    reg_b = client.post(
-        "/identity/_e2e/session",
-        json={"email": email_b, "displayName": "Workspace B Founder"},
+    evidence = client.post(
+        f"/operations/strategy/interviews/{interview_id}/submit-evidence",
+        json={"claim": "Đối soát thủ công tốn 3 giờ/tuần", "supportsOrRefutes": "supports", "factOrInference": "fact"},
+        headers=headers_a,
     )
-    assert reg_b.status_code == 200, (
-        f"Identity test session creation failed ({reg_b.status_code}): {reg_b.text}"
-    )
-    data_b = reg_b.json()
-    headers_b = {
-        "Authorization": f"Bearer {data_b['accessToken']}",
-        "X-Workspace-Id": str(data_b["workspaceId"]),
-    }
-    cross_res = client.get(f"/operations/strategy/canvases/{canvas_id}", headers=headers_b)
-    assert cross_res.status_code in {403, 404}
+    assert evidence.status_code == 200, evidence.text
+
+    fetched = client.get(f"/operations/strategy/interviews/{interview_id}", headers=headers_a)
+    assert fetched.status_code == 200
+    assert fetched.json()["id"] == interview_id
+
+    # Workspace B không đọc/sửa/xoá được interview của workspace A.
+    headers_b = _session(client, "strategy-b")
+    assert client.get(
+        f"/operations/strategy/interviews/{interview_id}", headers=headers_b
+    ).status_code in {403, 404}
+    assert client.patch(
+        f"/operations/strategy/interviews/{interview_id}", json={"notes": "hijack"}, headers=headers_b
+    ).status_code in {403, 404}
+    assert client.delete(
+        f"/operations/strategy/interviews/{interview_id}", headers=headers_b
+    ).status_code in {403, 404}
+    assert client.get(f"/operations/strategy/interviews/{interview_id}", headers=headers_a).status_code == 200
+
+    deleted = client.delete(f"/operations/strategy/interviews/{interview_id}", headers=headers_a)
+    assert deleted.status_code == 200, deleted.text
+    assert client.get(f"/operations/strategy/interviews/{interview_id}", headers=headers_a).status_code == 404

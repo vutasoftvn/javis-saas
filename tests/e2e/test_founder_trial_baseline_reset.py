@@ -1,6 +1,5 @@
-"""Task 10 acceptance: `make test-db-reset` builds all three planes from the
-curated 001 baselines only, and repeating it yields an identical schema
-fingerprint plus a clean ledger.
+"""Task 10 acceptance: `make test-db-reset` dựng lại cả ba plane từ baseline 001 cộng mọi migration
+Expand kế tiếp, và chạy lại cho ra schema fingerprint giống hệt cùng ledger sạch.
 
 Skips unless the three *_TEST_MIGRATOR_DATABASE_URL vars are set (run
 `bash scripts/provision-founder-trial-test-dbs.sh` first).
@@ -27,14 +26,22 @@ pytestmark = pytest.mark.skipif(
     reason="test databases not provisioned (run scripts/provision-founder-trial-test-dbs.sh)",
 )
 
-_EXPECTED_LEDGER = {
-    ("agent", "001_cosa_startup_core_baseline.sql"),
-    ("cosa", "001_cosa_startup_core_baseline.up.sql"),
-    ("identity", "001_cosa_startup_core_baseline.up.sql"),
-    ("operations", "001_cosa_startup_core_baseline.up.sql"),
-    ("commercial", "001_cosa_startup_core_baseline.up.sql"),
-    ("finance-legal", "001_cosa_startup_core_baseline.up.sql"),
-}
+def _expected_ledger() -> set[tuple[str, str]]:
+    """Ledger mong đợi = mọi migration up hiện có trên đĩa (test-db-reset dựng lại DB từ baseline
+    001 rồi áp toàn bộ migration Expand kế tiếp), không còn chỉ 6 file baseline."""
+    ledger: set[tuple[str, str]] = set()
+    for f in (ROOT / "packages/agent/migrations").glob("*.sql"):
+        if not f.name.endswith(".down.sql"):
+            ledger.add(("agent", f.name))
+    for f in (ROOT / "services/cosa/migrations").glob("*.up.sql"):
+        ledger.add(("cosa", f.name))
+    for svc in ("identity", "operations", "commercial", "finance-legal"):
+        for f in (ROOT / "services/company" / svc / "migrations").glob("*.up.sql"):
+            ledger.add((svc, f.name))
+    return ledger
+
+
+_EXPECTED_LEDGER = _expected_ledger()
 
 
 _GOLDEN = ROOT / "deploy/schema/fingerprints.json"
