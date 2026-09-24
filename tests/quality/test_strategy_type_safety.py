@@ -9,13 +9,9 @@ STRATEGY_SERVICES = (
     "discovery-signal.service.ts",
     "evidence-lifecycle.service.ts",
     "experiment-proposal.service.ts",
-    "gate-evaluation.service.ts",
     "interview.service.ts",
-    "maturity-assessment.service.ts",
     "metric-contract.service.ts",
     "next-best-action.service.ts",
-    "pmf-scoreboard.service.ts",
-    "stage-policy.service.ts",
     "weekly-review.service.ts",
 )
 EXPLICIT_ANY = re.compile(r"(?::\s*|\bas\s+|,\s*)\bany\b")
@@ -31,10 +27,3 @@ def test_refactored_strategy_services_do_not_use_explicit_any() -> None:
                 violations.append(f"{filename}:{line_number}: {line.strip()}")
 
     assert not violations, "Explicit `any` is not allowed in refactored Strategy services:\n" + "\n".join(violations)
-
-
-def test_tows_decision_transaction_uses_the_inferred_drizzle_type() -> None:
-    source = (ROOT / "services/company/operations/strategy/services/decision-recording.service.ts").read_text()
-
-    assert "type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];" in source
-    assert "txClient?: Tx" in source

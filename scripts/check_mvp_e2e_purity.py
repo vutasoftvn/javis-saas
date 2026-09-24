@@ -146,6 +146,9 @@ def check_file(file_path: Path, base_dir: Path = ROOT_DIR) -> list[str]:
                     f"{rel_path}:{node.lineno}:NO_DYNAMIC_IMPORT:Dynamic import '{func_str}' is prohibited in MVP E2E tests"
                 )
             for prohibited in PROHIBITED_SYMBOLS:
+                # `client.patch(...)` là HTTP PATCH của TestClient, không phải `unittest.mock.patch`.
+                if prohibited == "patch" and func_str.endswith(".patch") and not func_str.endswith("mock.patch"):
+                    continue
                 if func_str == prohibited or func_str.endswith(f".{prohibited}"):
                     violations.append(
                         f"{rel_path}:{node.lineno}:NO_MOCK_CALL:Call to '{func_str}' is prohibited in MVP E2E tests"
