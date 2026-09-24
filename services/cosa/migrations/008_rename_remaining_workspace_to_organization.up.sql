@@ -1,0 +1,36 @@
+-- migration-compat: allow-destructive evidence=docs/runbooks/evidence/cosa-008-rename-workspace-tables-to-organization.md
+-- Đổi tên bảng/cột workspace -> organization còn lại của COSA (cosa + control_plane). Không đổi dữ liệu.
+ALTER TABLE control_plane.workspace_connector_installations RENAME TO organization_connector_installations;
+ALTER TABLE control_plane.workspace_execution_leases RENAME TO organization_execution_leases;
+ALTER TABLE control_plane.workspace_runtime_nodes RENAME TO organization_runtime_nodes;
+ALTER TABLE control_plane.workspace_schedule_definitions RENAME TO organization_schedule_definitions;
+ALTER TABLE control_plane.workspace_schedule_executions RENAME TO organization_schedule_executions;
+ALTER TABLE control_plane.workspace_settings_audit_events RENAME TO organization_settings_audit_events;
+ALTER TABLE control_plane.workspace_skill_policies RENAME TO organization_skill_policies;
+ALTER TABLE cosa.user_workspace_module_preferences RENAME TO user_organization_module_preferences;
+ALTER TABLE cosa.workspace_agent_policy RENAME TO organization_agent_policy;
+ALTER TABLE cosa.workspace_business_policy_references RENAME TO organization_business_policy_references;
+ALTER TABLE cosa.workspace_entitlements RENAME TO organization_entitlements;
+ALTER TABLE cosa.workspace_licenses RENAME TO organization_licenses;
+ALTER TABLE cosa.workspace_module_configs RENAME TO organization_module_configs;
+ALTER TABLE cosa.workspace_surface_overrides RENAME TO organization_surface_overrides;
+ALTER TABLE cosa.workspace_sync_log RENAME TO organization_sync_log;
+ALTER TABLE control_plane.automation_dispatches RENAME COLUMN workspace_id TO organization_id;
+ALTER TABLE control_plane.connector_authorizations RENAME COLUMN workspace_id TO organization_id;
+ALTER TABLE control_plane.document_ingestions RENAME COLUMN workspace_id TO organization_id;
+ALTER TABLE control_plane.session_connector_grants RENAME COLUMN workspace_id TO organization_id;
+ALTER TABLE control_plane.organization_connector_installations RENAME COLUMN workspace_id TO organization_id;
+ALTER TABLE control_plane.organization_execution_leases RENAME COLUMN workspace_id TO organization_id;
+ALTER TABLE control_plane.organization_runtime_nodes RENAME COLUMN workspace_id TO organization_id;
+ALTER TABLE control_plane.organization_schedule_definitions RENAME COLUMN workspace_id TO organization_id;
+ALTER TABLE control_plane.organization_schedule_executions RENAME COLUMN workspace_id TO organization_id;
+ALTER TABLE control_plane.organization_settings_audit_events RENAME COLUMN workspace_id TO organization_id;
+ALTER TABLE control_plane.organization_skill_policies RENAME COLUMN workspace_id TO organization_id;
+ALTER TABLE cosa.user_organization_module_preferences RENAME COLUMN workspace_id TO organization_id;
+ALTER TABLE cosa.organization_agent_policy RENAME COLUMN platform_workspace_id TO organization_id;
+ALTER TABLE cosa.organization_business_policy_references RENAME COLUMN platform_workspace_id TO organization_id;
+ALTER TABLE cosa.organization_entitlements RENAME COLUMN platform_workspace_id TO organization_id;
+ALTER TABLE cosa.organization_licenses RENAME COLUMN platform_workspace_id TO organization_id;
+ALTER TABLE cosa.organization_module_configs RENAME COLUMN workspace_id TO organization_id;
+ALTER TABLE cosa.organization_surface_overrides RENAME COLUMN workspace_id TO organization_id;
+ALTER TABLE cosa.organization_sync_log RENAME COLUMN platform_workspace_id TO organization_id;

@@ -91,7 +91,7 @@ class ExternalClusterDsns:
     |---------------------|------------------------------------------------|-------------------------|
     | `workspace_app_url` | `core.workspace_memberships`, `integration.event_outbox` | `WORKSPACE_DATABASE_URL` |
     | `agent_app_url`     | `event_inbox`                                   | `AGENT_DATABASE_URL`    |
-    | `cosa_app_url`      | `cosa.workspace_agent_policy`, `cosa.workspaces`, `cosa.users` | `COSA_DATABASE_URL`     |
+    | `cosa_app_url`      | `cosa.organization_agent_policy`, `cosa.workspaces`, `cosa.users` | `COSA_DATABASE_URL`     |
 
     (Các thuộc tính `*_migrator_url` / `run_id` của `DisposableCluster` KHÔNG
     được scenario nào trong S1/S4/S7 dùng — cố ý không expose ở đây.)
@@ -161,24 +161,26 @@ def test_golden_s4_outbox_relay(stack: MvpStack, cluster: ExternalClusterDsns) -
 
 
 def test_golden_s7_policy_snapshot_tenant(stack: MvpStack, cluster: ExternalClusterDsns) -> None:
-    # S7: `GET /platform/auth/me/agent-policy-snapshot` — gateway auth gate
-    # (401 khi thiếu/rác bearer) + FAIL-CLOSED tại hop verify membership
-    # cross-plane (cosa platform token hợp lệ → 403 `permission_denied` đồng nhất
-    # trên 3 workspace có nội dung policy khác nhau, KHÔNG rò "rỗng = allow").
-    # Nhánh 200 (cô lập `rules` theo tenant) là DORMANT tới khi cầu nối B5 landed.
+    # S7: cô lập tenant của policy snapshot — 200 với delegation đúng workspace (rules theo tenant),
+    # 401 khi thiếu/rác bearer, 403 khi dùng delegation của workspace khác. Xem
+    # `tests/e2e/scenarios/policy_snapshot_tenant.py`.
     uid, _email, _pw = identity.register_user()
 
     seeded_ops = identity.seed_workspace(stack, cluster)
     seeded_fin = identity.seed_workspace(stack, cluster)
     seeded_bare = identity.seed_workspace(stack, cluster)
-    delegation_token = identity.control_plane_delegation(uid, seeded_ops.workspace_id)
+    for seeded in (seeded_ops, seeded_fin, seeded_bare):
+        identity.project_cosa_identity(cluster, uid, seeded.workspace_id)
+
+    def delegation_for(workspace_id: str) -> str:
+        return identity.control_plane_delegation(uid, workspace_id)
     entitlement.grant_entitlement(cluster, seeded_ops.workspace_id, "operations")
     entitlement.grant_entitlement(cluster, seeded_fin.workspace_id, "finance")
 
     policy_snapshot_tenant.run(
         stack,
         cluster,
-        delegation_token,
+        delegation_for,
         seeded_ops,
         seeded_fin,
         seeded_bare,

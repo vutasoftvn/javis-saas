@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-09-24T13:00:41.633Z",
+  "generated_at": "2026-09-24T13:27:17.445Z",
   "groups": {
     "agent": {
       "fingerprint": "beab12e0183b474e70c451c6191c1cd8717d8f12d270f1bb5276b9af4f349800",
@@ -7887,7 +7887,7 @@
       }
     },
     "cosa": {
-      "fingerprint": "90b975054cdc86f38e0d8ba1d7ea5e39975c3fd7b280474add036da3f99136ac",
+      "fingerprint": "3d2714e6635e83f9e97014d593cb923736f90b068abad43ae8a652a76ede2f6e",
       "schemas": [
         "control_plane",
         "cosa"
@@ -8039,7 +8039,7 @@
               "scale": null
             },
             {
-              "name": "workspace_id",
+              "name": "organization_id",
               "type": "text",
               "udt": "text",
               "nullable": false,
@@ -8324,7 +8324,7 @@
               "scale": null
             },
             {
-              "name": "workspace_id",
+              "name": "organization_id",
               "type": "text",
               "udt": "text",
               "nullable": false,
@@ -8347,7 +8347,7 @@
               "columns": [
                 "installation_id"
               ],
-              "foreign_table": "control_plane.workspace_connector_installations",
+              "foreign_table": "control_plane.organization_connector_installations",
               "foreign_columns": [
                 "id"
               ],
@@ -8368,7 +8368,7 @@
             },
             {
               "name": "idx_connector_authorizations_workspace",
-              "definition": "CREATE INDEX idx_connector_authorizations_workspace ON control_plane.connector_authorizations USING btree (workspace_id)"
+              "definition": "CREATE INDEX idx_connector_authorizations_workspace ON control_plane.connector_authorizations USING btree (organization_id)"
             }
           ]
         },
@@ -8864,7 +8864,7 @@
               "scale": null
             },
             {
-              "name": "workspace_id",
+              "name": "organization_id",
               "type": "text",
               "udt": "text",
               "nullable": false,
@@ -9044,7 +9044,7 @@
             {
               "name": "document_ingestions_workspace_id_created_by_idempotency_key_key",
               "columns": [
-                "workspace_id",
+                "organization_id",
                 "created_by",
                 "idempotency_key"
               ]
@@ -9064,11 +9064,11 @@
             },
             {
               "name": "document_ingestions_workspace_id_created_by_idempotency_key_key",
-              "definition": "CREATE UNIQUE INDEX document_ingestions_workspace_id_created_by_idempotency_key_key ON control_plane.document_ingestions USING btree (workspace_id, created_by, idempotency_key)"
+              "definition": "CREATE UNIQUE INDEX document_ingestions_workspace_id_created_by_idempotency_key_key ON control_plane.document_ingestions USING btree (organization_id, created_by, idempotency_key)"
             },
             {
               "name": "idx_document_ingestions_workspace_state_created",
-              "definition": "CREATE INDEX idx_document_ingestions_workspace_state_created ON control_plane.document_ingestions USING btree (workspace_id, state, created_at DESC)"
+              "definition": "CREATE INDEX idx_document_ingestions_workspace_state_created ON control_plane.document_ingestions USING btree (organization_id, state, created_at DESC)"
             }
           ]
         },
@@ -9220,6 +9220,1069 @@
             {
               "name": "missions_pkey",
               "definition": "CREATE UNIQUE INDEX missions_pkey ON control_plane.missions USING btree (id)"
+            }
+          ]
+        },
+        "control_plane.organization_connector_installations": {
+          "schema": "control_plane",
+          "name": "organization_connector_installations",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "organization_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "connector_key",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "installed_by",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'enabled'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "workspace_connector_installations_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "uq_connector_installation",
+              "columns": [
+                "organization_id",
+                "connector_key"
+              ]
+            }
+          ],
+          "foreign_keys": [],
+          "check_constraints": [
+            {
+              "name": "chk_installation_status",
+              "clause": "((status = ANY (ARRAY['enabled'::text, 'disabled'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "uq_connector_installation",
+              "definition": "CREATE UNIQUE INDEX uq_connector_installation ON control_plane.organization_connector_installations USING btree (organization_id, connector_key)"
+            },
+            {
+              "name": "workspace_connector_installations_pkey",
+              "definition": "CREATE UNIQUE INDEX workspace_connector_installations_pkey ON control_plane.organization_connector_installations USING btree (id)"
+            }
+          ]
+        },
+        "control_plane.organization_execution_leases": {
+          "schema": "control_plane",
+          "name": "organization_execution_leases",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "organization_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "active_runtime_node_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "active_runtime_role",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "lease_epoch",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": "1",
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "fencing_token",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "lease_expires_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "last_heartbeat_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "last_sync_cursor",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "failover_policy",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'AUTO'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "workspace_execution_leases_pkey",
+            "columns": [
+              "organization_id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [],
+          "check_constraints": [
+            {
+              "name": "workspace_execution_leases_active_runtime_role_check",
+              "clause": "((active_runtime_role = ANY (ARRAY['local_workspace_runtime'::text, 'cloud_workspace_runtime'::text])))"
+            },
+            {
+              "name": "workspace_execution_leases_failover_policy_check",
+              "clause": "((failover_policy = ANY (ARRAY['AUTO'::text, 'MANUAL'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_workspace_execution_leases_node",
+              "definition": "CREATE INDEX idx_workspace_execution_leases_node ON control_plane.organization_execution_leases USING btree (active_runtime_node_id)"
+            },
+            {
+              "name": "workspace_execution_leases_pkey",
+              "definition": "CREATE UNIQUE INDEX workspace_execution_leases_pkey ON control_plane.organization_execution_leases USING btree (organization_id)"
+            }
+          ]
+        },
+        "control_plane.organization_runtime_nodes": {
+          "schema": "control_plane",
+          "name": "organization_runtime_nodes",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "node_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "organization_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "device_key_fingerprint",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "runtime_role",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "presence_status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'OFFLINE'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "agent_version",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "last_heartbeat_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "registered_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "revoked_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "workspace_runtime_nodes_pkey",
+            "columns": [
+              "node_id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [],
+          "check_constraints": [
+            {
+              "name": "workspace_runtime_nodes_presence_status_check",
+              "clause": "((presence_status = ANY (ARRAY['ONLINE'::text, 'OFFLINE'::text, 'DEGRADED'::text])))"
+            },
+            {
+              "name": "workspace_runtime_nodes_runtime_role_check",
+              "clause": "((runtime_role = ANY (ARRAY['local_workspace_runtime'::text, 'cloud_workspace_runtime'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_workspace_runtime_nodes_ws_presence",
+              "definition": "CREATE INDEX idx_workspace_runtime_nodes_ws_presence ON control_plane.organization_runtime_nodes USING btree (organization_id, presence_status)"
+            },
+            {
+              "name": "uq_workspace_runtime_nodes_ws_fingerprint",
+              "definition": "CREATE UNIQUE INDEX uq_workspace_runtime_nodes_ws_fingerprint ON control_plane.organization_runtime_nodes USING btree (organization_id, device_key_fingerprint) WHERE (revoked_at IS NULL)"
+            },
+            {
+              "name": "workspace_runtime_nodes_pkey",
+              "definition": "CREATE UNIQUE INDEX workspace_runtime_nodes_pkey ON control_plane.organization_runtime_nodes USING btree (node_id)"
+            }
+          ]
+        },
+        "control_plane.organization_schedule_definitions": {
+          "schema": "control_plane",
+          "name": "organization_schedule_definitions",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "organization_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_by",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "schedule_kind",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "timezone",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'Asia/Ho_Chi_Minh'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "run_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "hour",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "minute",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "weekdays",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "prompt_template",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "agent_profile",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'operations'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "connector_grant_ids",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "state",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'enabled'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "next_run_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "last_run_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "project_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "is_legacy_unscoped",
+              "type": "boolean",
+              "udt": "bool",
+              "nullable": false,
+              "default": "false",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "workspace_schedule_definitions_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [],
+          "check_constraints": [
+            {
+              "name": "chk_schedule_kind",
+              "clause": "((schedule_kind = ANY (ARRAY['one_time'::text, 'daily'::text, 'weekdays'::text])))"
+            },
+            {
+              "name": "chk_schedule_state",
+              "clause": "((state = ANY (ARRAY['enabled'::text, 'paused'::text, 'archived'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_workspace_schedules_due",
+              "definition": "CREATE INDEX idx_workspace_schedules_due ON control_plane.organization_schedule_definitions USING btree (state, next_run_at)"
+            },
+            {
+              "name": "workspace_schedule_definitions_pkey",
+              "definition": "CREATE UNIQUE INDEX workspace_schedule_definitions_pkey ON control_plane.organization_schedule_definitions USING btree (id)"
+            }
+          ]
+        },
+        "control_plane.organization_schedule_executions": {
+          "schema": "control_plane",
+          "name": "organization_schedule_executions",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "definition_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "organization_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "scheduled_for",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "prompt_template_snapshot",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "agent_profile_snapshot",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "connector_grant_ids_snapshot",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "state",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'queued'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "task_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "conversation_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "run_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "error",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "attempt_count",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": "0",
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "next_attempt_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "project_id_snapshot",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "workspace_schedule_executions_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "uq_schedule_execution",
+              "columns": [
+                "definition_id",
+                "scheduled_for"
+              ]
+            }
+          ],
+          "foreign_keys": [
+            {
+              "name": "workspace_schedule_executions_definition_id_fkey",
+              "columns": [
+                "definition_id"
+              ],
+              "foreign_table": "control_plane.organization_schedule_definitions",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [
+            {
+              "name": "chk_schedule_execution_state",
+              "clause": "((state = ANY (ARRAY['queued'::text, 'enqueue_retry'::text, 'enqueue_failed'::text, 'running'::text, 'succeeded'::text, 'failed'::text, 'blocked_reauth'::text, 'cancelled'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "uq_schedule_execution",
+              "definition": "CREATE UNIQUE INDEX uq_schedule_execution ON control_plane.organization_schedule_executions USING btree (definition_id, scheduled_for)"
+            },
+            {
+              "name": "workspace_schedule_executions_pkey",
+              "definition": "CREATE UNIQUE INDEX workspace_schedule_executions_pkey ON control_plane.organization_schedule_executions USING btree (id)"
+            }
+          ]
+        },
+        "control_plane.organization_settings_audit_events": {
+          "schema": "control_plane",
+          "name": "organization_settings_audit_events",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "event_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "organization_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "actor_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "event_type",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "target_kind",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "target_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "details",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'{}'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "workspace_settings_audit_events_pkey",
+            "columns": [
+              "event_id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "idx_workspace_settings_audit_events_ws",
+              "definition": "CREATE INDEX idx_workspace_settings_audit_events_ws ON control_plane.organization_settings_audit_events USING btree (organization_id, created_at DESC)"
+            },
+            {
+              "name": "workspace_settings_audit_events_pkey",
+              "definition": "CREATE UNIQUE INDEX workspace_settings_audit_events_pkey ON control_plane.organization_settings_audit_events USING btree (event_id)"
+            }
+          ]
+        },
+        "control_plane.organization_skill_policies": {
+          "schema": "control_plane",
+          "name": "organization_skill_policies",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "organization_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "skill_key",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "enabled",
+              "type": "boolean",
+              "udt": "bool",
+              "nullable": false,
+              "default": "true",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "config",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'{}'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "revision",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": "1",
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "updated_by",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "workspace_skill_policies_pkey",
+            "columns": [
+              "organization_id",
+              "skill_key"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "idx_workspace_skill_policies_ws_updated",
+              "definition": "CREATE INDEX idx_workspace_skill_policies_ws_updated ON control_plane.organization_skill_policies USING btree (organization_id, updated_at DESC)"
+            },
+            {
+              "name": "workspace_skill_policies_pkey",
+              "definition": "CREATE UNIQUE INDEX workspace_skill_policies_pkey ON control_plane.organization_skill_policies USING btree (organization_id, skill_key)"
             }
           ]
         },
@@ -9645,7 +10708,7 @@
               "scale": null
             },
             {
-              "name": "workspace_id",
+              "name": "organization_id",
               "type": "text",
               "udt": "text",
               "nullable": false,
@@ -10472,122 +11535,13 @@
             }
           ]
         },
-        "control_plane.workspace_connector_installations": {
-          "schema": "control_plane",
-          "name": "workspace_connector_installations",
+        "cosa.organization_agent_policy": {
+          "schema": "cosa",
+          "name": "organization_agent_policy",
           "type": "BASE TABLE",
           "columns": [
             {
               "name": "id",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "workspace_id",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "connector_key",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "installed_by",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "status",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": "'enabled'::text",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "created_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": false,
-              "default": "now()",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "updated_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": false,
-              "default": "now()",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            }
-          ],
-          "primary_key": {
-            "name": "workspace_connector_installations_pkey",
-            "columns": [
-              "id"
-            ]
-          },
-          "unique_constraints": [
-            {
-              "name": "uq_connector_installation",
-              "columns": [
-                "workspace_id",
-                "connector_key"
-              ]
-            }
-          ],
-          "foreign_keys": [],
-          "check_constraints": [
-            {
-              "name": "chk_installation_status",
-              "clause": "((status = ANY (ARRAY['enabled'::text, 'disabled'::text])))"
-            }
-          ],
-          "indexes": [
-            {
-              "name": "uq_connector_installation",
-              "definition": "CREATE UNIQUE INDEX uq_connector_installation ON control_plane.workspace_connector_installations USING btree (workspace_id, connector_key)"
-            },
-            {
-              "name": "workspace_connector_installations_pkey",
-              "definition": "CREATE UNIQUE INDEX workspace_connector_installations_pkey ON control_plane.workspace_connector_installations USING btree (id)"
-            }
-          ]
-        },
-        "control_plane.workspace_execution_leases": {
-          "schema": "control_plane",
-          "name": "workspace_execution_leases",
-          "type": "BASE TABLE",
-          "columns": [
-            {
-              "name": "workspace_id",
               "type": "bigint",
               "udt": "int8",
               "nullable": false,
@@ -10597,7 +11551,7 @@
               "scale": 0
             },
             {
-              "name": "active_runtime_node_id",
+              "name": "organization_id",
               "type": "bigint",
               "udt": "int8",
               "nullable": false,
@@ -10607,7 +11561,7 @@
               "scale": 0
             },
             {
-              "name": "active_runtime_role",
+              "name": "tool_pattern",
               "type": "text",
               "udt": "text",
               "nullable": false,
@@ -10617,142 +11571,7 @@
               "scale": null
             },
             {
-              "name": "lease_epoch",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": false,
-              "default": "1",
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "fencing_token",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "lease_expires_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "last_heartbeat_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": false,
-              "default": "now()",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "last_sync_cursor",
-              "type": "text",
-              "udt": "text",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "failover_policy",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": "'AUTO'::text",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "created_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": false,
-              "default": "now()",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "updated_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": false,
-              "default": "now()",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            }
-          ],
-          "primary_key": {
-            "name": "workspace_execution_leases_pkey",
-            "columns": [
-              "workspace_id"
-            ]
-          },
-          "unique_constraints": [],
-          "foreign_keys": [],
-          "check_constraints": [
-            {
-              "name": "workspace_execution_leases_active_runtime_role_check",
-              "clause": "((active_runtime_role = ANY (ARRAY['local_workspace_runtime'::text, 'cloud_workspace_runtime'::text])))"
-            },
-            {
-              "name": "workspace_execution_leases_failover_policy_check",
-              "clause": "((failover_policy = ANY (ARRAY['AUTO'::text, 'MANUAL'::text])))"
-            }
-          ],
-          "indexes": [
-            {
-              "name": "idx_workspace_execution_leases_node",
-              "definition": "CREATE INDEX idx_workspace_execution_leases_node ON control_plane.workspace_execution_leases USING btree (active_runtime_node_id)"
-            },
-            {
-              "name": "workspace_execution_leases_pkey",
-              "definition": "CREATE UNIQUE INDEX workspace_execution_leases_pkey ON control_plane.workspace_execution_leases USING btree (workspace_id)"
-            }
-          ]
-        },
-        "control_plane.workspace_runtime_nodes": {
-          "schema": "control_plane",
-          "name": "workspace_runtime_nodes",
-          "type": "BASE TABLE",
-          "columns": [
-            {
-              "name": "node_id",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "workspace_id",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "device_key_fingerprint",
+              "name": "decision",
               "type": "text",
               "udt": "text",
               "nullable": false,
@@ -10762,59 +11581,9 @@
               "scale": null
             },
             {
-              "name": "runtime_role",
+              "name": "reason",
               "type": "text",
               "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "presence_status",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": "'OFFLINE'::text",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "agent_version",
-              "type": "text",
-              "udt": "text",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "last_heartbeat_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "registered_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": false,
-              "default": "now()",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "revoked_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
               "nullable": true,
               "default": null,
               "max_length": null,
@@ -10843,461 +11612,19 @@
             }
           ],
           "primary_key": {
-            "name": "workspace_runtime_nodes_pkey",
-            "columns": [
-              "node_id"
-            ]
-          },
-          "unique_constraints": [],
-          "foreign_keys": [],
-          "check_constraints": [
-            {
-              "name": "workspace_runtime_nodes_presence_status_check",
-              "clause": "((presence_status = ANY (ARRAY['ONLINE'::text, 'OFFLINE'::text, 'DEGRADED'::text])))"
-            },
-            {
-              "name": "workspace_runtime_nodes_runtime_role_check",
-              "clause": "((runtime_role = ANY (ARRAY['local_workspace_runtime'::text, 'cloud_workspace_runtime'::text])))"
-            }
-          ],
-          "indexes": [
-            {
-              "name": "idx_workspace_runtime_nodes_ws_presence",
-              "definition": "CREATE INDEX idx_workspace_runtime_nodes_ws_presence ON control_plane.workspace_runtime_nodes USING btree (workspace_id, presence_status)"
-            },
-            {
-              "name": "uq_workspace_runtime_nodes_ws_fingerprint",
-              "definition": "CREATE UNIQUE INDEX uq_workspace_runtime_nodes_ws_fingerprint ON control_plane.workspace_runtime_nodes USING btree (workspace_id, device_key_fingerprint) WHERE (revoked_at IS NULL)"
-            },
-            {
-              "name": "workspace_runtime_nodes_pkey",
-              "definition": "CREATE UNIQUE INDEX workspace_runtime_nodes_pkey ON control_plane.workspace_runtime_nodes USING btree (node_id)"
-            }
-          ]
-        },
-        "control_plane.workspace_schedule_definitions": {
-          "schema": "control_plane",
-          "name": "workspace_schedule_definitions",
-          "type": "BASE TABLE",
-          "columns": [
-            {
-              "name": "id",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "workspace_id",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "created_by",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "schedule_kind",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "timezone",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": "'Asia/Ho_Chi_Minh'::text",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "run_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "hour",
-              "type": "integer",
-              "udt": "int4",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": 32,
-              "scale": 0
-            },
-            {
-              "name": "minute",
-              "type": "integer",
-              "udt": "int4",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": 32,
-              "scale": 0
-            },
-            {
-              "name": "weekdays",
-              "type": "jsonb",
-              "udt": "jsonb",
-              "nullable": false,
-              "default": "'[]'::jsonb",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "prompt_template",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "agent_profile",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": "'operations'::text",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "connector_grant_ids",
-              "type": "jsonb",
-              "udt": "jsonb",
-              "nullable": false,
-              "default": "'[]'::jsonb",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "state",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": "'enabled'::text",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "next_run_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "last_run_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "created_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": false,
-              "default": "now()",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "updated_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": false,
-              "default": "now()",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "project_id",
-              "type": "text",
-              "udt": "text",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "is_legacy_unscoped",
-              "type": "boolean",
-              "udt": "bool",
-              "nullable": false,
-              "default": "false",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            }
-          ],
-          "primary_key": {
-            "name": "workspace_schedule_definitions_pkey",
+            "name": "workspace_agent_policy_pkey",
             "columns": [
               "id"
             ]
           },
           "unique_constraints": [],
-          "foreign_keys": [],
-          "check_constraints": [
-            {
-              "name": "chk_schedule_kind",
-              "clause": "((schedule_kind = ANY (ARRAY['one_time'::text, 'daily'::text, 'weekdays'::text])))"
-            },
-            {
-              "name": "chk_schedule_state",
-              "clause": "((state = ANY (ARRAY['enabled'::text, 'paused'::text, 'archived'::text])))"
-            }
-          ],
-          "indexes": [
-            {
-              "name": "idx_workspace_schedules_due",
-              "definition": "CREATE INDEX idx_workspace_schedules_due ON control_plane.workspace_schedule_definitions USING btree (state, next_run_at)"
-            },
-            {
-              "name": "workspace_schedule_definitions_pkey",
-              "definition": "CREATE UNIQUE INDEX workspace_schedule_definitions_pkey ON control_plane.workspace_schedule_definitions USING btree (id)"
-            }
-          ]
-        },
-        "control_plane.workspace_schedule_executions": {
-          "schema": "control_plane",
-          "name": "workspace_schedule_executions",
-          "type": "BASE TABLE",
-          "columns": [
-            {
-              "name": "id",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "definition_id",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "workspace_id",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "scheduled_for",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "prompt_template_snapshot",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "agent_profile_snapshot",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "connector_grant_ids_snapshot",
-              "type": "jsonb",
-              "udt": "jsonb",
-              "nullable": false,
-              "default": "'[]'::jsonb",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "state",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": "'queued'::text",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "task_id",
-              "type": "text",
-              "udt": "text",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "conversation_id",
-              "type": "text",
-              "udt": "text",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "run_id",
-              "type": "text",
-              "udt": "text",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "error",
-              "type": "text",
-              "udt": "text",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "created_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": false,
-              "default": "now()",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "updated_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": false,
-              "default": "now()",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "attempt_count",
-              "type": "integer",
-              "udt": "int4",
-              "nullable": false,
-              "default": "0",
-              "max_length": null,
-              "precision": 32,
-              "scale": 0
-            },
-            {
-              "name": "next_attempt_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "project_id_snapshot",
-              "type": "text",
-              "udt": "text",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            }
-          ],
-          "primary_key": {
-            "name": "workspace_schedule_executions_pkey",
-            "columns": [
-              "id"
-            ]
-          },
-          "unique_constraints": [
-            {
-              "name": "uq_schedule_execution",
-              "columns": [
-                "definition_id",
-                "scheduled_for"
-              ]
-            }
-          ],
           "foreign_keys": [
             {
-              "name": "workspace_schedule_executions_definition_id_fkey",
+              "name": "workspace_agent_policy_platform_workspace_id_fkey",
               "columns": [
-                "definition_id"
+                "organization_id"
               ],
-              "foreign_table": "control_plane.workspace_schedule_definitions",
+              "foreign_table": "cosa.organizations",
               "foreign_columns": [
                 "id"
               ],
@@ -11307,28 +11634,32 @@
           ],
           "check_constraints": [
             {
-              "name": "chk_schedule_execution_state",
-              "clause": "((state = ANY (ARRAY['queued'::text, 'enqueue_retry'::text, 'enqueue_failed'::text, 'running'::text, 'succeeded'::text, 'failed'::text, 'blocked_reauth'::text, 'cancelled'::text])))"
+              "name": "workspace_agent_policy_decision_check",
+              "clause": "((decision = ANY (ARRAY['ALLOW'::text, 'REQUIRE_APPROVAL'::text, 'DENY'::text])))"
             }
           ],
           "indexes": [
             {
-              "name": "uq_schedule_execution",
-              "definition": "CREATE UNIQUE INDEX uq_schedule_execution ON control_plane.workspace_schedule_executions USING btree (definition_id, scheduled_for)"
+              "name": "idx_workspace_agent_policy_workspace_id",
+              "definition": "CREATE INDEX idx_workspace_agent_policy_workspace_id ON cosa.organization_agent_policy USING btree (organization_id)"
             },
             {
-              "name": "workspace_schedule_executions_pkey",
-              "definition": "CREATE UNIQUE INDEX workspace_schedule_executions_pkey ON control_plane.workspace_schedule_executions USING btree (id)"
+              "name": "idx_workspace_agent_policy_workspace_tool",
+              "definition": "CREATE UNIQUE INDEX idx_workspace_agent_policy_workspace_tool ON cosa.organization_agent_policy USING btree (organization_id, tool_pattern)"
+            },
+            {
+              "name": "workspace_agent_policy_pkey",
+              "definition": "CREATE UNIQUE INDEX workspace_agent_policy_pkey ON cosa.organization_agent_policy USING btree (id)"
             }
           ]
         },
-        "control_plane.workspace_settings_audit_events": {
-          "schema": "control_plane",
-          "name": "workspace_settings_audit_events",
+        "cosa.organization_business_policy_references": {
+          "schema": "cosa",
+          "name": "organization_business_policy_references",
           "type": "BASE TABLE",
           "columns": [
             {
-              "name": "event_id",
+              "name": "organization_id",
               "type": "bigint",
               "udt": "int8",
               "nullable": false,
@@ -11338,17 +11669,27 @@
               "scale": 0
             },
             {
-              "name": "workspace_id",
-              "type": "bigint",
-              "udt": "int8",
+              "name": "business_workspace_id",
+              "type": "text",
+              "udt": "text",
               "nullable": false,
               "default": null,
               "max_length": null,
-              "precision": 64,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "version",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
               "scale": 0
             },
             {
-              "name": "actor_id",
+              "name": "policy_hash",
               "type": "text",
               "udt": "text",
               "nullable": false,
@@ -11358,47 +11699,7 @@
               "scale": null
             },
             {
-              "name": "event_type",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "target_kind",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "target_id",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "details",
-              "type": "jsonb",
-              "udt": "jsonb",
-              "nullable": false,
-              "default": "'{}'::jsonb",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "created_at",
+              "name": "synced_at",
               "type": "timestamp with time zone",
               "udt": "timestamptz",
               "nullable": false,
@@ -11409,32 +11710,41 @@
             }
           ],
           "primary_key": {
-            "name": "workspace_settings_audit_events_pkey",
+            "name": "workspace_business_policy_references_pkey",
             "columns": [
-              "event_id"
+              "organization_id"
             ]
           },
           "unique_constraints": [],
-          "foreign_keys": [],
+          "foreign_keys": [
+            {
+              "name": "workspace_business_policy_references_platform_workspace_id_fkey",
+              "columns": [
+                "organization_id"
+              ],
+              "foreign_table": "cosa.organizations",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
           "check_constraints": [],
           "indexes": [
             {
-              "name": "idx_workspace_settings_audit_events_ws",
-              "definition": "CREATE INDEX idx_workspace_settings_audit_events_ws ON control_plane.workspace_settings_audit_events USING btree (workspace_id, created_at DESC)"
-            },
-            {
-              "name": "workspace_settings_audit_events_pkey",
-              "definition": "CREATE UNIQUE INDEX workspace_settings_audit_events_pkey ON control_plane.workspace_settings_audit_events USING btree (event_id)"
+              "name": "workspace_business_policy_references_pkey",
+              "definition": "CREATE UNIQUE INDEX workspace_business_policy_references_pkey ON cosa.organization_business_policy_references USING btree (organization_id)"
             }
           ]
         },
-        "control_plane.workspace_skill_policies": {
-          "schema": "control_plane",
-          "name": "workspace_skill_policies",
+        "cosa.organization_entitlements": {
+          "schema": "cosa",
+          "name": "organization_entitlements",
           "type": "BASE TABLE",
           "columns": [
             {
-              "name": "workspace_id",
+              "name": "organization_id",
               "type": "bigint",
               "udt": "int8",
               "nullable": false,
@@ -11444,7 +11754,7 @@
               "scale": 0
             },
             {
-              "name": "skill_key",
+              "name": "plan_id",
               "type": "text",
               "udt": "text",
               "nullable": false,
@@ -11454,17 +11764,7 @@
               "scale": null
             },
             {
-              "name": "enabled",
-              "type": "boolean",
-              "udt": "bool",
-              "nullable": false,
-              "default": "true",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "config",
+              "name": "effective_limits",
               "type": "jsonb",
               "udt": "jsonb",
               "nullable": false,
@@ -11474,27 +11774,37 @@
               "scale": null
             },
             {
-              "name": "revision",
-              "type": "integer",
-              "udt": "int4",
+              "name": "effective_features",
+              "type": "jsonb",
+              "udt": "jsonb",
               "nullable": false,
-              "default": "1",
+              "default": "'{}'::jsonb",
               "max_length": null,
-              "precision": 32,
-              "scale": 0
+              "precision": null,
+              "scale": null
             },
             {
-              "name": "updated_by",
+              "name": "custom_overrides",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'{}'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "snapshot_signature",
               "type": "text",
               "udt": "text",
-              "nullable": false,
+              "nullable": true,
               "default": null,
               "max_length": null,
               "precision": null,
               "scale": null
             },
             {
-              "name": "created_at",
+              "name": "last_issued_at",
               "type": "timestamp with time zone",
               "udt": "timestamptz",
               "nullable": false,
@@ -11515,23 +11825,43 @@
             }
           ],
           "primary_key": {
-            "name": "workspace_skill_policies_pkey",
+            "name": "workspace_entitlements_pkey",
             "columns": [
-              "workspace_id",
-              "skill_key"
+              "organization_id"
             ]
           },
           "unique_constraints": [],
-          "foreign_keys": [],
+          "foreign_keys": [
+            {
+              "name": "workspace_entitlements_plan_id_fkey",
+              "columns": [
+                "plan_id"
+              ],
+              "foreign_table": "cosa.plans",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "NO ACTION"
+            },
+            {
+              "name": "workspace_entitlements_platform_workspace_id_fkey",
+              "columns": [
+                "organization_id"
+              ],
+              "foreign_table": "cosa.organizations",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
           "check_constraints": [],
           "indexes": [
             {
-              "name": "idx_workspace_skill_policies_ws_updated",
-              "definition": "CREATE INDEX idx_workspace_skill_policies_ws_updated ON control_plane.workspace_skill_policies USING btree (workspace_id, updated_at DESC)"
-            },
-            {
-              "name": "workspace_skill_policies_pkey",
-              "definition": "CREATE UNIQUE INDEX workspace_skill_policies_pkey ON control_plane.workspace_skill_policies USING btree (workspace_id, skill_key)"
+              "name": "workspace_entitlements_pkey",
+              "definition": "CREATE UNIQUE INDEX workspace_entitlements_pkey ON cosa.organization_entitlements USING btree (organization_id)"
             }
           ]
         },
@@ -11725,6 +12055,184 @@
             }
           ]
         },
+        "cosa.organization_licenses": {
+          "schema": "cosa",
+          "name": "organization_licenses",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "organization_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "plan_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "license_key",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'active'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "starts_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "expires_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "grace_period_days",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": "7",
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "deleted_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "workspace_licenses_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "workspace_licenses_license_key_key",
+              "columns": [
+                "license_key"
+              ]
+            },
+            {
+              "name": "workspace_licenses_platform_workspace_id_key",
+              "columns": [
+                "organization_id"
+              ]
+            }
+          ],
+          "foreign_keys": [
+            {
+              "name": "workspace_licenses_plan_id_fkey",
+              "columns": [
+                "plan_id"
+              ],
+              "foreign_table": "cosa.plans",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "NO ACTION"
+            },
+            {
+              "name": "workspace_licenses_platform_workspace_id_fkey",
+              "columns": [
+                "organization_id"
+              ],
+              "foreign_table": "cosa.organizations",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "workspace_licenses_license_key_key",
+              "definition": "CREATE UNIQUE INDEX workspace_licenses_license_key_key ON cosa.organization_licenses USING btree (license_key)"
+            },
+            {
+              "name": "workspace_licenses_pkey",
+              "definition": "CREATE UNIQUE INDEX workspace_licenses_pkey ON cosa.organization_licenses USING btree (id)"
+            },
+            {
+              "name": "workspace_licenses_platform_workspace_id_key",
+              "definition": "CREATE UNIQUE INDEX workspace_licenses_platform_workspace_id_key ON cosa.organization_licenses USING btree (organization_id)"
+            }
+          ]
+        },
         "cosa.organization_memberships": {
           "schema": "cosa",
           "name": "organization_memberships",
@@ -11846,6 +12354,323 @@
             {
               "name": "platform_workspace_memberships_pkey",
               "definition": "CREATE UNIQUE INDEX platform_workspace_memberships_pkey ON cosa.organization_memberships USING btree (id)"
+            }
+          ]
+        },
+        "cosa.organization_module_configs": {
+          "schema": "cosa",
+          "name": "organization_module_configs",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "organization_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "module_key",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "enabled",
+              "type": "boolean",
+              "udt": "bool",
+              "nullable": false,
+              "default": "true",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_by",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "workspace_module_configs_pkey",
+            "columns": [
+              "organization_id",
+              "module_key"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "workspace_module_configs_workspace_id_fkey",
+              "columns": [
+                "organization_id"
+              ],
+              "foreign_table": "cosa.organizations",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [
+            {
+              "name": "workspace_module_configs_module_key_check",
+              "clause": "((module_key = ANY (ARRAY['finance'::text, 'legal'::text, 'crm'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "workspace_module_configs_pkey",
+              "definition": "CREATE UNIQUE INDEX workspace_module_configs_pkey ON cosa.organization_module_configs USING btree (organization_id, module_key)"
+            }
+          ]
+        },
+        "cosa.organization_surface_overrides": {
+          "schema": "cosa",
+          "name": "organization_surface_overrides",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "organization_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "surface_key",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "status_override",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "reason",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_by",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "workspace_surface_overrides_pkey",
+            "columns": [
+              "organization_id",
+              "surface_key"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "workspace_surface_overrides_workspace_id_fkey",
+              "columns": [
+                "organization_id"
+              ],
+              "foreign_table": "cosa.organizations",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [
+            {
+              "name": "workspace_surface_overrides_status_override_check",
+              "clause": "((status_override = ANY (ARRAY['PILOT'::text, 'PLANNED'::text, 'CONFIGURATION_REQUIRED'::text, 'UNAVAILABLE'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_workspace_surface_overrides_workspace",
+              "definition": "CREATE INDEX idx_workspace_surface_overrides_workspace ON cosa.organization_surface_overrides USING btree (organization_id)"
+            },
+            {
+              "name": "workspace_surface_overrides_pkey",
+              "definition": "CREATE UNIQUE INDEX workspace_surface_overrides_pkey ON cosa.organization_surface_overrides USING btree (organization_id, surface_key)"
+            }
+          ]
+        },
+        "cosa.organization_sync_log": {
+          "schema": "cosa",
+          "name": "organization_sync_log",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "organization_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "client_creation_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "sync_status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'pending'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "error_msg",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "synced_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "platform_workspace_sync_log_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "platform_workspace_sync_log_client_creation_id_key",
+              "columns": [
+                "client_creation_id"
+              ]
+            }
+          ],
+          "foreign_keys": [
+            {
+              "name": "platform_workspace_sync_log_platform_workspace_id_fkey",
+              "columns": [
+                "organization_id"
+              ],
+              "foreign_table": "cosa.organizations",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [
+            {
+              "name": "platform_workspace_sync_log_sync_status_check",
+              "clause": "((sync_status = ANY (ARRAY['pending'::text, 'success'::text, 'failed'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "platform_workspace_sync_log_client_creation_id_key",
+              "definition": "CREATE UNIQUE INDEX platform_workspace_sync_log_client_creation_id_key ON cosa.organization_sync_log USING btree (client_creation_id)"
+            },
+            {
+              "name": "platform_workspace_sync_log_pkey",
+              "definition": "CREATE UNIQUE INDEX platform_workspace_sync_log_pkey ON cosa.organization_sync_log USING btree (id)"
             }
           ]
         },
@@ -12276,13 +13101,13 @@
             }
           ]
         },
-        "cosa.user_workspace_module_preferences": {
+        "cosa.user_organization_module_preferences": {
           "schema": "cosa",
-          "name": "user_workspace_module_preferences",
+          "name": "user_organization_module_preferences",
           "type": "BASE TABLE",
           "columns": [
             {
-              "name": "workspace_id",
+              "name": "organization_id",
               "type": "bigint",
               "udt": "int8",
               "nullable": false,
@@ -12335,7 +13160,7 @@
           "primary_key": {
             "name": "user_workspace_module_preferences_pkey",
             "columns": [
-              "workspace_id",
+              "organization_id",
               "user_id",
               "module_key"
             ]
@@ -12357,7 +13182,7 @@
             {
               "name": "user_workspace_module_preferences_workspace_id_fkey",
               "columns": [
-                "workspace_id"
+                "organization_id"
               ],
               "foreign_table": "cosa.organizations",
               "foreign_columns": [
@@ -12376,7 +13201,7 @@
           "indexes": [
             {
               "name": "user_workspace_module_preferences_pkey",
-              "definition": "CREATE UNIQUE INDEX user_workspace_module_preferences_pkey ON cosa.user_workspace_module_preferences USING btree (workspace_id, user_id, module_key)"
+              "definition": "CREATE UNIQUE INDEX user_workspace_module_preferences_pkey ON cosa.user_organization_module_preferences USING btree (organization_id, user_id, module_key)"
             }
           ]
         },
@@ -12556,831 +13381,6 @@
             {
               "name": "users_pkey",
               "definition": "CREATE UNIQUE INDEX users_pkey ON cosa.users USING btree (id)"
-            }
-          ]
-        },
-        "cosa.workspace_agent_policy": {
-          "schema": "cosa",
-          "name": "workspace_agent_policy",
-          "type": "BASE TABLE",
-          "columns": [
-            {
-              "name": "id",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "platform_workspace_id",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "tool_pattern",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "decision",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "reason",
-              "type": "text",
-              "udt": "text",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "created_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": false,
-              "default": "now()",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "updated_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": false,
-              "default": "now()",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            }
-          ],
-          "primary_key": {
-            "name": "workspace_agent_policy_pkey",
-            "columns": [
-              "id"
-            ]
-          },
-          "unique_constraints": [],
-          "foreign_keys": [
-            {
-              "name": "workspace_agent_policy_platform_workspace_id_fkey",
-              "columns": [
-                "platform_workspace_id"
-              ],
-              "foreign_table": "cosa.organizations",
-              "foreign_columns": [
-                "id"
-              ],
-              "on_update": "NO ACTION",
-              "on_delete": "CASCADE"
-            }
-          ],
-          "check_constraints": [
-            {
-              "name": "workspace_agent_policy_decision_check",
-              "clause": "((decision = ANY (ARRAY['ALLOW'::text, 'REQUIRE_APPROVAL'::text, 'DENY'::text])))"
-            }
-          ],
-          "indexes": [
-            {
-              "name": "idx_workspace_agent_policy_workspace_id",
-              "definition": "CREATE INDEX idx_workspace_agent_policy_workspace_id ON cosa.workspace_agent_policy USING btree (platform_workspace_id)"
-            },
-            {
-              "name": "idx_workspace_agent_policy_workspace_tool",
-              "definition": "CREATE UNIQUE INDEX idx_workspace_agent_policy_workspace_tool ON cosa.workspace_agent_policy USING btree (platform_workspace_id, tool_pattern)"
-            },
-            {
-              "name": "workspace_agent_policy_pkey",
-              "definition": "CREATE UNIQUE INDEX workspace_agent_policy_pkey ON cosa.workspace_agent_policy USING btree (id)"
-            }
-          ]
-        },
-        "cosa.workspace_business_policy_references": {
-          "schema": "cosa",
-          "name": "workspace_business_policy_references",
-          "type": "BASE TABLE",
-          "columns": [
-            {
-              "name": "platform_workspace_id",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "business_workspace_id",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "version",
-              "type": "integer",
-              "udt": "int4",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": 32,
-              "scale": 0
-            },
-            {
-              "name": "policy_hash",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "synced_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": false,
-              "default": "now()",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            }
-          ],
-          "primary_key": {
-            "name": "workspace_business_policy_references_pkey",
-            "columns": [
-              "platform_workspace_id"
-            ]
-          },
-          "unique_constraints": [],
-          "foreign_keys": [
-            {
-              "name": "workspace_business_policy_references_platform_workspace_id_fkey",
-              "columns": [
-                "platform_workspace_id"
-              ],
-              "foreign_table": "cosa.organizations",
-              "foreign_columns": [
-                "id"
-              ],
-              "on_update": "NO ACTION",
-              "on_delete": "CASCADE"
-            }
-          ],
-          "check_constraints": [],
-          "indexes": [
-            {
-              "name": "workspace_business_policy_references_pkey",
-              "definition": "CREATE UNIQUE INDEX workspace_business_policy_references_pkey ON cosa.workspace_business_policy_references USING btree (platform_workspace_id)"
-            }
-          ]
-        },
-        "cosa.workspace_entitlements": {
-          "schema": "cosa",
-          "name": "workspace_entitlements",
-          "type": "BASE TABLE",
-          "columns": [
-            {
-              "name": "platform_workspace_id",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "plan_id",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "effective_limits",
-              "type": "jsonb",
-              "udt": "jsonb",
-              "nullable": false,
-              "default": "'{}'::jsonb",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "effective_features",
-              "type": "jsonb",
-              "udt": "jsonb",
-              "nullable": false,
-              "default": "'{}'::jsonb",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "custom_overrides",
-              "type": "jsonb",
-              "udt": "jsonb",
-              "nullable": false,
-              "default": "'{}'::jsonb",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "snapshot_signature",
-              "type": "text",
-              "udt": "text",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "last_issued_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": false,
-              "default": "now()",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "updated_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": false,
-              "default": "now()",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            }
-          ],
-          "primary_key": {
-            "name": "workspace_entitlements_pkey",
-            "columns": [
-              "platform_workspace_id"
-            ]
-          },
-          "unique_constraints": [],
-          "foreign_keys": [
-            {
-              "name": "workspace_entitlements_plan_id_fkey",
-              "columns": [
-                "plan_id"
-              ],
-              "foreign_table": "cosa.plans",
-              "foreign_columns": [
-                "id"
-              ],
-              "on_update": "NO ACTION",
-              "on_delete": "NO ACTION"
-            },
-            {
-              "name": "workspace_entitlements_platform_workspace_id_fkey",
-              "columns": [
-                "platform_workspace_id"
-              ],
-              "foreign_table": "cosa.organizations",
-              "foreign_columns": [
-                "id"
-              ],
-              "on_update": "NO ACTION",
-              "on_delete": "CASCADE"
-            }
-          ],
-          "check_constraints": [],
-          "indexes": [
-            {
-              "name": "workspace_entitlements_pkey",
-              "definition": "CREATE UNIQUE INDEX workspace_entitlements_pkey ON cosa.workspace_entitlements USING btree (platform_workspace_id)"
-            }
-          ]
-        },
-        "cosa.workspace_licenses": {
-          "schema": "cosa",
-          "name": "workspace_licenses",
-          "type": "BASE TABLE",
-          "columns": [
-            {
-              "name": "id",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "platform_workspace_id",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "plan_id",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "license_key",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "status",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": "'active'::text",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "starts_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": false,
-              "default": "now()",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "expires_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "grace_period_days",
-              "type": "integer",
-              "udt": "int4",
-              "nullable": false,
-              "default": "7",
-              "max_length": null,
-              "precision": 32,
-              "scale": 0
-            },
-            {
-              "name": "created_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": false,
-              "default": "now()",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "updated_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": false,
-              "default": "now()",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "deleted_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            }
-          ],
-          "primary_key": {
-            "name": "workspace_licenses_pkey",
-            "columns": [
-              "id"
-            ]
-          },
-          "unique_constraints": [
-            {
-              "name": "workspace_licenses_license_key_key",
-              "columns": [
-                "license_key"
-              ]
-            },
-            {
-              "name": "workspace_licenses_platform_workspace_id_key",
-              "columns": [
-                "platform_workspace_id"
-              ]
-            }
-          ],
-          "foreign_keys": [
-            {
-              "name": "workspace_licenses_plan_id_fkey",
-              "columns": [
-                "plan_id"
-              ],
-              "foreign_table": "cosa.plans",
-              "foreign_columns": [
-                "id"
-              ],
-              "on_update": "NO ACTION",
-              "on_delete": "NO ACTION"
-            },
-            {
-              "name": "workspace_licenses_platform_workspace_id_fkey",
-              "columns": [
-                "platform_workspace_id"
-              ],
-              "foreign_table": "cosa.organizations",
-              "foreign_columns": [
-                "id"
-              ],
-              "on_update": "NO ACTION",
-              "on_delete": "CASCADE"
-            }
-          ],
-          "check_constraints": [],
-          "indexes": [
-            {
-              "name": "workspace_licenses_license_key_key",
-              "definition": "CREATE UNIQUE INDEX workspace_licenses_license_key_key ON cosa.workspace_licenses USING btree (license_key)"
-            },
-            {
-              "name": "workspace_licenses_pkey",
-              "definition": "CREATE UNIQUE INDEX workspace_licenses_pkey ON cosa.workspace_licenses USING btree (id)"
-            },
-            {
-              "name": "workspace_licenses_platform_workspace_id_key",
-              "definition": "CREATE UNIQUE INDEX workspace_licenses_platform_workspace_id_key ON cosa.workspace_licenses USING btree (platform_workspace_id)"
-            }
-          ]
-        },
-        "cosa.workspace_module_configs": {
-          "schema": "cosa",
-          "name": "workspace_module_configs",
-          "type": "BASE TABLE",
-          "columns": [
-            {
-              "name": "workspace_id",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "module_key",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "enabled",
-              "type": "boolean",
-              "udt": "bool",
-              "nullable": false,
-              "default": "true",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "updated_by",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "updated_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": false,
-              "default": "now()",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            }
-          ],
-          "primary_key": {
-            "name": "workspace_module_configs_pkey",
-            "columns": [
-              "workspace_id",
-              "module_key"
-            ]
-          },
-          "unique_constraints": [],
-          "foreign_keys": [
-            {
-              "name": "workspace_module_configs_workspace_id_fkey",
-              "columns": [
-                "workspace_id"
-              ],
-              "foreign_table": "cosa.organizations",
-              "foreign_columns": [
-                "id"
-              ],
-              "on_update": "NO ACTION",
-              "on_delete": "CASCADE"
-            }
-          ],
-          "check_constraints": [
-            {
-              "name": "workspace_module_configs_module_key_check",
-              "clause": "((module_key = ANY (ARRAY['finance'::text, 'legal'::text, 'crm'::text])))"
-            }
-          ],
-          "indexes": [
-            {
-              "name": "workspace_module_configs_pkey",
-              "definition": "CREATE UNIQUE INDEX workspace_module_configs_pkey ON cosa.workspace_module_configs USING btree (workspace_id, module_key)"
-            }
-          ]
-        },
-        "cosa.workspace_surface_overrides": {
-          "schema": "cosa",
-          "name": "workspace_surface_overrides",
-          "type": "BASE TABLE",
-          "columns": [
-            {
-              "name": "workspace_id",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "surface_key",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "status_override",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "reason",
-              "type": "text",
-              "udt": "text",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "updated_by",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "updated_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": false,
-              "default": "now()",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            }
-          ],
-          "primary_key": {
-            "name": "workspace_surface_overrides_pkey",
-            "columns": [
-              "workspace_id",
-              "surface_key"
-            ]
-          },
-          "unique_constraints": [],
-          "foreign_keys": [
-            {
-              "name": "workspace_surface_overrides_workspace_id_fkey",
-              "columns": [
-                "workspace_id"
-              ],
-              "foreign_table": "cosa.organizations",
-              "foreign_columns": [
-                "id"
-              ],
-              "on_update": "NO ACTION",
-              "on_delete": "CASCADE"
-            }
-          ],
-          "check_constraints": [
-            {
-              "name": "workspace_surface_overrides_status_override_check",
-              "clause": "((status_override = ANY (ARRAY['PILOT'::text, 'PLANNED'::text, 'CONFIGURATION_REQUIRED'::text, 'UNAVAILABLE'::text])))"
-            }
-          ],
-          "indexes": [
-            {
-              "name": "idx_workspace_surface_overrides_workspace",
-              "definition": "CREATE INDEX idx_workspace_surface_overrides_workspace ON cosa.workspace_surface_overrides USING btree (workspace_id)"
-            },
-            {
-              "name": "workspace_surface_overrides_pkey",
-              "definition": "CREATE UNIQUE INDEX workspace_surface_overrides_pkey ON cosa.workspace_surface_overrides USING btree (workspace_id, surface_key)"
-            }
-          ]
-        },
-        "cosa.workspace_sync_log": {
-          "schema": "cosa",
-          "name": "workspace_sync_log",
-          "type": "BASE TABLE",
-          "columns": [
-            {
-              "name": "id",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "platform_workspace_id",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "client_creation_id",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "sync_status",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": "'pending'::text",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "error_msg",
-              "type": "text",
-              "udt": "text",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "synced_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "created_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": false,
-              "default": "now()",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            }
-          ],
-          "primary_key": {
-            "name": "platform_workspace_sync_log_pkey",
-            "columns": [
-              "id"
-            ]
-          },
-          "unique_constraints": [
-            {
-              "name": "platform_workspace_sync_log_client_creation_id_key",
-              "columns": [
-                "client_creation_id"
-              ]
-            }
-          ],
-          "foreign_keys": [
-            {
-              "name": "platform_workspace_sync_log_platform_workspace_id_fkey",
-              "columns": [
-                "platform_workspace_id"
-              ],
-              "foreign_table": "cosa.organizations",
-              "foreign_columns": [
-                "id"
-              ],
-              "on_update": "NO ACTION",
-              "on_delete": "CASCADE"
-            }
-          ],
-          "check_constraints": [
-            {
-              "name": "platform_workspace_sync_log_sync_status_check",
-              "clause": "((sync_status = ANY (ARRAY['pending'::text, 'success'::text, 'failed'::text])))"
-            }
-          ],
-          "indexes": [
-            {
-              "name": "platform_workspace_sync_log_client_creation_id_key",
-              "definition": "CREATE UNIQUE INDEX platform_workspace_sync_log_client_creation_id_key ON cosa.workspace_sync_log USING btree (client_creation_id)"
-            },
-            {
-              "name": "platform_workspace_sync_log_pkey",
-              "definition": "CREATE UNIQUE INDEX platform_workspace_sync_log_pkey ON cosa.workspace_sync_log USING btree (id)"
             }
           ]
         }

@@ -19,7 +19,7 @@ worker forward cho hop `GET services/cosa /platform/auth/me/agent-policy-snapsho
 Scenario này assert đúng những gì THẬT và có cấu trúc:
 
   (A) `entitlement.grant_entitlement` round-trip cross-plane: hàng ALLOW ghi
-      thật vào `cosa.workspace_agent_policy` trên DB `services/cosa`, keyed theo
+      thật vào `cosa.organization_agent_policy` trên DB `services/cosa`, keyed theo
       workspace id của `services/company` — đọc ngược lại bằng SQL, assert
       `decision='ALLOW'` + `tool_pattern` đúng + idempotent (gọi 2 lần vẫn 1 hàng)
       + hàng `cosa.organizations` / `cosa.users` auto-seed cùng id.
@@ -84,7 +84,7 @@ def run(stack: MvpStack, seeded: SeededWorkspace, cluster: DisposableCluster) ->
 def _assert_entitlement_round_trips_cross_plane(
     cluster: DisposableCluster, workspace_id: str
 ) -> None:
-    """`grant_entitlement` là seed SQL thuần vào `cosa.workspace_agent_policy`
+    """`grant_entitlement` là seed SQL thuần vào `cosa.organization_agent_policy`
     (COSA Control Plane) nhưng keyed theo workspace id của `services/company` —
     tức là cross-plane materialization. Gọi 2 lần, đọc ngược, assert cấu trúc."""
     entitlement.grant_entitlement(cluster, workspace_id, _CAPABILITY_PREFIX)
@@ -95,12 +95,12 @@ def _assert_entitlement_round_trips_cross_plane(
 
     policy_rows = _all_rows(
         cluster.cosa_app_url,
-        "SELECT tool_pattern, decision FROM cosa.workspace_agent_policy "
-        "WHERE platform_workspace_id = %s AND tool_pattern = %s",
+        "SELECT tool_pattern, decision FROM cosa.organization_agent_policy "
+        "WHERE organization_id = %s AND tool_pattern = %s",
         (wid, expected_pattern),
     )
     assert policy_rows == [(expected_pattern, "ALLOW")], (
-        f"cosa.workspace_agent_policy cho workspace {wid} = {policy_rows!r} "
+        f"cosa.organization_agent_policy cho workspace {wid} = {policy_rows!r} "
         f"(kỳ vọng đúng 1 hàng [('{expected_pattern}', 'ALLOW')] — ALLOW + idempotent)"
     )
 

@@ -85,9 +85,9 @@ export const workspaceInvitations = cosaSchema.table("organization_invitations",
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const workspaceAgentPolicy = cosaSchema.table("workspace_agent_policy", {
+export const workspaceAgentPolicy = cosaSchema.table("organization_agent_policy", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("platform_workspace_id", { mode: "bigint" }).notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  workspaceId: bigint("organization_id", { mode: "bigint" }).notNull().references(() => workspaces.id, { onDelete: "cascade" }),
   toolPattern: text("tool_pattern").notNull(),
   decision: text("decision").notNull(),
   reason: text("reason"),
@@ -95,17 +95,17 @@ export const workspaceAgentPolicy = cosaSchema.table("workspace_agent_policy", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const workspaceBusinessPolicyReferences = cosaSchema.table("workspace_business_policy_references", {
-  platformWorkspaceId: bigint("platform_workspace_id", { mode: "bigint" }).primaryKey().references(() => workspaces.id, { onDelete: "cascade" }),
+export const workspaceBusinessPolicyReferences = cosaSchema.table("organization_business_policy_references", {
+  platformWorkspaceId: bigint("organization_id", { mode: "bigint" }).primaryKey().references(() => workspaces.id, { onDelete: "cascade" }),
   businessWorkspaceId: text("business_workspace_id").notNull(),
   version: integer("version").notNull(),
   policyHash: text("policy_hash").notNull(),
   syncedAt: timestamp("synced_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const workspaceLicenses = cosaSchema.table("workspace_licenses", {
+export const workspaceLicenses = cosaSchema.table("organization_licenses", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("platform_workspace_id", { mode: "bigint" }).notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  workspaceId: bigint("organization_id", { mode: "bigint" }).notNull().references(() => workspaces.id, { onDelete: "cascade" }),
   planId: text("plan_id").notNull().references(() => plans.id),
   licenseKey: text("license_key").notNull().unique(),
   status: text("status").default("active").notNull(),
@@ -117,8 +117,8 @@ export const workspaceLicenses = cosaSchema.table("workspace_licenses", {
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
-export const workspaceEntitlements = cosaSchema.table("workspace_entitlements", {
-  workspaceId: bigint("platform_workspace_id", { mode: "bigint" }).primaryKey().references(() => workspaces.id, { onDelete: "cascade" }),
+export const workspaceEntitlements = cosaSchema.table("organization_entitlements", {
+  workspaceId: bigint("organization_id", { mode: "bigint" }).primaryKey().references(() => workspaces.id, { onDelete: "cascade" }),
   planId: text("plan_id").notNull().references(() => plans.id),
   effectiveLimits: jsonb("effective_limits").default({}).notNull(),
   effectiveFeatures: jsonb("effective_features").default({}).notNull(),
@@ -128,9 +128,9 @@ export const workspaceEntitlements = cosaSchema.table("workspace_entitlements", 
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const workspaceSyncLogs = cosaSchema.table("workspace_sync_log", {
+export const workspaceSyncLogs = cosaSchema.table("organization_sync_log", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("platform_workspace_id", { mode: "bigint" }).notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  workspaceId: bigint("organization_id", { mode: "bigint" }).notNull().references(() => workspaces.id, { onDelete: "cascade" }),
   clientCreationId: text("client_creation_id").notNull().unique(),
   syncStatus: text("sync_status").default("pending").notNull(),
   errorMsg: text("error_msg"),
@@ -143,9 +143,9 @@ export const platformWorkspaces = workspaces;
 export const platformWorkspaceMemberships = workspaceMemberships;
 export const platformWorkspaceSyncLog = workspaceSyncLogs;
 
-export const workspaceSettingsAuditEvents = controlPlaneSchema.table("workspace_settings_audit_events", {
+export const workspaceSettingsAuditEvents = controlPlaneSchema.table("organization_settings_audit_events", {
   eventId: bigint("event_id", { mode: "bigint" }).primaryKey(),
-  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  workspaceId: bigint("organization_id", { mode: "bigint" }).notNull(),
   actorId: text("actor_id").notNull(),
   eventType: text("event_type").notNull(),
   targetKind: text("target_kind").notNull(),
@@ -159,9 +159,9 @@ export const workspaceSettingsAuditEvents = controlPlaneSchema.table("workspace_
 // skillKey với registry riêng rồi gọi control plane qua WorkspaceSettingsClient
 // để đọc/ghi bảng này — không tự lưu policy ở phía Agent Platform.
 export const workspaceSkillPolicies = controlPlaneSchema.table(
-  "workspace_skill_policies",
+  "organization_skill_policies",
   {
-    workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+    workspaceId: bigint("organization_id", { mode: "bigint" }).notNull(),
     skillKey: text("skill_key").notNull(),
     enabled: boolean("enabled").default(true).notNull(),
     config: jsonb("config").default({}).notNull(),
@@ -177,9 +177,9 @@ export const workspaceSkillPolicies = controlPlaneSchema.table(
 );
 
 export const workspaceModuleConfigs = cosaSchema.table(
-  "workspace_module_configs",
+  "organization_module_configs",
   {
-    workspaceId: bigint("workspace_id", { mode: "bigint" })
+    workspaceId: bigint("organization_id", { mode: "bigint" })
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
     moduleKey: text("module_key").notNull(),
@@ -193,9 +193,9 @@ export const workspaceModuleConfigs = cosaSchema.table(
 );
 
 export const userWorkspaceModulePreferences = cosaSchema.table(
-  "user_workspace_module_preferences",
+  "user_organization_module_preferences",
   {
-    workspaceId: bigint("workspace_id", { mode: "bigint" })
+    workspaceId: bigint("organization_id", { mode: "bigint" })
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
     userId: bigint("user_id", { mode: "bigint" })
@@ -214,9 +214,9 @@ export const userWorkspaceModulePreferences = cosaSchema.table(
 // đảm bảo status_override không bao giờ là 'AVAILABLE' — operator chỉ hạ cấp
 // hoặc bật PILOT per-workspace.
 export const workspaceSurfaceOverrides = cosaSchema.table(
-  "workspace_surface_overrides",
+  "organization_surface_overrides",
   {
-    workspaceId: bigint("workspace_id", { mode: "bigint" })
+    workspaceId: bigint("organization_id", { mode: "bigint" })
       .notNull()
       .references(() => workspaces.id, { onDelete: "cascade" }),
     surfaceKey: text("surface_key").notNull(),

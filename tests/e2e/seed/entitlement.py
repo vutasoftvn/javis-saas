@@ -3,14 +3,14 @@
 Discovery (2026-09-02):
 
 - Nguồn sự thật cho "workspace X được phép dùng tool prefix Y" ở COSA Control
-  Plane là bảng `cosa.workspace_agent_policy` (migration
+  Plane là bảng `cosa.organization_agent_policy` (migration
   `26_workspace_agent_policy_and_drop_legacy_companies.up.sql`): cột
-  `platform_workspace_id`, `tool_pattern`, `decision IN ('ALLOW',
-  'REQUIRE_APPROVAL','DENY')`, UNIQUE `(platform_workspace_id, tool_pattern)`.
+  `organization_id`, `tool_pattern`, `decision IN ('ALLOW',
+  'REQUIRE_APPROVAL','DENY')`, UNIQUE `(organization_id, tool_pattern)`.
   `services/cosa/services/agent-policy.service.ts::getTenantPolicyForTool` khớp
   `tool_pattern` kết thúc `.*` theo prefix — nên grant = upsert 1 hàng
   `"<prefix>.*" -> ALLOW`.
-- `platform_workspace_id` có FK tới `cosa.platform_workspaces(id)` (view alias
+- `organization_id` có FK tới `cosa.platform_workspaces(id)` (view alias
   của `cosa.organizations`), và `cosa.organizations.owner_user_id` FK tới
   `cosa.users(id)`. Workspace do `POST /identity/_e2e/session` tạo chỉ tồn tại
   trong DB `workspace` của company, chưa có hàng tương ứng ở cosa — nên hàm này
@@ -38,7 +38,7 @@ def _snowflake() -> int:
 def grant_entitlement(
     cluster: DisposableCluster, workspace_id: str, capability_prefix: str
 ) -> None:
-    """Upsert `cosa.workspace_agent_policy`: `"<capability_prefix>.*" -> ALLOW`
+    """Upsert `cosa.organization_agent_policy`: `"<capability_prefix>.*" -> ALLOW`
     cho `workspace_id`. Idempotent — gọi lại với cùng tham số chỉ `DO UPDATE`.
 
     Deviation so với brief: chữ ký là `grant_entitlement(cluster, workspace_id,
@@ -78,10 +78,10 @@ def grant_entitlement(
 
             cur.execute(
                 """
-                INSERT INTO cosa.workspace_agent_policy
-                    (id, platform_workspace_id, tool_pattern, decision)
+                INSERT INTO cosa.organization_agent_policy
+                    (id, organization_id, tool_pattern, decision)
                 VALUES (%s, %s, %s, 'ALLOW')
-                ON CONFLICT (platform_workspace_id, tool_pattern)
+                ON CONFLICT (organization_id, tool_pattern)
                 DO UPDATE SET decision = EXCLUDED.decision, updated_at = now()
                 """,
                 (_snowflake(), wid, tool_pattern),

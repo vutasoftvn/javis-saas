@@ -74,7 +74,7 @@ export function assertOpaqueEnvelope(envelope: Record<string, unknown>): void {
 function rowFrom(r: Record<string, unknown>): AutomationDispatchRow {
   return {
     invocationId: String(r.invocation_id),
-    workspaceId: String(r.workspace_id),
+    workspaceId: String(r.organization_id),
     automationKey: String(r.automation_key),
     revision: Number(r.revision),
     revisionHash: String(r.revision_hash),
@@ -96,7 +96,7 @@ export async function recordAutomationDispatch(
   assertOpaqueEnvelope(envelope as unknown as Record<string, unknown>);
   const res = await db.execute(sql`
     INSERT INTO control_plane.automation_dispatches
-      (invocation_id, workspace_id, automation_key, revision, revision_hash,
+      (invocation_id, organization_id, automation_key, revision, revision_hash,
        trigger_kind, trigger_identity, correlation_id, state)
     VALUES
       (${envelope.invocation_id}, ${envelope.workspace_id}, ${envelope.automation_key},

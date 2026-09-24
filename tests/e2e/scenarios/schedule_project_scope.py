@@ -24,7 +24,7 @@ Luồng (không mock, không skip, process THẬT — cùng pattern với S2
    schedule (Task 5 của plan, thay `_resolve_workspace_project_id` cũ đã
    xoá) → check run-authority đúng Project A → gọi tenant-policy snapshot.
 4. Bằng chứng đọc từ DB thật (KHÔNG dựa vào log):
-   - `control_plane.workspace_schedule_executions.project_id_snapshot` = A
+   - `control_plane.organization_schedule_executions.project_id_snapshot` = A
      (chốt lúc TẠO schedule — Task 1-4 của plan).
    - `agent_conversation.run_stream_events.project_id` của (các) event thuộc
      đúng `run_id` này = A, KHÔNG BAO GIỜ = B (chốt lúc WORKER thực thi —
@@ -116,7 +116,7 @@ def run(stack: MvpStack, seeded: SeededWorkspace, cluster: DisposableCluster) ->
         execution_row = _row(
             cosa_dsn,
             "SELECT project_id_snapshot, run_id, conversation_id, state "
-            "FROM control_plane.workspace_schedule_executions WHERE id = %s",
+            "FROM control_plane.organization_schedule_executions WHERE id = %s",
             (execution_id,),
         )
         if execution_row and execution_row[1] and execution_row[2]:
@@ -145,7 +145,7 @@ def run(stack: MvpStack, seeded: SeededWorkspace, cluster: DisposableCluster) ->
     while time.monotonic() < deadline:
         state_row = _row(
             cosa_dsn,
-            "SELECT state FROM control_plane.workspace_schedule_executions WHERE id = %s",
+            "SELECT state FROM control_plane.organization_schedule_executions WHERE id = %s",
             (execution_id,),
         )
         if state_row and state_row[0] in ("succeeded", "failed"):
@@ -194,7 +194,7 @@ def run(stack: MvpStack, seeded: SeededWorkspace, cluster: DisposableCluster) ->
     # 7. Đảm bảo đúng 1 run duy nhất cho execution này
     run_count_row = _row(
         cosa_dsn,
-        "SELECT count(*) FROM control_plane.workspace_schedule_executions WHERE id = %s AND run_id IS NOT NULL",
+        "SELECT count(*) FROM control_plane.organization_schedule_executions WHERE id = %s AND run_id IS NOT NULL",
         (execution_id,),
     )
     assert run_count_row is not None and run_count_row[0] == 1

@@ -122,6 +122,7 @@ def add_member(
     )
     member_platform_user_id, _email, _pw = register_user(platform_base_url)
     _link_platform_user(cluster, member_user_id, member_platform_user_id)
+    project_cosa_identity(cluster, member_platform_user_id, owner_workspace_id, role)
 
     conn = psycopg2.connect(cluster.workspace_app_url, connect_timeout=10)
     try:
@@ -390,6 +391,37 @@ def seed_operations_ready_project(
     return project_id
 
 
+def project_cosa_identity(
+    cluster: DisposableCluster, platform_user_id: str, workspace_id: str, role: str = "founder"
+) -> None:
+    """Chiếu user + organization + membership vào DB `cosa` (bản chiếu của backend/core).
+
+    Danh tính do backend/core cấp và chiếu vào COSA khi user đăng nhập; e2e không có core thật nên seed trực
+    tiếp cùng id với Company để các endpoint control-plane (locale-snapshot, agent-policy...) tìm thấy user.
+    """
+    import psycopg2
+
+    conn = psycopg2.connect(cluster.cosa_app_url, connect_timeout=10)
+    try:
+        with conn, conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO cosa.users (id, email) VALUES (%s, %s) ON CONFLICT (id) DO NOTHING",
+                (int(platform_user_id), f"e2e-{platform_user_id}@example.test"),
+            )
+            cur.execute(
+                "INSERT INTO cosa.organizations (id, organization_name, owner_user_id) VALUES (%s, %s, %s) "
+                "ON CONFLICT (id) DO NOTHING",
+                (int(workspace_id), f"E2E org {workspace_id}", int(platform_user_id)),
+            )
+            cur.execute(
+                "INSERT INTO cosa.organization_memberships (id, organization_id, user_id, role) VALUES (%s, %s, %s, %s) "
+                "ON CONFLICT DO NOTHING",
+                (_snowflake(), int(workspace_id), int(platform_user_id), role),
+            )
+    finally:
+        conn.close()
+
+
 def seed_workspace(
     stack, cluster: DisposableCluster, *, with_member: bool = False
 ) -> SeededWorkspace:
@@ -400,6 +432,7 @@ def seed_workspace(
     )
     owner_platform_user_id, _owner_email, _owner_pw = register_user(stack.platform.base_url)
     _link_platform_user(cluster, owner_user_id, owner_platform_user_id)
+    project_cosa_identity(cluster, owner_platform_user_id, workspace_id)
     seed_workforce_founder(cluster, workspace_id, owner_user_id)
     default_proj_id = seed_default_project(cluster, workspace_id)
 

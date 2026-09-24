@@ -43,7 +43,7 @@ def test_s2_dispatch_worker_result(real_cosa_stack, disposable_cluster) -> None:
 
 
 def test_s3_capability_governance(real_cosa_stack, disposable_cluster) -> None:
-    # S3: entitlement `cosa.workspace_agent_policy` ghi thật cross-plane (keyed
+    # S3: entitlement `cosa.organization_agent_policy` ghi thật cross-plane (keyed
     # theo workspace company); biên auth apps/cosa trước capability pipeline;
     # governance path — bridge token B5 đã vá (Task 0) nên run chạy trọn tới
     # `run.completed`; token company thô vẫn bị policy-snapshot endpoint từ chối
@@ -62,26 +62,26 @@ def test_s4_outbox_relay(real_cosa_stack, disposable_cluster) -> None:
 
 
 def test_s7_policy_snapshot_tenant(real_cosa_stack, disposable_cluster) -> None:
-    # S7: cô lập tenant của policy snapshot. `register_user` + `control_plane_delegation`
-    # mint delegation JWT (gateway phải từ chối 401); 3 workspace company
-    # với nội dung `cosa.workspace_agent_policy` khác nhau (operations / finance /
-    # không grant). B5-independent: gateway auth gate + fail-closed tại chặng
-    # verify membership cross-plane. Nhánh 200 (cô lập `rules` theo tenant qua
-    # wire) là DORMANT tới khi cầu nối token cosa<->company landed — xem docstring
+    # S7: cô lập tenant của policy snapshot — 200 với delegation đúng workspace (rules theo tenant),
+    # 401 khi thiếu/rác bearer, 403 khi dùng delegation của workspace khác. Xem
     # `tests/e2e/scenarios/policy_snapshot_tenant.py`.
     uid, _email, _pw = identity.register_user()
 
     seeded_ops = identity.seed_workspace(real_cosa_stack, disposable_cluster)
     seeded_fin = identity.seed_workspace(real_cosa_stack, disposable_cluster)
     seeded_bare = identity.seed_workspace(real_cosa_stack, disposable_cluster)
-    delegation_token = identity.control_plane_delegation(uid, seeded_ops.workspace_id)
+    for seeded in (seeded_ops, seeded_fin, seeded_bare):
+        identity.project_cosa_identity(disposable_cluster, uid, seeded.workspace_id)
+
+    def delegation_for(workspace_id: str) -> str:
+        return identity.control_plane_delegation(uid, workspace_id)
     entitlement.grant_entitlement(disposable_cluster, seeded_ops.workspace_id, "operations")
     entitlement.grant_entitlement(disposable_cluster, seeded_fin.workspace_id, "finance")
 
     policy_snapshot_tenant.run(
         real_cosa_stack,
         disposable_cluster,
-        delegation_token,
+        delegation_for,
         seeded_ops,
         seeded_fin,
         seeded_bare,
