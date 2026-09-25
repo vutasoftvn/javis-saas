@@ -272,3 +272,30 @@ Thứ tự: 1 → 2 → 3 → 4 → 5 → 6 → 7. Task 1–5 cùng vùng delibe
 vi chat ở SHADOW) — chỉ merge sau khi D1 được chốt; rollback = revert commit
 (không có migration). Task 7 có đổi contract API — chạy
 `contract-freeze-check` trước khi commit.
+
+---
+
+## 6. Trạng thái thực thi (2026-09-25)
+
+Founder chấp thuận D1–D4 theo đề xuất mặc định.
+
+| Task | Trạng thái | Ghi chú |
+|---|---|---|
+| 1 | DONE | `getDeliberationAuthority` trả `existingAnalysis`; worker bỏ qua role đã ghi (`ALREADY_RECORDED`). |
+| 2 | DONE | Outcome FAILED từ Office đã tắt được ghi; COMPLETED vẫn bị từ chối. |
+| 3 | DONE (Company + UI chip/huỷ) | UI **chưa có luồng frame** (chỉ tạo draft) nên không thêm nút "Frame lại" — re-frame hiện chỉ qua API. |
+| 4 | DONE | `criticRequired=true` → `CRITIC_REVIEW_NOT_AVAILABLE`; bỏ `criticRequired` khỏi Flutter service; UI cho quyết định ở `CRITIC_REVIEW` (dữ liệu cũ). |
+| 5 | DONE | APPROVE/MODIFY/REJECT chỉ ở `AWAITING_FOUNDER`/`CRITIC_REVIEW`; test cũ đã sửa đi qua callback. |
+| 6 | DONE | `resolveChatRunAuthority` (mode-aware) thay `getProjectAgentRunAuthority` ở endpoint run-authority; path/shape response giữ nguyên. |
+| 7 | DONE (backend) | `p0CoreBootstrap: COMPLETE/INCOMPLETE` trong response tạo Project. Banner Flutter **chưa làm** — Board đã có action repair `p0CoreBootstrapAvailable`. |
+
+Kiểm chứng đã chạy:
+- Company: toàn bộ vitest (1657 pass; 1 fail `finance-legal/tests/cas-link.test.ts` có sẵn trên base) + `tsc --noEmit`.
+  18/24 test mới FAIL trên code gốc, 6 test còn lại là test giữ hành vi cũ.
+- `make apps-cosa-test` (1266 pass, coverage 83.26%), `make typecheck-py`, `make lint`,
+  `make boundary-check company-boundary-check encore-handler-boundary-check ts-suppression-check route-auth-allowlist-check frontend-api-contract-check contract-freeze-check`.
+- Flutter: `flutter test` toàn bộ (935 pass), `flutter analyze` sạch; 2 test mới FAIL trên view gốc.
+- `make agent-test`: 3 fail + coverage 78.88% — giống hệt base (cần Postgres Agent Platform), `packages/agent` không bị sửa.
+
+**Chưa kiểm chứng:** kịch bản E2E retry qua process thật (§3) — cần `encore run`
+(Encore CLI), không cài được trong môi trường thực thi. Chưa viết test E2E đó.
