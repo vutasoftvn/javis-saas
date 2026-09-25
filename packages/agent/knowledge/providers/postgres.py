@@ -8,6 +8,11 @@ from sqlalchemy import text
 
 from agent.knowledge.models import CitationProvenance, KnowledgeChunk, KnowledgeDocument
 
+
+def _optional_str(value: Any) -> str | None:
+    return None if value is None else str(value)
+
+
 __all__ = ["PostgresKnowledgeStore"]
 
 
@@ -219,7 +224,8 @@ class PostgresKnowledgeStore:
                     await session.execute(
                         text(
                             """
-                        SELECT id, workspace_id, title, source_type, uri, authority_class, status, metadata, created_at
+                        SELECT id, workspace_id, title, source_type, uri, authority_class, status, metadata, created_at,
+                               vault_document_id, vault_version_id, access_policy_version
                         FROM knowledge.knowledge_sources
                         WHERE id = :id AND workspace_id = :ws
                         """
@@ -281,6 +287,11 @@ class PostgresKnowledgeStore:
                 chunks=chunks,
                 metadata=self._parse_json(src_row["metadata"]) or {},
                 created_at=src_row["created_at"],
+                # Provenance Vault: thiếu thì citation trả nhầm id knowledge source
+                # thay cho id Vault document/version (lệch với InMemoryKnowledgeStore).
+                vault_document_id=_optional_str(src_row["vault_document_id"]),
+                vault_version_id=_optional_str(src_row["vault_version_id"]),
+                access_policy_version=src_row["access_policy_version"],
             )
 
     async def search_chunks(
