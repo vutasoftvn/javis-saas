@@ -51,9 +51,10 @@ services:
     restart: unless-stopped
 
   minio:
-    # Repo minio/minio trên Docker Hub đã bị gỡ (pull trả 404); dùng mirror
-    # chính thức trên quay.io, ghim cùng tag với deploy/central_vps.
-    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
+    # MinIO ngừng phát hành image công khai (minio/minio trên Docker Hub trả
+    # 404, quay.io trả unauthorized). pgsty/minio là fork cộng đồng thay thế
+    # trực tiếp (cùng entrypoint); ghim release cụ thể.
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
     container_name: cosa_minio
     ports:
       - "127.0.0.1:9000:9000"
