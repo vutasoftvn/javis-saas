@@ -334,7 +334,15 @@ jobs:
         with:
           python-version: '3.11'
           cache: pip
-          cache-dependency-path: packages/agent/requirements.txt
+          cache-dependency-path: |
+            requirements-dev.txt
+            packages/agent/requirements.txt
+            apps/cosa/requirements.txt
+      # make tenancy-check chạy pytest tests/agent + test_tenant_isolation bằng
+      # python hệ thống (runner không có .venv) — phải cài deps trước.
+      - run: |
+          pip install --require-hashes -r packages/agent/requirements.txt -r apps/cosa/requirements.txt
+          pip install -r requirements-dev.txt pytest pytest-asyncio
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
