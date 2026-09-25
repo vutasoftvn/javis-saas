@@ -120,11 +120,17 @@ export async function createCoreOrganization(
  * Core chỉ nhận role member/admin/viewer và idempotent: người đã là thành viên giữ nguyên role,
  * response trả role hiện tại để COSA đồng bộ bản chiếu.
  */
+/** Kết quả cấp membership ở core; `membershipVersion` có khi core trả về. */
+export interface CoreMembershipGrant {
+  role: string;
+  membershipVersion?: number;
+}
+
 export async function grantCoreMembership(
   organizationId: string,
   userId: string,
   role: string
-): Promise<{ role: string }> {
+): Promise<CoreMembershipGrant> {
   const authorization = getBasicAuthHeader();
   const url = `${getCoreBaseUrl()}/internal/organizations/${encodeURIComponent(organizationId)}/members`;
 
@@ -151,8 +157,11 @@ export async function grantCoreMembership(
     throw APIError.unavailable(`core membership grant failed with status ${response.status}`);
   }
 
-  const body = (await response.json()) as { role?: string };
-  return { role: body.role ?? role };
+  const body = (await response.json()) as { role?: string; membershipVersion?: number };
+  return {
+    role: body.role ?? role,
+    ...(typeof body.membershipVersion === "number" ? { membershipVersion: body.membershipVersion } : {}),
+  };
 }
 
 export async function authorizeCoreOrganizationAction(
