@@ -161,6 +161,12 @@ services:
     environment:
       - WORKSPACE_DATABASE_URL=${SERVICES_COMPANY_WORKSPACE_DATABASE_URL:-postgresql://workspace_app:${WORKSPACE_APP_PASSWORD:-change-me-workspace-app}@postgres:5432/workspace?sslmode=disable}
       - E2E_TEST_SEED_ENABLED=${E2E_TEST_SEED_ENABLED:-}
+      # Verifier worker của Company fail-closed khi thiếu secret (>= 32 ký tự).
+      - WORKER_SERVICE_JWT_SECRET=${WORKER_SERVICE_JWT_SECRET:?WORKER_SERVICE_JWT_SECRET is required}
+      # Relay outbox → cosa-api intake qua tên service Docker (mặc định 127.0.0.1:8000
+      # là chính container này), giống deploy/central_vps/docker-compose.prod.yaml.
+      - COSA_INTERNAL_URL=${SERVICES_COMPANY_COSA_INTERNAL_URL:-http://cosa-api:8000}
+      - COSA_AGENTOS_INTAKE_URL=${SERVICES_COMPANY_COSA_AGENTOS_INTAKE_URL:-http://cosa-api:8000}
     depends_on:
       postgres:
         condition: service_healthy
