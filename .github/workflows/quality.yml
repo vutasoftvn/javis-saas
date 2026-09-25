@@ -709,6 +709,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Bootstrap canonical database roles and databases
+        # Mật khẩu role PHẢI khớp _APP_PWD / _MIG_PWD hard-code trong
+        # tests/e2e/stack/disposable_postgres.py — các test durability tạo
+        # disposable cluster dùng lại chính các role này.
         run: scripts/bootstrap-postgres-cluster.sh
         env:
           PGHOST: 127.0.0.1
@@ -716,12 +719,12 @@ jobs:
           PGUSER: postgres
           PGDATABASE: postgres
           PGPASSWORD: postgres
-          AGENT_APP_PASSWORD: ci-agent-app
-          AGENT_MIGRATOR_PASSWORD: ci-agent-migrator
-          COSA_APP_PASSWORD: ci-cosa-app
-          COSA_MIGRATOR_PASSWORD: ci-cosa-migrator
-          WORKSPACE_APP_PASSWORD: ci-workspace-app
-          WORKSPACE_MIGRATOR_PASSWORD: ci-workspace-migrator
+          AGENT_APP_PASSWORD: change-me-agent-app
+          AGENT_MIGRATOR_PASSWORD: change-me-agent-migrator
+          COSA_APP_PASSWORD: change-me-cosa-app
+          COSA_MIGRATOR_PASSWORD: change-me-cosa-migrator
+          WORKSPACE_APP_PASSWORD: change-me-workspace-app
+          WORKSPACE_MIGRATOR_PASSWORD: change-me-workspace-migrator
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -736,7 +739,7 @@ jobs:
       - name: Apply agent database migrations
         run: PYTHONPATH=. python -m packages.agent.scripts.migrate
         env:
-          AGENT_MIGRATOR_DATABASE_URL: postgresql+asyncpg://agent_migrator:ci-agent-migrator@127.0.0.1:5432/agent
+          AGENT_MIGRATOR_DATABASE_URL: postgresql+asyncpg://agent_migrator:change-me-agent-migrator@127.0.0.1:5432/agent
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -750,7 +753,7 @@ jobs:
         run: node scripts/migrate.mjs
         working-directory: services/cosa
         env:
-          COSA_MIGRATOR_DATABASE_URL: postgresql://cosa_migrator:ci-cosa-migrator@127.0.0.1:5432/cosa?sslmode=disable
+          COSA_MIGRATOR_DATABASE_URL: postgresql://cosa_migrator:change-me-cosa-migrator@127.0.0.1:5432/cosa?sslmode=disable
       - run: mkdir -p test-results
       - name: Run cross-process crash recovery and lease mutual exclusion durability tests
         # LEASE_INTEGRATION_TEST=1 — mỗi test tự tạo disposable Postgres cluster
@@ -767,10 +770,10 @@ jobs:
           PGPORT: "5432"
           PGUSER: postgres
           PGPASSWORD: postgres
-          AGENT_TEST_DATABASE_URL: postgresql+asyncpg://agent_app:ci-agent-app@127.0.0.1:5432/agent
-          AGENT_DATABASE_URL: postgresql+asyncpg://agent_app:ci-agent-app@127.0.0.1:5432/agent
-          COSA_DATABASE_URL: postgresql://cosa_app:ci-cosa-app@127.0.0.1:5432/cosa?sslmode=disable
-          COSA_TEST_DATABASE_URL: postgresql://cosa_app:ci-cosa-app@127.0.0.1:5432/cosa?sslmode=disable
+          AGENT_TEST_DATABASE_URL: postgresql+asyncpg://agent_app:change-me-agent-app@127.0.0.1:5432/agent
+          AGENT_DATABASE_URL: postgresql+asyncpg://agent_app:change-me-agent-app@127.0.0.1:5432/agent
+          COSA_DATABASE_URL: postgresql://cosa_app:change-me-cosa-app@127.0.0.1:5432/cosa?sslmode=disable
+          COSA_TEST_DATABASE_URL: postgresql://cosa_app:change-me-cosa-app@127.0.0.1:5432/cosa?sslmode=disable
           WORKER_SERVICE_JWT_SECRET: cosa-worker-service-jwt-key-change-in-prod-min32chars
       - uses: actions/upload-artifact@v4
         if: always()
