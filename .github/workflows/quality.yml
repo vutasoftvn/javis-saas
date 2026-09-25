@@ -757,6 +757,9 @@ jobs:
           echo "$HOME/.encore/bin" >> "$GITHUB_PATH"
       - run: npm ci
         working-directory: services/cosa
+      # Fixture disposable_cluster chạy cả migrate.mjs của services/company.
+      - run: npm ci
+        working-directory: services/company
       - name: Apply services/cosa (control-plane) database migrations
         run: node scripts/migrate.mjs
         working-directory: services/cosa
