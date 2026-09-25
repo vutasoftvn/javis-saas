@@ -1059,6 +1059,11 @@ jobs:
         working-directory: services/cosa
       - run: npm ci
         working-directory: services/company
+      # test_caio_ai_governance_profile.py boot services qua `encore run` trên host.
+      - name: Install Encore CLI
+        run: |
+          curl -L https://encore.dev/install.sh | bash
+          echo "$HOME/.encore/bin" >> "$GITHUB_PATH"
       - name: Materialize .env.e2e
         run: cp .env.e2e.example .env.e2e
       - name: Run E2E Golden Path test suite
