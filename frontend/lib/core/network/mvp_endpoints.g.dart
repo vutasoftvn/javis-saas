@@ -199,7 +199,7 @@ enum MvpEndpoint {
     enabled: true,
     plane: ApiPlane.company,
     method: 'GET',
-    path: '/finance/snapshots/latest',
+    path: '/finance-legal/snapshots/latest',
     requiresWorkspace: true,
     requiresProject: false,
   ),

@@ -1,5 +1,5 @@
 import { APIError } from "encore.dev/api";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
 
 const { identityUserProjections, identityWorkspaceMemberships } = schema;
@@ -12,7 +12,13 @@ export interface MeResponse {
   role: string | null;
 }
 
-export async function getMeProfile(userIdStr: string): Promise<MeResponse> {
+/**
+ * Hồ sơ user kèm membership của workspace ĐANG CHỌN (header X-Workspace-Id).
+ * Trước đây luôn trả membership active đầu tiên (không ORDER BY), nên user có
+ * nhiều workspace nhận nhầm workspace/role và frontend báo "không khớp".
+ * Không truyền workspace thì fallback membership active cũ nhất (ổn định).
+ */
+export async function getMeProfile(userIdStr: string, workspaceIdStr?: string): Promise<MeResponse> {
   const userId = BigInt(userIdStr);
   const [userRow] = await db
     .select({
@@ -26,6 +32,15 @@ export async function getMeProfile(userIdStr: string): Promise<MeResponse> {
 
   if (!userRow) throw APIError.notFound("user not found");
 
+  let requestedWorkspaceId: bigint | undefined;
+  if (workspaceIdStr && workspaceIdStr.trim() !== "") {
+    try {
+      requestedWorkspaceId = BigInt(workspaceIdStr.trim());
+    } catch {
+      throw APIError.invalidArgument("X-Workspace-Id must be a numeric id");
+    }
+  }
+
   const [membershipRow] = await db
     .select({
       workspaceId: identityWorkspaceMemberships.workspaceId,
@@ -35,10 +50,18 @@ export async function getMeProfile(userIdStr: string): Promise<MeResponse> {
     .where(
       and(
         eq(identityWorkspaceMemberships.userId, userId),
-        eq(identityWorkspaceMemberships.membershipState, "active")
+        eq(identityWorkspaceMemberships.membershipState, "active"),
+        requestedWorkspaceId !== undefined
+          ? eq(identityWorkspaceMemberships.workspaceId, requestedWorkspaceId)
+          : undefined
       )
     )
+    .orderBy(asc(identityWorkspaceMemberships.createdAt))
     .limit(1);
+
+  if (requestedWorkspaceId !== undefined && !membershipRow) {
+    throw APIError.permissionDenied(`user không thuộc workspace ${workspaceIdStr}`);
+  }
 
   return {
     id: userRow.id.toString(),

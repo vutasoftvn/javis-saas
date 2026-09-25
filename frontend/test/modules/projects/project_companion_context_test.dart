@@ -86,7 +86,7 @@ void main() {
 
       expect(capturedRequest, isNotNull);
       expect(capturedRequest!.url.queryParameters['projectId'], 'proj-123');
-      expect(capturedRequest!.url.queryParameters['workspace_id'], '1001');
+      expect(capturedRequest!.url.queryParameters['workspaceId'], '1001');
     });
 
     test('createOpportunity passes projectId in request body', () async {

@@ -367,7 +367,7 @@ export const MVP_CAPABILITIES: readonly MvpCapabilityMetadata[] = [
     owner: "company-finance",
     plane: "company",
     method: "GET",
-    path: "/finance/snapshots/latest",
+    path: "/finance-legal/snapshots/latest",
     schema: "finance.snapshot.latest.v1",
     sourceKind: "company_db",
     requiresWorkspace: true,

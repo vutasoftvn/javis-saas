@@ -66,7 +66,7 @@ class SalesService extends WorkspaceService {
     final wId = await stringWorkspaceId() ?? '1';
     try {
       final pQuery = projectId != null ? '&projectId=$projectId' : '';
-      final response = await ApiClient.get('/commercial/leads?workspace_id=$wId$pQuery');
+      final response = await ApiClient.get('/commercial/leads?workspaceId=$wId$pQuery');
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
         return data is Map && data['leads'] is List ? data['leads'] as List<dynamic> : const [];

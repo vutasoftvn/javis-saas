@@ -49,7 +49,7 @@ class FinanceService extends WorkspaceService {
     final wId = await stringWorkspaceId();
     if (wId == null || wId.isEmpty) return null;
     try {
-      final response = await ApiClient.get('/finance-legal/snapshots/latest?workspace_id=$wId');
+      final response = await ApiClient.get('/finance-legal/snapshots/latest?workspaceId=$wId');
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
         if (data is Map<String, dynamic>) {
