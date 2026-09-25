@@ -180,3 +180,85 @@ async def test_payload_requires_workspace_project_and_deliberation():
         await execute_executive_deliberation_framed_task(
             plane, None, make_payload(project_id=None)
         )
+
+
+def _completed_outcome(role_key: str) -> ExecutiveAnalysisOutcome:
+    return ExecutiveAnalysisOutcome(
+        kind="executive.analysis.completed.v1",
+        deliberation_id="delib-1",
+        frame_version=1,
+        role_key=role_key,
+        descriptor={"conclusion": f"{role_key} ok", "confidence": 0.8},
+    )
+
+
+@pytest.mark.asyncio
+async def test_role_already_recorded_by_company_is_skipped_without_model_call_or_callback():
+    # Retry task: Company đã ghi analysis cho role này ở lần chạy trước — chạy lại sẽ
+    # sinh run_id mới và Company từ chối EXECUTIVE_CALLBACK_CONFLICT, làm task kẹt.
+    runner = MagicMock()
+    runner.run = AsyncMock()
+    plane = make_plane(runner)
+
+    async def authority(**kwargs):
+        return {
+            "rolePin": camel_pin(kwargs["role_key"]),
+            "existingAnalysis": {"status": "COMPLETED"},
+        }
+
+    plane.executive_board_client.get_deliberation_authority = AsyncMock(side_effect=authority)
+
+    res = await execute_executive_deliberation_framed_task(plane, None, make_payload())
+
+    runner.run.assert_not_awaited()
+    plane.executive_board_client.submit_analysis_callback.assert_not_awaited()
+    assert res["results"] == [{"role_key": "cfo", "outcome": "ALREADY_RECORDED"}]
+    assert all("error" not in r for r in res["results"])
+
+
+@pytest.mark.asyncio
+async def test_retry_after_partial_callback_failure_only_reruns_missing_roles():
+    from apps.cosa.company.executive_board_client import ExecutiveBoardClientError
+
+    recorded: set[str] = set()
+    fail_once = {"cmo"}
+
+    async def authority(**kwargs):
+        role = kwargs["role_key"]
+        body: dict = {"rolePin": camel_pin(role)}
+        body["existingAnalysis"] = {"status": "COMPLETED"} if role in recorded else None
+        return body
+
+    async def callback(**kwargs):
+        role = kwargs["payload"]["role_key"]
+        if role in fail_once:
+            fail_once.discard(role)
+            raise ExecutiveBoardClientError("Company service unreachable: reset")
+        recorded.add(role)
+        return {"success": True}
+
+    runner = MagicMock()
+    runner.run = AsyncMock(side_effect=lambda req: _completed_outcome(req.role_key))
+    plane = make_plane(runner)
+    plane.executive_board_client.get_deliberation_authority = AsyncMock(side_effect=authority)
+    plane.executive_board_client.submit_analysis_callback = AsyncMock(side_effect=callback)
+    payload = make_payload(selected_roles=[camel_pin("cfo"), camel_pin("cmo")])
+
+    first = await execute_executive_deliberation_framed_task(plane, None, payload)
+    assert [r for r in first["results"] if "error" in r] == [
+        {
+            "role_key": "cmo",
+            "outcome": "CALLBACK_FAILED",
+            "error": "Company service unreachable: reset",
+        }
+    ]
+
+    runner.run.reset_mock()
+    second = await execute_executive_deliberation_framed_task(plane, None, payload)
+
+    assert [c.args[0].role_key for c in runner.run.await_args_list] == ["cmo"]
+    assert second["results"] == [
+        {"role_key": "cfo", "outcome": "ALREADY_RECORDED"},
+        {"role_key": "cmo", "outcome": "executive.analysis.completed.v1"},
+    ]
+    assert recorded == {"cfo", "cmo"}

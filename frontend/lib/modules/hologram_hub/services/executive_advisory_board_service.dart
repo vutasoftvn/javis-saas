@@ -127,7 +127,6 @@ class ExecutiveAdvisoryBoardService {
     int? expectedVersion,
     String? deliberationType,
     String? deadline,
-    bool? criticRequired,
     String? idempotencyKey,
   }) async {
     return _client.request<ExecutiveDeliberation>(
@@ -142,7 +141,6 @@ class ExecutiveAdvisoryBoardService {
         'expectedVersion': ?expectedVersion,
         'deliberationType': ?deliberationType,
         'deadline': ?deadline,
-        'criticRequired': ?criticRequired,
         'idempotencyKey': ?idempotencyKey,
       },
       decode: (raw) {

@@ -76,6 +76,7 @@ interface DeliberationAuthorityResult {
   rolePin: Record<string, any>;
   question: string;
   evidenceSources: Array<Record<string, any>>;
+  existingAnalysis: { status: string } | null;
 }
 
 export const getDeliberationAuthorityApi = api(

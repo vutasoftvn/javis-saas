@@ -117,7 +117,8 @@ async def _analyze_role(
     pin: SelectedAdvisorExecutionPin,
     workspace_id: Any,
     project_id: Any,
-) -> ExecutiveAnalysisOutcome:
+) -> ExecutiveAnalysisOutcome | None:
+    """Trả None khi Company đã ghi analysis cho role/frame này (task đang retry)."""
     deliberation_id = request.deliberation_id
     frame_version = request.frame_version
     role_key = request.role_key
@@ -136,6 +137,10 @@ async def _analyze_role(
         return _failed_outcome(pin, deliberation_id, frame_version, f"AUTHORITY_DENIED: {exc}")
     except ExecutiveBoardClientError as exc:
         return _failed_outcome(pin, deliberation_id, frame_version, f"AUTHORITY_UNAVAILABLE: {exc}")
+    # Retry sau khi 1 role khác lỗi callback: role đã ghi thì bỏ qua. Chạy lại sẽ sinh
+    # run_id/descriptor mới và Company từ chối EXECUTIVE_CALLBACK_CONFLICT → task kẹt.
+    if authority.get("existingAnalysis"):
+        return None
     if not _authority_pin_matches(authority.get("rolePin"), pin):
         return _failed_outcome(
             pin,
@@ -236,6 +241,9 @@ async def execute_executive_deliberation_framed_task(
         outcome = await _analyze_role(
             client, runner, request, execution_pin, workspace_id, project_id
         )
+        if outcome is None:
+            results.append({"role_key": role_key, "outcome": "ALREADY_RECORDED"})
+            continue
 
         # Gửi callback về Company internal endpoint
         # exclude_none: Encore từ chối `null` cho field optional (descriptor/error_detail...).

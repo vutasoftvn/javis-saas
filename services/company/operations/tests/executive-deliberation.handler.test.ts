@@ -14,6 +14,7 @@ import {
 } from "../handlers/executive-deliberation.handler";
 import { activateWorkspaceExecutiveRole } from "../services/workspace-executive-role-activation.service";
 import { TenantContext } from "../../shared/types/tenant_context";
+import { completeAllAnalyses } from "./_deliberation-helpers";
 
 // COSA Control Plane là app khác — giả lập đúng catalog generated (xem executive-deliberation.service.test.ts).
 vi.mock("../services/advisor-overlay.client", () => ({
@@ -31,6 +32,7 @@ describe("Executive Deliberation Handler", () => {
   let workspaceId: string;
   let projectId: string;
   let foreignProjectId: string;
+  let founderCtx: TenantContext;
 
   beforeEach(async () => {
     const ws = await createTestWorkspaceWithMember({ role: "founder" });
@@ -44,7 +46,7 @@ describe("Executive Deliberation Handler", () => {
     const member = await addMemberToWorkspace(workspaceId, "member");
     memberToken = member.bearerToken;
 
-    const founderCtx: TenantContext = {
+    founderCtx = {
       workspaceId,
       userId: ws.userId,
       membershipRole: "founder",
@@ -101,14 +103,33 @@ describe("Executive Deliberation Handler", () => {
     expect(details.title).toBe("Pricing Strategy Review");
     expect(details.activeFrame?.question).toBe("Should we raise enterprise tier price?");
 
-    // 5. Append decision
+    // 5. Worker trả phân tích → AWAITING_FOUNDER; quyết định trước đó bị từ chối.
+    await expect(
+      appendFounderDecisionApi({
+        authorization: founderToken,
+        workspaceId,
+        projectId,
+        deliberationId: draft.id,
+        decisionType: "APPROVE",
+      })
+    ).rejects.toThrow(/DELIBERATION_NOT_AWAITING_FOUNDER/);
+    await completeAllAnalyses(founderCtx, projectId, draft.id);
+    const awaiting = await getDeliberationApi({
+      authorization: founderToken,
+      workspaceId,
+      projectId,
+      deliberationId: draft.id,
+    });
+    expect(awaiting.state).toBe("AWAITING_FOUNDER");
+
+    // 6. Append decision
     const decision = await appendFounderDecisionApi({
       authorization: founderToken,
       workspaceId,
       projectId,
       deliberationId: draft.id,
       decisionType: "APPROVE",
-      expectedVersion: framed.version,
+      expectedVersion: awaiting.version,
       notes: "Approve 15% increase",
     });
     expect(decision.decisionType).toBe("APPROVE");

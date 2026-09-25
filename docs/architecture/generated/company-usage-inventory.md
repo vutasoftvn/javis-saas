@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 112 | 22 |
 | VALID_KEEP (giữ nguyên) | 131 | 36 |
-| REVIEW (chưa phân loại) | 1209 | 273 |
+| REVIEW (chưa phân loại) | 1211 | 273 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -63,6 +63,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/compliance/resolver.py | 12 |
 | frontend/lib/data/models/stage_model.dart | 12 |
 | frontend/lib/modules/auth/views/register_view.dart | 12 |
+| apps/cosa/worker/executive_board_handler.py | 10 |
 | frontend/lib/core/localization/app_translations.dart | 10 |
 | packages/agent/capabilities/readiness.py | 10 |
 | services/cosa/services/workspace-connector.service.ts | 10 |
@@ -80,7 +81,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/tests/test_people_risk_read.py | 8 |
 | apps/cosa/tests/test_product_decision_read.py | 8 |
 | apps/cosa/tests/test_security_posture_read.py | 8 |
-| apps/cosa/worker/executive_board_handler.py | 8 |
 | apps/cosa/worker/run_core.py | 8 |
 | services/company/operations/services/founder-asset-query.service.ts | 8 |
 | apps/cosa/auth/workspace_client.py | 7 |
