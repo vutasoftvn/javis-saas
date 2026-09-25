@@ -139,37 +139,34 @@ def control_plane_service(control_plane_dsn: str):
         stderr=subprocess.PIPE,
     )
 
-    max_retries = 40
-    retry_count = 0
+    # Chờ app trả lời HTTP thật: `encore run` mở cổng 4000 ngay, nhưng trong lúc
+    # app còn biên dịch/khởi động thì proxy trả 502 rỗng — chỉ mở được socket
+    # là chưa đủ (lần chạy đầu trên CI từng nhận 502 ở request install).
     control_plane_port = 4000
-    while retry_count < max_retries:
-        try:
-            import socket
-
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            result = sock.connect_ex(("127.0.0.1", control_plane_port))
-            sock.close()
-            if result == 0:
-                time.sleep(0.5)
-                break
-        except Exception:
-            pass
-
+    base_url = f"http://127.0.0.1:{control_plane_port}"
+    deadline = time.monotonic() + 180
+    ready = False
+    while time.monotonic() < deadline:
         if proc.poll() is not None:
             _, stderr = proc.communicate()
             raise RuntimeError(f"encore run died: {stderr.decode()}")
+        try:
+            probe = httpx.get(f"{base_url}/cosa/connectors/assert", timeout=2.0)
+            if probe.status_code not in (502, 503, 504):
+                ready = True
+                break
+        except httpx.HTTPError:
+            pass
+        time.sleep(1.0)
 
-        time.sleep(0.5)
-        retry_count += 1
-
-    if retry_count >= max_retries:
+    if not ready:
         proc.terminate()
         try:
             proc.wait(timeout=5)
         except subprocess.TimeoutExpired:
             proc.kill()
             proc.wait()
-        raise RuntimeError("Control-plane service didn't start within 20 seconds")
+        raise RuntimeError("Control-plane service didn't become ready within 180 seconds")
 
     try:
         yield f"http://127.0.0.1:{control_plane_port}"
