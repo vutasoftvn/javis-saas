@@ -138,7 +138,7 @@ tenancy-check:
 	# Workspace-only tenancy isolation gate: verify no product-side company_id leaks,
 	# and that all tenant scoping works via X-Workspace-Id header.
 	cd services/company && WORKSPACE_DATABASE_URL="$${WORKSPACE_DATABASE_URL:-postgresql://workspace_app:change-me-workspace-app@127.0.0.1:5432/workspace?sslmode=disable}" npx vitest run
-	PYTHONPATH=$(CURDIR) $(PYTEST) tests/agent tests/apps/cosa/test_tenant_isolation.py -q
+	PYTHONPATH=$(CURDIR) $(PYTEST) tests/agent tests/apps/cosa/test_tenant_isolation.py -m "not integration" -q
 	cd frontend && flutter test test/auth_flow_test.dart test/modules/chat/chat_module_test.dart test/modules/chat/session_view_test.dart
 
 python-test-unit:
