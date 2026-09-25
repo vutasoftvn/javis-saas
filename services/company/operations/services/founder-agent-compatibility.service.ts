@@ -9,6 +9,7 @@ import {
 } from "./ai-member.service";
 import {
   getProjectAgentRunAuthority,
+  requireRunnableStartupProfile,
   type ProjectAgentRunAuthority,
 } from "./project-startup-team.service";
 
@@ -347,4 +348,97 @@ export async function verifyUnderlyingAgentActive(
     .limit(1);
 
   return Boolean(assign && assign.state === "ACTIVE");
+}
+
+/**
+ * Run authority cho chat/agent run (endpoint internal `.../run-authority`).
+ *
+ * Trước 2026-09-25 đường này chỉ đọc legacy `project_agent_assignments`, còn
+ * Executive Board đọc V2 `project_agent_deployments` — pause/retire V2 không
+ * chặn được chat và ENFORCED không có tác dụng với chat. Quy tắc hiện hành:
+ *   - LEGACY: chỉ legacy (hành vi cũ).
+ *   - ENFORCED: chỉ V2 ACTIVE.
+ *   - SHADOW: V2 PAUSED/RETIRED luôn thắng (Founder đã tạm dừng tường minh);
+ *     còn lại ưu tiên legacy nếu có, không có legacy thì dùng V2 ACTIVE.
+ * Không bao giờ trả authority "compat" giả (hash `legacy_compat_hash`,
+ * member "0"): thiếu cả hai nguồn → notFound.
+ */
+export async function resolveChatRunAuthority(
+  workspaceId: string,
+  projectId: string,
+  profileKey: string
+): Promise<ProjectAgentRunAuthority> {
+  requireRunnableStartupProfile(profileKey);
+  const mode = getConfigurableAssetsMode();
+  if (mode === "LEGACY") {
+    return getProjectAgentRunAuthority(workspaceId, projectId, profileKey);
+  }
+  if (mode === "ENFORCED") {
+    return resolveEnforcedV2(workspaceId, projectId, profileKey);
+  }
+
+  // SHADOW: chỉ dùng tín hiệu `v2Deployment` (spec/member ở nhánh legacy của
+  // kết quả này có thể là giá trị compat giả — không dùng).
+  const { v2Deployment } = await resolveProjectAgentAuthorityV2(
+    { workspaceId, projectId },
+    { projectId, profileKey }
+  );
+  if (v2Deployment.state === "PAUSED" || v2Deployment.state === "RETIRED") {
+    throw APIError.notFound(
+      `Agent '${profileKey}' deployment is ${v2Deployment.state} in project '${projectId}'`
+    );
+  }
+  try {
+    return await getProjectAgentRunAuthority(workspaceId, projectId, profileKey);
+  } catch (err) {
+    if (v2Deployment.state !== "ACTIVE") {
+      throw err;
+    }
+    return resolveEnforcedV2(workspaceId, projectId, profileKey);
+  }
+}
+
+async function resolveEnforcedV2(
+  workspaceId: string,
+  projectId: string,
+  profileKey: string
+): Promise<ProjectAgentRunAuthority> {
+  const profileDef = requireRunnableStartupProfile(profileKey);
+  const wsId = BigInt(workspaceId);
+  const projId = BigInt(projectId);
+  const mappedSpec =
+    (AGENT_PROFILE_SPEC_ID as Record<string, string>)[profileKey] || profileKey;
+  const [dep] = await db
+    .select({
+      version: projectAgentDeployments.version,
+      capabilityOverrides: projectAgentDeployments.capabilityOverrides,
+      agentAssetId: workspaceAgents.agentAssetId,
+      agentAssetVersion: workspaceAgents.agentAssetVersion,
+      agentDefinitionHash: workspaceAgents.agentDefinitionHash,
+      workforceMemberId: workspaceAgents.workforceMemberId,
+    })
+    .from(projectAgentDeployments)
+    .innerJoin(workspaceAgents, eq(workspaceAgents.id, projectAgentDeployments.workspaceAgentId))
+    .where(
+      and(
+        eq(projectAgentDeployments.workspaceId, wsId),
+        eq(projectAgentDeployments.projectId, projId),
+        eq(projectAgentDeployments.state, "ACTIVE"),
+        eq(workspaceAgents.state, "ACTIVE"),
+        or(eq(workspaceAgents.agentAssetId, profileKey), eq(workspaceAgents.agentAssetId, mappedSpec))
+      )
+    )
+    .limit(1);
+  if (!dep) {
+    throw APIError.notFound(`Agent '${profileKey}' is not actively deployed to project`);
+  }
+  return {
+    projectId,
+    workspaceId,
+    profileKey: profileDef.key,
+    assignmentVersion: dep.version,
+    agentWorkforceMemberId: dep.workforceMemberId.toString(),
+    spec: { id: dep.agentAssetId, version: dep.agentAssetVersion, hash: dep.agentDefinitionHash },
+    policySnapshot: (dep.capabilityOverrides as Record<string, unknown>) ?? {},
+  };
 }
