@@ -528,6 +528,24 @@ class AuthService {
     }
   }
 
+  /// Preference thuộc COSA (spec 2026-09-25 §8): chỉ locale — không mang
+  /// phone/tên hiển thị (thuộc Core). Trả về profile mới nhất, null nếu lỗi.
+  Future<Map<String, dynamic>?> updatePreferences({required String preferredLocale}) async {
+    try {
+      final response = await ApiClient.patch(
+        '/platform/preferences/me',
+        body: {'preferredLocale': preferredLocale},
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('updatePreferences error: $e');
+      return null;
+    }
+  }
+
   Future<Map<String, dynamic>?> getMe() async {
     try {
       final response = await ApiClient.get('/identity/me');

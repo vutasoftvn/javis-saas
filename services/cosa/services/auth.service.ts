@@ -38,6 +38,60 @@ export interface UpdateMeParams {
   bio?: string;
 }
 
+/**
+ * Spec 2026-09-25 §8 — COSA chỉ sở hữu preference (locale/headline/bio).
+ * Phone/email/tên hiển thị/avatar thuộc Core; route preference từ chối các
+ * trường đó thay vì âm thầm ghi vào projection.
+ */
+export interface UpdateCosaPreferenceParams {
+  preferredLocale?: SupportedLocale;
+  headline?: string;
+  bio?: string;
+  // Khai báo chỉ để phát hiện và từ chối — không bao giờ được ghi.
+  phone?: string;
+  email?: string;
+  display_name?: string;
+  displayName?: string;
+  full_name?: string;
+  fullName?: string;
+  avatar_url?: string;
+  avatarUrl?: string;
+}
+
+const CORE_OWNED_PROFILE_FIELDS = [
+  "phone",
+  "email",
+  "display_name",
+  "displayName",
+  "full_name",
+  "fullName",
+  "avatar_url",
+  "avatarUrl",
+] as const;
+
+export async function updateCosaPreferences(
+  userIdStr: string,
+  params: UpdateCosaPreferenceParams
+): Promise<PlatformUserProfile> {
+  const coreOwned = CORE_OWNED_PROFILE_FIELDS.filter((field) => params[field] !== undefined);
+  if (coreOwned.length > 0) {
+    throw APIError.invalidArgument(
+      `${coreOwned.join(", ")} is owned by core; update it through the core profile API`
+    );
+  }
+  if (params.headline !== undefined && params.headline.length > 200) {
+    throw APIError.invalidArgument("headline must be at most 200 characters");
+  }
+  if (params.bio !== undefined && params.bio.length > 2000) {
+    throw APIError.invalidArgument("bio must be at most 2000 characters");
+  }
+  return updatePlatformUserProfile(userIdStr, {
+    preferredLocale: params.preferredLocale,
+    headline: params.headline,
+    bio: params.bio,
+  });
+}
+
 export async function getPlatformUserProfile(userIdStr: string): Promise<PlatformUserProfile> {
   const userId = BigInt(userIdStr);
   const [userProfile] = await db

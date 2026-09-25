@@ -2385,6 +2385,13 @@
       "expires_on": "2027-06-01"
     },
     {
+      "path": "/platform/preferences/me",
+      "method": "PATCH",
+      "owner": "control-plane",
+      "reason": "COSA-owned preference self-update (locale/headline/bio) split out of /platform/auth/me per spec 2026-09-25 §8; contact fields are owned by core and rejected. Backend: services/cosa/handlers/auth.handler.ts.",
+      "expires_on": "2027-06-01"
+    },
+    {
       "path": "/platform/organizations/:organizationId/session-context",
       "method": "GET",
       "owner": "control-plane",
