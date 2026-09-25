@@ -15,6 +15,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass, field
 
 from tests.e2e.stack._process import (
@@ -27,7 +28,8 @@ from tests.e2e.stack._process import (
 from tests.e2e.stack.disposable_postgres import DisposableCluster
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-_PYTHON = os.environ.get("PYTHON", os.path.join(_REPO_ROOT, ".venv", "bin", "python"))
+# Mặc định dùng interpreter đang chạy test (CI không có .venv).
+_PYTHON = os.environ.get("PYTHON", sys.executable)
 
 # Secrets dev từ `.env.e2e` — non-strict env (`APP_ENV=development`) chấp nhận
 # các giá trị này; `validate_service_identity` chỉ siết ở staging/production.
