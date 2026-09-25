@@ -979,7 +979,8 @@ jobs:
           cache: pip
           cache-dependency-path: packages/agent/requirements.txt
       - run: |
-          pip install --require-hashes -r packages/agent/requirements.txt
+          # desktop_worker/main.py dùng FastAPI (nằm trong lock apps/cosa).
+          pip install --require-hashes -r packages/agent/requirements.txt -r apps/cosa/requirements.txt
           pip install pytest pytest-asyncio pyyaml
       - run: mkdir -p test-results
       - run: PYTHONPATH=. pytest tests/desktop_worker -q --junitxml=test-results/desktop-worker.xml

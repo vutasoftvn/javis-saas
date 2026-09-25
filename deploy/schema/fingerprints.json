@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-09-24T13:27:17.445Z",
+  "generated_at": "2026-09-25T11:51:38.744Z",
   "groups": {
     "agent": {
       "fingerprint": "beab12e0183b474e70c451c6191c1cd8717d8f12d270f1bb5276b9af4f349800",
@@ -7887,12 +7887,12 @@
       }
     },
     "cosa": {
-      "fingerprint": "3d2714e6635e83f9e97014d593cb923736f90b068abad43ae8a652a76ede2f6e",
+      "fingerprint": "8221011e4ee9c2f0367998ded18dde4def608c09e4464bc0f7c208abae9820c6",
       "schemas": [
         "control_plane",
         "cosa"
       ],
-      "tables_count": 40,
+      "tables_count": 41,
       "enums": [],
       "tables": {
         "control_plane.assignments": {
@@ -11865,6 +11865,181 @@
             }
           ]
         },
+        "cosa.organization_invitation_grants": {
+          "schema": "cosa",
+          "name": "organization_invitation_grants",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "invitation_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "organization_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "user_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "requested_role",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "state",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'requested'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "core_role",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "core_membership_version",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "attempts",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": "0",
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "last_error_code",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "organization_invitation_grants_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "organization_invitation_grants_invitation_id_key",
+              "columns": [
+                "invitation_id"
+              ]
+            }
+          ],
+          "foreign_keys": [
+            {
+              "name": "organization_invitation_grants_invitation_id_fkey",
+              "columns": [
+                "invitation_id"
+              ],
+              "foreign_table": "cosa.organization_invitations",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [
+            {
+              "name": "organization_invitation_grants_state_check",
+              "clause": "((state = ANY (ARRAY['requested'::text, 'core_granted'::text, 'projected'::text, 'failed'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_organization_invitation_grants_open",
+              "definition": "CREATE INDEX idx_organization_invitation_grants_open ON cosa.organization_invitation_grants USING btree (state, updated_at) WHERE (state = ANY (ARRAY['requested'::text, 'core_granted'::text]))"
+            },
+            {
+              "name": "organization_invitation_grants_invitation_id_key",
+              "definition": "CREATE UNIQUE INDEX organization_invitation_grants_invitation_id_key ON cosa.organization_invitation_grants USING btree (invitation_id)"
+            },
+            {
+              "name": "organization_invitation_grants_pkey",
+              "definition": "CREATE UNIQUE INDEX organization_invitation_grants_pkey ON cosa.organization_invitation_grants USING btree (id)"
+            }
+          ]
+        },
         "cosa.organization_invitations": {
           "schema": "cosa",
           "name": "organization_invitations",
@@ -13387,7 +13562,7 @@
       }
     },
     "workspace": {
-      "fingerprint": "ede44f4a6e291455545050eda494cd733e0b58d27033eb819183985dc1157657",
+      "fingerprint": "52e6eaee045f9724fd425ec8e6542a6dbda6c3938c2db08e5683be4471dfa0e7",
       "schemas": [
         "commercial",
         "core",
@@ -13399,7 +13574,7 @@
         "sales",
         "strategy"
       ],
-      "tables_count": 243,
+      "tables_count": 244,
       "enums": [
         {
           "schema": "operating",
@@ -17593,6 +17768,88 @@
             }
           ]
         },
+        "core.membership_event_inbox": {
+          "schema": "core",
+          "name": "membership_event_inbox",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "event_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "organization_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "user_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "membership_version",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "processed_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "membership_event_inbox_pkey",
+            "columns": [
+              "event_id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "membership_event_inbox_pkey",
+              "definition": "CREATE UNIQUE INDEX membership_event_inbox_pkey ON core.membership_event_inbox USING btree (event_id)"
+            }
+          ]
+        },
         "core.permission_definitions": {
           "schema": "core",
           "name": "permission_definitions",
@@ -18410,6 +18667,36 @@
               "max_length": null,
               "precision": null,
               "scale": null
+            },
+            {
+              "name": "membership_state",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'active'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "source_membership_version",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": "1",
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "revoked_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
             }
           ],
           "primary_key": {
@@ -18455,6 +18742,10 @@
           ],
           "check_constraints": [],
           "indexes": [
+            {
+              "name": "idx_workspace_memberships_state_version",
+              "definition": "CREATE INDEX idx_workspace_memberships_state_version ON core.workspace_memberships USING btree (workspace_id, user_id, membership_state, source_membership_version)"
+            },
             {
               "name": "idx_workspace_memberships_user_id",
               "definition": "CREATE INDEX idx_workspace_memberships_user_id ON core.workspace_memberships USING btree (user_id)"
