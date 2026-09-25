@@ -1,5 +1,6 @@
 # QUY ƯỚC: Mọi target Python phải thực thi qua $(PYTHON) hoặc $(PYTEST), không gọi python/pytest trần.
 TEST_DATABASE_URL ?=
+COMPANY_SERVICE_PORT ?= 4002
 
 PYTHON ?= $(shell test -x $(CURDIR)/.venv/bin/python && echo $(CURDIR)/.venv/bin/python || echo python3)
 PYTEST ?= $(PYTHON) -m pytest
@@ -27,12 +28,12 @@ ai-compliance-production-gate:
 
 dev:
 	$(MAKE) services-docker-up
-	@attempt=0; until curl -fsS http://127.0.0.1:4000/ >/dev/null 2>&1 || test $$attempt -ge 30; do attempt=$$((attempt + 1)); sleep 1; done
-	@echo "✅ Javis Services Cluster is ready at http://localhost:4000 (Dashboard: http://localhost:9400)"
+	@attempt=0; until curl -fsS http://127.0.0.1:$(COMPANY_SERVICE_PORT)/ >/dev/null 2>&1 || test $$attempt -ge 30; do attempt=$$((attempt + 1)); sleep 1; done
+	@echo "✅ Javis Services Cluster is ready at http://localhost:$(COMPANY_SERVICE_PORT) (Dashboard: http://localhost:9400)"
 
 dev-smoke:
 	@ts=$$(date +%s); \
-	 curl -fsS -X POST http://127.0.0.1:4000/identity/register -H "Content-Type: application/json" -d "{\"email\": \"smoke-$$ts@javis.local\", \"name\": \"Smoke User\", \"password\": \"smokepassword123\", \"workspaceName\": \"Smoke WS\"}" >/dev/null
+	 curl -fsS -X POST http://127.0.0.1:$(COMPANY_SERVICE_PORT)/identity/register -H "Content-Type: application/json" -d "{\"email\": \"smoke-$$ts@javis.local\", \"name\": \"Smoke User\", \"password\": \"smokepassword123\", \"workspaceName\": \"Smoke WS\"}" >/dev/null
 	@echo "✅ Services Cluster Smoke Test passed!"
 
 AGENT_TEST_DATABASE_URL ?=
@@ -320,7 +321,7 @@ deploy-preflight: ## Verify prerequisites before deployment (backup policy, conn
 	@echo "✓ Database URLs configured"
 	@# Verify Company and COSA Control Plane services are healthy (hard fail if not running)
 	@echo "Checking service health..."
-	@curl -fsS http://127.0.0.1:4000/healthz >/dev/null 2>&1 || { echo "❌ Company Service not reachable at http://127.0.0.1:4000"; exit 1; }
+	@curl -fsS http://127.0.0.1:$(COMPANY_SERVICE_PORT)/healthz >/dev/null 2>&1 || { echo "❌ Company Service not reachable at http://127.0.0.1:$(COMPANY_SERVICE_PORT)"; exit 1; }
 	@curl -fsS http://127.0.0.1:4001/healthz >/dev/null 2>&1 || { echo "❌ COSA Control Plane not reachable at http://127.0.0.1:4001"; exit 1; }
 	@echo "✓ All services healthy"
 	@# Backup policy (Part 2E.1): kiểm backup gần nhất < 24h + restore-test < 30 ngày
@@ -382,7 +383,7 @@ services-test-cosa:
 	cd services/cosa && COSA_MIGRATOR_DATABASE_URL="$${COSA_MIGRATOR_DATABASE_URL:-postgresql://cosa_migrator:change-me-cosa-migrator@127.0.0.1:5432/javis_cosa_test?sslmode=disable}" node scripts/migrate.mjs --check-pending && encore test
 
 services-dev-company:
-	cd services/company && encore run --port=4000
+	cd services/company && encore run --port=$(COMPANY_SERVICE_PORT)
 
 services-dev-cosa:
 	cd services/cosa && encore run --port=4001
@@ -439,7 +440,7 @@ dev-stack: dev-infra dev-migrate ## Launch Company, COSA, API and worker with si
 dev-stack-no-infra: ## Launch Company, COSA, API and worker — assumes Postgres/MinIO/LiveKit already up & migrated
 	@echo "Starting dev stack services (no-infra)..."
 	@trap 'echo "Shutting down services..."; kill -TERM $$(jobs -p) 2>/dev/null; wait' EXIT INT TERM; \
-	cd $(CURDIR)/services/company && encore run --port=4000 &\
+	cd $(CURDIR)/services/company && encore run --port=$(COMPANY_SERVICE_PORT) &\
 	COMPANY_PID=$$!; \
 	cd $(CURDIR)/services/cosa && encore run --port=4001 &\
 	COSA_PID=$$!; \
@@ -451,7 +452,7 @@ dev-stack-no-infra: ## Launch Company, COSA, API and worker — assumes Postgres
 	echo "Waiting for health endpoints (60s timeout)..."; \
 	attempt=0; \
 	while [ $$attempt -lt 60 ]; do \
-		if curl -fsS http://127.0.0.1:4000/healthz >/dev/null 2>&1 && \
+		if curl -fsS http://127.0.0.1:$(COMPANY_SERVICE_PORT)/healthz >/dev/null 2>&1 && \
 		   curl -fsS http://127.0.0.1:4001/healthz >/dev/null 2>&1 && \
 		   curl -fsS http://127.0.0.1:8000/healthz >/dev/null 2>&1; then \
 			echo "✓ All services healthy"; \
@@ -469,10 +470,10 @@ dev-stack-no-infra: ## Launch Company, COSA, API and worker — assumes Postgres
 dev-status: ## Show dev stack status
 	@echo "=== COSA Development Stack Status ==="
 	@echo ""
-	@if curl -fsS http://127.0.0.1:4000/healthz >/dev/null 2>&1; then \
-		echo "✓ Company Service (http://127.0.0.1:4000)"; \
+	@if curl -fsS http://127.0.0.1:$(COMPANY_SERVICE_PORT)/healthz >/dev/null 2>&1; then \
+		echo "✓ Company Service (http://127.0.0.1:$(COMPANY_SERVICE_PORT))"; \
 	else \
-		echo "✗ Company Service (http://127.0.0.1:4000)"; \
+		echo "✗ Company Service (http://127.0.0.1:$(COMPANY_SERVICE_PORT))"; \
 	fi
 	@if curl -fsS http://127.0.0.1:4001/healthz >/dev/null 2>&1; then \
 		echo "✓ COSA Control Plane (http://127.0.0.1:4001)"; \

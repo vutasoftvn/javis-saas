@@ -12,6 +12,7 @@ import os
 from typing import Any
 
 import httpx
+from apps.cosa.auth.jwt import mint_worker_service_jwt
 
 from apps.cosa.auth.jwt import mint_worker_service_jwt
 

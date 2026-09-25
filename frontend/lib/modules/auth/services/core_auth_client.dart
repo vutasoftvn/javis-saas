@@ -5,11 +5,11 @@ import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 
 /// Cấu hình backend/core (danh tính, mật khẩu, OIDC). Đặt bằng
-/// `--dart-define=CORE_BASE_URL=https://...`; mặc định là core chạy local ở cổng 4010.
+/// `--dart-define=CORE_BASE_URL=https://...`; mặc định là core chạy local ở cổng 4000.
 class CoreConfig {
   static const String _configuredBaseUrl = String.fromEnvironment(
     'CORE_BASE_URL',
-    defaultValue: 'http://127.0.0.1:4010',
+    defaultValue: 'http://127.0.0.1:4000',
   );
   static String? _overrideBaseUrl;
 

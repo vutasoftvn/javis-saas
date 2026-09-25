@@ -43,7 +43,6 @@ class HologramHubView extends StatefulWidget {
 }
 
 class _HologramHubViewState extends State<HologramHubView> {
-  bool _isMobileWorkforceExpanded = false;
   Map<String, dynamic>? _selectedAgentForChat;
 
   @override
@@ -144,7 +143,7 @@ class _HologramHubViewState extends State<HologramHubView> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.9),
+        color: const Color(0xFF0F172A).withValues(alpha: 0.45),
         border: const Border(
           bottom: BorderSide(color: Color(0x336366F1), width: 1),
         ),
@@ -242,6 +241,83 @@ class _HologramHubViewState extends State<HologramHubView> {
                                 controller.selectProject(projectId),
                           ),
                         ),
+
+                      // 16 AI Agents Button (Mở Modal Biệt đội chuyên viên)
+                      Container(
+                        margin: const EdgeInsets.only(right: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF6366F1).withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: const Color(0xFF6366F1).withValues(alpha: 0.45),
+                          ),
+                        ),
+                        child: IconButton(
+                          key: const Key('appbar_ai_workforce_button'),
+                          onPressed: () => _showAiWorkforceModal(context, controller),
+                          icon: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Icon(
+                                Icons.smart_toy_outlined,
+                                color: Color(0xFF818CF8),
+                                size: 18,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                '16',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFFC7D2FE),
+                                ),
+                              ),
+                            ],
+                          ),
+                          tooltip: Get.locale?.languageCode == 'vi'
+                              ? '16 AI Agents (Biệt đội chuyên viên)'
+                              : '16 AI Agents Workforce',
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          constraints: const BoxConstraints(minHeight: 36),
+                        ),
+                      ),
+
+                      // Hội đồng Cố vấn (Executive Advisory Board Button)
+                      Container(
+                        margin: const EdgeInsets.only(right: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF8B5CF6).withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: const Color(0xFF8B5CF6).withValues(alpha: 0.45),
+                          ),
+                        ),
+                        child: IconButton(
+                          key: const ValueKey('open_executive_board_button'),
+                          onPressed: () {
+                            final pid = controller.activeProjectId.value;
+                            if (pid != null) {
+                              _showExecutiveAdvisoryBoardModal(context, pid);
+                            } else {
+                              AppToast.warning(
+                                Get.locale?.languageCode == 'vi'
+                                    ? 'Vui lòng chọn dự án trước'
+                                    : 'Please select a project first',
+                              );
+                            }
+                          },
+                          icon: const Icon(
+                            Icons.shield_outlined,
+                            color: Color(0xFFA78BFA),
+                            size: 18,
+                          ),
+                          tooltip: Get.locale?.languageCode == 'vi'
+                              ? 'Hội đồng Cố vấn (Executive Advisory Board)'
+                              : 'Executive Advisory Board',
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                        ),
+                      ),
 
                       // Project Operating Loop Icon Button (chuyển từ Top3 Focus lên AppBar)
                       Obx(() {
@@ -347,10 +423,10 @@ class _HologramHubViewState extends State<HologramHubView> {
   }
 
   // ────────────────────────────────────────────────────────────────────────────
-  // Hub Main Content: Full width, không tab, 3 cột responsive, bỏ CoFounderCard
-  // Desktop (≥1100): Left AI Workforce 4/12 | Center Top3+WGA 4/12 | Right Stats 4/12
-  // Tablet (850-1099): Left+Center 6/12 | Right Stats 6/12
-  // Mobile (<850): Stacked (Stats → Top3 → AI Workforce → WaitingForYou)
+  // Hub Main Content: 2 cột responsive (Kính mờ siêu trong suốt)
+  // Cột trái: Khung Chat Co-Founder + Card Chu kỳ hoạt động (Operating Week) + WGA
+  // Cột phải: Thống kê Pulse + Top 3 Focus + Cần bạn duyệt + Hoạt động dự án
+  // 16 AI Agents & Hội đồng Cố vấn: Nằm trên AppBar dưới dạng Icon Button mở Modal
   // ────────────────────────────────────────────────────────────────────────────
   Widget _buildHubMainContent(
     BuildContext context,
@@ -359,53 +435,10 @@ class _HologramHubViewState extends State<HologramHubView> {
   ) {
     final width = constraints.maxWidth;
     final isDesktop = width >= 1100;
-    final isTablet = width >= 850 && width < 1100;
 
     if (Get.isRegistered<LocaleController>()) {
       Get.find<LocaleController>().current.value;
     }
-
-    // ── Widget builders (shared across breakpoints) ──
-
-    Widget workforceSidebar({bool shrinkWrap = false}) =>
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ProjectStartupTeamSidebar(
-              controller: controller,
-              shrinkWrap: shrinkWrap,
-              onOpenCofounderChat: () {
-                if (Get.isRegistered<ChatPanelController>()) {
-                  Get.find<ChatPanelController>().open();
-                }
-              },
-            ),
-            const SizedBox(height: 12),
-            if (controller.activeProjectId.value != null)
-              OutlinedButton.icon(
-                key: const ValueKey('open_executive_board_button'),
-                onPressed: () {
-                  _showExecutiveAdvisoryBoardModal(
-                    context,
-                    controller.activeProjectId.value!,
-                  );
-                },
-                icon: const Icon(Icons.shield_outlined, size: 16, color: Color(0xFF818CF8)),
-                label: const _LocalizedText(
-                  en: 'Advisory Board',
-                  vi: 'Hội đồng Cố vấn',
-                  style: TextStyle(color: Color(0xFF818CF8), fontSize: 13),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Color(0xFF3730A3)),
-                  backgroundColor: const Color(0xFF1E1B4B).withValues(alpha: 0.5),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-              ),
-          ],
-        );
 
     Widget top3Widget() => Obx(
           () => Top3FocusWidget(
@@ -423,7 +456,7 @@ class _HologramHubViewState extends State<HologramHubView> {
                 : null,
             onOpenProjectAnalysis: controller.activeProjectId.value != null
                 ? () => Get.toNamed(
-                      '${AppRoutes.projectAnalysisFor(controller.activeProjectId.value!)}?title=${Uri.encodeComponent(controller.activeProjectTitle.value)}&stage=${controller.pulse.value?.companyStage ?? 'P0_DISCOVERY'}',
+                      '${AppRoutes.projectAnalysisFor(controller.activeProjectId.value!)}?title=${Uri.encodeComponent(controller.activeProjectTitle.value)}&stage=${controller.pulse.value?.companyStage ?? "P0_DISCOVERY"}',
                     )
                 : null,
           ),
@@ -448,9 +481,6 @@ class _HologramHubViewState extends State<HologramHubView> {
                 ),
               ),
               const SizedBox(height: 16),
-              // Project Activity Timeline (replaces HubActivityTimelineCard) —
-              // durable, fetch thật qua ProjectActivityService, không còn
-              // session-composed từ chatMessages/FounderInboxTask/ExecutionPlan.
               SizedBox(
                 height: 420,
                 child: _ProjectActivityFeed(
@@ -483,25 +513,34 @@ class _HologramHubViewState extends State<HologramHubView> {
           ],
         );
 
-    Widget centerColumn() {
+    Widget leftColumn() {
       final projectSelected = controller.activeProjectId.value != null;
 
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Chat panel - fixed and Project-bound, luôn mount, disable nội bộ
-          // khi chưa chọn Project (xem ChatPanelContent.enabled).
+          // Khung chat với Co-Founder (Cột bên trái) - hiệu ứng kính mờ trong suốt
           Container(
-            height: 400,
+            height: 480,
             decoration: BoxDecoration(
-              color: const Color(0xFF0F172A).withValues(alpha: 0.95),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF334155)),
+              color: const Color(0xFF0F172A).withValues(alpha: 0.38),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0x336366F1)),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.05),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-            child: ChatPanelContent(
-              controller: controller,
-              enabled: projectSelected,
-              showCloseButton: false,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: ChatPanelContent(
+                controller: controller,
+                enabled: projectSelected,
+                showCloseButton: false,
+              ),
             ),
           ),
           if (controller.selectedProjectId != null) ...[
@@ -526,17 +565,22 @@ class _HologramHubViewState extends State<HologramHubView> {
       );
     }
 
-    // ── DESKTOP (≥1100): 1 hàng 3 cột — AI Workforce 3/12 | Top3 Focus + WGA
-    // 6/12 | Thống kê 3/12 ──
+    // ── DESKTOP (≥1100): 3 Cột (3/12 - 6/12 - 3/12)
+    // Cột bên trái (3/12): Khung chat Co-Founder + Card Chu kỳ hoạt động
+    // Ở giữa (6/12): Để trống (tập trung tôn vinh toàn bộ Trống Đồng trung tâm)
+    // Cột bên phải (3/12): Thống kê Pulse + Top 3 Focus + Cần bạn duyệt + Hoạt động
     if (isDesktop) {
       return SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(flex: 3, child: workforceSidebar(shrinkWrap: true)),
+            Expanded(flex: 3, child: leftColumn()),
             const SizedBox(width: 24),
-            Expanded(flex: 6, child: centerColumn()),
+            const Expanded(
+              flex: 6,
+              child: SizedBox.shrink(),
+            ),
             const SizedBox(width: 24),
             Expanded(flex: 3, child: statsColumn()),
           ],
@@ -544,166 +588,135 @@ class _HologramHubViewState extends State<HologramHubView> {
       );
     }
 
-    // ── TABLET (850-1099): AI Workforce + Top3 gộp 6/12 (trái) | Thống kê
-    // 6/12 (phải) ──
-    if (isTablet) {
+    // ── TABLET (800 - 1099): 2 Cột — Trái 6/12 | Phải 6/12 ──
+    if (width >= 800) {
       return SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(20),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  workforceSidebar(shrinkWrap: true),
-                  const SizedBox(height: 16),
-                  centerColumn(),
-                ],
-              ),
-            ),
-            const SizedBox(width: 24),
-            Expanded(child: statsColumn()),
+            Expanded(flex: 6, child: leftColumn()),
+            const SizedBox(width: 20),
+            Expanded(flex: 6, child: statsColumn()),
           ],
         ),
       );
     }
 
-    // ── MOBILE (<850): cuộn dọc, full width ──
-    final mobileProjectSelected = controller.activeProjectId.value != null;
+    // ── MOBILE (<800): Cuộn dọc — Khung Chat & Chu kỳ trước, Thống kê bên dưới ──
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(16),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Chat panel - fixed and Project-bound (xem centerColumn() ở
-          // desktop/tablet — mobile cũng cần khung chat cố định, không còn
-          // panel nổi kéo-thả).
-          Container(
-            height: 340,
-            decoration: BoxDecoration(
-              color: const Color(0xFF0F172A).withValues(alpha: 0.95),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF334155)),
-            ),
-            child: ChatPanelContent(
-              controller: controller,
-              enabled: mobileProjectSelected,
-              showCloseButton: false,
-            ),
-          ),
+          leftColumn(),
           const SizedBox(height: 20),
           statsColumn(),
-          if (controller.selectedProjectId != null) ...[
-            Obx(() => ProjectOperatingWeekCard(
-              operatingLoop: controller.currentOperatingLoop.value,
-              isLoading: controller.isOperatingLoopLoading.value,
-              errorMessage: controller.operatingLoopError.value,
-              onRetry: () {
-                final pid = controller.selectedProjectId;
-                if (pid != null) {
-                  controller.loadOperatingLoop(pid);
-                }
-              },
-            )),
-            const SizedBox(height: 20),
-          ],
-          // AI Workforce accordion
-          Material(
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showAiWorkforceModal(
+    BuildContext context,
+    FounderCommandCenterController controller,
+  ) async {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            width: 580,
+            constraints: const BoxConstraints(maxHeight: 820),
+            decoration: BoxDecoration(
               color: const Color(0xFF0F172A).withValues(alpha: 0.95),
               borderRadius: BorderRadius.circular(16),
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0x336366F1)),
+              border: Border.all(color: const Color(0x556366F1)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
                 ),
-                child: Column(
-                  children: [
-                    InkWell(
-                      onTap: () => setState(
-                        () => _isMobileWorkforceExpanded =
-                            !_isMobileWorkforceExpanded,
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                  decoration: const BoxDecoration(
+                    border: Border(bottom: BorderSide(color: Color(0x336366F1))),
+                    color: Color(0xFF131D38),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                          ),
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Row(
+                        child: const Icon(Icons.groups_outlined, color: Colors.white, size: 18),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFF6366F1),
-                                    Color(0xFF8B5CF6),
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.groups_outlined,
+                            Text(
+                              Get.locale?.languageCode == 'vi'
+                                  ? 'AI WORKFORCE (16 Chuyên viên)'
+                                  : 'AI WORKFORCE (16 Specialist Agents)',
+                              style: const TextStyle(
                                 color: Colors.white,
-                                size: 18,
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const _LocalizedText(
-                                    en: 'AI WORKFORCE (Specialist Team)',
-                                    vi: 'AI WORKFORCE (Biệt đội chuyên viên)',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 13.5,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  _LocalizedText(
-                                    en: _isMobileWorkforceExpanded
-                                        ? 'Tap to collapse'
-                                        : 'Tap to open task assignments',
-                                    vi: _isMobileWorkforceExpanded
-                                        ? 'Bấm để thu gọn'
-                                        : 'Bấm để mở danh sách giao việc',
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.5,
-                                      ),
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                ],
+                            Text(
+                              Get.locale?.languageCode == 'vi'
+                                  ? 'Kích hoạt, giao việc và chỉ đạo biệt đội AI'
+                                  : 'Activate, assign tasks and instruct the AI workforce',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.6),
+                                fontSize: 11,
                               ),
-                            ),
-                            Icon(
-                              _isMobileWorkforceExpanded
-                                  ? Icons.keyboard_arrow_up
-                                  : Icons.keyboard_arrow_down,
-                              color: const Color(0xFF818CF8),
                             ),
                           ],
                         ),
                       ),
-                    ),
-                    if (_isMobileWorkforceExpanded) ...[
-                      const Divider(color: Color(0x226366F1), height: 1),
-                      workforceSidebar(shrinkWrap: true),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
                     ],
-                  ],
+                  ),
                 ),
-              ),
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: ProjectStartupTeamSidebar(
+                      controller: controller,
+                      shrinkWrap: true,
+                      onOpenCofounderChat: () {
+                        Navigator.of(ctx).pop();
+                        if (Get.isRegistered<ChatPanelController>()) {
+                          Get.find<ChatPanelController>().open();
+                        }
+                      },
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 20),
-          if (controller.hasProjects.value)
-            _WgaSurfaces(controller: controller),
-          const SizedBox(height: 24),
-        ],
+          ),
+        ),
       ),
     );
   }
