@@ -145,10 +145,6 @@
       "resolved": true,
       "owner": null
     },
-    "GET /org": {
-      "resolved": false,
-      "owner": null
-    },
     "GET /plugins": {
       "resolved": false,
       "owner": null

@@ -47,15 +47,18 @@ describe("golden path: Quốc Gia Khởi Nghiệp", () => {
     });
     expect(coFounder.memberType).toBe("HUMAN");
 
-    const aiMember = await hireWorkforceMember({
-      workspaceId,
-      memberType: "AI_AGENT",
-      roleTitle: "AI Ops Copilot",
-      agentSpecId: "cosa-ops-copilot",
-      agentSpecVersion: "1.0",
-      authorization: auth,
-    });
-    expect(aiMember.memberType).toBe("AI_AGENT");
+    // AI workforce không còn tạo qua endpoint chung với spec do client khai
+    // (spec 2026-09-25 §7) — chỉ qua workspace agent đã publish.
+    await expect(
+      hireWorkforceMember({
+        workspaceId,
+        memberType: "AI_AGENT",
+        roleTitle: "AI Ops Copilot",
+        agentSpecId: "cosa-ops-copilot",
+        agentSpecVersion: "1.0",
+        authorization: auth,
+      })
+    ).rejects.toMatchObject({ code: "invalid_argument" });
 
     // ── Operations ──
     const okrCycle = await createOkrCycle({ workspaceId, name: "Q1 2026 - Launch nền tảng Quốc Gia Khởi Nghiệp" , authorization: auth });

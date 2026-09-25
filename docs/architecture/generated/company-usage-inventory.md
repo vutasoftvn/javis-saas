@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 112 | 22 |
 | VALID_KEEP (giữ nguyên) | 129 | 36 |
-| REVIEW (chưa phân loại) | 1191 | 270 |
+| REVIEW (chưa phân loại) | 1195 | 271 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -40,7 +40,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 
 | File | Hits |
 |---|---|
-| frontend/lib/core/network/mvp_endpoints.g.dart | 68 |
+| frontend/lib/core/network/mvp_endpoints.g.dart | 71 |
 | apps/cosa/auth/jwt.py | 39 |
 | apps/cosa/policies/company_policy_client.py | 27 |
 | services/company/shared/auth/cosa-delegation.service.ts | 24 |
@@ -245,6 +245,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | frontend/lib/modules/hologram_hub/views/hologram_hub_view.dart | 1 |
 | frontend/lib/modules/hologram_hub/widgets/agent_direct_chat_sheet.dart | 1 |
 | frontend/lib/modules/hologram_hub/widgets/top3_focus_widget.dart | 1 |
+| frontend/lib/modules/organization/models/organization_api_models.dart | 1 |
 | frontend/lib/modules/projects/models/project_operating_loop.dart | 1 |
 | frontend/lib/modules/settings/services/workspace_orientation_service.dart | 1 |
 | frontend/lib/shared/widgets/presenters/crm_lead_card.dart | 1 |

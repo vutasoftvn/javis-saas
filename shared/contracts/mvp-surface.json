@@ -1232,6 +1232,54 @@
       "backend_test": "services/company/operations/tests/mvp-okr-twelve-week.test.ts",
       "flutter_test": "frontend/test/modules/strategy/twelve_week_service_test.dart",
       "integration_test": "tests/e2e/test_mvp_strategy_runtime_http.py"
+    },
+    {
+      "id": "organization.overview.read",
+      "enabled": true,
+      "owner": "company-operations",
+      "plane": "company",
+      "method": "GET",
+      "path": "/operations/organizations/:organizationId/overview",
+      "schema": "organization.overview.read.v1",
+      "source_kind": "company_db",
+      "requires_workspace": true,
+      "requires_project": false,
+      "frontend_symbol": "OrganizationService.getOverview",
+      "backend_test": "services/company/operations/tests/organization-overview.handler.test.ts",
+      "flutter_test": "frontend/test/organization_service_test.dart",
+      "integration_test": "tests/e2e/test_organization_api_http.py"
+    },
+    {
+      "id": "organization.workforce.list",
+      "enabled": true,
+      "owner": "company-operations",
+      "plane": "company",
+      "method": "GET",
+      "path": "/operations/organizations/:organizationId/workforce",
+      "schema": "organization.workforce.list.v1",
+      "source_kind": "company_db",
+      "requires_workspace": true,
+      "requires_project": false,
+      "frontend_symbol": "OrganizationService.listWorkforce",
+      "backend_test": "services/company/operations/tests/organization-overview.handler.test.ts",
+      "flutter_test": "frontend/test/organization_service_test.dart",
+      "integration_test": "tests/e2e/test_organization_api_http.py"
+    },
+    {
+      "id": "organization.ai_workforce.create",
+      "enabled": true,
+      "owner": "company-operations",
+      "plane": "company",
+      "method": "POST",
+      "path": "/operations/organizations/:organizationId/ai-workforce",
+      "schema": "organization.ai_workforce.create.v1",
+      "source_kind": "company_db",
+      "requires_workspace": true,
+      "requires_project": false,
+      "frontend_symbol": "OrganizationService.placeAiWorkforce",
+      "backend_test": "services/company/operations/tests/organization-overview.handler.test.ts",
+      "flutter_test": "frontend/test/organization_service_test.dart",
+      "integration_test": "tests/e2e/test_organization_api_http.py"
     }
   ]
 }
