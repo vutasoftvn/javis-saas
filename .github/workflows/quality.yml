@@ -690,6 +690,7 @@ jobs:
           AGENT_DATABASE_URL: postgresql+asyncpg://agent_app:ci-agent-app@127.0.0.1:5432/agent
           COSA_DATABASE_URL: postgresql://cosa_app:ci-cosa-app@127.0.0.1:5432/cosa?sslmode=disable
           COSA_TEST_DATABASE_URL: postgresql://cosa_app:ci-cosa-app@127.0.0.1:5432/cosa?sslmode=disable
+          COSA_MIGRATOR_DATABASE_URL: postgresql://cosa_migrator:ci-cosa-migrator@127.0.0.1:5432/cosa?sslmode=disable
           WORKER_SERVICE_JWT_SECRET: cosa-worker-service-jwt-key-change-in-prod-min32chars
       - uses: actions/upload-artifact@v4
         if: always()

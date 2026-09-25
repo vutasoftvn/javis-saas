@@ -112,7 +112,11 @@ def control_plane_service(control_plane_dsn: str):
     if "?sslmode=" not in db_url:
         db_url = f"{db_url}?sslmode=disable"
     encore_env["COSA_DATABASE_URL"] = db_url
-    encore_env["COSA_DATABASE_URL"] = db_url
+    # migrate.mjs chỉ chạy bằng role migrator (COSA_MIGRATOR_DATABASE_URL);
+    # dùng URL migrator của môi trường nếu có, nếu không thì DSN của test.
+    encore_env["COSA_MIGRATOR_DATABASE_URL"] = (
+        os.environ.get("COSA_MIGRATOR_DATABASE_URL") or db_url
+    )
 
     # Run migrations before starting encore run to ensure schema is current
     migrate_env = {**encore_env}

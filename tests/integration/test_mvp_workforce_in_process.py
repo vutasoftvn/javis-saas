@@ -28,11 +28,22 @@ from tests.apps.cosa.policy_test_helpers import (
 
 pytestmark = pytest.mark.integration
 
+_AI_MEMBER_ID = "wm-ai-campaign-planner"
+
+
+class _CompanyWithAiMember(StubCompanyServiceClient):
+    """Company stub có 1 AI workforce member active — route tạo assignment
+    xác minh member qua `/identity/authorization/overview`."""
+
+    async def get(self, path: str, **kwargs):
+        assert path == "/identity/authorization/overview"
+        return {"members": [{"id": _AI_MEMBER_ID, "memberType": "AI_AGENT", "status": "active"}]}
+
 
 @pytest.fixture
 def agent_app():
     plane = build_cosa_agent_plane(
-        company_client=StubCompanyServiceClient(),
+        company_client=_CompanyWithAiMember(),
         tenant_policy_client=stub_active_tenant_policy_client(),
         repository=InMemoryRunRepository(),
         conversation_repository=InMemoryConversationRepository(),
@@ -74,7 +85,10 @@ async def test_full_workforce_lifecycle_in_process(agent_app) -> None:
         # 3. Create assignment for campaign_planner
         create_res = await client.post(
             "/agent/workforce/assignments",
-            json={"functional_key": "campaign_planner"},
+            json={
+                "functional_key": "campaign_planner",
+                "company_workforce_member_id": _AI_MEMBER_ID,
+            },
         )
         assert create_res.status_code == 200
         asg = create_res.json()["data"]
@@ -125,9 +139,10 @@ async def test_full_workforce_lifecycle_in_process(agent_app) -> None:
         assert sched_create.status_code == 200
         schedule_id = sched_create.json()["data"]["schedule_id"]
 
+        # Chạy schedule chưa nối execution runtime: route trả 501 rõ ràng thay
+        # vì QUEUED giả (xem test_workforce_routes.py, P0.2).
         sched_run = await client.post(f"/agent/workforce/schedules/{schedule_id}/run-now")
-        assert sched_run.status_code == 200
-        assert sched_run.json()["data"]["status"] == "QUEUED"
+        assert sched_run.status_code == 501
 
         # 9. Retire assignment
         retire_res = await client.post(f"/agent/workforce/assignments/{assignment_id}/retire")
