@@ -181,3 +181,17 @@ async def test_cli_bridge_rejects_extra_fields_on_invocation() -> None:
 
     with pytest.raises(ValidationError):
         ModelInvocation(executable="/bin/sh", prompt="x", extra_flag="--danger")  # type: ignore[call-arg]
+
+
+@pytest.mark.asyncio
+async def test_cli_bridge_tolerates_cli_that_exits_without_reading_stdin(tmp_path) -> None:
+    # Prompt lớn hơn buffer pipe: CLI thoát mà không đọc stdin phải không làm
+    # invoke fail vì broken pipe — kết quả vẫn lấy từ stdout/exit code thật.
+    path = tmp_path / "fake-ignore-stdin-cli"
+    _make_executable(path, '#!/bin/sh\nexec 0<&-\nsleep 0.3\nprintf "ok"\n')
+    bridge_local = CliBridge(allowlist={str(path): ()})
+
+    response = await bridge_local.invoke(
+        ModelInvocation(executable=str(path), prompt="x" * 2_000_000)
+    )
+    assert response.text == "ok"
