@@ -1050,6 +1050,14 @@ jobs:
       - run: |
           pip install --require-hashes -r packages/agent/requirements.txt -r apps/cosa/requirements.txt
           pip install -r requirements-dev.txt pytest pytest-asyncio httpx pyjwt psycopg2-binary
+      # Fixture advisor_cluster migrate services/cosa + services/company từ host.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+        working-directory: services/cosa
+      - run: npm ci
+        working-directory: services/company
       - name: Materialize .env.e2e
         run: cp .env.e2e.example .env.e2e
       - name: Run E2E Golden Path test suite
