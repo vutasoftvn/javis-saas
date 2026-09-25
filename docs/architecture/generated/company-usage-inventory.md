@@ -5,16 +5,16 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 
 | Lớp | Occurrences | Files |
 |---|---|---|
-| LEGACY_TENANCY (M2 xóa) | 109 | 23 |
-| VALID_KEEP (giữ nguyên) | 131 | 36 |
-| REVIEW (chưa phân loại) | 1182 | 264 |
+| LEGACY_TENANCY (M2 xóa) | 112 | 22 |
+| VALID_KEEP (giữ nguyên) | 129 | 36 |
+| REVIEW (chưa phân loại) | 1191 | 270 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
 | File | Hits |
 |---|---|
+| services/cosa/services/company.service.ts | 28 |
 | services/cosa/handlers/company.handler.ts | 26 |
-| services/cosa/services/company.service.ts | 26 |
 | services/cosa/services/agent-policy.service.ts | 10 |
 | services/company/identity/services/workspace.service.ts | 9 |
 | frontend/lib/data/models/company_pulse_model.dart | 4 |
@@ -22,19 +22,18 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart | 3 |
 | services/company/finance-legal/migrations/001_cosa_startup_core_baseline.up.sql | 3 |
 | services/company/identity/services/sync.service.ts | 3 |
+| services/cosa/services/workspace-connector.service.ts | 3 |
 | apps/cosa/api/workforce_routes.py | 2 |
 | apps/cosa/policies/evaluator.py | 2 |
 | apps/cosa/policies/snapshot.py | 2 |
 | frontend/lib/modules/hologram_hub/views/hologram_hub_view.dart | 2 |
 | services/company/identity/migrations/001_cosa_startup_core_baseline.up.sql | 2 |
 | services/company/identity/services/platform-workspace-mapping.service.ts | 2 |
-| services/cosa/services/auth.service.ts | 2 |
+| services/cosa/tests/support/test-identity.ts | 2 |
 | apps/cosa/policies/company_policy_client.py | 1 |
-| frontend/lib/modules/auth/services/auth_service.dart | 1 |
 | frontend/lib/modules/auth/views/register_view.dart | 1 |
 | frontend/lib/modules/sales/views/widgets/deal_kanban_board.dart | 1 |
 | services/company/shared/db/schema/identity.ts | 1 |
-| services/cosa/services/workspace-connector.service.ts | 1 |
 | services/cosa/storage/schema.ts | 1 |
 
 ## Cần review thủ công (M2)
@@ -42,31 +41,31 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | File | Hits |
 |---|---|
 | frontend/lib/core/network/mvp_endpoints.g.dart | 68 |
-| apps/cosa/auth/jwt.py | 35 |
+| apps/cosa/auth/jwt.py | 39 |
 | apps/cosa/policies/company_policy_client.py | 27 |
 | services/company/shared/auth/cosa-delegation.service.ts | 24 |
 | apps/cosa/api/workforce_routes.py | 22 |
 | packages/agent/workforce/repository.py | 22 |
-| apps/cosa/auth/dependency.py | 21 |
-| apps/cosa/worker/copilot_run.py | 19 |
+| apps/cosa/worker/copilot_run.py | 20 |
+| apps/cosa/auth/dependency.py | 19 |
 | apps/cosa/project_activity/company_event_projector.py | 18 |
 | apps/cosa/worker/wga_run.py | 18 |
-| services/cosa/services/workspace-connector.service.ts | 17 |
 | services/company/shared/auth/ai-governance-snapshot-verification.ts | 16 |
 | apps/cosa/api/project_context.py | 15 |
 | apps/cosa/composition/agent_plane.py | 15 |
-| frontend/lib/modules/auth/services/auth_service.dart | 15 |
+| apps/cosa/capabilities/client.py | 14 |
 | apps/cosa/capabilities/startup_os_onboard.py | 14 |
 | apps/cosa/worker/handlers.py | 14 |
 | frontend/lib/modules/auth/controllers/auth_controller.dart | 14 |
+| frontend/lib/modules/auth/services/auth_service.dart | 14 |
 | apps/cosa/events/router.py | 13 |
 | services/company/operations/services/workspace-runtime.service.ts | 13 |
-| apps/cosa/capabilities/client.py | 12 |
 | apps/cosa/compliance/resolver.py | 12 |
 | frontend/lib/data/models/stage_model.dart | 12 |
 | frontend/lib/modules/auth/views/register_view.dart | 12 |
 | frontend/lib/core/localization/app_translations.dart | 10 |
 | packages/agent/capabilities/readiness.py | 10 |
+| services/cosa/services/workspace-connector.service.ts | 10 |
 | apps/cosa/capabilities/startup_os_goals.py | 9 |
 | apps/cosa/company/executive_board_client.py | 9 |
 | frontend/lib/core/localization/locales/en/en_strategy.dart | 9 |
@@ -107,6 +106,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/composition/capability_registration.py | 5 |
 | apps/cosa/events/automation_outcome_client.py | 5 |
 | apps/cosa/events/runtime_signal.py | 5 |
+| apps/cosa/tests/test_worker_jwt.py | 5 |
 | apps/cosa/workflows/deployment_authority_resolver.py | 5 |
 | frontend/lib/core/localization/locales/vi/vi_strategy.dart | 5 |
 | frontend/lib/core/network/api_client.dart | 5 |
@@ -172,6 +172,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/operations/services/okr.service.ts | 3 |
 | services/company/operations/services/twelve-week-year.service.ts | 3 |
 | services/company/shared/auth/cosa-task-delegation.ts | 3 |
+| services/company/shared/auth/worker-service-auth.ts | 3 |
 | services/company/shared/db/schema/operations.ts | 3 |
 | services/cosa/handlers/runtime-node.handler.ts | 3 |
 | services/cosa/handlers/workspace-connector.handler.ts | 3 |
@@ -268,6 +269,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/finance-legal/services/ingestion.service.ts | 1 |
 | services/company/identity/handlers/auth.handler.ts | 1 |
 | services/company/identity/handlers/e2e-session.handler.ts | 1 |
+| services/company/identity/handlers/membership-event.handler.ts | 1 |
 | services/company/identity/handlers/workforce.handler.ts | 1 |
 | services/company/identity/services/e2e-session.service.ts | 1 |
 | services/company/identity/services/health.service.ts | 1 |
@@ -302,9 +304,12 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/shared/events/fixtures/operations.task.created.v1.json | 1 |
 | services/company/shared/types/encore-auth.d.ts | 1 |
 | services/cosa/handlers/index.ts | 1 |
+| services/cosa/handlers/venture-workspace.handler.ts | 1 |
 | services/cosa/scripts/backfill-schedule-project-ids.ts | 1 |
 | services/cosa/services/index.ts | 1 |
 | services/cosa/services/runtime-router.service.ts | 1 |
+| services/cosa/services/workspace-access.service.ts | 1 |
+| services/cosa/tests/support/test-identity.ts | 1 |
 
 ## Hợp lệ — customer/counterparty company name, giữ nguyên
 
@@ -317,7 +322,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | frontend/lib/modules/auth/controllers/auth_controller.dart | 7 |
 | landing/src/lib/resend.ts | 7 |
 | frontend/lib/modules/sales/views/widgets/lead_scoring_list.dart | 6 |
-| frontend/lib/modules/auth/services/auth_service.dart | 5 |
 | services/company/commercial/services/project-lead-repository.ts | 5 |
 | frontend/lib/modules/auth/views/register_view.dart | 4 |
 | landing/src/lib/cosa-company-lead-capture.ts | 4 |
@@ -325,6 +329,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | frontend/lib/core/localization/app_translations.dart | 3 |
 | frontend/lib/core/localization/locales/en/en_auth.dart | 3 |
 | frontend/lib/core/localization/locales/vi/vi_auth.dart | 3 |
+| frontend/lib/modules/auth/services/auth_service.dart | 3 |
 | frontend/lib/modules/hologram_hub/widgets/activation/activation_step1_profile.dart | 3 |
 | frontend/lib/modules/hologram_hub/widgets/activation/activation_step4_diagnostics.dart | 3 |
 | frontend/lib/modules/sales/views/sales_view.dart | 3 |

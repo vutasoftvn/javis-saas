@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from apps.cosa.auth.jwt import mint_worker_service_jwt
-
 import os
 from typing import Any
 
 import httpx
+
+from apps.cosa.auth.jwt import mint_worker_service_jwt
 
 __all__ = ["CompanyServiceClient", "CompanyServiceError"]
 
@@ -92,7 +92,9 @@ class CompanyServiceClient:
         project_agent_deployment_id: str,
     ) -> dict[str, Any]:
         """Resolve a live ProjectAgentDeployment authority pin for workflow execution."""
-        service_token = os.environ.get("COSA_WORKER_SERVICE_TOKEN") or mint_worker_service_jwt(worker_id="capabilities-worker")
+        # Luôn ký JWT worker aud=company-internal; COSA_WORKER_SERVICE_TOKEN là token
+        # cho control plane (aud khác) nên Company sẽ từ chối.
+        service_token = mint_worker_service_jwt(worker_id="capabilities-worker")
         return await self.get(
             f"/internal/operations/projects/{project_id}/agent-deployments/"
             f"{project_agent_deployment_id}/deployment-authority",

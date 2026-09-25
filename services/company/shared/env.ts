@@ -5,7 +5,9 @@ export function isStagingOrProd(): boolean {
   return env === "production" || env === "staging" || env === "prod";
 }
 
-export function isDevelopmentOrTest(): boolean {
-  const env = (process.env.ENVIRONMENT || process.env.NODE_ENV || process.env.APP_ENV || "development").toLowerCase();
-  return env === "development" || env === "test" || env === "testing";
+// Chỉ đúng khi đang chạy dưới vitest/encore test và KHÔNG khai báo
+// staging/production — dùng cho fixture test, không bao giờ cho runtime thật.
+export function isTestRuntime(): boolean {
+  if (isStagingOrProd()) return false;
+  return process.env.NODE_ENV === "test" || Boolean(process.env.VITEST);
 }

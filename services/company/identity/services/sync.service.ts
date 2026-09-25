@@ -196,23 +196,22 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
           .onConflictDoNothing();
       }
 
+      // Membership local không còn trong danh sách Core ⇒ tombstone (không xoá).
       const activePlatformWsIds = verifiedMemberships.map((m) => BigInt(m.platformWorkspaceId));
-      if (activePlatformWsIds.length > 0) {
-        await tx
-          .update(identityWorkspaceMemberships)
-          .set({
-            membershipState: "revoked",
-            revokedAt: new Date(),
-            updatedAt: new Date(),
-          })
-          .where(
-            and(
-              eq(identityWorkspaceMemberships.userId, userId),
-              notInArray(identityWorkspaceMemberships.workspaceId, activePlatformWsIds),
-              eq(identityWorkspaceMemberships.membershipState, "active")
-            )
-          );
-      }
+      await tx
+        .update(identityWorkspaceMemberships)
+        .set({
+          membershipState: "revoked",
+          revokedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(identityWorkspaceMemberships.userId, userId),
+            notInArray(identityWorkspaceMemberships.workspaceId, activePlatformWsIds),
+            eq(identityWorkspaceMemberships.membershipState, "active")
+          )
+        );
 
       return userId;
     });
@@ -253,10 +252,33 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
     };
   }
 
+  // Core xác nhận user không còn membership nào ⇒ tombstone mọi membership
+  // local còn active, để local session cũ không tiếp tục ghi được.
+  await revokeAllActiveMembershipsForPlatformUser(platformUserId);
+
   // M2 §5 — bỏ hoàn toàn nhánh legacy company-membership. Company aggregate không
   // còn là tenant; mọi workspace đến từ Venture Workspace (control-plane provisioning).
   // Zero venture workspace ⇒ user chưa có workspace nào (không fallback company).
   throw APIError.failedPrecondition(
     "user chưa thuộc workspace nào — tạo workspace qua control-plane trước"
   );
+}
+
+async function revokeAllActiveMembershipsForPlatformUser(platformUserId: string): Promise<void> {
+  const [localUser] = await db
+    .select({ id: identityUserProjections.id })
+    .from(identityUserProjections)
+    .where(eq(identityUserProjections.platformUserId, platformUserId))
+    .limit(1);
+  if (!localUser) return;
+  const now = new Date();
+  await db
+    .update(identityWorkspaceMemberships)
+    .set({ membershipState: "revoked", revokedAt: now, updatedAt: now })
+    .where(
+      and(
+        eq(identityWorkspaceMemberships.userId, localUser.id),
+        eq(identityWorkspaceMemberships.membershipState, "active")
+      )
+    );
 }

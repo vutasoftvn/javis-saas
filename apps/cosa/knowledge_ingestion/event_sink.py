@@ -10,6 +10,8 @@ import os
 
 import httpx
 
+from apps.cosa.auth.jwt import mint_worker_service_jwt
+
 __all__ = ["CompanyOutboxEventSink"]
 
 logger = logging.getLogger("cosa.events.sink")
@@ -25,7 +27,7 @@ class CompanyOutboxEventSink:
         self._url = (
             base_url or os.environ.get("COMPANY_SERVICE_URL", "http://127.0.0.1:4000")
         ).rstrip("/")
-        self._token = service_token or os.environ.get("COSA_WORKER_SERVICE_TOKEN", "")
+        self._token = service_token
         self._client = client
 
     async def __call__(self, envelope: dict) -> None:
@@ -34,7 +36,10 @@ class CompanyOutboxEventSink:
             resp = await client.post(
                 f"{self._url}/events/internal/knowledge-published",
                 json={"envelope": envelope},
-                headers={"X-Service-Token": self._token},
+                headers={
+                    "X-Service-Token": self._token
+                    or mint_worker_service_jwt(worker_id="knowledge-publish-sink")
+                },
             )
             resp.raise_for_status()
         finally:

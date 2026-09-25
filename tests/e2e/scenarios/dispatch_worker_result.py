@@ -33,7 +33,6 @@ thái chấp nhận được.
 
 from __future__ import annotations
 
-import os
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -59,11 +58,13 @@ _TERMINAL_STREAM_EVENTS = ("run.completed", "run.failed")
 _OPERATIONS_SYSTEM_KEY = "cosa.agents.operations"
 _OPERATIONS_EXTRA_CAPABILITIES = ["operations.task.read"]
 
-# `services/company` xác thực route signal nội bộ bằng
-# `process.env.COSA_WORKER_SERVICE_TOKEN ?? "dev-worker-service-token"`. Trong
-# stack subprocess, tiến trình company kế thừa `os.environ` của tiến trình test
-# (không set thêm token này), nên resolve cùng giá trị ở cả hai phía.
-_COMPANY_SIGNAL_TOKEN = os.environ.get("COSA_WORKER_SERVICE_TOKEN", "dev-worker-service-token")
+# `services/company` xác thực route signal nội bộ bằng JWT worker
+# (iss=apps-cosa, aud=company-internal) ký bằng WORKER_SERVICE_JWT_SECRET mà
+# stack subprocess boot company với đúng giá trị cố định này.
+def _company_signal_token() -> str:
+    from tests.e2e.conftest import mint_e2e_worker_token
+
+    return mint_e2e_worker_token("dispatch-worker-result-e2e")
 
 
 def run(stack: MvpStack, seeded: SeededWorkspace, cluster: DisposableCluster) -> None:
@@ -308,7 +309,7 @@ def _post_company_signal(company_base_url: str, payload: dict[str, Any]) -> http
         return client.post(
             "/events/internal/agent-runtime-signal",
             json=payload,
-            headers={"Authorization": f"Bearer {_COMPANY_SIGNAL_TOKEN}"},
+            headers={"Authorization": f"Bearer {_company_signal_token()}"},
         )
 
 

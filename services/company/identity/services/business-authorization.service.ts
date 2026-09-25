@@ -277,7 +277,8 @@ export async function getBusinessPolicyRulesForMemberService(p: {
         .where(
           and(
             eq(identityWorkspaceMemberships.workspaceId, p.workspaceId),
-            eq(identityWorkspaceMemberships.userId, member.humanUserId)
+            eq(identityWorkspaceMemberships.userId, member.humanUserId),
+            eq(identityWorkspaceMemberships.membershipState, "active")
           )
         );
       isFounder = ["founder", "co-founder"].includes((membership?.role || "").toLowerCase());

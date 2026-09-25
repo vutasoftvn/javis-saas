@@ -38,6 +38,9 @@ from tests.e2e.stack.disposable_postgres import (
     create_disposable_cluster,
     drop_disposable_cluster,
 )
+from tests.e2e.stack.subprocess_stack import (
+    WORKER_SERVICE_JWT_SECRET as E2E_WORKER_SERVICE_JWT_SECRET,
+)
 from tests.e2e.stack.subprocess_stack import boot_subprocess_stack, teardown_subprocess_stack
 
 COMPANY_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "services", "company")
@@ -231,6 +234,9 @@ def real_company_service() -> Iterator[CompanyServiceHandle]:
         # Chỉ bật seed endpoint E2E-only cho đúng process test này — xem
         # guard fail-closed 2 lớp trong ai-compliance-e2e-seed.handler.ts.
         "E2E_TEST_SEED_ENABLED": "1",
+        # Verifier worker của Company fail-closed khi thiếu secret (spec
+        # 2026-09-25 §5) — pin cùng secret mà test ký JWT worker.
+        "WORKER_SERVICE_JWT_SECRET": E2E_WORKER_SERVICE_JWT_SECRET,
     }
     proc = subprocess.Popen(
         [encore_bin, "run", f"--port={port}"],
@@ -352,3 +358,23 @@ def advisor_stack(advisor_cluster: DisposableCluster) -> Iterator[MvpStack]:
         yield stack
     finally:
         teardown_subprocess_stack(stack.handles or handles)
+
+
+def mint_e2e_worker_token(worker_id: str = "e2e-worker") -> str:
+    """JWT worker (iss=apps-cosa, aud=company-internal) ký bằng secret E2E cố định."""
+    import uuid
+
+    import jwt
+
+    return jwt.encode(
+        {
+            "iss": "apps-cosa",
+            "aud": "company-internal",
+            "sub": worker_id,
+            "role": "worker_service",
+            "jti": uuid.uuid4().hex,
+            "exp": int(time.time()) + 300,
+        },
+        E2E_WORKER_SERVICE_JWT_SECRET,
+        algorithm="HS256",
+    )

@@ -1,7 +1,7 @@
 import { api, Header, Gateway, APIError } from "encore.dev/api";
 import { authHandler } from "encore.dev/auth";
 import { verifyAccessToken, renewAccessToken } from "../services/token.service";
-import { MeResponse, getMeProfile } from "../services/auth.service";
+import { MeResponse, getMeProfile, assertLocalSessionRenewable } from "../services/auth.service";
 
 export { MeResponse };
 
@@ -70,11 +70,13 @@ export const renewLocalSession = api(
     if (!header || !header.startsWith("Bearer ")) {
       throw APIError.unauthenticated("missing bearer token");
     }
+    let token: string;
     try {
-      const token = renewAccessToken(header.slice("Bearer ".length));
-      return { local_session_token: token, token_type: "bearer" };
+      token = renewAccessToken(header.slice("Bearer ".length));
     } catch {
       throw APIError.unauthenticated("local session cannot be renewed");
     }
+    await assertLocalSessionRenewable(verifyAccessToken(token).sub);
+    return { local_session_token: token, token_type: "bearer" };
   }
 );

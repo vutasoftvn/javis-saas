@@ -2,6 +2,7 @@
 services/company internal endpoint; publish_knowledge_source uses it by
 default."""
 import httpx
+import jwt
 import pytest
 
 from agent.knowledge.snapshot import KnowledgeSnapshot
@@ -49,7 +50,9 @@ async def test_publish_knowledge_source_default_sink_hits_company(monkeypatch):
             pass
 
     monkeypatch.setenv("COMPANY_SERVICE_URL", "http://company.test")
+    # Token control-plane cũ không còn được gửi sang Company; sink ký JWT worker.
     monkeypatch.setenv("COSA_WORKER_SERVICE_TOKEN", "tok")
+    monkeypatch.setenv("WORKER_SERVICE_JWT_SECRET", "k" * 40)
     monkeypatch.setattr(
         "apps.cosa.knowledge_ingestion.event_sink.httpx.AsyncClient",
         lambda *a, **k: _StubClient(),
@@ -60,4 +63,9 @@ async def test_publish_knowledge_source_default_sink_hits_company(monkeypatch):
         reviewed_by="u_1", reviewed_at="t", correlation_id="c",
     )
     assert calls and calls[0][0].endswith("/events/internal/knowledge-published")
-    assert calls[0][1] == "tok"
+    token = calls[0][1]
+    assert token != "tok"
+    claims = jwt.decode(
+        token, "k" * 40, algorithms=["HS256"], audience="company-internal", issuer="apps-cosa"
+    )
+    assert claims["role"] == "worker_service"

@@ -1,4 +1,3 @@
-from apps.cosa.auth.jwt import mint_worker_service_jwt
 """Founder Asset Status Callback Client — Agent Platform → Company Control Plane.
 
 POSTs signed status callback to Company control plane reporting command outcome:
@@ -13,6 +12,8 @@ import os
 from typing import Any
 
 import httpx
+
+from apps.cosa.auth.jwt import mint_worker_service_jwt
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +43,8 @@ class FounderAssetStatusCallbackClient:
         self._base_url = (
             base_url or os.getenv("COMPANY_SERVICE_URL") or "http://localhost:4000"
         ).rstrip("/")
-        self._token = (
-            service_token or mint_worker_service_jwt(worker_id="founder-asset-callback-worker")
+        self._token = service_token or mint_worker_service_jwt(
+            worker_id="founder-asset-callback-worker"
         )
         self._client = client or httpx.AsyncClient(timeout=timeout_sec)
         self._max_retries = max_retries

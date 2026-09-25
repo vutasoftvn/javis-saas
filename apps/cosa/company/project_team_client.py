@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from apps.cosa.auth.jwt import mint_worker_service_jwt
-
 import os
 from typing import Any
 
 import httpx
 from pydantic import BaseModel, Field
+
+from apps.cosa.auth.jwt import mint_worker_service_jwt
 
 __all__ = [
     "ProjectAgentRunAuthority",

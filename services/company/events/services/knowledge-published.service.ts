@@ -2,10 +2,12 @@ import { APIError } from "encore.dev/api";
 import { db } from "../../operations/db";
 import { validateEnvelope, type BusinessEventEnvelope } from "../../shared/events/envelope";
 import { appendOutboxEvent } from "../../shared/events/outbox.repository";
+import { requireWorkerServiceAuth } from "../../shared/auth/worker-service-auth";
 
 export interface IngestKnowledgePublishedRequest {
   envelope: BusinessEventEnvelope<Record<string, unknown>>;
   serviceToken?: string;
+  authorization?: string;
 }
 
 /**
@@ -15,12 +17,10 @@ export interface IngestKnowledgePublishedRequest {
  * DB khác (`AGENT_DATABASE_URL`).
  */
 export async function ingestKnowledgePublished(
-  req: IngestKnowledgePublishedRequest,
-  expectedToken: string = process.env.COSA_WORKER_SERVICE_TOKEN ?? ""
+  req: IngestKnowledgePublishedRequest
 ): Promise<{ stored: true }> {
-  if (!expectedToken || req.serviceToken !== expectedToken) {
-    throw APIError.unauthenticated("invalid service token");
-  }
+  // Worker JWT ký bởi apps/cosa (spec 2026-09-25 §5) — không còn so chuỗi token thô.
+  await requireWorkerServiceAuth({ serviceToken: req.serviceToken, authorization: req.authorization });
   validateEnvelope(req.envelope);
   if (req.envelope.eventType !== "knowledge.source.published.v1") {
     throw APIError.invalidArgument(

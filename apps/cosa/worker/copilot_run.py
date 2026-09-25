@@ -13,8 +13,9 @@ from agent.contracts.run import RunRequest
 from apps.cosa.agents.registry_loader import load_registered_agent_spec
 from apps.cosa.agents.specs import COSA_CUSTOMER_SUPPORT_AGENT_SPEC
 from apps.cosa.api.event_stream import CosaEventStreamManager, redact_ux_event_payload
+from apps.cosa.auth.jwt import mint_worker_service_jwt
 from apps.cosa.composition.agent_plane import CosaAgentPlane
-from apps.cosa.config.service_identity import require_internal_url, require_service_token
+from apps.cosa.config.service_identity import require_internal_url
 from apps.cosa.policies.locale_policy import (
     ProfileLocaleUnavailable,
     build_copilot_prompt,
@@ -110,12 +111,13 @@ async def callback_company_result(
     company_base_url = require_internal_url(
         "COMPANY_SERVICE_URL", purpose="copilot callback", default_dev="http://127.0.0.1:4000"
     )
-    service_token = require_service_token("COSA_SERVICE_TOKEN", purpose="copilot callback")
+    # Callback về Company dùng JWT worker ngắn hạn (spec 2026-09-25 §5).
+    service_token = mint_worker_service_jwt(worker_id="copilot-worker")
 
     url = f"{company_base_url}/commercial/engagement/copilot-invocations/{run_id}/result"
     headers = {
         "Content-Type": "application/json",
-        "X-Cosa-Service-Token": service_token,
+        "X-Service-Token": service_token,
     }
     body: dict[str, Any] = {
         "runId": run_id,
