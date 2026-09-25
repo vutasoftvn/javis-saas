@@ -20,7 +20,7 @@ RUNTIME_PYTHONPATH := $(CURDIR):$(CURDIR)/packages:$(CURDIR)/apps
 # `tenancy-check` ở trên và `deploy/postgres/init/01-create-app-roles.sql`.
 ai-compliance-production-gate:
 	cd services/company && WORKSPACE_MIGRATOR_DATABASE_URL="$${WORKSPACE_MIGRATOR_DATABASE_URL:-postgresql://workspace_migrator:change-me-workspace-migrator@127.0.0.1:5432/workspace?sslmode=disable}" node scripts/migrate.mjs
-	cd services/company && WORKSPACE_DATABASE_URL="$${WORKSPACE_DATABASE_URL:-postgresql://workspace_app:change-me-workspace-app@127.0.0.1:5432/workspace?sslmode=disable}" pnpm vitest run finance-legal/tests/ai-compliance-*.test.ts
+	cd services/company && WORKSPACE_DATABASE_URL="$${WORKSPACE_DATABASE_URL:-postgresql://workspace_app:change-me-workspace-app@127.0.0.1:5432/workspace?sslmode=disable}" npx vitest run finance-legal/tests/ai-compliance-*.test.ts
 	WORKSPACE_DATABASE_URL="$${WORKSPACE_DATABASE_URL:-postgresql://workspace_app:change-me-workspace-app@127.0.0.1:5432/workspace?sslmode=disable}" PYTHONPATH=$(CURDIR) $(PYTEST) tests/apps/cosa/compliance tests/e2e/test_ai_compliance_company_http.py -q
 	cd frontend && flutter test test/modules/legal/ai_compliance_service_test.dart test/data/models/ai_compliance_models_test.dart
 

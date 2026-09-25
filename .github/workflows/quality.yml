@@ -417,7 +417,8 @@ jobs:
         run: |
           pip install --require-hashes -r packages/agent/requirements.txt -r apps/cosa/requirements.txt
           pip install pytest-asyncio
-          cd services/company && npm install -g pnpm && pnpm install
+          # Repo dùng npm (package-lock.json); pnpm 10 chặn build script esbuild.
+          cd services/company && npm ci
           cd ../../frontend && flutter pub get
       - name: Run AI Compliance Production Gate
         run: make ai-compliance-production-gate
