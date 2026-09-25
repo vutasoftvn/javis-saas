@@ -3,6 +3,8 @@ import { createTestSession } from "../../identity/tests/helpers/test-session";
 import { hireWorkforceMember } from "../../identity/handlers/workforce.handler";
 import { createTask, getTask, listTasks, updateTaskStatus, updateTaskSchedule } from "../handlers/task.handler";
 import { readOutbox } from "./helpers/outbox";
+import { db, schema } from "../../identity/models/db";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
 
 async function makeAuthedWorkspace(displayName: string) {
   const user = await createTestSession({
@@ -43,6 +45,13 @@ describe("createTask", () => {
   it("validates assigneeMemberId against identity when provided", async () => {
     const { workspaceId, authorization } = await makeAuthedWorkspace("Assignee Test Inc");
     const assigneeSession = await createTestSession({ displayName: "Assignee Test Member" });
+    // Người được giao phải là membership active của workspace trước khi được tuyển.
+    await db.insert(schema.identityWorkspaceMemberships).values({
+      id: generateSnowflake(),
+      workspaceId: BigInt(workspaceId),
+      userId: BigInt(assigneeSession.userId),
+      role: "member",
+    });
     const member = await hireWorkforceMember({
       workspaceId,
       memberType: "HUMAN",
