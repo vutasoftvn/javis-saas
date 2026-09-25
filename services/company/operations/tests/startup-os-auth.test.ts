@@ -10,6 +10,7 @@ import {
 } from "../handlers/goals.handler";
 import { getCurrentCompanyContext, startOnboardSession } from "../handlers/onboard.handler";
 import { recordOutcomeAssessmentEndpoint } from "../handlers/task-outcome-analysis.handler";
+import { listCycles } from "../handlers/twelve-week-year.handler";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 
 // Các endpoint Startup OS (goals/OKR/onboard) và outcome-assessment từng là
@@ -26,6 +27,21 @@ describe("startup OS endpoints require workspace auth", () => {
     await expect(
       getCurrentCompanyContext({ workspaceId: ws.workspaceId })
     ).rejects.toMatchObject({ code: "unauthenticated" });
+  });
+
+  it("rejects anonymous or foreign reads of 12-week cycles", async () => {
+    const owner = await createTestWorkspaceWithMember({ role: "founder" });
+    const outsider = await createTestWorkspaceWithMember({ role: "founder" });
+
+    await expect(listCycles({ workspaceId: owner.workspaceId })).rejects.toMatchObject({
+      code: "unauthenticated",
+    });
+    await expect(
+      listCycles({ workspaceId: owner.workspaceId, authorization: outsider.bearerToken })
+    ).rejects.toMatchObject({ code: "permission_denied" });
+    await expect(
+      listCycles({ workspaceId: owner.workspaceId, authorization: owner.bearerToken })
+    ).resolves.toMatchObject({ cycles: [] });
   });
 
   it("rejects a member of another workspace", async () => {
