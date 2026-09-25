@@ -1147,7 +1147,10 @@ async def execute_scheduled_session_task(
                 if resp.status_code == 200:
                     data = resp.json()
                     workspace_id = (
-                        workspace_id or data.get("organizationId") or data.get("workspaceId") or data.get("workspace_id")
+                        workspace_id
+                        or data.get("organizationId")
+                        or data.get("workspaceId")
+                        or data.get("workspace_id")
                     )
                     prompt_template = (
                         prompt_template

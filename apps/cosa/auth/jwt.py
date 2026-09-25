@@ -209,6 +209,7 @@ def mint_control_plane_delegation(
     }
     return jwt.encode(payload, secret, algorithm="HS256")
 
+
 # Fixture chỉ dùng trong pytest — khớp TEST_WORKER_SERVICE_JWT_SECRET phía
 # services/company. Không phải fallback runtime (spec 2026-09-25 §5).
 _WORKER_SERVICE_TEST_FIXTURE_SECRET = "test-worker-jwt-secret-min-32-chars-long-fixture"

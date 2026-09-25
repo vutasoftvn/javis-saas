@@ -31,6 +31,12 @@ class FounderAssetCallbackDeliveryError(Exception):
 
 
 class FounderAssetStatusCallbackClient:
+    @property
+    def _token(self) -> str:
+        return self._static_service_token or mint_worker_service_jwt(
+            worker_id="founder-asset-callback-worker"
+        )
+
     def __init__(
         self,
         base_url: str | None = None,
@@ -43,9 +49,9 @@ class FounderAssetStatusCallbackClient:
         self._base_url = (
             base_url or os.getenv("COMPANY_SERVICE_URL") or "http://localhost:4000"
         ).rstrip("/")
-        self._token = service_token or mint_worker_service_jwt(
-            worker_id="founder-asset-callback-worker"
-        )
+        # Không ký JWT ở constructor: token chỉ sống 5 phút nên client sống lâu
+        # (tạo lúc worker khởi động) sẽ giữ token hết hạn; ký lại mỗi request.
+        self._static_service_token = service_token
         self._client = client or httpx.AsyncClient(timeout=timeout_sec)
         self._max_retries = max_retries
         self._backoff_sec = backoff_sec

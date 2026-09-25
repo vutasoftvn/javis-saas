@@ -21,7 +21,7 @@ def register_sandbox_read_mcp_tools(registry: CapabilityRegistry) -> list[str]:
 
     async def caller(tool_name: str, payload: dict[str, Any]) -> Any:
         async with (
-            streamable_http_client(SANDBOX_READ_MCP_URL) as (read, write, _),
+            streamable_http_client(SANDBOX_READ_MCP_URL) as (read, write),
             ClientSession(read, write) as session,
         ):
             await session.initialize()

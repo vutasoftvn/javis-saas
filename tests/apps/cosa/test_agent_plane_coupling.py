@@ -2,6 +2,10 @@
 
 import re
 import subprocess
+from pathlib import Path
+
+# Đường dẫn tuyệt đối theo repo, không gắn với máy dev cụ thể.
+_APPS_COSA = Path(__file__).resolve().parents[3] / "apps" / "cosa"
 
 
 def test_all_agent_plane_direct_accesses_documented():
@@ -12,7 +16,7 @@ def test_all_agent_plane_direct_accesses_documented():
             "-E",
             "-r",
             r"plane\.(gateway|repository|policy_engine|approval_service|kernel|workflow)",
-            "/Volumes/SSD/javis-saas/apps/cosa",
+            str(_APPS_COSA),
             "--include=*.py",
         ],
         capture_output=True,

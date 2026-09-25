@@ -490,7 +490,7 @@ Bản triển khai tham chiếu của Anthropic chia khả năng tương tác ho
 >
 > Đường dẫn A dùng Anthropic Computer Use Demo. Container của nó đóng gói một môi trường desktop Ubuntu hoàn chỉnh, bao gồm trình duyệt, terminal và các công cụ phổ biến khác. Frontend nhận một tác vụ, còn backend gửi hướng dẫn và ảnh chụp màn hình đến Claude, rồi thực thi các hành động chuột, bàn phím, terminal hoặc chỉnh sửa do mô hình trả về.
 >
-> Đường dẫn B dùng mã ví dụ trong [`chapter6/computer-use-open-model`](../chapter6/computer-use-open-model/). Theo mặc định, nó điều khiển browser-use bằng mô hình Qwen3-VL 32B Instruct trọng số mở thông qua API OpenRouter được lưu trữ, hoặc thông qua vLLM/SGLang tự lưu trữ và các hệ thống tương tự.
+> Đường dẫn B dùng mã ví dụ trong `chapter6/computer-use-open-model` (mã ví dụ của sách gốc, không có trong repo này). Theo mặc định, nó điều khiển browser-use bằng mô hình Qwen3-VL 32B Instruct trọng số mở thông qua API OpenRouter được lưu trữ, hoặc thông qua vLLM/SGLang tự lưu trữ và các hệ thống tương tự.
 
 ### Định vị trực quan (Nối đất)
 

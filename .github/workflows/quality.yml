@@ -28,7 +28,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: stable
+          channel: stable
+          flutter-version: 3.47.5
           cache: true
       - run: flutter pub get
         working-directory: frontend
@@ -75,7 +76,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: stable
+          channel: stable
+          flutter-version: 3.47.5
           cache: true
       - run: flutter pub get
         working-directory: frontend
@@ -170,7 +172,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: stable
+          channel: stable
+          flutter-version: 3.47.5
           cache: true
       - run: flutter pub get
         working-directory: frontend
@@ -262,7 +265,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install pytest
+      # Test contract import pydantic từ packages/agent — cần lock thật, không chỉ pytest.
+      - run: |
+          pip install --require-hashes -r packages/agent/requirements.txt -r apps/cosa/requirements.txt
+          pip install pytest
       - name: Enum generated code in sync
         run: node scripts/gen-contracts.mjs --check
       - name: Route inventory / drift snapshot in sync
@@ -283,6 +289,8 @@ jobs:
       - name: gitleaks
         uses: gitleaks/gitleaks-action@v2
         env:
+          # gitleaks-action cần token để đọc danh sách commit của PR.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_CONFIG: .gitleaks.toml
           GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
           GITLEAKS_ENABLE_SUMMARY: "true"
@@ -319,7 +327,8 @@ jobs:
           WORKSPACE_MIGRATOR_PASSWORD: ci-workspace-migrator
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: stable
+          channel: stable
+          flutter-version: 3.47.5
           cache: true
       - uses: actions/setup-python@v5
         with:
@@ -387,7 +396,8 @@ jobs:
           WORKSPACE_MIGRATOR_PASSWORD: ci-workspace-migrator
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: stable
+          channel: stable
+          flutter-version: 3.47.5
           cache: true
       - uses: actions/setup-python@v5
         with:
@@ -992,7 +1002,10 @@ jobs:
           python-version: '3.11'
           cache: pip
           cache-dependency-path: packages/agent/requirements.txt
-      - run: pip install pytest
+      # boundary-check import module thật (sqlalchemy...), nên cài đủ lock.
+      - run: |
+          pip install --require-hashes -r packages/agent/requirements.txt -r apps/cosa/requirements.txt
+          pip install pytest
       - run: npm ci
         working-directory: services/company
       - run: make boundary-check

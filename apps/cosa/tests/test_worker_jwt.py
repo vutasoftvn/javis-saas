@@ -22,6 +22,7 @@ def test_mint_worker_service_jwt_claims():
     assert "jti" in payload
     assert "exp" in payload
 
+
 def test_worker_jwt_fails_closed_in_production(monkeypatch):
     monkeypatch.setenv("ENVIRONMENT", "production")
     monkeypatch.delenv("WORKER_SERVICE_JWT_SECRET", raising=False)
@@ -30,11 +31,29 @@ def test_worker_jwt_fails_closed_in_production(monkeypatch):
     with pytest.raises(RuntimeError, match="WORKER_SERVICE_JWT_SECRET"):
         mint_worker_service_jwt()
 
+    # Client được tạo được (composition/CLI không cần secret) nhưng request
+    # đầu tiên fail-closed khi ký token.
     with pytest.raises(RuntimeError, match="WORKER_SERVICE_JWT_SECRET"):
-        ExecutiveBoardClient()
+        _ = ExecutiveBoardClient().service_token
 
     with pytest.raises(RuntimeError, match="WORKER_SERVICE_JWT_SECRET"):
-        ProjectTeamClient()
+        _ = ProjectTeamClient().service_token
+
+
+def test_clients_mint_a_fresh_worker_jwt_per_request(monkeypatch):
+    # Token chỉ sống 5 phút: client sống lâu phải ký lại mỗi request thay vì
+    # giữ token ký lúc khởi động.
+    secret = "y" * 40
+    monkeypatch.setenv("WORKER_SERVICE_JWT_SECRET", secret)
+    client = ProjectTeamClient()
+
+    def jti(token: str) -> str:
+        return jwt.decode(
+            token, secret, algorithms=["HS256"], audience="company-internal", issuer="apps-cosa"
+        )["jti"]
+
+    assert jti(client.service_token) != jti(client.service_token)
+    assert ProjectTeamClient(service_token="static").service_token == "static"
 
 
 def test_worker_jwt_has_no_default_secret_outside_tests(monkeypatch):

@@ -3,10 +3,10 @@
 **Ngày lập:** 2026-09-19  
 **Tài liệu tham chiếu:**  
 - [`Digidai/product-manager-skills`](https://github.com/Digidai/product-manager-skills) (Commit SHA: `ab7a40662c8455ece631834dee9670b3322f465b`, MIT License)  
-- [`packages/agent/workforce/catalog.py`](../../packages/agent/workforce/catalog.py)  
-- [`apps/cosa/agents/specs.py`](../../apps/cosa/agents/specs.py)  
-- [`skillpacks/executive/cpo-advisor/SKILL.md`](../../skillpacks/executive/cpo-advisor/SKILL.md)  
-- [`packages/agent/executive_board/analyzers.py`](../../packages/agent/executive_board/analyzers.py)  
+- [`packages/agent/workforce/catalog.py`](../../../packages/agent/workforce/catalog.py)  
+- [`apps/cosa/agents/specs.py`](../../../apps/cosa/agents/specs.py)  
+- [`skillpacks/executive/cpo-advisor/SKILL.md`](../../../skillpacks/executive/cpo-advisor/SKILL.md)  
+- [`packages/agent/executive_board/analyzers.py`](../../../packages/agent/executive_board/analyzers.py)  
 **Trạng thái:** Đang triển khai
 
 ---

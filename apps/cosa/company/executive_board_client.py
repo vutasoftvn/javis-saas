@@ -35,6 +35,12 @@ class ExecutiveBoardClient:
     - Gửi kết quả callback analysis (hoàn tất hoặc thất bại).
     """
 
+    @property
+    def service_token(self) -> str:
+        return self._static_service_token or mint_worker_service_jwt(
+            worker_id="executive-board-worker"
+        )
+
     def __init__(
         self,
         base_url: str | None = None,
@@ -47,9 +53,9 @@ class ExecutiveBoardClient:
             or os.getenv("COMPANY_URL")
             or "http://localhost:4000"
         ).rstrip("/")
-        self.service_token = (
-            service_token or mint_worker_service_jwt(worker_id="executive-board-worker")
-        )
+        # Không ký JWT ở constructor: token chỉ sống 5 phút nên client sống lâu
+        # (tạo lúc worker khởi động) sẽ giữ token hết hạn; ký lại mỗi request.
+        self._static_service_token = service_token
         self.timeout = timeout
 
     async def get_deliberation_authority(
