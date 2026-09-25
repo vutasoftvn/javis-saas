@@ -251,7 +251,13 @@ def init_plane_storage(
         # cần cho KnowledgeIngestionService.retrieve_authorized_citations()
         # khi store không tự implement join thật (InMemoryKnowledgeStore);
         # PostgresKnowledgeStore bỏ qua tham số này (tự SQL join).
-        if resolved_url:
+        #
+        # PostgresKnowledgeStore JOIN thẳng vault.* trong cùng DB và có FK
+        # provenance sang vault.document_versions (migration 013), nên chỉ dùng
+        # được khi vault cũng là Postgres. Nếu caller inject vault không phải
+        # Postgres (vd. InMemoryVaultRepository), knowledge phải in-memory theo —
+        # trộn 2 backend làm publish vỡ FK và retrieval không thấy document.
+        if resolved_url and isinstance(vault_repo, PostgresVaultRepository):
             from agent.knowledge.store import get_knowledge_store as _get_kstore
 
             knowledge_ingestion_service = _KIS(
