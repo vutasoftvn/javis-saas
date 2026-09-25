@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from apps.cosa.auth.jwt import mint_worker_service_jwt
+
 import os
 from typing import Any
 
@@ -90,7 +92,7 @@ class CompanyServiceClient:
         project_agent_deployment_id: str,
     ) -> dict[str, Any]:
         """Resolve a live ProjectAgentDeployment authority pin for workflow execution."""
-        service_token = os.environ.get("COSA_WORKER_SERVICE_TOKEN", "dev-worker-service-token")
+        service_token = os.environ.get("COSA_WORKER_SERVICE_TOKEN") or mint_worker_service_jwt(worker_id="capabilities-worker")
         return await self.get(
             f"/internal/operations/projects/{project_id}/agent-deployments/"
             f"{project_agent_deployment_id}/deployment-authority",

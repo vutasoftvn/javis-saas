@@ -1,5 +1,5 @@
 import { api, Header, APIError } from "encore.dev/api";
-import jwt from "jsonwebtoken";
+import { requireWorkerServiceAuth } from "../../shared/auth/worker-service-auth";
 import { requireWorkspaceAccess, requireFounderCommand } from "../../shared/auth/workspace-access";
 import {
   commandFounderAsset,
@@ -12,33 +12,7 @@ import {
   type AssetStatusCallbackPayload,
 } from "../services/founder-asset-authoring.service";
 
-const DEV_WORKER_JWT_SECRET = "cosa-worker-service-jwt-key-change-in-prod-min32chars";
 
-function requireInternalServiceToken(
-  serviceTokenHeader?: string,
-  authorizationHeader?: string
-): void {
-  const token =
-    serviceTokenHeader ||
-    (authorizationHeader ? authorizationHeader.replace(/^Bearer\s+/i, "") : "");
-  if (!token) {
-    throw APIError.unauthenticated("missing service token");
-  }
-  const sharedExpected =
-    process.env.COSA_WORKER_SERVICE_TOKEN ?? "dev-worker-service-token";
-  if (token === sharedExpected) return;
-
-  try {
-    const payload = jwt.verify(token, process.env.COSA_WORKER_JWT_SECRET || DEV_WORKER_JWT_SECRET) as {
-      role?: string;
-      aud?: string;
-    };
-    if (payload.role === "worker_service" && payload.aud === "control_plane") return;
-  } catch {
-    // fall through
-  }
-  throw APIError.unauthenticated("invalid or missing service token");
-}
 
 export interface CommandFounderAssetParams {
   authorization?: Header<"Authorization">;
@@ -82,7 +56,7 @@ export const handleAssetStatusCallbackApi = api(
     path: "/internal/operations/founder/assets/status-callback",
   },
   async (params: HandleAssetStatusCallbackParams): Promise<{ success: boolean }> => {
-    requireInternalServiceToken(params.serviceToken, params.authorization);
+    await requireWorkerServiceAuth({ serviceToken: params.serviceToken, authorization: params.authorization });
     await handleAssetStatusCallback(params);
     return { success: true };
   }

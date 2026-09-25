@@ -1,3 +1,4 @@
+from apps.cosa.auth.jwt import mint_worker_service_jwt
 """COSA Automation MVP (Task 6) — Agent → Company outcome projection.
 
 The Agent Platform never writes the Company database. It signs a compact
@@ -30,7 +31,7 @@ class AutomationOutcomeClient:
             base_url or os.getenv("COMPANY_SERVICE_URL") or "http://localhost:4000"
         ).rstrip("/")
         self._token = (
-            service_token or os.getenv("COSA_WORKER_SERVICE_TOKEN") or "dev-worker-service-token"
+            service_token or mint_worker_service_jwt(worker_id="automation-outcome-worker")
         )
         self._client = client or httpx.AsyncClient(timeout=timeout_sec)
 

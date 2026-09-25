@@ -78,12 +78,24 @@ export const identityWorkspaceMemberships = coreSchema.table("workspace_membersh
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull().references(() => identityWorkspaces.id, { onDelete: "cascade" }),
   userId: bigint("user_id", { mode: "bigint" }).notNull().references(() => identityUserProjections.id, { onDelete: "cascade" }),
   role: text("role").default("member").notNull(),
+  membershipState: text("membership_state").default("active").notNull(),
+  sourceMembershipVersion: bigint("source_membership_version", { mode: "number" }).default(1).notNull(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
   platformMembershipId: text("platform_membership_id"),
   sourceUpdatedAt: timestamp("source_updated_at", { withTimezone: true }),
   syncedAt: timestamp("synced_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
+});
+
+export const identityMembershipEventInbox = coreSchema.table("membership_event_inbox", {
+  eventId: text("event_id").primaryKey(),
+  organizationId: text("organization_id").notNull(),
+  userId: text("user_id").notNull(),
+  membershipVersion: bigint("membership_version", { mode: "number" }).notNull(),
+  status: text("status").notNull(),
+  processedAt: timestamp("processed_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // Task 3 (AI compliance hardening) — chống replay cho scoped COSA->Company

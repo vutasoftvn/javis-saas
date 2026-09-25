@@ -1,5 +1,5 @@
 import { APIError } from "encore.dev/api";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, notInArray, sql } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { signAccessToken } from "./token.service";
 import {
@@ -166,6 +166,8 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
             workspaceId,
             userId,
             role: wm.role,
+            membershipState: "active",
+            sourceMembershipVersion: 1,
             platformMembershipId: wm.membershipId,
             sourceUpdatedAt: new Date(wm.membershipUpdatedAt),
             syncedAt: new Date(),
@@ -174,6 +176,8 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
             target: [identityWorkspaceMemberships.workspaceId, identityWorkspaceMemberships.userId],
             set: {
               role: wm.role,
+              membershipState: "active",
+              revokedAt: null,
               platformMembershipId: wm.membershipId,
               sourceUpdatedAt: new Date(wm.membershipUpdatedAt),
               syncedAt: new Date(),
@@ -190,6 +194,24 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
             stageEnteredAt: new Date(),
           })
           .onConflictDoNothing();
+      }
+
+      const activePlatformWsIds = verifiedMemberships.map((m) => BigInt(m.platformWorkspaceId));
+      if (activePlatformWsIds.length > 0) {
+        await tx
+          .update(identityWorkspaceMemberships)
+          .set({
+            membershipState: "revoked",
+            revokedAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(identityWorkspaceMemberships.userId, userId),
+              notInArray(identityWorkspaceMemberships.workspaceId, activePlatformWsIds),
+              eq(identityWorkspaceMemberships.membershipState, "active")
+            )
+          );
       }
 
       return userId;
@@ -210,7 +232,12 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
         identityWorkspaceMemberships,
         eq(identityWorkspaceMemberships.workspaceId, identityWorkspaces.id)
       )
-      .where(eq(identityWorkspaceMemberships.userId, localUserId));
+      .where(
+        and(
+          eq(identityWorkspaceMemberships.userId, localUserId),
+          eq(identityWorkspaceMemberships.membershipState, "active")
+        )
+      );
 
     const localAccessToken = signAccessToken(localUserId.toString());
     return {

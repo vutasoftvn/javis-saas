@@ -1,5 +1,5 @@
 import { api, Header, APIError } from "encore.dev/api";
-import jwt from "jsonwebtoken";
+import { requireWorkerServiceAuth } from "../../shared/auth/worker-service-auth";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import {
   getProjectDeploymentAuthority,
@@ -8,36 +8,7 @@ import {
   ProjectAgentDeploymentDto,
 } from "../services/founder-asset-deployment.service";
 
-const DEV_WORKER_JWT_SECRET = "cosa-worker-service-jwt-key-change-in-prod-min32chars";
 
-function requireWorkerServiceToken(
-  serviceTokenHeader?: string,
-  authorizationHeader?: string
-): void {
-  const token =
-    serviceTokenHeader ||
-    (authorizationHeader ? authorizationHeader.replace(/^Bearer\s+/i, "") : "");
-  if (!token) {
-    throw APIError.unauthenticated("missing service token");
-  }
-  const sharedExpected =
-    process.env.COSA_WORKER_SERVICE_TOKEN ?? "dev-worker-service-token";
-  if (token === sharedExpected) return;
-
-  const secret =
-    process.env.WORKER_SERVICE_JWT_SECRET ||
-    DEV_WORKER_JWT_SECRET;
-  try {
-    const payload = jwt.verify(token, secret, { audience: "control_plane" }) as {
-      role?: string;
-      aud?: string;
-    };
-    if (payload.role === "worker_service" && payload.aud === "control_plane") return;
-  } catch {
-    // fall through
-  }
-  throw APIError.unauthenticated("invalid or missing service token");
-}
 
 interface GetProjectDeploymentAuthorityParams {
   serviceToken?: Header<"X-Service-Token">;
@@ -64,15 +35,18 @@ export const getProjectDeploymentAuthorityApi = api(
   async (
     params: GetProjectDeploymentAuthorityParams
   ): Promise<ProjectDeploymentAuthority> => {
-    requireWorkerServiceToken(params.serviceToken, params.authorization);
+    const claims = await requireWorkerServiceAuth({
+      serviceToken: params.serviceToken,
+      authorization: params.authorization,
+    });
     if (!params.workspaceId) {
       throw APIError.invalidArgument("X-Workspace-Id header is required");
     }
 
     const tenantCtx = {
       workspaceId: params.workspaceId,
-      userId: "0",
-      membershipRole: "system",
+      userId: claims.sub,
+      membershipRole: "worker_service",
       permissions: ["*"],
       correlationId: `auth-${Date.now()}`,
     };
@@ -132,15 +106,18 @@ export const getProjectDeploymentAuthorityByDeploymentApi = api(
   async (
     params: GetProjectDeploymentAuthorityByDeploymentParams
   ): Promise<ProjectDeploymentAuthority> => {
-    requireWorkerServiceToken(params.serviceToken, params.authorization);
+    const claims = await requireWorkerServiceAuth({
+      serviceToken: params.serviceToken,
+      authorization: params.authorization,
+    });
     if (!params.workspaceId) {
       throw APIError.invalidArgument("X-Workspace-Id header is required");
     }
     return getProjectDeploymentAuthority(
       {
         workspaceId: params.workspaceId,
-        userId: "0",
-        membershipRole: "system",
+        userId: claims.sub,
+        membershipRole: "worker_service",
         permissions: ["*"],
         correlationId: `auth-${Date.now()}`,
       },

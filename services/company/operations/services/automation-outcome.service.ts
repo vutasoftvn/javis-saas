@@ -9,7 +9,7 @@
 // metadata.
 
 import { APIError, Header } from "encore.dev/api";
-import jwt from "jsonwebtoken";
+import { requireWorkerServiceAuth } from "../../shared/auth/worker-service-auth";
 import { and, eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
@@ -85,39 +85,12 @@ export interface ProjectAutomationOutcomeResult {
   state: string;
 }
 
-const DEV_WORKER_JWT_SECRET = "cosa-worker-service-jwt-key-change-in-prod-min32chars";
 
-function requireServiceToken(req: ProjectAutomationOutcomeRequest): void {
-  const token =
-    req.serviceToken || (req.authorization ? req.authorization.replace(/^Bearer\s+/i, "") : "");
-  if (!token) {
-    throw APIError.unauthenticated("missing service token");
-  }
-  // Accept either the shared dev/CI string OR a real worker-service JWT (the
-  // cosa-worker mints one per process; it carries role=worker_service,
-  // aud=control_plane and is signed with WORKER_SERVICE_JWT_SECRET).
-  const sharedExpected = process.env.COSA_WORKER_SERVICE_TOKEN ?? "dev-worker-service-token";
-  if (token === sharedExpected) return;
-
-  const secret =
-    process.env.WORKER_SERVICE_JWT_SECRET ||
-    DEV_WORKER_JWT_SECRET;
-  try {
-    const payload = jwt.verify(token, secret, { audience: "control_plane" }) as {
-      role?: string;
-      aud?: string;
-    };
-    if (payload.role === "worker_service" && payload.aud === "control_plane") return;
-  } catch {
-    // fall through
-  }
-  throw APIError.unauthenticated("invalid or missing service token");
-}
 
 export async function projectAutomationOutcome(
   req: ProjectAutomationOutcomeRequest
 ): Promise<ProjectAutomationOutcomeResult> {
-  requireServiceToken(req);
+  await requireWorkerServiceAuth({ serviceToken: req.serviceToken, authorization: req.authorization });
   const ev = req.event;
   if (!ev || !ev.invocationId || !ev.workspaceId || !ev.runId) {
     throw APIError.invalidArgument("missing required event fields");

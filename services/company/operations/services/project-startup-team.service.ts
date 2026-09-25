@@ -653,13 +653,16 @@ export async function getProjectAgentRunAuthority(
   const projId = BigInt(projectId);
 
   const [project] = await db
-    .select({ id: projects.id })
+    .select({ id: projects.id, workspaceId: projects.workspaceId })
     .from(projects)
-    .where(and(eq(projects.id, projId), eq(projects.workspaceId, wsId)))
+    .where(eq(projects.id, projId))
     .limit(1);
 
   if (!project) {
-    throw APIError.notFound("Project not found in workspace");
+    throw APIError.notFound("Project not found");
+  }
+  if (project.workspaceId !== wsId) {
+    throw APIError.permissionDenied("Project does not belong to specified workspace");
   }
 
   const [row] = await db

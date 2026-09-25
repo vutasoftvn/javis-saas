@@ -1,3 +1,4 @@
+import { requireWorkerServiceAuth } from "../../shared/auth/worker-service-auth";
 import { APIError, Header } from "encore.dev/api";
 import { db, schema } from "../../operations/models/db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
@@ -22,13 +23,12 @@ export interface IngestAgentRuntimeSignalRequest {
 }
 
 export async function ingestAgentRuntimeSignalService(
-  req: IngestAgentRuntimeSignalRequest,
-  expectedToken: string = process.env.COSA_WORKER_SERVICE_TOKEN ?? "dev-worker-service-token"
+  req: IngestAgentRuntimeSignalRequest
 ): Promise<{ stored: boolean }> {
-  const token = req.serviceToken || (req.authorization ? req.authorization.replace(/^Bearer\s+/i, "") : "");
-  if (!token || (expectedToken && token !== expectedToken)) {
-    throw APIError.unauthenticated("Invalid or missing service authentication token");
-  }
+  await requireWorkerServiceAuth({
+    serviceToken: req.serviceToken,
+    authorization: req.authorization,
+  });
 
   const { signal } = req;
   if (!signal || !signal.workspaceId || !signal.sourceKind || !signal.sourceId || signal.sequence === undefined) {

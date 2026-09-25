@@ -4,3 +4,8 @@ export function isStagingOrProd(): boolean {
   const env = (process.env.ENVIRONMENT || process.env.NODE_ENV || process.env.APP_ENV || "development").toLowerCase();
   return env === "production" || env === "staging" || env === "prod";
 }
+
+export function isDevelopmentOrTest(): boolean {
+  const env = (process.env.ENVIRONMENT || process.env.NODE_ENV || process.env.APP_ENV || "development").toLowerCase();
+  return env === "development" || env === "test" || env === "testing";
+}

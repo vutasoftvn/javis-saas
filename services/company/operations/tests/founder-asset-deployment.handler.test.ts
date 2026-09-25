@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { sql } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { createTestWorkspaceWithMember, createSecondWorkspace } from "./_helpers";
+import { mintTestWorkerToken } from "../../shared/auth/worker-service-auth";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import {
   getProjectDeploymentAuthorityApi,
@@ -16,6 +17,38 @@ import {
 } from "../services/founder-asset-deployment.service";
 
 describe("Founder Asset Deployment Handler", () => {
+  it("rejects dev-worker-service-token in production configuration", async () => {
+    const originalEnv = process.env.ENVIRONMENT;
+    process.env.ENVIRONMENT = "production";
+    try {
+      await expect(
+        getProjectDeploymentAuthorityApi({
+          workspaceId: "123",
+          projectId: "456",
+          workspaceAgentId: "789",
+          serviceToken: "dev-worker-service-token",
+        })
+      ).rejects.toMatchObject({ code: expect.stringMatching(/unauthenticated|internal/) });
+    } finally {
+      if (originalEnv === undefined) { delete process.env.ENVIRONMENT; } else { process.env.ENVIRONMENT = originalEnv; }
+    }
+  });
+
+  it("rejects cross-workspace deployment authority query", async () => {
+    const wsA = await createTestWorkspaceWithMember({ role: "founder" });
+    const wsB = await createSecondWorkspace();
+
+    const token = mintTestWorkerToken("worker-a");
+    await expect(
+      getProjectDeploymentAuthorityApi({
+        serviceToken: token,
+        workspaceId: wsB.workspaceId,
+        projectId: wsA.projectId,
+        workspaceAgentId: "999",
+      })
+    ).rejects.toMatchObject({ code: "permission_denied" });
+  });
+
   it("rejects unauthenticated worker service token", async () => {
     await expect(
       getProjectDeploymentAuthorityApi({
@@ -86,7 +119,7 @@ describe("Founder Asset Deployment Handler", () => {
       workspaceId: ws.workspaceId,
       projectId: ws.projectId,
       workspaceAgentId: agent.id,
-      serviceToken: "dev-worker-service-token",
+      serviceToken: mintTestWorkerToken("worker-1"),
     });
 
     expect(authority).toMatchObject({
@@ -106,7 +139,7 @@ describe("Founder Asset Deployment Handler", () => {
       workspaceId: ws.workspaceId,
       projectId: ws.projectId,
       projectAgentDeploymentId: agentDeployment.id,
-      serviceToken: "dev-worker-service-token",
+      serviceToken: mintTestWorkerToken("worker-1"),
     });
     expect(exactAuthority).toMatchObject({
       projectAgentDeploymentId: agentDeployment.id,

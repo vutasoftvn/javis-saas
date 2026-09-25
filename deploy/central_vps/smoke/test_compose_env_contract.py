@@ -17,6 +17,7 @@ def test_company_has_cosa_internal_wiring():
     assert "${COSA_LOCAL_SERVICE_SECRET:?" in e["COSA_LOCAL_SERVICE_SECRET"]
     assert "${COSA_SERVICE_TOKEN:?" in e["COSA_SERVICE_TOKEN"]
     assert "${COSA_WORKER_SERVICE_TOKEN:?" in e["COSA_WORKER_SERVICE_TOKEN"]
+    assert "${WORKER_SERVICE_JWT_SECRET:?" in e["WORKER_SERVICE_JWT_SECRET"]
 
 
 def test_cosa_api_has_secret_and_tokens():

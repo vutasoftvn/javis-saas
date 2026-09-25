@@ -1,3 +1,4 @@
+import { mintTestWorkerToken } from "../../shared/auth/worker-service-auth";
 import { describe, it, expect } from "vitest";
 import { createTestWorkspaceWithMember } from "./_helpers";
 import {
@@ -12,7 +13,7 @@ import {
 } from "../services/automation-inspector.service";
 
 const KEY = "operating.weekly-review";
-const TOKEN = process.env.COSA_WORKER_SERVICE_TOKEN ?? "dev-worker-service-token";
+const TOKEN = mintTestWorkerToken("automation-inspector");
 
 async function anInvocation(role = "founder") {
   const w = await createTestWorkspaceWithMember({ role });

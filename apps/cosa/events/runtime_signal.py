@@ -1,3 +1,4 @@
+from apps.cosa.auth.jwt import mint_worker_service_jwt
 """Agent Runtime Signal Outbox Publisher to Company Service."""
 
 from __future__ import annotations
@@ -26,8 +27,8 @@ class AgentRuntimeSignalPublisher:
         self._company_url = (
             company_url or os.getenv("COMPANY_SERVICE_URL") or "http://127.0.0.1:4000"
         ).rstrip("/")
-        self._service_token = service_token or os.getenv(
-            "COSA_WORKER_SERVICE_TOKEN", "dev-worker-service-token"
+        self._service_token = (
+            service_token or mint_worker_service_jwt(worker_id="runtime-signal-emitter")
         )
         self._http_client = http_client
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from apps.cosa.auth.jwt import mint_worker_service_jwt
+
 import os
 from typing import Any
 
@@ -46,7 +48,7 @@ class ExecutiveBoardClient:
             or "http://localhost:4000"
         ).rstrip("/")
         self.service_token = (
-            service_token or os.getenv("COSA_WORKER_SERVICE_TOKEN") or "dev-worker-service-token"
+            service_token or mint_worker_service_jwt(worker_id="executive-board-worker")
         )
         self.timeout = timeout
 

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createTestWorkspaceWithMember } from "./_helpers";
+import { mintTestWorkerToken } from "../../shared/auth/worker-service-auth";
 import { createProjectService } from "../services/project.service";
 import {
   listProjectStartupTeamApi,
@@ -217,6 +218,23 @@ describe("project-startup-team handler authorization & governance", () => {
     expect(repeatedPause.assignmentVersion).toBe(3);
   });
 
+  it("rejects dev-worker-service-token under production configuration", async () => {
+    const originalEnv = process.env.ENVIRONMENT;
+    process.env.ENVIRONMENT = "production";
+    try {
+      await expect(
+        getProjectAgentRunAuthorityApi({
+          workspaceId: "123",
+          projectId: "456",
+          profileKey: "tech_lead",
+          serviceToken: "dev-worker-service-token",
+        })
+      ).rejects.toMatchObject({ code: expect.stringMatching(/unauthenticated|internal/) });
+    } finally {
+      if (originalEnv === undefined) { delete process.env.ENVIRONMENT; } else { process.env.ENVIRONMENT = originalEnv; }
+    }
+  });
+
   it("handles internal run-authority read with worker service authentication", async () => {
     const ws = await createTestWorkspaceWithMember({ role: "founder" });
     const project = await createProjectService(
@@ -243,7 +261,7 @@ describe("project-startup-team handler authorization & governance", () => {
     // 2. Unassigned / TEMPLATE state -> 404
     await expect(
       getProjectAgentRunAuthorityApi({
-        serviceToken: "dev-worker-service-token",
+        serviceToken: mintTestWorkerToken("worker-startup-team"),
         workspaceId: ws.workspaceId,
         projectId: project.id,
         profileKey: "finance",
@@ -261,7 +279,7 @@ describe("project-startup-team handler authorization & governance", () => {
 
     // 4. ACTIVE -> 200 with full authority
     const auth = await getProjectAgentRunAuthorityApi({
-      serviceToken: "dev-worker-service-token",
+      serviceToken: mintTestWorkerToken("worker-startup-team"),
       workspaceId: ws.workspaceId,
       projectId: project.id,
       profileKey: "finance",
@@ -287,8 +305,7 @@ describe("project-startup-team handler authorization & governance", () => {
       expectedVersion: 2,
     });
 
-    const workerToken =
-      process.env.COSA_WORKER_SERVICE_TOKEN ?? "dev-worker-service-token";
+    const workerToken = mintTestWorkerToken("worker-startup-team");
 
     await expect(
       getProjectAgentRunAuthorityApi({

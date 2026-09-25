@@ -155,6 +155,16 @@ main() {
     check_http_endpoint "http://127.0.0.1:8000" "/healthz" "COSA FastAPI" || return 1
     echo ""
 
+    echo "Checking WORKER_SERVICE_JWT_SECRET (min 32 chars, issuer: apps-cosa, aud: company-internal)..."
+    if [ -n "$WORKER_SERVICE_JWT_SECRET" ]; then
+        if [ ${#WORKER_SERVICE_JWT_SECRET} -lt 32 ]; then
+            echo "❌ WORKER_SERVICE_JWT_SECRET must be at least 32 characters" >&2
+            return 1
+        fi
+        echo "✓ WORKER_SERVICE_JWT_SECRET length valid"
+    fi
+    echo ""
+
     echo "Checking worker service token..."
     check_jwt_token "$COSA_WORKER_SERVICE_TOKEN" "COSA_WORKER_SERVICE_TOKEN" || return 1
     echo ""

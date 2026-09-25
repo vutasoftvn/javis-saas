@@ -7,9 +7,10 @@ import {
 import { createAutomationInvocation } from "../services/automation-invocation.service";
 import { getAutomationInvocation } from "../services/automation-invocation.service";
 import { projectAutomationOutcome } from "../services/automation-outcome.service";
+import { mintTestWorkerToken } from "../../shared/auth/worker-service-auth";
 
 const KEY = "operating.weekly-review";
-const TOKEN = process.env.COSA_WORKER_SERVICE_TOKEN ?? "dev-worker-service-token";
+const TOKEN = mintTestWorkerToken("automation-worker");
 
 async function anInvocation() {
   const w = await createTestWorkspaceWithMember({ role: "founder" });
@@ -93,6 +94,31 @@ describe("automation outcome projection — terminal-absorbing, non-authoritativ
     expect(late).toEqual({ projected: false, state: "COMPLETED" });
     const got = await getAutomationInvocation({ workspaceId: w.workspaceId, authorization: w.bearerToken, invocationId });
     expect(got.data.state).toBe("COMPLETED");
+  });
+
+  it("rejects dev-worker-service-token under production configuration", async () => {
+    const originalEnv = process.env.ENVIRONMENT;
+    process.env.ENVIRONMENT = "production";
+    try {
+      await expect(
+        projectAutomationOutcome({
+          event: {
+            eventType: "automation.run.state_changed.v1",
+            invocationId: "123",
+            runId: "run_123",
+            workspaceId: "123",
+            state: "RUNNING",
+            sequence: 1,
+            observedAt: new Date().toISOString(),
+            manifestHash: "m".repeat(64),
+            correlationId: "corr-1",
+          },
+          serviceToken: "dev-worker-service-token",
+        })
+      ).rejects.toMatchObject({ code: expect.stringMatching(/unauthenticated|internal/) });
+    } finally {
+      if (originalEnv === undefined) { delete process.env.ENVIRONMENT; } else { process.env.ENVIRONMENT = originalEnv; }
+    }
   });
 
   it("rejects an invalid service token", async () => {

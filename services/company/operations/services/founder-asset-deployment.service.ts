@@ -29,13 +29,16 @@ function assertHumanFounder(ctx: TenantContext, action: string): void {
 
 async function validateProjectInWorkspace(workspaceId: bigint, projectId: bigint): Promise<void> {
   const [project] = await db
-    .select({ id: projects.id })
+    .select({ id: projects.id, workspaceId: projects.workspaceId })
     .from(projects)
-    .where(and(eq(projects.id, projectId), eq(projects.workspaceId, workspaceId)))
+    .where(eq(projects.id, projectId))
     .limit(1);
 
   if (!project) {
     throw APIError.notFound("Project not found in workspace");
+  }
+  if (project.workspaceId !== workspaceId) {
+    throw APIError.permissionDenied("Project does not belong to specified workspace");
   }
 }
 

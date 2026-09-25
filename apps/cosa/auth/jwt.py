@@ -13,6 +13,7 @@ __all__ = [
     "mint_control_plane_delegation",
     "mint_local_delegation_token",
     "verify_local_session_token",
+    "mint_worker_service_jwt",
 ]
 
 # M1 §1 — local session token do services/company/identity/token.service.ts ký
@@ -204,5 +205,46 @@ def mint_control_plane_delegation(
         "role": role,
         "jti": str(uuid.uuid4()),
         "exp": int(time.time()) + ttl,
+    }
+    return jwt.encode(payload, secret, algorithm="HS256")
+
+_WORKER_SERVICE_DEV_DEFAULT_SECRET = "test-worker-jwt-secret-min-32-chars-long-fixture"
+_WORKER_SERVICE_DEFAULT_TTL_SECONDS = 300
+
+
+def _get_worker_service_jwt_secret() -> str:
+    secret = os.getenv("WORKER_SERVICE_JWT_SECRET")
+    env = (os.getenv("ENVIRONMENT") or os.getenv("APP_ENV") or "development").lower()
+    if env not in ("development", "test", "testing"):
+        if not secret or len(secret) < 32:
+            raise RuntimeError(
+                "WORKER_SERVICE_JWT_SECRET must be configured with at least 32 characters in staging/production"
+            )
+    return secret or _WORKER_SERVICE_DEV_DEFAULT_SECRET
+
+
+def mint_worker_service_jwt(
+    *,
+    worker_id: str = "cosa-worker-service",
+    ttl_seconds: int = _WORKER_SERVICE_DEFAULT_TTL_SECONDS,
+) -> str:
+    """Mint signed JWT for worker service to authenticate with Company internal routes.
+
+    Claims:
+    - iss: apps-cosa
+    - aud: company-internal
+    - sub: immutable worker id
+    - role: worker_service
+    - jti: unique uuid4
+    - exp: expiration timestamp
+    """
+    secret = _get_worker_service_jwt_secret()
+    payload = {
+        "iss": "apps-cosa",
+        "aud": "company-internal",
+        "sub": worker_id,
+        "role": "worker_service",
+        "jti": str(uuid.uuid4()),
+        "exp": int(time.time()) + ttl_seconds,
     }
     return jwt.encode(payload, secret, algorithm="HS256")

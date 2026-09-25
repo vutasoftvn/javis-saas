@@ -130,6 +130,8 @@ services:
       COSA_LOCAL_SERVICE_SECRET: ${COSA_LOCAL_SERVICE_SECRET:?COSA_LOCAL_SERVICE_SECRET required}
       COSA_SERVICE_TOKEN: ${COSA_SERVICE_TOKEN:?COSA_SERVICE_TOKEN required}
       COSA_WORKER_SERVICE_TOKEN: ${COSA_WORKER_SERVICE_TOKEN:?COSA_WORKER_SERVICE_TOKEN required}
+      # Shared worker JWT secret (issuer: apps-cosa, audience: company-internal, min 32 chars)
+      WORKER_SERVICE_JWT_SECRET: ${WORKER_SERVICE_JWT_SECRET:?WORKER_SERVICE_JWT_SECRET required}
       COSA_INTERNAL_HOST_ALLOWLIST: cosa-api,services-company,127.0.0.1,localhost
       ENVIRONMENT: production
     depends_on:
