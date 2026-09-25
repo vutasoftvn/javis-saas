@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "generated_at": "2026-09-25T11:51:38.744Z",
+  "generated_at": "2026-09-25T14:24:34.068Z",
   "groups": {
     "agent": {
-      "fingerprint": "beab12e0183b474e70c451c6191c1cd8717d8f12d270f1bb5276b9af4f349800",
+      "fingerprint": "e4d27fe0683a0247d9601c929c4709d3da1c7b027f298e91489b69a092c01c19",
       "schemas": [
         "agent",
         "agent_artifact",
@@ -7261,7 +7261,20 @@
             ]
           },
           "unique_constraints": [],
-          "foreign_keys": [],
+          "foreign_keys": [
+            {
+              "name": "fk_knowledge_sources_vault_version",
+              "columns": [
+                "vault_version_id"
+              ],
+              "foreign_table": "vault.document_versions",
+              "foreign_columns": [
+                "version_id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "SET NULL"
+            }
+          ],
           "check_constraints": [],
           "indexes": [
             {

@@ -9,3 +9,4 @@ This directory contains database migrations for the Agent Platform plane (`javis
 - `010_founder_asset_provenance.sql`: Project and manifest provenance binding for skill observations, feedback, aggregates, requests, and outbox.
 - `011_workflow_manifest_persistence.sql`: Durable persistence for workflow definitions, execution manifests, and step records.
 - `012_founder_asset_callback_outbox.sql`: Durable Agent-to-Company callback delivery records for replay-safe founder asset command status.
+- `013_restore_vault_schema.sql`: Restores `vault.documents`, `vault.document_versions`, `vault.document_access_grants` (workspace RLS) used by `PostgresVaultRepository` and authorized knowledge retrieval, plus the `knowledge_sources.vault_version_id` provenance FK (`NOT VALID`).

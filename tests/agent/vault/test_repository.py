@@ -1,31 +1,16 @@
 from __future__ import annotations
 
 import os
-from uuid import UUID
 
 import pytest
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-
-from agent.vault.models import VaultDocumentRecord
 from agent.vault.repository import (
     InMemoryVaultRepository,
     PostgresVaultRepository,
     VaultRepository,
 )
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-
-# Chỉ nhánh `[postgres]` (`PostgresVaultRepository`) đụng schema `vault.*` đã bị
-# drop khỏi baseline Founder Trial R1; nhánh `[in_memory]` vẫn chạy. Cùng lý do
-# và cùng marker với `tests/agent/vault/test_access_policy_repository.py` (Task
-# 5D) — file này lọt lưới 5D vì lúc đó `AGENT_*_DATABASE_URL` chưa được export
-# nên param `[postgres]` tự skip; Task 5F chạy với DB test nên nó mới lộ ra.
-_R1_DESCOPED_SKIP = pytest.mark.skip(
-    reason="Subsystem PLANNED, not in Founder Trial R1 — reset spec "
-    "docs/superpowers/specs/2026-09-09-founder-trial-mvp-reset-baseline-design.md §7.3 "
-    "(Vault/RAG, eval promotion, agent memory/artifact). Schema intentionally dropped "
-    "from the 001 baseline; re-enable when the subsystem is promoted to R1."
-)
-_KIND_PARAMS = ["in_memory", pytest.param("postgres", marks=_R1_DESCOPED_SKIP)]
+_KIND_PARAMS = ["in_memory", "postgres"]
 
 
 def get_vault_repo(kind: str) -> VaultRepository:
