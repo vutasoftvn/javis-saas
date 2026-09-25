@@ -93,7 +93,8 @@ def async_control_plane_dsn(control_plane_dsn: str) -> str:
     async_dsn = control_plane_dsn
     if "postgresql+asyncpg://" not in async_dsn:
         async_dsn = async_dsn.replace("postgresql://", "postgresql+asyncpg://", 1)
-    return async_dsn
+    # asyncpg không nhận tham số libpq `sslmode`; tên tương ứng của nó là `ssl`.
+    return async_dsn.replace("sslmode=", "ssl=")
 
 
 @pytest.fixture
