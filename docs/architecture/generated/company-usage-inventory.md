@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 112 | 22 |
 | VALID_KEEP (giữ nguyên) | 131 | 36 |
-| REVIEW (chưa phân loại) | 1207 | 272 |
+| REVIEW (chưa phân loại) | 1209 | 273 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -134,6 +134,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | frontend/lib/modules/hologram_hub/controllers/mixins/hub_evidence_mixin.dart | 4 |
 | services/company/shared/events/envelope.ts | 4 |
 | services/cosa/handlers/agent-policy.handler.ts | 4 |
+| services/cosa/services/ai-governance-snapshot.service.ts | 4 |
 | apps/cosa/api/app.py | 3 |
 | apps/cosa/api/conversation_routes.py | 3 |
 | apps/cosa/api/copilot_routes.py | 3 |
@@ -177,7 +178,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/shared/db/schema/operations.ts | 3 |
 | services/cosa/handlers/runtime-node.handler.ts | 3 |
 | services/cosa/handlers/workspace-connector.handler.ts | 3 |
-| services/cosa/services/ai-governance-snapshot.service.ts | 3 |
 | apps/cosa/api/routes.py | 2 |
 | apps/cosa/api/schedule_routes.py | 2 |
 | apps/cosa/api/workforce_schemas.py | 2 |
@@ -305,6 +305,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/shared/events/fixtures/operations.task.completed.v1.json | 1 |
 | services/company/shared/events/fixtures/operations.task.created.v1.json | 1 |
 | services/company/shared/types/encore-auth.d.ts | 1 |
+| services/cosa/handlers/ai-governance-snapshot.handler.ts | 1 |
 | services/cosa/handlers/index.ts | 1 |
 | services/cosa/handlers/venture-workspace.handler.ts | 1 |
 | services/cosa/scripts/backfill-schedule-project-ids.ts | 1 |
