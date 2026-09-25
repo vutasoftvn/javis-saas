@@ -628,14 +628,12 @@ export interface ProjectAgentRunAuthority {
 }
 
 /**
- * Run-authority read dành riêng cho Agent Platform (internal route).
- * Trả về 404 trừ khi assignment là ACTIVE và profile hiện tại READY.
+ * Profile có được phép nhận run không (catalog + readiness), độc lập với nguồn
+ * authority legacy/V2. Dùng chung cho mọi đường resolve run authority.
  */
-export async function getProjectAgentRunAuthority(
-  workspaceId: string,
-  projectId: string,
+export function requireRunnableStartupProfile(
   profileKey: string
-): Promise<ProjectAgentRunAuthority> {
+): (typeof STARTUP_TEAM_PROFILES)[number] {
   if (!isStartupTeamProfileKey(profileKey)) {
     throw APIError.notFound(`Unknown profile key '${profileKey}'`);
   }
@@ -648,6 +646,20 @@ export async function getProjectAgentRunAuthority(
   if (!profileDef || profileDef.runtimeReadiness !== "READY") {
     throw APIError.notFound(`Profile '${profileKey}' is not ready for execution`);
   }
+  return profileDef;
+}
+
+/**
+ * Run-authority legacy (`project_agent_assignments`). Trả về 404 trừ khi
+ * assignment là ACTIVE và profile hiện tại READY. Endpoint internal
+ * `.../run-authority` giờ đi qua `resolveChatRunAuthority` (mode-aware, V2).
+ */
+export async function getProjectAgentRunAuthority(
+  workspaceId: string,
+  projectId: string,
+  profileKey: string
+): Promise<ProjectAgentRunAuthority> {
+  const profileDef = requireRunnableStartupProfile(profileKey);
 
   const wsId = BigInt(workspaceId);
   const projId = BigInt(projectId);

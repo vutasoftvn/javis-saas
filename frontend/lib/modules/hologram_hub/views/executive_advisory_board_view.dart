@@ -235,7 +235,10 @@ class _ExecutiveAdvisoryBoardViewState
             const SizedBox(height: 8),
             ...delib.analyses.map((a) => _buildAnalysisRow(a)),
           ],
-          if (delib.state == 'AWAITING_FOUNDER') ...[
+          // CRITIC_REVIEW chỉ còn ở dữ liệu cũ (chưa có critic runner) — vẫn cho
+          // Founder quyết định để deliberation không kẹt.
+          if (delib.state == 'AWAITING_FOUNDER' ||
+              delib.state == 'CRITIC_REVIEW') ...[
             const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -262,6 +265,32 @@ class _ExecutiveAdvisoryBoardViewState
                     backgroundColor: Colors.green,
                   ),
                   child: Text(isEn ? 'Approve' : 'Phê duyệt (Approve)'),
+                ),
+              ],
+            ),
+          ],
+          if (delib.state == 'FAILED_REQUIRES_ATTENTION') ...[
+            const SizedBox(height: 16),
+            Text(
+              isEn
+                  ? 'No advisor produced an analysis. Cancel, or frame the question again.'
+                  : 'Không cố vấn nào trả được phân tích. Huỷ, hoặc đóng khung lại câu hỏi.',
+              style: const TextStyle(color: Colors.orangeAccent, fontSize: 13),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                OutlinedButton(
+                  onPressed: () => controller.cancelDeliberation(
+                    projectId: projectId,
+                    deliberationId: delib.id,
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.redAccent,
+                    side: const BorderSide(color: Colors.redAccent),
+                  ),
+                  child: Text(isEn ? 'Cancel' : 'Huỷ bỏ'),
                 ),
               ],
             ),
@@ -683,6 +712,7 @@ class _ExecutiveAdvisoryBoardViewState
     if (state == 'AWAITING_FOUNDER') color = Colors.amberAccent;
     if (state == 'DECIDED') color = Colors.greenAccent;
     if (state == 'CANCELLED') color = Colors.redAccent;
+    if (state == 'FAILED_REQUIRES_ATTENTION') color = Colors.orangeAccent;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

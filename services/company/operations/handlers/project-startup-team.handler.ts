@@ -5,9 +5,9 @@ import {
   listProjectStartupTeam,
   activateProjectStartupTeamMember,
   pauseProjectStartupTeamMember,
-  getProjectAgentRunAuthority,
   ProjectAgentRunAuthority,
 } from "../services/project-startup-team.service";
+import { resolveChatRunAuthority } from "../services/founder-agent-compatibility.service";
 import { ProjectStartupTeamMember } from "../../shared/contracts/startup-team-profiles.generated";
 
 
@@ -125,7 +125,7 @@ export const getProjectAgentRunAuthorityApi = api(
     if (!params.workspaceId) {
       throw APIError.invalidArgument("X-Workspace-Id header is required");
     }
-    return getProjectAgentRunAuthority(
+    return resolveChatRunAuthority(
       params.workspaceId,
       params.projectId,
       params.profileKey

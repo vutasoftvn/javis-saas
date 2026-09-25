@@ -62,6 +62,19 @@ ExecutiveAdvisorRole _otherStageRole() => const ExecutiveAdvisorRole(
   disabledReason: 'UNDERLYING_PROFILE_UNAVAILABLE',
 );
 
+ExecutiveDeliberation _deliberation(String state) => ExecutiveDeliberation(
+  id: 'delib-1',
+  workspaceId: 'ws-1',
+  projectId: 'proj-1',
+  title: 'Pricing',
+  state: state,
+  activeFrameVersion: 1,
+  version: 3,
+  createdBy: 'u-1',
+  createdAt: DateTime.parse('2026-09-25T00:00:00Z'),
+  updatedAt: DateTime.parse('2026-09-25T00:00:00Z'),
+);
+
 Widget _board(ExecutiveAdvisoryBoardController controller) => GetMaterialApp(
   home: Scaffold(
     body: ExecutiveAdvisoryBoardView(
@@ -222,5 +235,57 @@ void main() {
     await tester.pump();
 
     expect(find.text('Khởi tạo P0 Core'), findsOneWidget);
+  });
+
+  for (final state in ['AWAITING_FOUNDER', 'CRITIC_REVIEW']) {
+    testWidgets('decision actions are shown for $state', (tester) async {
+      final controller = ExecutiveAdvisoryBoardController(
+        service: _BoardService([_role()]),
+      );
+      await tester.pumpWidget(_board(controller));
+      await tester.pump();
+      controller.currentDeliberation.value = _deliberation(state);
+      await tester.pump();
+
+      expect(find.text('Phê duyệt (Approve)'), findsOneWidget);
+      expect(find.text('Huỷ bỏ'), findsOneWidget);
+    });
+  }
+
+  testWidgets('decision actions are hidden while analysis is running', (
+    tester,
+  ) async {
+    final controller = ExecutiveAdvisoryBoardController(
+      service: _BoardService([_role()]),
+    );
+    await tester.pumpWidget(_board(controller));
+    await tester.pump();
+    controller.currentDeliberation.value = _deliberation('ANALYZING');
+    await tester.pump();
+
+    expect(find.text('Phê duyệt (Approve)'), findsNothing);
+  });
+
+  testWidgets('FAILED_REQUIRES_ATTENTION offers cancel but no approval', (
+    tester,
+  ) async {
+    final controller = ExecutiveAdvisoryBoardController(
+      service: _BoardService([_role()]),
+    );
+    await tester.pumpWidget(_board(controller));
+    await tester.pump();
+    controller.currentDeliberation.value = _deliberation(
+      'FAILED_REQUIRES_ATTENTION',
+    );
+    await tester.pump();
+
+    expect(find.text('Phê duyệt (Approve)'), findsNothing);
+    expect(find.text('Huỷ bỏ'), findsOneWidget);
+    expect(
+      find.text(
+        'Không cố vấn nào trả được phân tích. Huỷ, hoặc đóng khung lại câu hỏi.',
+      ),
+      findsOneWidget,
+    );
   });
 }

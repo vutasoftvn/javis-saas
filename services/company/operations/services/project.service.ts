@@ -29,6 +29,16 @@ export interface Project {
   startDate?: string | null;
   endDate?: string | null;
   createdAt: string;
+  /**
+   * Chỉ có khi tạo Project NEW bởi Founder. INCOMPLETE = Project ĐÃ tạo nhưng P0
+   * Core chưa hội tụ; Founder hoàn tất bằng action repair trên Board.
+   */
+  p0CoreBootstrap?: P0CoreBootstrapStatus;
+}
+
+export interface P0CoreBootstrapStatus {
+  status: "COMPLETE" | "INCOMPLETE";
+  errorCode?: string;
 }
 
 // M4 §3 / 2026-09-14 remediation — Project sinh ra theo đúng 1 trong 2 mode
@@ -173,8 +183,23 @@ export async function createProjectService(ctx: TenantContext, req: CreateProjec
   // hội tụ/idempotent: nếu một lỗi hạ tầng xảy ra sau khi Project đã commit,
   // Founder có thể chạy lại lệnh explicit trên Board để hoàn tất đúng phần còn
   // thiếu, không cần tạo một Project khác.
+  // Project đã commit ở trên là sự thật: lỗi bootstrap không được biến request
+  // tạo Project thành lỗi (client sẽ retry và tạo Project trùng). Trả trạng thái
+  // tường minh để UI dẫn Founder tới action repair.
   if (shouldBootstrapP0Core) {
-    await bootstrapP0CoreForProject(ctx, row.id.toString());
+    let p0CoreBootstrap: P0CoreBootstrapStatus;
+    try {
+      await bootstrapP0CoreForProject(ctx, row.id.toString());
+      p0CoreBootstrap = { status: "COMPLETE" };
+    } catch (err) {
+      const errorCode = err instanceof APIError ? err.code : "internal";
+      console.error(
+        `[P0_CORE_BOOTSTRAP_INCOMPLETE] workspace=${ctx.workspaceId} project=${row.id} code=${errorCode}`,
+        err
+      );
+      p0CoreBootstrap = { status: "INCOMPLETE", errorCode };
+    }
+    return { ...toProject(row), p0CoreBootstrap };
   }
 
   return toProject(row);

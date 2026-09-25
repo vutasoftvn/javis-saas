@@ -23,6 +23,7 @@ import {
 import { createProjectService } from "../services/project.service";
 import { transitionProjectLifecycle } from "../services/project-lifecycle.service";
 import { AGENT_PROFILE_SPEC_HASH } from "../services/ai-member.service";
+import { completeAllAnalyses } from "./_deliberation-helpers";
 
 import { ADVISOR_OVERLAY_CATALOG } from "../../shared/contracts/executive-advisor-overlays.generated";
 import { fetchAdvisorOverlayIdentity } from "../services/advisor-overlay.client";
@@ -209,15 +210,18 @@ describe("Executive Deliberation Service", () => {
       title: "Decision Test",
     });
 
-    const framed = await frameDeliberation(founderCtx, projectId, draft.id, {
+    await frameDeliberation(founderCtx, projectId, draft.id, {
       expectedVersion: 1,
       question: "Final decision test",
       roleKeys: ["cfo"],
     });
+    await completeAllAnalyses(founderCtx, projectId, draft.id);
+    const awaiting = await getDeliberation(founderCtx, projectId, draft.id);
+    expect(awaiting.state).toBe("AWAITING_FOUNDER");
 
     const decision = await appendFounderDecision(founderCtx, projectId, draft.id, {
       decisionType: "APPROVE",
-      expectedVersion: framed.version,
+      expectedVersion: awaiting.version,
       notes: "Approved runway plan",
     });
     expect(decision.decisionType).toBe("APPROVE");

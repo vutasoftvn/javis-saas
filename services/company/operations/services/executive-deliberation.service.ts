@@ -61,6 +61,16 @@ export type ExecutiveDecisionType =
   | "EXPIRE"
   | "CANCEL";
 
+const CONTENT_DECISION_TYPES: ReadonlySet<ExecutiveDecisionType> = new Set([
+  "APPROVE",
+  "MODIFY",
+  "REJECT",
+]);
+const DECIDABLE_STATES: ReadonlySet<DeliberationState> = new Set([
+  "AWAITING_FOUNDER",
+  "CRITIC_REVIEW",
+]);
+
 /** Project deployment (Company là chủ) — quyền dùng profile trong đúng Project. */
 export interface ProjectDeploymentPin {
   projectAgentDeploymentId: string;
@@ -308,6 +318,14 @@ export async function frameDeliberation(
 ): Promise<{ id: string; state: DeliberationState; activeFrameVersion: number; version: number }> {
   await requireExecutiveBoardFounderAuthority(ctx, projectId);
 
+  if (input.criticRequired === true) {
+    // Chưa có critic runner: nhận cờ này sẽ đưa deliberation vào trạng thái không
+    // ai xử lý. Fail rõ ràng thay vì hứa một bước review không tồn tại.
+    throw APIError.failedPrecondition(
+      "CRITIC_REVIEW_NOT_AVAILABLE: critic runner is not implemented"
+    );
+  }
+
   if (!input.roleKeys || input.roleKeys.length === 0) {
     throw APIError.invalidArgument("At least one role must be selected");
   }
@@ -410,7 +428,7 @@ export async function frameDeliberation(
       throw APIError.notFound("Deliberation not found");
     }
 
-    if (!["DRAFT", "FRAMED"].includes(delib.state)) {
+    if (!["DRAFT", "FRAMED", "FAILED_REQUIRES_ATTENTION"].includes(delib.state)) {
       throw APIError.failedPrecondition(
         `INVALID_STATE: Cannot frame deliberation in state '${delib.state}'`
       );
@@ -597,6 +615,18 @@ export async function appendFounderDecision(
     if (delib.state === "DECIDED") {
       throw APIError.aborted(
         "EXECUTIVE_DECISION_ALREADY_RECORDED: Deliberation already has a final decision"
+      );
+    }
+
+    // Quyết định về nội dung chỉ khi Founder đã có phân tích để xem. CRITIC_REVIEW
+    // chỉ còn ở dữ liệu cũ (không còn đường vào) — cho quyết định để không kẹt.
+    // EXPIRE/CANCEL là đóng deliberation, hợp lệ ở mọi trạng thái chưa terminal.
+    if (
+      CONTENT_DECISION_TYPES.has(input.decisionType) &&
+      !DECIDABLE_STATES.has(delib.state as DeliberationState)
+    ) {
+      throw APIError.failedPrecondition(
+        `DELIBERATION_NOT_AWAITING_FOUNDER: Cannot ${input.decisionType} a deliberation in state '${delib.state}'`
       );
     }
 
@@ -926,7 +956,11 @@ export async function recordExecutiveAnalysisCallback(
       )
       .limit(1);
 
-    if (!roleAct || roleAct.state !== "ACTIVE") {
+    const isSuccess = callback.kind === "executive.analysis.completed.v1";
+    // Chỉ chặn phân tích THÀNH CÔNG từ Office đã tắt. Outcome thất bại (thường chính
+    // là AUTHORITY_DENIED do Office bị tắt) vẫn được ghi để deliberation hội tụ —
+    // từ chối nó làm worker retry vô ích và deliberation kẹt ở ANALYZING.
+    if (isSuccess && (!roleAct || roleAct.state !== "ACTIVE")) {
       throw APIError.failedPrecondition(
         `Role '${callback.role_key}' has been disabled or revoked`
       );
@@ -934,7 +968,6 @@ export async function recordExecutiveAnalysisCallback(
 
     // Insert analysis record
     const analysisId = generateSnowflake();
-    const isSuccess = callback.kind === "executive.analysis.completed.v1";
     const status = isSuccess ? "COMPLETED" : "FAILED";
     const runId =
       callback.descriptor?.run_id ?? `run_${callback.role_key}_${deliberationId}`;
@@ -995,8 +1028,11 @@ export async function recordExecutiveAnalysisCallback(
       nextState = "ANALYZING";
     }
     if (allAnalyses.length >= selectedRoles.length) {
-      // All roles completed analysis!
-      nextState = frame.criticRequired ? "CRITIC_REVIEW" : "AWAITING_FOUNDER";
+      // Mọi role đã có kết quả. Không có phân tích thành công nào thì Founder không
+      // có gì để quyết định — cần frame lại hoặc huỷ. (Không còn nhánh CRITIC_REVIEW:
+      // chưa có critic runner, frame mới không thể bật criticRequired.)
+      const completedCount = allAnalyses.filter((a) => a.status === "COMPLETED").length;
+      nextState = completedCount > 0 ? "AWAITING_FOUNDER" : "FAILED_REQUIRES_ATTENTION";
     }
 
     if (nextState !== delib.state) {
@@ -1037,6 +1073,8 @@ export async function getDeliberationAuthority(
   rolePin: SelectedAdvisorExecutionPin;
   question: string;
   evidenceSources: EvidenceSourceInput[];
+  /** Analysis đã ghi cho đúng frame + role (null = chưa có). Worker retry dùng để bỏ qua role đã xong. */
+  existingAnalysis: { status: string } | null;
 }> {
   const wsId = BigInt(workspaceId);
   const projId = BigInt(projectId);
@@ -1091,6 +1129,34 @@ export async function getDeliberationAuthority(
     );
   }
 
+  const [existingAnalysis] = await db
+    .select({ status: projectExecutiveDeliberationAnalyses.status })
+    .from(projectExecutiveDeliberationAnalyses)
+    .where(
+      and(
+        eq(projectExecutiveDeliberationAnalyses.deliberationId, delibId),
+        eq(projectExecutiveDeliberationAnalyses.frameVersion, frame.frameVersion),
+        eq(projectExecutiveDeliberationAnalyses.roleKey, roleKey)
+      )
+    )
+    .limit(1);
+
+  // Role đã có analysis: worker sẽ không chạy model nữa, nên không cần (và không
+  // được) re-check deployment — Office/deployment đổi sau khi đã ghi kết quả không
+  // được biến một retry thành lỗi mới làm deliberation kẹt.
+  if (existingAnalysis) {
+    return {
+      deliberationId,
+      frameVersion: frame.frameVersion,
+      roleKey,
+      state: delib.state as DeliberationState,
+      rolePin,
+      question: frame.question,
+      evidenceSources: (frame.evidenceSources as EvidenceSourceInput[]) || [],
+      existingAnalysis: { status: existingAnalysis.status },
+    };
+  }
+
   // Runtime re-check: office + Project deployment + stage + pins phải còn hiệu
   // lực ngay tại thời điểm dùng — không chỉ dựa vào pin đã snapshot lúc frame.
   if (isExecutiveRoleKey(roleKey)) {
@@ -1120,5 +1186,6 @@ export async function getDeliberationAuthority(
     rolePin,
     question: frame.question,
     evidenceSources: (frame.evidenceSources as EvidenceSourceInput[]) || [],
+    existingAnalysis: null,
   };
 }
