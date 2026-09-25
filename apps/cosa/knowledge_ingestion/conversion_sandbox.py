@@ -142,7 +142,10 @@ class InProcessConversionSandbox:
 
     def __init__(self):
         """Initialize test converter."""
-        self._converter = SafeMarkItDownConverter()
+        # Dựng converter lúc convert lần đầu, không phải lúc khởi tạo: image
+        # API/worker không cài markitdown (chỉ Dockerfile.ingestion-worker có),
+        # nên bật KNOWLEDGE_INGESTION_ENABLED không được làm sập startup.
+        self._converter: SafeMarkItDownConverter | None = None
 
     async def run(
         self,
@@ -167,6 +170,8 @@ class InProcessConversionSandbox:
             )
 
         # Call converter directly (no real isolation)
+        if self._converter is None:
+            self._converter = SafeMarkItDownConverter()
         return self._converter.convert(document, content)
 
 

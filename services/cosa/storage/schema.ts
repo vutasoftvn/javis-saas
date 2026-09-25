@@ -85,6 +85,23 @@ export const workspaceInvitations = cosaSchema.table("organization_invitations",
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// Migration 009 (spec 2026-09-25 §8) — saga cấp membership core cho invitation:
+// requested → core_granted → projected (hoặc failed), reconciler xử lý bản dở.
+export const organizationInvitationGrants = cosaSchema.table("organization_invitation_grants", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  invitationId: bigint("invitation_id", { mode: "bigint" }).notNull().unique().references(() => workspaceInvitations.id, { onDelete: "cascade" }),
+  organizationId: bigint("organization_id", { mode: "bigint" }).notNull(),
+  userId: bigint("user_id", { mode: "bigint" }).notNull(),
+  requestedRole: text("requested_role").notNull(),
+  state: text("state").default("requested").notNull(),
+  coreRole: text("core_role"),
+  coreMembershipVersion: bigint("core_membership_version", { mode: "number" }),
+  attempts: integer("attempts").default(0).notNull(),
+  lastErrorCode: text("last_error_code"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const workspaceAgentPolicy = cosaSchema.table("organization_agent_policy", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   organizationId: bigint("organization_id", { mode: "bigint" }).notNull().references(() => workspaces.id, { onDelete: "cascade" }),

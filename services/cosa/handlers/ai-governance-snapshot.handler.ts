@@ -7,8 +7,9 @@ import {
 
 export { AiGovernanceRef, AiGovernanceSnapshotResult };
 
+// Trường JSON giữ "workspaceId": hợp đồng dùng chung với services/company.
 export interface GetAiGovernanceSnapshotRequest {
-  organizationId: string;
+  workspaceId: string;
   projectId: string;
   policyRefs: AiGovernanceRef[];
   evaluatorRefs: AiGovernanceRef[];
@@ -29,7 +30,10 @@ export interface GetAiGovernanceSnapshotRequest {
 export const getAiGovernanceSnapshotHandler = api(
   { method: "POST", path: "/cosa/ai-governance/snapshot", expose: true, auth: false },
   async (params: GetAiGovernanceSnapshotRequest): Promise<AiGovernanceSnapshotResult> => {
-    const { organizationId, projectId, policyRefs, evaluatorRefs, authorization } = params;
-    return getAiGovernanceSnapshot({ organizationId, projectId, policyRefs, evaluatorRefs }, authorization);
+    const { workspaceId, projectId, policyRefs, evaluatorRefs, authorization } = params;
+    return getAiGovernanceSnapshot(
+      { organizationId: workspaceId, projectId, policyRefs, evaluatorRefs },
+      authorization
+    );
   }
 );

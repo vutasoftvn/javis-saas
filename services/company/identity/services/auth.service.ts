@@ -1,5 +1,5 @@
 import { APIError } from "encore.dev/api";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
 
 const { identityUserProjections, identityWorkspaceMemberships } = schema;
@@ -32,7 +32,12 @@ export async function getMeProfile(userIdStr: string): Promise<MeResponse> {
       role: identityWorkspaceMemberships.role,
     })
     .from(identityWorkspaceMemberships)
-    .where(eq(identityWorkspaceMemberships.userId, userId))
+    .where(
+      and(
+        eq(identityWorkspaceMemberships.userId, userId),
+        eq(identityWorkspaceMemberships.membershipState, "active")
+      )
+    )
     .limit(1);
 
   return {
@@ -42,4 +47,18 @@ export async function getMeProfile(userIdStr: string): Promise<MeResponse> {
     workspaceId: membershipRow ? membershipRow.workspaceId.toString() : null,
     role: membershipRow?.role ?? null,
   };
+}
+
+// Spec 2026-09-25 §6 — không gia hạn local session cho user mà mọi membership
+// đều đã bị Core thu hồi: gia hạn không được kéo dài quyền khi thiếu xác nhận
+// active mới. User chưa có membership nào vẫn renew được (không có quyền gì).
+export async function assertLocalSessionRenewable(subject: string): Promise<void> {
+  if (!/^\d{1,19}$/.test(subject)) return;
+  const rows = await db
+    .select({ membershipState: identityWorkspaceMemberships.membershipState })
+    .from(identityWorkspaceMemberships)
+    .where(eq(identityWorkspaceMemberships.userId, BigInt(subject)));
+  if (rows.length > 0 && !rows.some((row) => row.membershipState === "active")) {
+    throw APIError.permissionDenied("all workspace memberships have been revoked");
+  }
 }

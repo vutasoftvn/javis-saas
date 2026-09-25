@@ -1,4 +1,5 @@
-import { api, Header, APIError } from "encore.dev/api";
+import { api, Header } from "encore.dev/api";
+import { requireWorkerServiceAuth } from "../../../shared/auth/worker-service-auth";
 import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
 import {
   getCopilotSettings,
@@ -65,7 +66,8 @@ export interface ApplyCopilotResultRequest {
   summaryRef?: string;
   reasonCode?: string;
   evidenceRefs?: string[];
-  serviceToken?: Header<"X-Cosa-Service-Token">;
+  serviceToken?: Header<"X-Service-Token">;
+  authorization?: Header<"Authorization">;
 }
 
 // 1. GET /commercial/engagement/copilot/settings
@@ -143,11 +145,10 @@ export const recordCopilotFeedbackApi = api(
 // 9. POST /commercial/engagement/copilot-invocations/:runId/result (Internal callback from COSA)
 export const applyCopilotResultApi = api(
   { expose: true, method: "POST", path: "/commercial/engagement/copilot-invocations/:runId/result" },
-  async ({ runId, status, artifactRef, summaryRef, reasonCode, evidenceRefs, serviceToken }: ApplyCopilotResultRequest): Promise<{ success: boolean }> => {
-    const expectedToken = process.env.COSA_SERVICE_TOKEN || "local-dev-service-token";
-    if (!serviceToken || serviceToken !== expectedToken) {
-      throw APIError.unauthenticated("invalid or missing service token");
-    }
+  async ({ runId, status, artifactRef, summaryRef, reasonCode, evidenceRefs, serviceToken, authorization }: ApplyCopilotResultRequest): Promise<{ success: boolean }> => {
+    // Callback worker dùng chung verifier JWT (spec 2026-09-25 §5); không còn
+    // token tĩnh "local-dev-service-token" làm fallback.
+    await requireWorkerServiceAuth({ serviceToken, authorization });
     await applyCopilotResult({ runId, status, artifactRef, summaryRef, reasonCode, evidenceRefs });
     return { success: true };
   }

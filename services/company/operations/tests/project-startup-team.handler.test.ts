@@ -258,6 +258,17 @@ describe("project-startup-team handler authorization & governance", () => {
       })
     ).rejects.toThrow(/missing service token/i);
 
+    // 1b. Project thuộc workspace khác -> 404 giống project không tồn tại
+    const otherWs = await createTestWorkspaceWithMember({ role: "founder" });
+    await expect(
+      getProjectAgentRunAuthorityApi({
+        serviceToken: mintTestWorkerToken("worker-startup-team"),
+        workspaceId: otherWs.workspaceId,
+        projectId: project.id,
+        profileKey: "operations",
+      })
+    ).rejects.toMatchObject({ code: "not_found" });
+
     // 2. Unassigned / TEMPLATE state -> 404
     await expect(
       getProjectAgentRunAuthorityApi({

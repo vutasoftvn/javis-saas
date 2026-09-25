@@ -661,8 +661,9 @@ export async function getProjectAgentRunAuthority(
   if (!project) {
     throw APIError.notFound("Project not found");
   }
+  // Trả 404 như project không tồn tại: không để lộ project của workspace khác.
   if (project.workspaceId !== wsId) {
-    throw APIError.permissionDenied("Project does not belong to specified workspace");
+    throw APIError.notFound("Project not found");
   }
 
   const [row] = await db

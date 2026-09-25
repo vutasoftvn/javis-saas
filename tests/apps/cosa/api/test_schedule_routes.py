@@ -66,7 +66,7 @@ def test_create_schedule_omits_null_optional_fields_from_outbound_payload():
         200,
         json={
             "id": "sched_1",
-            "workspaceId": WORKSPACE_A,
+            "organizationId": WORKSPACE_A,
             "createdBy": "user:test_user",
             "scheduleKind": "one_time",
             "timezone": "Asia/Ho_Chi_Minh",
@@ -116,7 +116,7 @@ def test_create_schedule_response_maps_project_scope_fields():
         200,
         json={
             "id": "sched_2",
-            "workspaceId": WORKSPACE_A,
+            "organizationId": WORKSPACE_A,
             "createdBy": "user:test_user",
             "scheduleKind": "daily",
             "timezone": "Asia/Ho_Chi_Minh",
@@ -159,7 +159,7 @@ def test_list_schedules_response_maps_project_scope_fields():
             "items": [
                 {
                     "id": "sched_3",
-                    "workspaceId": WORKSPACE_A,
+                    "organizationId": WORKSPACE_A,
                     "createdBy": "user:test_user",
                     "scheduleKind": "daily",
                     "timezone": "Asia/Ho_Chi_Minh",

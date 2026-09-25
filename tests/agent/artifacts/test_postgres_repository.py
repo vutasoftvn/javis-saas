@@ -25,16 +25,6 @@ pytestmark = pytest.mark.skipif(
     reason="AGENT_TEST_DATABASE_URL not set",
 )
 
-# Các test I/O đụng schema `agent_artifact.workspace_artifacts` đã bị drop khỏi
-# baseline Founder Trial R1; test config-error thuần (`requires_session_factory`)
-# vẫn chạy.
-_R1_DESCOPED_SKIP = pytest.mark.skip(
-    reason="Subsystem PLANNED, not in Founder Trial R1 — reset spec "
-    "docs/superpowers/specs/2026-09-09-founder-trial-mvp-reset-baseline-design.md §7.3 "
-    "(Vault/RAG, eval promotion, agent memory/artifact). Schema intentionally dropped "
-    "from the 001 baseline; re-enable when the subsystem is promoted to R1."
-)
-
 
 @pytest_asyncio.fixture
 async def session_factory():
@@ -53,7 +43,6 @@ def test_postgres_artifact_repository_requires_session_factory():
         PostgresArtifactRepository(db_session_factory=None)
 
 
-@_R1_DESCOPED_SKIP
 @pytest.mark.asyncio
 async def test_create_and_get_artifact_roundtrip(session_factory):
     """Test creating an artifact and retrieving it."""
@@ -93,7 +82,6 @@ async def test_create_and_get_artifact_roundtrip(session_factory):
     assert fetched.status == "available"
 
 
-@_R1_DESCOPED_SKIP
 @pytest.mark.asyncio
 async def test_get_artifact_with_input_artifact_ids_roundtrip(session_factory):
     """Test that input_artifact_ids JSON field is correctly serialized/deserialized."""
@@ -124,7 +112,6 @@ async def test_get_artifact_with_input_artifact_ids_roundtrip(session_factory):
     assert fetched.input_artifact_ids == input_ids
 
 
-@_R1_DESCOPED_SKIP
 @pytest.mark.asyncio
 async def test_get_nonexistent_artifact_returns_none(session_factory):
     """Test that fetching a nonexistent artifact returns None."""
@@ -137,7 +124,6 @@ async def test_get_nonexistent_artifact_returns_none(session_factory):
     assert result is None
 
 
-@_R1_DESCOPED_SKIP
 @pytest.mark.asyncio
 async def test_list_for_conversation_excludes_archived_by_default(session_factory):
     """Test that list_for_conversation excludes archived artifacts by default."""
@@ -179,7 +165,6 @@ async def test_list_for_conversation_excludes_archived_by_default(session_factor
     assert active_list[0].status == "available"
 
 
-@_R1_DESCOPED_SKIP
 @pytest.mark.asyncio
 async def test_list_for_conversation_with_include_archived_true(session_factory):
     """Test that include_archived=True returns all artifacts."""
@@ -212,7 +197,6 @@ async def test_list_for_conversation_with_include_archived_true(session_factory)
     assert all_artifacts[0].status == "archived"
 
 
-@_R1_DESCOPED_SKIP
 @pytest.mark.asyncio
 async def test_list_for_conversation_orders_by_created_at_desc(session_factory):
     """Test that artifacts are returned in reverse chronological order."""
@@ -246,7 +230,6 @@ async def test_list_for_conversation_orders_by_created_at_desc(session_factory):
     assert artifacts[2].artifact_id == artifact_ids[0]
 
 
-@_R1_DESCOPED_SKIP
 @pytest.mark.asyncio
 async def test_list_for_conversation_filters_by_conversation_id(session_factory):
     """Test that list_for_conversation only returns artifacts from that conversation."""
@@ -290,7 +273,6 @@ async def test_list_for_conversation_filters_by_conversation_id(session_factory)
     assert list_b[0].artifact_id == artifact_b.artifact_id
 
 
-@_R1_DESCOPED_SKIP
 @pytest.mark.asyncio
 async def test_archive_nonexistent_artifact_returns_none(session_factory):
     """Test that archiving a nonexistent artifact returns None."""
@@ -303,7 +285,6 @@ async def test_archive_nonexistent_artifact_returns_none(session_factory):
     assert result is None
 
 
-@_R1_DESCOPED_SKIP
 @pytest.mark.asyncio
 async def test_archive_updates_status_and_timestamp(session_factory):
     """Test that archive properly sets status and archived_at."""
@@ -336,7 +317,6 @@ async def test_archive_updates_status_and_timestamp(session_factory):
     assert before_archive <= archived.archived_at <= after_archive
 
 
-@_R1_DESCOPED_SKIP
 @pytest.mark.asyncio
 async def test_tenancy_isolation_get_rejects_wrong_workspace(session_factory):
     """Test that get() respects workspace boundaries."""
@@ -363,7 +343,6 @@ async def test_tenancy_isolation_get_rejects_wrong_workspace(session_factory):
     assert result is None
 
 
-@_R1_DESCOPED_SKIP
 @pytest.mark.asyncio
 async def test_tenancy_isolation_list_does_not_leak(session_factory):
     """Test that list_for_conversation respects workspace boundaries."""
@@ -407,7 +386,6 @@ async def test_tenancy_isolation_list_does_not_leak(session_factory):
     assert list_b[0].artifact_id == artifact_b.artifact_id
 
 
-@_R1_DESCOPED_SKIP
 @pytest.mark.asyncio
 async def test_tenancy_isolation_archive_rejects_wrong_workspace(session_factory):
     """Test that archive() respects workspace boundaries."""
@@ -439,7 +417,6 @@ async def test_tenancy_isolation_archive_rejects_wrong_workspace(session_factory
     assert fetched.status == "available"
 
 
-@_R1_DESCOPED_SKIP
 @pytest.mark.asyncio
 async def test_artifact_with_all_optional_fields(session_factory):
     """Test creating and retrieving artifact with all optional fields set."""

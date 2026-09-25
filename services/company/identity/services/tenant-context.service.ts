@@ -87,6 +87,7 @@ export async function resolveTenantContext(
   const [membership] = await db
     .select({
       role: identityWorkspaceMemberships.role,
+      membershipState: identityWorkspaceMemberships.membershipState,
     })
     .from(identityWorkspaceMemberships)
     .where(
@@ -100,6 +101,13 @@ export async function resolveTenantContext(
   if (!membership) {
     throw APIError.permissionDenied(
       `user không thuộc workspace ${params.workspaceId}`
+    );
+  }
+  // Core đã thu hồi membership (tombstone từ event/sync) ⇒ local JWT còn hạn
+  // cũng không được đọc/ghi workspace này nữa (spec 2026-09-25 §6).
+  if (membership.membershipState !== "active") {
+    throw APIError.permissionDenied(
+      `membership của user tại workspace ${params.workspaceId} đã bị thu hồi`
     );
   }
 

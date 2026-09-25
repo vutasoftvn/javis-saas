@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from agent.project_activity.models import ProjectActivityEventRecord
+from agent.project_activity.repository import PostgresProjectActivityRepository
 from agent.runs.models import RunRecord
 from agent.runs.repository import PostgresRunRepository
 from agent.runs.stream_events import PostgresRunStreamEventRepository, RunStreamEventRecord
@@ -130,3 +132,37 @@ def run_id_with_events(db_session_factory):
         return run_id
 
     return asyncio.run(_insert_data())
+
+
+@pytest.fixture
+def project_id_with_activity(db_session_factory, monkeypatch):
+    """Project có sẵn 3 activity event trong `agent.project_activity_events`,
+    thuộc workspace "test_ws_1" của override_authenticated_identity.
+
+    Đặt `COSA_TEST_VERIFIED_PROJECT_IDS` để `apps.cosa.api.test_main` (chạy ở
+    subprocess, kế thừa os.environ) xác nhận Project này thay cho Company thật."""
+
+    project_id = f"proj_test_{uuid.uuid4().hex[:12]}"
+    monkeypatch.setenv("COSA_TEST_VERIFIED_PROJECT_IDS", project_id)
+
+    async def _insert_data() -> None:
+        repo = PostgresProjectActivityRepository(db_session_factory)
+        for index in range(3):
+            await repo.append_if_absent(
+                ProjectActivityEventRecord(
+                    workspace_id="test_ws_1",
+                    project_id=project_id,
+                    idempotency_key=f"run:run_{project_id}:run.step_completed:{index}",
+                    kind="run.step_completed",
+                    actor_kind="agent",
+                    actor_id="cosa.operations",
+                    source_type="run",
+                    source_id=f"run_{project_id}",
+                    source_version=str(index),
+                    summary={"step": index},
+                    payload_hash=f"sha256:{index:064x}",
+                )
+            )
+
+    asyncio.run(_insert_data())
+    return project_id

@@ -96,6 +96,16 @@ async def test_inprocess_sandbox_delegates_to_converter(valid_document, test_con
             assert result.markdown == "# Converted"
 
 
+def test_inprocess_sandbox_constructs_without_markitdown_installed():
+    """Image API/worker không có markitdown: khởi tạo sandbox (lúc dựng
+    plane với KNOWLEDGE_INGESTION_ENABLED=true) không được import converter."""
+    with patch(
+        "apps.cosa.knowledge_ingestion.conversion_sandbox.SafeMarkItDownConverter",
+        side_effect=ImportError("markitdown not installed; use requirements.ingestion.txt"),
+    ):
+        InProcessConversionSandbox()
+
+
 # Test: InProcessConversionSandbox rejects unknown profiles
 @pytest.mark.asyncio
 async def test_inprocess_sandbox_rejects_unknown_profile(

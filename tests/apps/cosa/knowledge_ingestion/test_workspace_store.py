@@ -126,3 +126,52 @@ async def test_promote_to_vault_rejects_quarantine_ref_outside_root(tmp_path, ti
     store = WorkspaceDocumentStore(tmp_path, ticket_repo)
     with pytest.raises(ValueError, match=r"escapes workspace storage root|not found"):
         await store.promote_to_vault("ws-a", "version-1", "../../../etc/passwd")
+
+
+@pytest.mark.asyncio
+async def test_postgres_ticket_repository_roundtrip_and_rls_isolation():
+    """Migration 016 — agent.local_upload_tickets thật trên Postgres: ticket
+    sống qua repository mới (restart), workspace khác không đọc được (RLS)."""
+    import os
+    import uuid
+    from datetime import UTC, datetime, timedelta
+
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from apps.cosa.knowledge_ingestion.workspace_store import (
+        PostgresUploadTicketRepository,
+        UploadTicketRecord,
+    )
+
+    db_url = os.environ.get("AGENT_TEST_DATABASE_URL")
+    if not db_url:
+        pytest.skip("AGENT_TEST_DATABASE_URL not set")
+    engine = create_async_engine(db_url.replace("postgresql://", "postgresql+asyncpg://", 1))
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        ws = f"ws-{uuid.uuid4().hex[:8]}"
+        upload_id = f"up-{uuid.uuid4().hex[:8]}"
+        now = datetime.now(UTC)
+        record = UploadTicketRecord(
+            workspace_id=ws,
+            upload_id=upload_id,
+            secret_hash="0" * 64,
+            max_bytes=1024,
+            expires_at=now + timedelta(minutes=10),
+            quarantine_relative_path=f"{ws}/quarantine/{upload_id}",
+            created_at=now,
+        )
+        await PostgresUploadTicketRepository(factory).create(record)
+
+        fresh = PostgresUploadTicketRepository(factory)
+        fetched = await fresh.get(ws, upload_id)
+        assert fetched is not None
+        assert fetched.secret_hash == record.secret_hash
+        assert fetched.max_bytes == 1024
+
+        assert await fresh.get(f"ws-{uuid.uuid4().hex[:8]}", upload_id) is None
+
+        await fresh.delete(ws, upload_id)
+        assert await fresh.get(ws, upload_id) is None
+    finally:
+        await engine.dispose()

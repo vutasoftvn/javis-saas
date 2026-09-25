@@ -122,7 +122,7 @@ describe("grantCoreMembership", () => {
 
     const result = await coreOrganization.grantCoreMembership("100", "42", "member");
 
-    expect(result).toEqual({ role: "member" });
+    expect(result).toEqual({ role: "member", membershipVersion: 2 });
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("http://core.test/internal/organizations/100/members");
     expect(init.method).toBe("POST");

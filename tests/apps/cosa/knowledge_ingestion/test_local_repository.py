@@ -23,12 +23,6 @@ else:
     TEST_DATABASE_URL = _RAW_DB_URL
 
 pytestmark = [
-    pytest.mark.skip(
-        reason="Subsystem PLANNED, not in Founder Trial R1 — reset spec "
-        "docs/superpowers/specs/2026-09-09-founder-trial-mvp-reset-baseline-design.md §7.3 "
-        "(Vault/RAG, eval promotion, agent memory/artifact). Schema intentionally dropped "
-        "from the 001 baseline; re-enable when the subsystem is promoted to R1."
-    ),
     pytest.mark.skipif(not TEST_DATABASE_URL, reason="AGENT_TEST_DATABASE_URL not set"),
 ]
 

@@ -173,6 +173,45 @@ class ProfileView extends GetView<ProfileController> {
                       );
                     }
 
+                    final pending = controller.pendingPhone.value;
+                    if (pending != null) {
+                      // Bước xác nhận OTP do Core gửi tới số mới.
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: controller.otpController,
+                              keyboardType: TextInputType.number,
+                              autofocus: true,
+                              style: const TextStyle(color: Colors.white, fontSize: 14),
+                              decoration: InputDecoration(
+                                border: InputBorder.none,
+                                isDense: true,
+                                hintText: 'Mã xác nhận gửi tới $pending',
+                                hintStyle: const TextStyle(color: AppTheme.textDimDark, fontSize: 12),
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: _muted, size: 18),
+                            onPressed: controller.cancelPhoneEdit,
+                            tooltip: 'Huỷ',
+                          ),
+                          Obx(() => controller.isSaving.value
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: _accent),
+                                )
+                              : IconButton(
+                                  icon: const Icon(Icons.verified_outlined, color: _accent, size: 20),
+                                  onPressed: controller.verifyPhoneOtp,
+                                  tooltip: 'Xác nhận',
+                                )),
+                        ],
+                      );
+                    }
+
                     return Row(
                       children: [
                         Expanded(

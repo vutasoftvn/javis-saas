@@ -44,8 +44,10 @@ export interface GetAiGovernanceSnapshotParams {
 
 export type AiGovernanceSnapshotStatus = "VERIFIED";
 
+// Envelope là hợp đồng JSON dùng chung với services/company (dossier verify
+// chữ ký trên đúng các trường này), nên giữ tên trường "workspaceId".
 export interface AiGovernanceSnapshotResult {
-  organizationId: string;
+  workspaceId: string;
   projectId: string;
   policy: AiGovernanceRef[];
   evaluators: AiGovernanceRef[];
@@ -90,7 +92,7 @@ function canonicalPayload(
   envelope: Omit<AiGovernanceSnapshotResult, "signature">
 ): string {
   return JSON.stringify({
-    organizationId: envelope.organizationId,
+    workspaceId: envelope.workspaceId,
     projectId: envelope.projectId,
     policy: envelope.policy.map(canonicalizeRef),
     evaluators: envelope.evaluators.map(canonicalizeRef),
@@ -147,7 +149,7 @@ export async function getAiGovernanceSnapshot(
   assertValidRefList(params.evaluatorRefs, "evaluatorRefs");
 
   const envelopeWithoutSignature: Omit<AiGovernanceSnapshotResult, "signature"> = {
-    organizationId: params.organizationId,
+    workspaceId: params.organizationId,
     projectId: params.projectId,
     policy: params.policyRefs.map(canonicalizeRef),
     evaluators: params.evaluatorRefs.map(canonicalizeRef),

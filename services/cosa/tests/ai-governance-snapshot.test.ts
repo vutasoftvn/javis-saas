@@ -106,6 +106,8 @@ describe("getAiGovernanceSnapshot", () => {
     const snapshot = await getAiGovernanceSnapshot(baseParams(), `Bearer ${delegation}`);
 
     expect(snapshot.status).toBe("VERIFIED");
+    // services/company đọc và verify chữ ký trên trường workspaceId.
+    expect(snapshot.workspaceId).toBe("ws_1");
     expect(snapshot.signature).toBeTruthy();
     expect(verifyAiGovernanceSnapshotSignature(snapshot)).toBe(true);
   });

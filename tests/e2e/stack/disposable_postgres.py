@@ -9,6 +9,7 @@ from __future__ import annotations
 import contextlib
 import os
 import subprocess
+import sys
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -130,7 +131,7 @@ def apply_migrations(cluster: DisposableCluster) -> None:
     steps = [
         (
             [
-                os.environ.get("PYTHON", ".venv/bin/python"),
+                os.environ.get("PYTHON", sys.executable),
                 "-m",
                 "packages.agent.scripts.migrate",
             ],

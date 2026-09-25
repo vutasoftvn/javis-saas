@@ -40,10 +40,22 @@ export async function applyMembershipProjection(
     throw APIError.invalidArgument("Missing required fields in membership projection event");
   }
 
-  const wsId = BigInt(event.organizationId);
+  if (!["active", "revoked", "deactivated"].includes(event.status)) {
+    throw APIError.invalidArgument(`unsupported membership status ${event.status}`);
+  }
   const eventVersion = Number(event.membershipVersion);
+  if (!Number.isSafeInteger(eventVersion) || eventVersion < 1) {
+    throw APIError.invalidArgument("membershipVersion must be a positive integer");
+  }
+  if (!/^\d{1,19}$/.test(event.organizationId)) {
+    throw APIError.invalidArgument("organizationId must be a numeric id");
+  }
+  const wsId = BigInt(event.organizationId);
   const now = new Date();
   const occurredAt = event.occurredAt ? new Date(event.occurredAt) : now;
+  if (Number.isNaN(occurredAt.getTime())) {
+    throw APIError.invalidArgument("occurredAt must be an ISO timestamp");
+  }
 
   return await db.transaction(async (tx) => {
     // 1. Idempotency check via inbox
@@ -112,6 +124,7 @@ export async function applyMembershipProjection(
         role: identityWorkspaceMemberships.role,
         membershipState: identityWorkspaceMemberships.membershipState,
         sourceMembershipVersion: identityWorkspaceMemberships.sourceMembershipVersion,
+        revokedAt: identityWorkspaceMemberships.revokedAt,
       })
       .from(identityWorkspaceMemberships)
       .where(
@@ -144,7 +157,28 @@ export async function applyMembershipProjection(
 
       // Newer version: apply forward transition
       const targetState = event.status === "active" ? "active" : "revoked";
-      const updateValues: Record<string, any> = {
+      // Tombstone từ sync (không mang version) mới hơn thời điểm event active
+      // ⇒ event active này là dữ liệu cũ, không được kích hoạt lại membership.
+      if (
+        targetState === "active" &&
+        membership.membershipState !== "active" &&
+        membership.revokedAt &&
+        occurredAt.getTime() <= membership.revokedAt.getTime()
+      ) {
+        await tx
+          .insert(identityMembershipEventInbox)
+          .values({
+            eventId: event.eventId,
+            organizationId: event.organizationId,
+            userId: event.userId,
+            membershipVersion: eventVersion,
+            status: event.status,
+            processedAt: now,
+          })
+          .onConflictDoNothing();
+        return { applied: false, reason: "stale_after_revocation" };
+      }
+      const updateValues: Partial<typeof identityWorkspaceMemberships.$inferInsert> = {
         membershipState: targetState,
         sourceMembershipVersion: eventVersion,
         updatedAt: now,

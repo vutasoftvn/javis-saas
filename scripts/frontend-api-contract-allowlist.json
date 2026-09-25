@@ -37,13 +37,6 @@
       "expires_on": "2027-06-01"
     },
     {
-      "path": "/identity/workforce-members",
-      "method": "POST",
-      "owner": "control-plane",
-      "reason": "Auth/identity bootstrap — provisions the WorkforceMember identity row for a newly onboarded human; foundational identity plumbing, not an MVP business capability.",
-      "expires_on": "2027-06-01"
-    },
-    {
       "path": "/platform/auth/companies/create",
       "method": "POST",
       "owner": "control-plane",
@@ -857,34 +850,6 @@
     },
     {
       "path": "/operations/tasks/:taskId/dependencies",
-      "method": "GET",
-      "owner": "company-operations",
-      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
-      "expires_on": "2026-12-31"
-    },
-    {
-      "path": "/org/:workspaceId",
-      "method": "GET",
-      "owner": "company-operations",
-      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
-      "expires_on": "2026-12-31"
-    },
-    {
-      "path": "/org/:workspaceId/chart",
-      "method": "GET",
-      "owner": "company-operations",
-      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
-      "expires_on": "2026-12-31"
-    },
-    {
-      "path": "/org/:workspaceId/command-center",
-      "method": "GET",
-      "owner": "company-operations",
-      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
-      "expires_on": "2026-12-31"
-    },
-    {
-      "path": "/org/:workspaceId/daily-briefing",
       "method": "GET",
       "owner": "company-operations",
       "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
@@ -2413,10 +2378,10 @@
       "expires_on": "2027-06-01"
     },
     {
-      "path": "/platform/auth/me",
+      "path": "/platform/preferences/me",
       "method": "PATCH",
       "owner": "control-plane",
-      "reason": "Auth bootstrap — profile self-update tied to session identity (moved to Control Plane by the auth migration d39a1bee); not an MVP business capability. Backend: services/cosa/handlers/auth.handler.ts.",
+      "reason": "COSA-owned preference self-update (locale/headline/bio) split out of /platform/auth/me per spec 2026-09-25 §8; contact fields are owned by core and rejected. Backend: services/cosa/handlers/auth.handler.ts.",
       "expires_on": "2027-06-01"
     },
     {

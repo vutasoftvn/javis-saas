@@ -245,8 +245,12 @@ class CliBridge:
         assert process.stdout is not None
         assert process.stderr is not None
 
-        process.stdin.write(prompt.encode("utf-8"))
-        await process.stdin.drain()
+        # CLI có thể thoát (hoặc đóng stdin) trước khi đọc hết prompt — giống
+        # `communicate()`, bỏ qua broken pipe và vẫn đọc stdout/exit code thật;
+        # nếu không, race này làm invoke fail dù CLI chạy thành công.
+        with contextlib.suppress(BrokenPipeError, ConnectionResetError):
+            process.stdin.write(prompt.encode("utf-8"))
+            await process.stdin.drain()
         process.stdin.close()
 
         stdout_chunks: list[bytes] = []

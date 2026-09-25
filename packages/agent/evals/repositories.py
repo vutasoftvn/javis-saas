@@ -234,7 +234,7 @@ class PostgresEvalRepository:
                     """
                     UPDATE agent_evals.runs
                     SET status = :status, pass_rate = :pass_rate,
-                        completed_at = CASE WHEN CAST(:status AS VARCHAR) IN ('completed', 'failed') THEN NOW() ELSE completed_at END
+                        completed_at = CASE WHEN CAST(:status AS TEXT) IN ('completed', 'failed') THEN NOW() ELSE completed_at END
                     WHERE eval_run_id = :run_id
                     """
                 ),

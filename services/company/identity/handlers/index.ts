@@ -9,3 +9,4 @@ export * from "./e2e-session.handler";
 export * from "./business-policy.handler";
 export * from "./permissions.handler";
 export * from "./agent-authorization.handler";
+export * from "./membership-event.handler";

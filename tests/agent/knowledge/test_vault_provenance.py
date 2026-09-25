@@ -24,15 +24,6 @@ else:
 
 pytestmark = pytest.mark.skipif(not TEST_DATABASE_URL, reason="AGENT_TEST_DATABASE_URL not set")
 
-# Các test ghi/đọc thật đụng schema `knowledge.*` đã bị drop khỏi baseline
-# Founder Trial R1; test guard ValueError sớm (không chạm DB) vẫn chạy.
-_R1_DESCOPED_SKIP = pytest.mark.skip(
-    reason="Subsystem PLANNED, not in Founder Trial R1 — reset spec "
-    "docs/superpowers/specs/2026-09-09-founder-trial-mvp-reset-baseline-design.md §7.3 "
-    "(Vault/RAG, eval promotion, agent memory/artifact). Schema intentionally dropped "
-    "from the 001 baseline; re-enable when the subsystem is promoted to R1."
-)
-
 
 @pytest.fixture
 def postgres_knowledge_store():
@@ -49,7 +40,6 @@ async def test_published_knowledge_requires_same_vault_version(postgres_knowledg
         )
 
 
-@_R1_DESCOPED_SKIP
 @pytest.mark.asyncio
 async def test_non_published_knowledge_does_not_require_vault_version(postgres_knowledge_store):
     """Ingestion draft/review_pending KHÔNG bắt buộc phải từ Vault (không phải
@@ -68,7 +58,6 @@ async def test_non_published_knowledge_does_not_require_vault_version(postgres_k
     assert fetched.vault_version_id is None
 
 
-@_R1_DESCOPED_SKIP
 @pytest.mark.asyncio
 async def test_published_knowledge_with_vault_version_persists_provenance(postgres_knowledge_store):
     doc = KnowledgeDocument(

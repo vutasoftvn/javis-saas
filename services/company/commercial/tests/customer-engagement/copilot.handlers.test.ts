@@ -18,6 +18,7 @@ import {
   applyCopilotResultApi,
 } from "../../handlers/customer-engagement/copilot.handler";
 import { setCustomCopilotRunner } from "../../services/customer-engagement/copilot-cosa-client";
+import { mintTestWorkerToken } from "../../../shared/auth/worker-service-auth";
 
 describe("Customer Engagement Copilot Handlers", () => {
   beforeEach(() => {
@@ -151,7 +152,7 @@ describe("Customer Engagement Copilot Handlers", () => {
       status: "completed",
       artifactRef: "art_123",
       summaryRef: "summary_123",
-      serviceToken: process.env.COSA_SERVICE_TOKEN || "local-dev-service-token",
+      serviceToken: mintTestWorkerToken("copilot-worker"),
     });
     expect(applyRes.success).toBe(true);
 

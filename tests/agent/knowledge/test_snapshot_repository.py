@@ -6,15 +6,6 @@ from agent.knowledge.snapshot import KnowledgeSnapshot
 from agent.knowledge.snapshot_repository import InMemoryKnowledgeSnapshotRepository
 from agent.registry.repository import SpecVersionHashConflictError
 
-# Chỉ nhánh Postgres đụng schema `knowledge.*` đã bị drop khỏi baseline
-# Founder Trial R1; các test `InMemoryKnowledgeSnapshotRepository` vẫn chạy.
-_R1_DESCOPED_SKIP = pytest.mark.skip(
-    reason="Subsystem PLANNED, not in Founder Trial R1 — reset spec "
-    "docs/superpowers/specs/2026-09-09-founder-trial-mvp-reset-baseline-design.md §7.3 "
-    "(Vault/RAG, eval promotion, agent memory/artifact). Schema intentionally dropped "
-    "from the 001 baseline; re-enable when the subsystem is promoted to R1."
-)
-
 
 def _snapshot(**overrides) -> KnowledgeSnapshot:
     base = dict(
@@ -87,7 +78,6 @@ def _pg_session_factory():
     return async_sessionmaker(engine, expire_on_commit=False)
 
 
-@_R1_DESCOPED_SKIP
 @pytest.mark.skipif(not TEST_DATABASE_URL, reason="AGENT_TEST_DATABASE_URL not set")
 @pytest.mark.asyncio
 async def test_postgres_knowledge_snapshot_repository_publish_and_get_roundtrip():
@@ -102,7 +92,6 @@ async def test_postgres_knowledge_snapshot_repository_publish_and_get_roundtrip(
     assert fetched.source_refs == [{"source_id": "src_1", "version": 1, "content_hash": "a" * 64}]
 
 
-@_R1_DESCOPED_SKIP
 @pytest.mark.skipif(not TEST_DATABASE_URL, reason="AGENT_TEST_DATABASE_URL not set")
 @pytest.mark.asyncio
 async def test_postgres_knowledge_snapshot_repository_rejects_hash_conflict():

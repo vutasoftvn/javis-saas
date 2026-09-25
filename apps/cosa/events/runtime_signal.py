@@ -1,4 +1,3 @@
-from apps.cosa.auth.jwt import mint_worker_service_jwt
 """Agent Runtime Signal Outbox Publisher to Company Service."""
 
 from __future__ import annotations
@@ -9,6 +8,8 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 from agent.workforce.repository import WorkforceRepository
+
+from apps.cosa.auth.jwt import mint_worker_service_jwt
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +28,16 @@ class AgentRuntimeSignalPublisher:
         self._company_url = (
             company_url or os.getenv("COMPANY_SERVICE_URL") or "http://127.0.0.1:4000"
         ).rstrip("/")
-        self._service_token = (
-            service_token or mint_worker_service_jwt(worker_id="runtime-signal-emitter")
-        )
+        # Không ký JWT ở constructor: token chỉ sống 5 phút nên publisher sống
+        # lâu (tạo lúc worker khởi động) sẽ giữ token hết hạn; ký lại mỗi lần gửi.
+        self._static_service_token = service_token
         self._http_client = http_client
+
+    @property
+    def _service_token(self) -> str:
+        return self._static_service_token or mint_worker_service_jwt(
+            worker_id="runtime-signal-emitter"
+        )
 
     async def deliver_due(self, limit: int = 50, max_attempts: int = 10) -> int:
         signals = await self._repository.claim_pending_signals(

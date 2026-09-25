@@ -1,10 +1,10 @@
 import * as crypto from "node:crypto";
 import { APIError } from "encore.dev/api";
-import { eq, and } from "drizzle-orm";
+import { and, asc, eq, inArray, lt, sql } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { generateSnowflakeStr } from "./snowflake.service";
 import { CompanyActionResponse } from "./company.service";
-import { grantCoreMembership } from "./core-organization.service";
+import { grantCoreMembership, type CoreMembershipGrant } from "./core-organization.service";
 import { mapCoreRoleToCosaRole } from "./core-projection.service";
 
 const {
@@ -13,6 +13,7 @@ const {
   workspaceMemberships,
   workspaceInvitations,
   workspaceSettingsAuditEvents,
+  organizationInvitationGrants,
 } = schema;
 
 /**
@@ -182,10 +183,14 @@ export async function createWorkspaceInvitation(
 }
 
 /**
- * Accept invitation bằng token thô. Transaction-safe: khoá đúng row invitation
- * qua `SELECT ... FOR UPDATE` để 2 accept song song cùng token chỉ tạo đúng
- * một membership (accept thứ hai sẽ thấy status đã "accepted" và trả về
- * idempotent — quyết định 7 + 8 của ADR).
+ * Accept invitation bằng token thô — saga với core (spec 2026-09-25 §8):
+ *  1. Transaction cục bộ: khoá invitation, kiểm tra, ghi ý định `requested`
+ *     (unique theo invitation) TRƯỚC khi gọi core.
+ *  2. Gọi core (idempotent) NGOÀI transaction; lỗi chỉ ghi attempts/mã lỗi,
+ *     invitation vẫn `pending` để thử lại hoặc để reconciler xử lý.
+ *  3. Ghi `core_granted` ở transaction riêng, rồi `projectInvitationGrant`
+ *     chiếu membership + đánh dấu invitation `accepted` (`projected`).
+ * Retry sau accept thành công trả về membership hiện có (ADR quyết định 7 + 8).
  */
 export async function acceptWorkspaceInvitation(
   actorId: string,
@@ -204,7 +209,9 @@ export async function acceptWorkspaceInvitation(
   }
   const actorEmail = actor.email ? normalizeEmail(actor.email) : null;
 
-  return db.transaction(async (tx) => {
+  const prepared = await db.transaction(async (tx): Promise<
+    { kind: "done"; response: CompanyActionResponse } | { kind: "grant"; grant: InvitationGrantRow }
+  > => {
     const [invitation] = await tx
       .select()
       .from(workspaceInvitations)
@@ -236,7 +243,10 @@ export async function acceptWorkspaceInvitation(
         // Token đã accept nhưng không phải bởi principal hiện tại.
         throw APIError.permissionDenied("lời mời này đã được sử dụng");
       }
-      return buildCompanyActionResponse(invitation.organizationId, ws.name, existingMembership.roleId);
+      return {
+        kind: "done",
+        response: buildCompanyActionResponse(invitation.organizationId, ws.name, existingMembership.roleId),
+      };
     }
 
     if (invitation.status === "revoked") {
@@ -261,54 +271,231 @@ export async function acceptWorkspaceInvitation(
       throw APIError.permissionDenied("email của bạn không khớp với lời mời này");
     }
 
+    // Ghi ý định trước khi gọi core; retry dùng lại đúng bản ghi này.
+    const [inserted] = await tx
+      .insert(organizationInvitationGrants)
+      .values({
+        id: BigInt(generateSnowflakeStr()),
+        invitationId: invitation.id,
+        organizationId: invitation.organizationId,
+        userId: actorUserId,
+        requestedRole: invitation.roleId,
+        state: "requested",
+      })
+      .onConflictDoNothing({ target: organizationInvitationGrants.invitationId })
+      .returning();
+    let grant = inserted;
+    if (inserted) {
+      await writeInvitationAuditEvent(tx, invitation.organizationId, actorId, "invitation.grant_requested", invitation.id.toString(), {
+        email: invitation.emailNormalized,
+        role_id: invitation.roleId,
+      });
+    } else {
+      [grant] = await tx
+        .select()
+        .from(organizationInvitationGrants)
+        .where(eq(organizationInvitationGrants.invitationId, invitation.id))
+        .limit(1);
+    }
+    if (!grant || grant.userId !== actorUserId) {
+      throw APIError.permissionDenied("lời mời này đang được xử lý cho người dùng khác");
+    }
+    return { kind: "grant", grant };
+  });
+
+  if (prepared.kind === "done") return prepared.response;
+
+  let grant = prepared.grant;
+  if (grant.state === "requested" || grant.state === "failed") {
+    grant = await requestCoreGrant(grant, actorId);
+  }
+  return projectInvitationGrant(grant.id);
+}
+
+type InvitationGrantRow = typeof organizationInvitationGrants.$inferSelect;
+
+function errorCodeOf(err: unknown): string {
+  if (err instanceof APIError) return err.code;
+  if (err && typeof err === "object" && "code" in err && typeof err.code === "string") return err.code;
+  return "unknown";
+}
+
+/** Gọi core (idempotent) và ghi `core_granted`; lỗi chỉ ghi attempts + mã lỗi rồi ném lại. */
+async function requestCoreGrant(grant: InvitationGrantRow, actorId: string): Promise<InvitationGrantRow> {
+  let granted: CoreMembershipGrant;
+  try {
+    granted = await grantCoreMembership(grant.organizationId.toString(), grant.userId.toString(), grant.requestedRole);
+  } catch (err) {
+    // Không suy ra thành công từ timeout: giữ `requested` để retry/reconcile.
+    await db
+      .update(organizationInvitationGrants)
+      .set({
+        state: "requested",
+        attempts: sql`${organizationInvitationGrants.attempts} + 1`,
+        lastErrorCode: errorCodeOf(err),
+        updatedAt: new Date(),
+      })
+      .where(eq(organizationInvitationGrants.id, grant.id));
+    throw err;
+  }
+
+  return db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(organizationInvitationGrants)
+      .set({
+        state: "core_granted",
+        coreRole: granted.role,
+        coreMembershipVersion: granted.membershipVersion ?? null,
+        attempts: sql`${organizationInvitationGrants.attempts} + 1`,
+        lastErrorCode: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(organizationInvitationGrants.id, grant.id))
+      .returning();
+    await writeInvitationAuditEvent(tx, grant.organizationId, actorId, "invitation.core_granted", grant.invitationId.toString(), {
+      core_role: granted.role,
+      core_membership_version: granted.membershipVersion ?? null,
+    });
+    return updated ?? grant;
+  });
+}
+
+/**
+ * Chiếu membership cục bộ theo role core đã cấp, đánh dấu invitation
+ * `accepted` và grant `projected`. Idempotent: gọi lại trên grant đã
+ * `projected` chỉ trả về membership hiện có.
+ */
+export async function projectInvitationGrant(grantId: bigint): Promise<CompanyActionResponse> {
+  return db.transaction(async (tx) => {
+    const [grant] = await tx
+      .select()
+      .from(organizationInvitationGrants)
+      .where(eq(organizationInvitationGrants.id, grantId))
+      .for("update");
+    if (!grant) throw APIError.notFound("invitation grant không tồn tại");
+    if (grant.state !== "core_granted" && grant.state !== "projected") {
+      throw APIError.failedPrecondition(`invitation grant chưa được core xác nhận (state=${grant.state})`);
+    }
+
+    const [ws] = await tx
+      .select({ name: workspaces.workspaceName })
+      .from(workspaces)
+      .where(eq(workspaces.id, grant.organizationId))
+      .limit(1);
+    if (!ws) throw APIError.notFound("workspace của lời mời không còn tồn tại");
+
+    const coreRoleId = mapCoreRoleToCosaRole(grant.coreRole ?? grant.requestedRole);
+    const now = new Date();
+
     const [existingMembership] = await tx
       .select({ roleId: workspaceMemberships.roleId })
       .from(workspaceMemberships)
-      .where(and(eq(workspaceMemberships.organizationId, invitation.organizationId), eq(workspaceMemberships.userId, actorUserId)))
+      .where(and(eq(workspaceMemberships.organizationId, grant.organizationId), eq(workspaceMemberships.userId, grant.userId)))
       .limit(1);
 
-    // Cấp membership ở core TRƯỚC khi ghi bản chiếu cục bộ. Core idempotent và trả role hiện tại; nếu
-    // core lỗi, transaction rollback nên lời mời vẫn `pending` để thử lại.
-    const granted = await grantCoreMembership(invitation.organizationId.toString(), actorId, invitation.roleId);
-    const coreRoleId = mapCoreRoleToCosaRole(granted.role);
+    if (grant.state === "projected" && existingMembership) {
+      return buildCompanyActionResponse(grant.organizationId, ws.name, existingMembership.roleId);
+    }
 
-    let finalRoleId = coreRoleId;
     if (existingMembership) {
-      // Đã là member qua đường khác — không tạo row thứ hai, chỉ đánh dấu
-      // invitation đã dùng và đồng bộ role theo core.
+      // Đã là member qua đường khác — không tạo row thứ hai, chỉ đồng bộ role theo core.
       if (coreRoleId !== existingMembership.roleId) {
         await tx
           .update(workspaceMemberships)
           .set({ roleId: coreRoleId, updatedAt: now })
-          .where(
-            and(
-              eq(workspaceMemberships.organizationId, invitation.organizationId),
-              eq(workspaceMemberships.userId, actorUserId)
-            )
-          );
+          .where(and(eq(workspaceMemberships.organizationId, grant.organizationId), eq(workspaceMemberships.userId, grant.userId)));
       }
     } else {
-      const newMembershipId = BigInt(generateSnowflakeStr());
       await tx.insert(workspaceMemberships).values({
-        id: newMembershipId,
-        organizationId: invitation.organizationId,
-        userId: actorUserId,
-        roleId: finalRoleId,
+        id: BigInt(generateSnowflakeStr()),
+        organizationId: grant.organizationId,
+        userId: grant.userId,
+        roleId: coreRoleId,
       });
     }
 
-    await tx
+    const [invitation] = await tx
       .update(workspaceInvitations)
       .set({ status: "accepted", acceptedAt: now })
-      .where(eq(workspaceInvitations.id, invitation.id));
+      .where(and(eq(workspaceInvitations.id, grant.invitationId), eq(workspaceInvitations.status, "pending")))
+      .returning({ emailNormalized: workspaceInvitations.emailNormalized });
 
-    await writeInvitationAuditEvent(tx, invitation.organizationId, actorId, "invitation.accepted", invitation.id.toString(), {
-      email: invitation.emailNormalized,
-      role_id: finalRoleId,
+    await tx
+      .update(organizationInvitationGrants)
+      .set({ state: "projected", updatedAt: now })
+      .where(eq(organizationInvitationGrants.id, grant.id));
+
+    await writeInvitationAuditEvent(tx, grant.organizationId, grant.userId.toString(), "invitation.accepted", grant.invitationId.toString(), {
+      ...(invitation ? { email: invitation.emailNormalized } : {}),
+      role_id: coreRoleId,
+      grant_state: "projected",
     });
 
-    return buildCompanyActionResponse(invitation.organizationId, ws.name, finalRoleId);
+    return buildCompanyActionResponse(grant.organizationId, ws.name, coreRoleId);
   });
+}
+
+export interface InvitationGrantReconcileResult {
+  scanned: number;
+  projected: number;
+  failed: number;
+  pending: number;
+}
+
+/**
+ * Reconciler có giới hạn cho grant còn dở (spec 2026-09-25 §8): `core_granted`
+ * → chiếu; `requested` → hỏi lại core bằng đúng organization/user đã ghi
+ * (grant idempotent) nếu invitation còn hiệu lực, ngược lại đánh dấu `failed`.
+ * Lỗi mạng giữ nguyên trạng thái, không suy ra thành công.
+ */
+export async function reconcileInvitationGrants(
+  options: { limit?: number; minAgeMs?: number } = {}
+): Promise<InvitationGrantReconcileResult> {
+  const limit = options.limit ?? 50;
+  const cutoff = new Date(Date.now() - (options.minAgeMs ?? 60_000));
+  const rows = await db
+    .select()
+    .from(organizationInvitationGrants)
+    .where(
+      and(
+        inArray(organizationInvitationGrants.state, ["requested", "core_granted"]),
+        lt(organizationInvitationGrants.updatedAt, cutoff)
+      )
+    )
+    .orderBy(asc(organizationInvitationGrants.updatedAt))
+    .limit(limit);
+
+  const result: InvitationGrantReconcileResult = { scanned: rows.length, projected: 0, failed: 0, pending: 0 };
+  for (const row of rows) {
+    try {
+      let grant = row;
+      if (grant.state === "requested") {
+        const [invitation] = await db
+          .select({ status: workspaceInvitations.status, expiresAt: workspaceInvitations.expiresAt })
+          .from(workspaceInvitations)
+          .where(eq(workspaceInvitations.id, grant.invitationId))
+          .limit(1);
+        if (!invitation || invitation.status !== "pending" || invitation.expiresAt <= new Date()) {
+          await db
+            .update(organizationInvitationGrants)
+            .set({ state: "failed", lastErrorCode: "invitation_not_pending", updatedAt: new Date() })
+            .where(eq(organizationInvitationGrants.id, grant.id));
+          await writeInvitationAuditEvent(db, grant.organizationId, "system:reconciler", "invitation.grant_failed", grant.invitationId.toString(), {
+            reason: "invitation_not_pending",
+          });
+          result.failed += 1;
+          continue;
+        }
+        grant = await requestCoreGrant(grant, "system:reconciler");
+      }
+      await projectInvitationGrant(grant.id);
+      await writeInvitationAuditEvent(db, grant.organizationId, "system:reconciler", "invitation.reconciled", grant.invitationId.toString(), {});
+      result.projected += 1;
+    } catch {
+      result.pending += 1;
+    }
+  }
+  return result;
 }
 
 function buildCompanyActionResponse(organizationId: bigint, workspaceName: string, roleId: string): CompanyActionResponse {

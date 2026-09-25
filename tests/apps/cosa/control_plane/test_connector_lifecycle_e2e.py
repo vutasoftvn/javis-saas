@@ -93,7 +93,8 @@ def async_control_plane_dsn(control_plane_dsn: str) -> str:
     async_dsn = control_plane_dsn
     if "postgresql+asyncpg://" not in async_dsn:
         async_dsn = async_dsn.replace("postgresql://", "postgresql+asyncpg://", 1)
-    return async_dsn
+    # asyncpg không nhận tham số libpq `sslmode`; tên tương ứng của nó là `ssl`.
+    return async_dsn.replace("sslmode=", "ssl=")
 
 
 @pytest.fixture
@@ -112,7 +113,11 @@ def control_plane_service(control_plane_dsn: str):
     if "?sslmode=" not in db_url:
         db_url = f"{db_url}?sslmode=disable"
     encore_env["COSA_DATABASE_URL"] = db_url
-    encore_env["COSA_DATABASE_URL"] = db_url
+    # migrate.mjs chỉ chạy bằng role migrator (COSA_MIGRATOR_DATABASE_URL);
+    # dùng URL migrator của môi trường nếu có, nếu không thì DSN của test.
+    encore_env["COSA_MIGRATOR_DATABASE_URL"] = (
+        os.environ.get("COSA_MIGRATOR_DATABASE_URL") or db_url
+    )
 
     # Run migrations before starting encore run to ensure schema is current
     migrate_env = {**encore_env}
@@ -134,37 +139,34 @@ def control_plane_service(control_plane_dsn: str):
         stderr=subprocess.PIPE,
     )
 
-    max_retries = 40
-    retry_count = 0
+    # Chờ app trả lời HTTP thật: `encore run` mở cổng 4000 ngay, nhưng trong lúc
+    # app còn biên dịch/khởi động thì proxy trả 502 rỗng — chỉ mở được socket
+    # là chưa đủ (lần chạy đầu trên CI từng nhận 502 ở request install).
     control_plane_port = 4000
-    while retry_count < max_retries:
-        try:
-            import socket
-
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            result = sock.connect_ex(("127.0.0.1", control_plane_port))
-            sock.close()
-            if result == 0:
-                time.sleep(0.5)
-                break
-        except Exception:
-            pass
-
+    base_url = f"http://127.0.0.1:{control_plane_port}"
+    deadline = time.monotonic() + 180
+    ready = False
+    while time.monotonic() < deadline:
         if proc.poll() is not None:
             _, stderr = proc.communicate()
             raise RuntimeError(f"encore run died: {stderr.decode()}")
+        try:
+            probe = httpx.get(f"{base_url}/cosa/connectors/assert", timeout=2.0)
+            if probe.status_code not in (502, 503, 504):
+                ready = True
+                break
+        except httpx.HTTPError:
+            pass
+        time.sleep(1.0)
 
-        time.sleep(0.5)
-        retry_count += 1
-
-    if retry_count >= max_retries:
+    if not ready:
         proc.terminate()
         try:
             proc.wait(timeout=5)
         except subprocess.TimeoutExpired:
             proc.kill()
             proc.wait()
-        raise RuntimeError("Control-plane service didn't start within 20 seconds")
+        raise RuntimeError("Control-plane service didn't become ready within 180 seconds")
 
     try:
         yield f"http://127.0.0.1:{control_plane_port}"
@@ -183,7 +185,7 @@ def control_plane_service(control_plane_dsn: str):
 
 
 async def _seed_tenants(async_dsn: str, company_a_id: int, company_b_id: int):
-    """Seed users, companies, and memberships vào control plane DB."""
+    """Seed role và users vào control plane DB."""
     engine = create_async_engine(async_dsn)
     try:
         async with engine.begin() as conn:
@@ -216,42 +218,9 @@ async def _seed_tenants(async_dsn: str, company_a_id: int, company_b_id: int):
                 {"now": now},
             )
 
-            # Seed companies (company_a, company_b)
-            # Sử dụng company_a_id và company_b_id làm ID
-            await conn.execute(
-                text("""
-                    INSERT INTO cosa.companies (id, slug, name, created_by, status, created_at, updated_at)
-                    VALUES (:id, :slug, 'Company A', 1001, 'active', :now, :now)
-                    ON CONFLICT (id) DO NOTHING
-                """),
-                {"id": company_a_id, "slug": f"company-a-{company_a_id}", "now": now},
-            )
-            await conn.execute(
-                text("""
-                    INSERT INTO cosa.companies (id, slug, name, created_by, status, created_at, updated_at)
-                    VALUES (:id, :slug, 'Company B', 1002, 'active', :now, :now)
-                    ON CONFLICT (id) DO NOTHING
-                """),
-                {"id": company_b_id, "slug": f"company-b-{company_b_id}", "now": now},
-            )
-
-            # Seed memberships
-            await conn.execute(
-                text("""
-                    INSERT INTO cosa.company_memberships (id, company_id, user_id, role_id, created_at, updated_at)
-                    VALUES (:membership_id, :company_a_id, 1001, 'user', :now, :now)
-                    ON CONFLICT (id) DO NOTHING
-                """),
-                {"membership_id": 99000 + company_a_id, "company_a_id": company_a_id, "now": now},
-            )
-            await conn.execute(
-                text("""
-                    INSERT INTO cosa.company_memberships (id, company_id, user_id, role_id, created_at, updated_at)
-                    VALUES (:membership_id, :company_b_id, 1002, 'user', :now, :now)
-                    ON CONFLICT (id) DO NOTHING
-                """),
-                {"membership_id": 99000 + company_b_id, "company_b_id": company_b_id, "now": now},
-            )
+            # Không seed companies/memberships: bảng cosa.companies đã bị gỡ khỏi baseline,
+            # và caller dùng control-plane delegation nên services/cosa tin claim workspace
+            # (verifyWorkspaceMembership) mà không tra membership trong DB.
 
     finally:
         await engine.dispose()

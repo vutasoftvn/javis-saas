@@ -15,6 +15,7 @@ Tests cover:
 """
 
 import subprocess
+import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -1072,7 +1073,7 @@ description: Broken
             # Gọi script với --root flag để test malformed tree
             script_path = REPO_ROOT / "scripts" / "validate_skillpacks.py"
             result = subprocess.run(
-                [REPO_ROOT / ".venv" / "bin" / "python", str(script_path), "--root", str(skillpacks_dir)],
+                [sys.executable, str(script_path), "--root", str(skillpacks_dir)],
                 cwd=REPO_ROOT,
                 capture_output=True,
                 text=True,
@@ -1107,7 +1108,7 @@ description: Broken
         script_path = REPO_ROOT / "scripts" / "validate_skillpacks.py"
 
         result = subprocess.run(
-            [REPO_ROOT / ".venv" / "bin" / "python", str(script_path)],
+            [sys.executable, str(script_path)],
             cwd=REPO_ROOT,
             capture_output=True,
             text=True,

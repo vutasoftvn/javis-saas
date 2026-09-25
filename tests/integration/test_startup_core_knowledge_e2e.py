@@ -13,6 +13,8 @@ from agent.conversations.repository import InMemoryConversationRepository
 from agent.coordination.scheduler import RunScheduler
 from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
 from agent.knowledge.models import KnowledgeChunk, KnowledgeDocument
+from agent.knowledge.service import KnowledgeIngestionService
+from agent.knowledge.store import InMemoryKnowledgeStore
 from agent.registry.repository import InMemorySpecRegistryRepository
 from agent.runs.leases import RunLeaseManager
 from agent.runs.repository import InMemoryRunRepository
@@ -64,6 +66,12 @@ def e2e_setup():
         artifact_repository=InMemoryArtifactRepository(),
         workforce_repository=InMemoryWorkforceRepository(),
         vault_repository=vault_repository,
+        # Vault chạy in-memory nên knowledge store cũng phải in-memory: nếu để
+        # storage_factory tự chọn theo AGENT_DATABASE_URL, PostgresKnowledgeStore
+        # sẽ JOIN sang bảng vault.* không tồn tại trong DB test.
+        knowledge_ingestion_service=KnowledgeIngestionService(
+            InMemoryKnowledgeStore(), vault_repository=vault_repository
+        ),
         model=FakeSDKModel(),
     )
     asyncio.run(seed_cosa_agent_specs(plane.spec_registry))

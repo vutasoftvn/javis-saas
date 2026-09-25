@@ -7,7 +7,9 @@ import {
   UpdateMeParams,
   SupportedLocale,
   getPlatformUserProfile,
-  updatePlatformUserProfile,
+  updateOwnPlatformProfile,
+  updateCosaPreferences,
+  UpdateCosaPreferenceParams,
 } from "../services/auth.service";
 
 export { PlatformUserProfile, UpdateMeParams, SupportedLocale };
@@ -62,7 +64,7 @@ export async function getMe(authData: AuthData): Promise<PlatformUserProfile> {
 }
 
 export async function updateMe(authData: AuthData, params: UpdateMeParams): Promise<PlatformUserProfile> {
-  return updatePlatformUserProfile(authData.userID, params);
+  return updateOwnPlatformProfile(authData.userID, params);
 }
 
 export const getPlatformUserMe = api(
@@ -77,6 +79,15 @@ export const updatePlatformUserMe = api(
   async (params: UpdateMeParams & { role_id?: unknown }): Promise<PlatformUserProfile> => {
     if (params.role_id !== undefined) throw APIError.invalidArgument("role_id cannot be changed by profile update");
     return updateMe(await resolveAuthData(), params);
+  }
+);
+
+// Spec 2026-09-25 §8 — route chỉ cho preference thuộc COSA.
+export const updateMyCosaPreferences = api(
+  { method: "PATCH", path: "/platform/preferences/me", expose: true, auth: true },
+  async (params: UpdateCosaPreferenceParams): Promise<PlatformUserProfile> => {
+    const authData = await resolveAuthData();
+    return updateCosaPreferences(authData.userID, params);
   }
 );
 

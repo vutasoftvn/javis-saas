@@ -729,9 +729,14 @@ async def main() -> None:
 
     validate_service_identity(
         need_secret=False,
-        tokens=[("COSA_SERVICE_TOKEN", "company callback auth")],
+        tokens=[],
         urls=[("COMPANY_SERVICE_URL", "company callback", "http://127.0.0.1:4000")],
     )
+    # Callback worker → Company ký JWT bằng WORKER_SERVICE_JWT_SECRET; thiếu
+    # secret thì worker không start (spec 2026-09-25 §5).
+    from apps.cosa.auth.jwt import require_worker_service_jwt_secret
+
+    require_worker_service_jwt_secret()
 
     if not os.environ.get("DEEPSEEK_API_KEY"):
         from agent_testkit.fake_sdk_model import FakeSDKModel

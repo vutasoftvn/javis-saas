@@ -68,7 +68,7 @@ from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
 from tests.apps.cosa.locale_test_helpers import FakeProfileLocaleClient
 from tests.apps.cosa.policy_test_helpers import fake_active_tenant_policy_client
 from tests.apps.cosa.worker_test_helpers import drain_worker_queue
-from tests.e2e.conftest import CompanyServiceHandle
+from tests.e2e.conftest import CompanyServiceHandle, mint_e2e_worker_token
 
 # system_key CỐ ĐỊNH khớp `COSA_OPERATIONS_AGENT_SPEC.id` sản xuất thật
 # (apps/cosa/agents/specs.py) — 2 test dưới đây (`test_approved_direct_
@@ -211,7 +211,11 @@ async def _build_real_pipeline_plane(base_url: str, fake_model: FakeSDKModel) ->
     plane.compliance_resolver = ComplianceResolver(AiComplianceClient(base_url=base_url))
     # Worker xác minh Project team qua Company: phải trỏ vào Company E2E này, không phải
     # COMPANY_SERVICE_URL mặc định (localhost:4000).
-    plane.project_team_client = ProjectTeamClient(base_url=base_url)
+    # Company E2E verify JWT worker bằng secret E2E cố định; không dựa vào
+    # WORKER_SERVICE_JWT_SECRET của shell (CI đặt giá trị khác cho job này).
+    plane.project_team_client = ProjectTeamClient(
+        base_url=base_url, service_token=mint_e2e_worker_token("ai-compliance-e2e")
+    )
     # Test hermetic: activity projection mặc định ghi vào Postgres theo AGENT_DATABASE_URL của shell
     # (dev DB) — không thuộc phạm vi kiểm chứng compliance ở đây.
     plane.project_activity_service = None

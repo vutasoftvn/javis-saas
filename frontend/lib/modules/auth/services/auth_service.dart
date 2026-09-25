@@ -503,27 +503,20 @@ class AuthService {
     return AuthResult(success: true, user: me);
   }
 
-  /// Cap nhat ho so sau khi da dang nhap - dung de bo sung so dien thoai
-  /// (khong con bat buoc luc dang ky bang email+password nua) va/hoac ten
-  /// hien thi. Tra ve payload /identity/me moi nhat neu thanh cong, null neu loi.
-  Future<Map<String, dynamic>?> updateProfile({
-    String? phone,
-    String? displayName,
-    String? preferredLocale,
-  }) async {
+  /// Preference thuộc COSA (spec 2026-09-25 §8): chỉ locale — không mang
+  /// phone/tên hiển thị (thuộc Core). Trả về profile mới nhất, null nếu lỗi.
+  Future<Map<String, dynamic>?> updatePreferences({required String preferredLocale}) async {
     try {
-      final body = <String, dynamic>{};
-      if (phone != null) body['phone'] = phone;
-      if (displayName != null) body['display_name'] = displayName;
-      if (preferredLocale != null) body['preferred_locale'] = preferredLocale;
-
-      final response = await ApiClient.patch('/platform/auth/me', body: body);
+      final response = await ApiClient.patch(
+        '/platform/preferences/me',
+        body: {'preferredLocale': preferredLocale},
+      );
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
       return null;
     } catch (e) {
-      debugPrint('updateProfile error: $e');
+      debugPrint('updatePreferences error: $e');
       return null;
     }
   }

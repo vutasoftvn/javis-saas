@@ -12,8 +12,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     docker.io \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Encore CLI
-RUN curl -fsSL https://encore.dev/install.sh | bash -s -- 1.58.2
+# Install Encore CLI — phải >= bản encore.dev trong package-lock (hiện 1.58.6), nếu không `encore run` từ chối build
+RUN curl -fsSL https://encore.dev/install.sh | bash -s -- 1.58.6
 ENV PATH="/root/.encore/bin:$PATH"
 
 # Copy package descriptors and install npm dependencies

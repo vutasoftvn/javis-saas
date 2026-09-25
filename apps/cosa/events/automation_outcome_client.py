@@ -1,4 +1,3 @@
-from apps.cosa.auth.jwt import mint_worker_service_jwt
 """COSA Automation MVP (Task 6) — Agent → Company outcome projection.
 
 The Agent Platform never writes the Company database. It signs a compact
@@ -13,6 +12,8 @@ import os
 from typing import Any
 
 import httpx
+
+from apps.cosa.auth.jwt import mint_worker_service_jwt
 
 __all__ = ["AutomationOutcomeClient", "build_automation_outcome_client"]
 
@@ -30,10 +31,16 @@ class AutomationOutcomeClient:
         self._base_url = (
             base_url or os.getenv("COMPANY_SERVICE_URL") or "http://localhost:4000"
         ).rstrip("/")
-        self._token = (
-            service_token or mint_worker_service_jwt(worker_id="automation-outcome-worker")
-        )
+        # Không ký JWT ở constructor: token chỉ sống 5 phút nên client sống lâu
+        # (tạo lúc worker khởi động) sẽ giữ token hết hạn; ký lại mỗi request.
+        self._static_service_token = service_token
         self._client = client or httpx.AsyncClient(timeout=timeout_sec)
+
+    @property
+    def _token(self) -> str:
+        return self._static_service_token or mint_worker_service_jwt(
+            worker_id="automation-outcome-worker"
+        )
 
     def _headers(self) -> dict[str, str]:
         return {"X-Service-Token": self._token, "Content-Type": "application/json"}

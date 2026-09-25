@@ -12,8 +12,9 @@ __all__ = [
     "mint_company_delegation",
     "mint_control_plane_delegation",
     "mint_local_delegation_token",
-    "verify_local_session_token",
     "mint_worker_service_jwt",
+    "require_worker_service_jwt_secret",
+    "verify_local_session_token",
 ]
 
 # M1 §1 — local session token do services/company/identity/token.service.ts ký
@@ -208,19 +209,35 @@ def mint_control_plane_delegation(
     }
     return jwt.encode(payload, secret, algorithm="HS256")
 
-_WORKER_SERVICE_DEV_DEFAULT_SECRET = "test-worker-jwt-secret-min-32-chars-long-fixture"
+
+# Fixture chỉ dùng trong pytest — khớp TEST_WORKER_SERVICE_JWT_SECRET phía
+# services/company. Không phải fallback runtime (spec 2026-09-25 §5).
+_WORKER_SERVICE_TEST_FIXTURE_SECRET = "test-worker-jwt-secret-min-32-chars-long-fixture"
 _WORKER_SERVICE_DEFAULT_TTL_SECONDS = 300
+_WORKER_SERVICE_MIN_SECRET_LEN = 32
 
 
-def _get_worker_service_jwt_secret() -> str:
-    secret = os.getenv("WORKER_SERVICE_JWT_SECRET")
-    env = (os.getenv("ENVIRONMENT") or os.getenv("APP_ENV") or "development").lower()
-    if env not in ("development", "test", "testing"):
-        if not secret or len(secret) < 32:
-            raise RuntimeError(
-                "WORKER_SERVICE_JWT_SECRET must be configured with at least 32 characters in staging/production"
-            )
-    return secret or _WORKER_SERVICE_DEV_DEFAULT_SECRET
+def _is_test_runtime() -> bool:
+    env = (os.getenv("ENVIRONMENT") or os.getenv("APP_ENV") or "").strip().lower()
+    if env in ("production", "prod", "staging"):
+        return False
+    return env in ("test", "testing") or "PYTEST_CURRENT_TEST" in os.environ
+
+
+def require_worker_service_jwt_secret() -> str:
+    """Secret ký JWT worker → Company internal; fail-closed ngoài pytest.
+
+    Mọi môi trường không phải test (kể cả development) phải cấu hình
+    WORKER_SERVICE_JWT_SECRET >= 32 ký tự — không còn secret mặc định.
+    """
+    secret = os.getenv("WORKER_SERVICE_JWT_SECRET") or ""
+    if not secret and _is_test_runtime():
+        return _WORKER_SERVICE_TEST_FIXTURE_SECRET
+    if len(secret) < _WORKER_SERVICE_MIN_SECRET_LEN:
+        raise RuntimeError(
+            "WORKER_SERVICE_JWT_SECRET must be configured with at least 32 characters"
+        )
+    return secret
 
 
 def mint_worker_service_jwt(
@@ -238,7 +255,7 @@ def mint_worker_service_jwt(
     - jti: unique uuid4
     - exp: expiration timestamp
     """
-    secret = _get_worker_service_jwt_secret()
+    secret = require_worker_service_jwt_secret()
     payload = {
         "iss": "apps-cosa",
         "aud": "company-internal",

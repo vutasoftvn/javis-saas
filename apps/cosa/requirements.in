@@ -11,6 +11,9 @@ uvicorn[standard]==0.51.0
 pyjwt==2.13.0
 httpx==0.28.1
 pydantic==2.13.4
+# Pin trùng packages/agent/requirements.in — CI cài chung 2 lock, lệch bản sẽ
+# làm pip --require-hashes báo ResolutionImpossible.
+openai==2.53.0
 openai-agents==0.20.0
 litellm==1.98.0
 boto3==1.43.67

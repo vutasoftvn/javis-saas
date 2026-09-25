@@ -15,7 +15,7 @@ class DefaultProfileLocaleApi implements ProfileLocaleApi {
 
   @override
   Future<bool> updatePreferredLocale(SupportedLocale locale) async {
-    final res = await _authService.updateProfile(preferredLocale: locale.tag);
+    final res = await _authService.updatePreferences(preferredLocale: locale.tag);
     return res != null;
   }
 }

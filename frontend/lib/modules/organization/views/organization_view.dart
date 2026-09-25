@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/network/api_result.dart';
 import '../controllers/organization_controller.dart';
+import '../models/organization_api_models.dart';
 import '../../../core/localization/app_translations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_toast.dart';
@@ -26,7 +28,7 @@ class OrganizationView extends GetView<OrganizationController> {
               icon: Icons.corporate_fare_rounded,
               actions: [
                 ElevatedButton.icon(
-                  onPressed: () => _showHireAIDialog(context),
+                  onPressed: () => _showPlaceAiDialog(context),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primary.withValues(alpha: 0.15),
                     foregroundColor: AppTheme.primary,
@@ -82,7 +84,7 @@ class OrganizationView extends GetView<OrganizationController> {
                       children: [
                         const Icon(Icons.dashboard_customize_outlined, size: 15),
                         const SizedBox(width: 8),
-                        Text('CEO Command Center', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                        Text(isEn ? 'Overview' : 'Tổng quan', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
                       ],
                     ),
                   ),
@@ -105,15 +107,17 @@ class OrganizationView extends GetView<OrganizationController> {
             // Tab Views
             Expanded(
               child: Obx(() {
-                if (controller.isLoading.value) {
+                if (controller.isLoading.value &&
+                    controller.overview.value == null &&
+                    controller.workforce.value == null) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
                 return TabBarView(
                   controller: controller.tabController,
                   children: [
-                    _buildCommandCenterTab(),
-                    _buildOrgChartTab(),
+                    _buildOverviewTab(),
+                    _buildWorkforceTab(),
                   ],
                 );
               }),
@@ -122,125 +126,86 @@ class OrganizationView extends GetView<OrganizationController> {
         );
   }
 
-  Widget _buildCommandCenterTab() {
-    final cc = controller.commandCenterData.value;
-    final briefing = controller.dailyBriefingData.value;
+  Widget _buildErrorBanner(ApiFailureDetail failure) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEF4444).withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline, size: 18, color: Color(0xFFEF4444)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              organizationFailureMessage(failure),
+              key: const Key('organization-error-banner'),
+              style: const TextStyle(fontSize: 12.5, color: Colors.white),
+            ),
+          ),
+          TextButton(
+            onPressed: controller.loadOrganizationData,
+            child: const Text('Thử lại', style: TextStyle(color: AppTheme.primary)),
+          ),
+        ],
+      ),
+    );
+  }
 
-    if (cc == null) {
-      return const Center(
-        child: Text('Không thể tải dữ liệu Command Center', style: TextStyle(color: AppTheme.textMutedDark)),
+  Widget _buildOverviewTab() {
+    final overview = controller.overview.value;
+    final error = controller.overviewError.value;
+
+    if (overview == null) {
+      return Center(
+        child: error != null
+            ? _buildErrorBanner(error)
+            : const Text('Chưa có dữ liệu tổ chức', style: TextStyle(color: AppTheme.textMutedDark)),
       );
     }
-
-    final wf = cc['workforce_metrics'] as Map<String, dynamic>? ?? {};
-    final gov = cc['governance_metrics'] as Map<String, dynamic>? ?? {};
 
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // KPI Metric Strip
+          if (error != null) _buildErrorBanner(error),
           Row(
             children: [
               Expanded(
                 child: _buildMetricCard(
-                  'Tổng Lực lượng',
-                  '${wf['total_members'] ?? 0} Thành viên',
-                  '${wf['humans'] ?? 0} Con người · ${wf['ai_agents'] ?? 0} AI Agents',
-                  Icons.group,
+                  'Tổ chức',
+                  overview.name,
+                  'Giai đoạn ${overview.lifecycleStage}',
+                  Icons.corporate_fare_rounded,
                   const Color(0xFF00F0FF),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: _buildMetricCard(
-                  'Tỷ lệ Ứng dụng AI',
-                  '${wf['ai_adoption_rate'] ?? 0}%',
-                  'Mức độ tự động hóa quy trình',
-                  Icons.auto_awesome,
+                  'Tổng Lực lượng',
+                  '${overview.humanMemberCount + overview.aiMemberCount} Thành viên',
+                  '${overview.humanMemberCount} Con người · ${overview.aiMemberCount} AI Agents',
+                  Icons.group,
                   const Color(0xFF10B981),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: _buildMetricCard(
-                  'Mục tiêu OKRs',
-                  '${gov['active_okrs'] ?? 0} Active',
-                  'Chiến lược đang theo dõi',
-                  Icons.flag,
+                  'Vai trò của bạn',
+                  overview.viewerRole,
+                  overview.canManageWorkforce ? 'Được quản lý nhân sự AI' : 'Chỉ xem',
+                  Icons.verified_user_outlined,
                   const Color(0xFFF59E0B),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildMetricCard(
-                  'Chờ Phê duyệt',
-                  '${gov['pending_approvals'] ?? 0} Yêu cầu',
-                  'Cần quyết định từ Founder',
-                  Icons.fact_check,
-                  const Color(0xFFEC4899),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
-
-          // Daily Briefing Card
-          if (briefing != null) ...[
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: const Color(0xFF0D172A),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFF00F0FF).withValues(alpha: 0.3)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.bolt, color: Color(0xFF00F0FF), size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        briefing['title'] as String? ?? 'Bản tin Điều hành Hằng ngày',
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
-                      ),
-                      const Spacer(),
-                      Text(
-                        briefing['date'] as String? ?? '',
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textMutedDark),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    briefing['summary'] as String? ?? '',
-                    style: const TextStyle(fontSize: 13.5, color: Color(0xFFCBD5E1), height: 1.5),
-                  ),
-                  const SizedBox(height: 12),
-                  const Divider(color: Color(0xFF1E293B)),
-                  const SizedBox(height: 8),
-                  const Text('Điểm tin cốt lõi:', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF00F0FF))),
-                  const SizedBox(height: 6),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: ((briefing['key_highlights'] as List<dynamic>?) ?? []).map((h) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.check_circle_outline, size: 14, color: Color(0xFF10B981)),
-                            const SizedBox(width: 8),
-                            Text(h.toString(), style: const TextStyle(fontSize: 13, color: Colors.white)),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -273,155 +238,107 @@ class OrganizationView extends GetView<OrganizationController> {
     );
   }
 
-  Widget _buildOrgChartTab() {
-    final chart = controller.orgChartData.value;
-    if (chart == null) {
-      return const Center(
-        child: Text('Không thể tải sơ đồ tổ chức', style: TextStyle(color: AppTheme.textMutedDark)),
+  Widget _buildWorkforceTab() {
+    final workforce = controller.workforce.value;
+    final error = controller.workforceError.value;
+
+    if (workforce == null) {
+      return Center(
+        child: error != null
+            ? _buildErrorBanner(error)
+            : const Text('Chưa có dữ liệu nhân sự', style: TextStyle(color: AppTheme.textMutedDark)),
       );
     }
 
-    final depts = (chart['departments'] as List<dynamic>?) ?? [];
+    final members = workforce.members;
+    final titles = {for (final m in members) m.id: m.roleTitle};
 
-    return GridView.builder(
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 380,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 1.1,
-      ),
-      itemCount: depts.length,
-      itemBuilder: (context, index) {
-        final d = depts[index] as Map<String, dynamic>;
-        final deptName = d['name'] as String? ?? 'Phòng ban';
-        final members = (d['members'] as List<dynamic>?) ?? [];
-
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFF0D172A),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFF1E293B)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      deptName,
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF00F0FF).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      '${members.length} nhân sự',
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF00F0FF), fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              const Divider(color: Color(0xFF1E293B)),
-              const SizedBox(height: 8),
-
-              Expanded(
-                child: members.isEmpty
-                    ? const Center(
-                        child: Text('Chưa có nhân sự trực thuộc', style: TextStyle(fontSize: 12, color: AppTheme.textMutedDark)),
-                      )
-                    : ListView.builder(
-                        itemCount: members.length,
-                        itemBuilder: (context, mIdx) {
-                          final m = members[mIdx] as Map<String, dynamic>;
-                          final role = m['role_title'] as String? ?? 'Nhân sự';
-                          final isAI = m['member_type'] == 'AI_AGENT';
-                          final reportsTo = m['reports_to_role_title'] as String?;
-
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 6),
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF070C18),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: isAI ? const Color(0xFF00F0FF).withValues(alpha: 0.2) : const Color(0xFF334155)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      isAI ? Icons.smart_toy : Icons.person,
-                                      size: 14,
-                                      color: isAI ? const Color(0xFF00F0FF) : const Color(0xFF10B981),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        role,
-                                        style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600),
-                                      ),
-                                    ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                      decoration: BoxDecoration(
-                                        color: isAI ? const Color(0xFF00F0FF).withValues(alpha: 0.15) : const Color(0xFF10B981).withValues(alpha: 0.15),
-                                        borderRadius: BorderRadius.circular(3),
-                                      ),
-                                      child: Text(
-                                        isAI ? 'AI' : 'HUMAN',
-                                        style: TextStyle(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.bold,
-                                          color: isAI ? const Color(0xFF00F0FF) : const Color(0xFF10B981),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                if (reportsTo != null) ...[
-                                  const SizedBox(height: 4),
-                                  Padding(
-                                    padding: const EdgeInsets.only(left: 22),
-                                    child: Text(
-                                      'Báo cáo cho: $reportsTo',
-                                      style: const TextStyle(fontSize: 10.5, color: AppTheme.textMutedDark, fontStyle: FontStyle.italic),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-              ),
-            ],
-          ),
-        );
-      },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (error != null) _buildErrorBanner(error),
+        Expanded(
+          child: members.isEmpty
+              ? const Center(
+                  child: Text('Chưa có nhân sự trong tổ chức', style: TextStyle(fontSize: 12, color: AppTheme.textMutedDark)),
+                )
+              : ListView.builder(
+                  itemCount: members.length,
+                  itemBuilder: (context, index) => _buildMemberRow(members[index], titles),
+                ),
+        ),
+      ],
     );
   }
 
-  void _showHireAIDialog(BuildContext context) {
-    final chart = controller.orgChartData.value;
-    final depts = (chart?['departments'] as List<dynamic>?) ?? [];
-    if (depts.isEmpty) {
-      AppToast.error('Không tìm thấy phòng ban để tuyển dụng');
+  Widget _buildMemberRow(OrganizationWorkforceMember m, Map<String, String> titles) {
+    final isAI = m.isAi;
+    final reportsTo = m.managerMemberId != null ? titles[m.managerMemberId] : null;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF070C18),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: isAI ? const Color(0xFF00F0FF).withValues(alpha: 0.2) : const Color(0xFF334155)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isAI ? Icons.smart_toy : Icons.person,
+                size: 14,
+                color: isAI ? const Color(0xFF00F0FF) : const Color(0xFF10B981),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  m.roleTitle,
+                  style: const TextStyle(fontSize: 12.5, color: Colors.white, fontWeight: FontWeight.w600),
+                ),
+              ),
+              Text(
+                isAI ? 'AI' : 'HUMAN',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                  color: isAI ? const Color(0xFF00F0FF) : const Color(0xFF10B981),
+                ),
+              ),
+            ],
+          ),
+          if (reportsTo != null) ...[
+            const SizedBox(height: 4),
+            Padding(
+              padding: const EdgeInsets.only(left: 22),
+              child: Text(
+                'Báo cáo cho: $reportsTo',
+                style: const TextStyle(fontSize: 10.5, color: AppTheme.textMutedDark, fontStyle: FontStyle.italic),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Chỉ chọn trong danh sách workspace agent do server liệt kê; UI không
+  /// gửi prompt/spec/capability (spec 2026-09-25 §7).
+  void _showPlaceAiDialog(BuildContext context) {
+    if (!controller.canManageWorkforce) {
+      AppToast.error('Bạn không có quyền quản lý nhân sự AI trong tổ chức này.');
+      return;
+    }
+    final agents = controller.placeableAgents;
+    if (agents.isEmpty) {
+      AppToast.error('Chưa có tác tử AI nào đã publish để xếp vào tổ chức.');
       return;
     }
 
-    final nameCtrl = TextEditingController();
     final roleCtrl = TextEditingController();
-    final promptCtrl = TextEditingController();
-    String selectedDeptId = depts.first['department_id'] as String;
+    String selectedAgentId = agents.first.workspaceAgentId!;
 
     Get.dialog(
       StatefulBuilder(
@@ -440,41 +357,30 @@ class OrganizationView extends GetView<OrganizationController> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Tuyển dụng Tác tử AI (Hire AI Employee)',
+                    'Xếp Tác tử AI vào tổ chức',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
                   const SizedBox(height: 14),
-
-                  const Text('Phòng ban trực thuộc:', style: TextStyle(fontSize: 12, color: AppTheme.textMutedDark)),
+                  const Text('Tác tử AI đã publish:', style: TextStyle(fontSize: 12, color: AppTheme.textMutedDark)),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<String>(
-                    initialValue: selectedDeptId,
+                    initialValue: selectedAgentId,
                     dropdownColor: const Color(0xFF0D172A),
                     style: const TextStyle(color: Colors.white, fontSize: 13),
-                    items: depts.map((d) {
+                    items: agents.map((a) {
                       return DropdownMenuItem<String>(
-                        value: d['department_id'] as String,
-                        child: Text(d['name'] as String),
+                        value: a.workspaceAgentId,
+                        child: Text(a.roleTitle),
                       );
                     }).toList(),
                     onChanged: (val) {
                       if (val != null) {
-                        setState(() => selectedDeptId = val);
+                        setState(() => selectedAgentId = val);
                       }
                     },
                     decoration: const InputDecoration(border: OutlineInputBorder()),
                   ),
                   const SizedBox(height: 12),
-
-                  const Text('Tên Tác tử AI:', style: TextStyle(fontSize: 12, color: AppTheme.textMutedDark)),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: nameCtrl,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(hintText: 'VD: Alex AI, Maya Legal...', border: OutlineInputBorder()),
-                  ),
-                  const SizedBox(height: 12),
-
                   const Text('Vị trí / Chức danh:', style: TextStyle(fontSize: 12, color: AppTheme.textMutedDark)),
                   const SizedBox(height: 6),
                   TextField(
@@ -483,7 +389,6 @@ class OrganizationView extends GetView<OrganizationController> {
                     decoration: const InputDecoration(hintText: 'VD: Trưởng nhóm Tăng trưởng, Chuyên viên Pháp chế...', border: OutlineInputBorder()),
                   ),
                   const SizedBox(height: 18),
-
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
@@ -493,21 +398,20 @@ class OrganizationView extends GetView<OrganizationController> {
                       ),
                       const SizedBox(width: 8),
                       ElevatedButton(
-                        onPressed: () {
-                          if (nameCtrl.text.trim().isEmpty || roleCtrl.text.trim().isEmpty) return;
-                          controller.hireAIEmployee(
-                            name: nameCtrl.text.trim(),
-                            roleTitle: roleCtrl.text.trim(),
-                            departmentId: selectedDeptId,
-                            systemPrompt: promptCtrl.text.trim().isNotEmpty ? promptCtrl.text.trim() : null,
+                        onPressed: () async {
+                          final role = roleCtrl.text.trim();
+                          if (role.isEmpty) return;
+                          final ok = await controller.placeAiWorkforce(
+                            workspaceAgentId: selectedAgentId,
+                            roleTitle: role,
                           );
-                          Get.back();
+                          if (ok) Get.back();
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF00F0FF),
                           foregroundColor: Colors.black,
                         ),
-                        child: const Text('Tuyển dụng', style: TextStyle(fontWeight: FontWeight.bold)),
+                        child: const Text('Xác nhận', style: TextStyle(fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),

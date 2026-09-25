@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from apps.cosa.auth.jwt import mint_worker_service_jwt
-
 import os
 from typing import Any
 
 import httpx
 from pydantic import BaseModel, Field
+
+from apps.cosa.auth.jwt import mint_worker_service_jwt
 
 __all__ = [
     "ProjectAgentRunAuthority",
@@ -49,6 +49,12 @@ class ProjectTeamClient:
     truy vấn và xác thực qua route internal này có kèm service token.
     """
 
+    @property
+    def service_token(self) -> str:
+        return self._static_service_token or mint_worker_service_jwt(
+            worker_id="project-team-worker"
+        )
+
     def __init__(
         self,
         base_url: str | None = None,
@@ -61,9 +67,9 @@ class ProjectTeamClient:
             or os.getenv("COMPANY_URL")
             or "http://localhost:4000"
         ).rstrip("/")
-        self.service_token = (
-            service_token or mint_worker_service_jwt(worker_id="project-team-worker")
-        )
+        # Không ký JWT ở constructor: token chỉ sống 5 phút nên client sống lâu
+        # (tạo lúc worker khởi động) sẽ giữ token hết hạn; ký lại mỗi request.
+        self._static_service_token = service_token
         self.timeout = timeout
 
     async def get_run_authority(

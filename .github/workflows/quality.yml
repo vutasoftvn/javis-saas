@@ -28,7 +28,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: stable
+          channel: stable
+          flutter-version: 3.47.5
           cache: true
       - run: flutter pub get
         working-directory: frontend
@@ -75,7 +76,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: stable
+          channel: stable
+          flutter-version: 3.47.5
           cache: true
       - run: flutter pub get
         working-directory: frontend
@@ -170,7 +172,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: stable
+          channel: stable
+          flutter-version: 3.47.5
           cache: true
       - run: flutter pub get
         working-directory: frontend
@@ -262,7 +265,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install pytest
+      # Test contract import pydantic từ packages/agent — cần lock thật, không chỉ pytest.
+      - run: |
+          pip install --require-hashes -r packages/agent/requirements.txt -r apps/cosa/requirements.txt
+          pip install pytest
       - name: Enum generated code in sync
         run: node scripts/gen-contracts.mjs --check
       - name: Route inventory / drift snapshot in sync
@@ -283,6 +289,8 @@ jobs:
       - name: gitleaks
         uses: gitleaks/gitleaks-action@v2
         env:
+          # gitleaks-action cần token để đọc danh sách commit của PR.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_CONFIG: .gitleaks.toml
           GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
           GITLEAKS_ENABLE_SUMMARY: "true"
@@ -319,13 +327,22 @@ jobs:
           WORKSPACE_MIGRATOR_PASSWORD: ci-workspace-migrator
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: stable
+          channel: stable
+          flutter-version: 3.47.5
           cache: true
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: pip
-          cache-dependency-path: packages/agent/requirements.txt
+          cache-dependency-path: |
+            requirements-dev.txt
+            packages/agent/requirements.txt
+            apps/cosa/requirements.txt
+      # make tenancy-check chạy pytest tests/agent + test_tenant_isolation bằng
+      # python hệ thống (runner không có .venv) — phải cài deps trước.
+      - run: |
+          pip install --require-hashes -r packages/agent/requirements.txt -r apps/cosa/requirements.txt
+          pip install -r requirements-dev.txt pytest pytest-asyncio
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -387,7 +404,8 @@ jobs:
           WORKSPACE_MIGRATOR_PASSWORD: ci-workspace-migrator
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: stable
+          channel: stable
+          flutter-version: 3.47.5
           cache: true
       - uses: actions/setup-python@v5
         with:
@@ -407,7 +425,8 @@ jobs:
         run: |
           pip install --require-hashes -r packages/agent/requirements.txt -r apps/cosa/requirements.txt
           pip install pytest-asyncio
-          cd services/company && npm install -g pnpm && pnpm install
+          # Repo dùng npm (package-lock.json); pnpm 10 chặn build script esbuild.
+          cd services/company && npm ci
           cd ../../frontend && flutter pub get
       - name: Run AI Compliance Production Gate
         run: make ai-compliance-production-gate
@@ -665,12 +684,15 @@ jobs:
           COSA_MIGRATOR_DATABASE_URL: postgresql://cosa_migrator:ci-cosa-migrator@127.0.0.1:5432/cosa?sslmode=disable
       - run: mkdir -p test-results
       # Integration tests with deterministic (fake) model — no real API key needed
-      - run: PYTHONPATH=. pytest tests/agent tests/apps/cosa tests/integration -m "integration and not live_provider and not durability" --cov=packages/agent --cov=apps/cosa --cov-report=xml:test-results/coverage-integration.xml --cov-fail-under=80 -q --junitxml=test-results/integration.xml
+      # Không ép --cov-fail-under ở đây: job chỉ chạy nhóm test integration nên
+      # tổng coverage thấp theo cấu trúc; ngưỡng 80% được kiểm ở các job unit.
+      - run: PYTHONPATH=. pytest tests/agent tests/apps/cosa tests/integration -m "integration and not live_provider and not durability" --cov=packages/agent --cov=apps/cosa --cov-report=xml:test-results/coverage-integration.xml -q --junitxml=test-results/integration.xml
         env:
           AGENT_TEST_DATABASE_URL: postgresql+asyncpg://agent_app:ci-agent-app@127.0.0.1:5432/agent
           AGENT_DATABASE_URL: postgresql+asyncpg://agent_app:ci-agent-app@127.0.0.1:5432/agent
           COSA_DATABASE_URL: postgresql://cosa_app:ci-cosa-app@127.0.0.1:5432/cosa?sslmode=disable
           COSA_TEST_DATABASE_URL: postgresql://cosa_app:ci-cosa-app@127.0.0.1:5432/cosa?sslmode=disable
+          COSA_MIGRATOR_DATABASE_URL: postgresql://cosa_migrator:ci-cosa-migrator@127.0.0.1:5432/cosa?sslmode=disable
           WORKER_SERVICE_JWT_SECRET: cosa-worker-service-jwt-key-change-in-prod-min32chars
       - uses: actions/upload-artifact@v4
         if: always()
@@ -698,6 +720,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Bootstrap canonical database roles and databases
+        # Mật khẩu role PHẢI khớp _APP_PWD / _MIG_PWD hard-code trong
+        # tests/e2e/stack/disposable_postgres.py — các test durability tạo
+        # disposable cluster dùng lại chính các role này.
         run: scripts/bootstrap-postgres-cluster.sh
         env:
           PGHOST: 127.0.0.1
@@ -705,12 +730,12 @@ jobs:
           PGUSER: postgres
           PGDATABASE: postgres
           PGPASSWORD: postgres
-          AGENT_APP_PASSWORD: ci-agent-app
-          AGENT_MIGRATOR_PASSWORD: ci-agent-migrator
-          COSA_APP_PASSWORD: ci-cosa-app
-          COSA_MIGRATOR_PASSWORD: ci-cosa-migrator
-          WORKSPACE_APP_PASSWORD: ci-workspace-app
-          WORKSPACE_MIGRATOR_PASSWORD: ci-workspace-migrator
+          AGENT_APP_PASSWORD: change-me-agent-app
+          AGENT_MIGRATOR_PASSWORD: change-me-agent-migrator
+          COSA_APP_PASSWORD: change-me-cosa-app
+          COSA_MIGRATOR_PASSWORD: change-me-cosa-migrator
+          WORKSPACE_APP_PASSWORD: change-me-workspace-app
+          WORKSPACE_MIGRATOR_PASSWORD: change-me-workspace-migrator
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -725,7 +750,7 @@ jobs:
       - name: Apply agent database migrations
         run: PYTHONPATH=. python -m packages.agent.scripts.migrate
         env:
-          AGENT_MIGRATOR_DATABASE_URL: postgresql+asyncpg://agent_migrator:ci-agent-migrator@127.0.0.1:5432/agent
+          AGENT_MIGRATOR_DATABASE_URL: postgresql+asyncpg://agent_migrator:change-me-agent-migrator@127.0.0.1:5432/agent
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -735,11 +760,14 @@ jobs:
           echo "$HOME/.encore/bin" >> "$GITHUB_PATH"
       - run: npm ci
         working-directory: services/cosa
+      # Fixture disposable_cluster chạy cả migrate.mjs của services/company.
+      - run: npm ci
+        working-directory: services/company
       - name: Apply services/cosa (control-plane) database migrations
         run: node scripts/migrate.mjs
         working-directory: services/cosa
         env:
-          COSA_MIGRATOR_DATABASE_URL: postgresql://cosa_migrator:ci-cosa-migrator@127.0.0.1:5432/cosa?sslmode=disable
+          COSA_MIGRATOR_DATABASE_URL: postgresql://cosa_migrator:change-me-cosa-migrator@127.0.0.1:5432/cosa?sslmode=disable
       - run: mkdir -p test-results
       - name: Run cross-process crash recovery and lease mutual exclusion durability tests
         # LEASE_INTEGRATION_TEST=1 — mỗi test tự tạo disposable Postgres cluster
@@ -756,10 +784,10 @@ jobs:
           PGPORT: "5432"
           PGUSER: postgres
           PGPASSWORD: postgres
-          AGENT_TEST_DATABASE_URL: postgresql+asyncpg://agent_app:ci-agent-app@127.0.0.1:5432/agent
-          AGENT_DATABASE_URL: postgresql+asyncpg://agent_app:ci-agent-app@127.0.0.1:5432/agent
-          COSA_DATABASE_URL: postgresql://cosa_app:ci-cosa-app@127.0.0.1:5432/cosa?sslmode=disable
-          COSA_TEST_DATABASE_URL: postgresql://cosa_app:ci-cosa-app@127.0.0.1:5432/cosa?sslmode=disable
+          AGENT_TEST_DATABASE_URL: postgresql+asyncpg://agent_app:change-me-agent-app@127.0.0.1:5432/agent
+          AGENT_DATABASE_URL: postgresql+asyncpg://agent_app:change-me-agent-app@127.0.0.1:5432/agent
+          COSA_DATABASE_URL: postgresql://cosa_app:change-me-cosa-app@127.0.0.1:5432/cosa?sslmode=disable
+          COSA_TEST_DATABASE_URL: postgresql://cosa_app:change-me-cosa-app@127.0.0.1:5432/cosa?sslmode=disable
           WORKER_SERVICE_JWT_SECRET: cosa-worker-service-jwt-key-change-in-prod-min32chars
       - uses: actions/upload-artifact@v4
         if: always()
@@ -969,7 +997,8 @@ jobs:
           cache: pip
           cache-dependency-path: packages/agent/requirements.txt
       - run: |
-          pip install --require-hashes -r packages/agent/requirements.txt
+          # desktop_worker/main.py dùng FastAPI (nằm trong lock apps/cosa).
+          pip install --require-hashes -r packages/agent/requirements.txt -r apps/cosa/requirements.txt
           pip install pytest pytest-asyncio pyyaml
       - run: mkdir -p test-results
       - run: PYTHONPATH=. pytest tests/desktop_worker -q --junitxml=test-results/desktop-worker.xml
@@ -992,7 +1021,10 @@ jobs:
           python-version: '3.11'
           cache: pip
           cache-dependency-path: packages/agent/requirements.txt
-      - run: pip install pytest
+      # boundary-check import module thật (sqlalchemy...), nên cài đủ lock.
+      - run: |
+          pip install --require-hashes -r packages/agent/requirements.txt -r apps/cosa/requirements.txt
+          pip install pytest
       - run: npm ci
         working-directory: services/company
       - run: make boundary-check
@@ -1021,6 +1053,19 @@ jobs:
       - run: |
           pip install --require-hashes -r packages/agent/requirements.txt -r apps/cosa/requirements.txt
           pip install -r requirements-dev.txt pytest pytest-asyncio httpx pyjwt psycopg2-binary
+      # Fixture advisor_cluster migrate services/cosa + services/company từ host.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+        working-directory: services/cosa
+      - run: npm ci
+        working-directory: services/company
+      # test_caio_ai_governance_profile.py boot services qua `encore run` trên host.
+      - name: Install Encore CLI
+        run: |
+          curl -L https://encore.dev/install.sh | bash
+          echo "$HOME/.encore/bin" >> "$GITHUB_PATH"
       - name: Materialize .env.e2e
         run: cp .env.e2e.example .env.e2e
       - name: Run E2E Golden Path test suite

@@ -1,9 +1,14 @@
 import { defineConfig } from "vitest/config";
 import fs from "fs";
+import os from "os";
+import path from "path";
 import { execSync } from "child_process";
 
 if (!process.env.ENCORE_RUNTIME_LIB) {
   const commonPaths = [
+    // Linux/CI: install.sh của Encore cài vào $ENCORE_INSTALL hoặc ~/.encore —
+    // thiếu đường dẫn này thì `vitest run` trần trên CI không nạp được runtime.
+    path.join(process.env.ENCORE_INSTALL || path.join(os.homedir(), ".encore"), "runtimes/js/encore-runtime.node"),
     "/opt/homebrew/Cellar/encore/1.58.2/libexec/runtimes/js/encore-runtime.node",
     "/usr/local/Cellar/encore/1.58.2/libexec/runtimes/js/encore-runtime.node",
   ];

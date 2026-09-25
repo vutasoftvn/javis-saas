@@ -211,7 +211,11 @@ export async function claimDueCasInboxEvents(opts: {
       .where(
         and(
           inArray(casSyncInbox.status, ["RECEIVED", "FAILED", "PROCESSING"]),
-          lte(casSyncInbox.nextAttemptAt, now),
+          // next_attempt_at mặc định là now() của Postgres (độ chính xác
+          // microsecond) còn `now` là JS Date (millisecond): claim chạy trong
+          // cùng millisecond với lúc insert sẽ thấy 12:00:00.123456 > .123 và
+          // bỏ sót dòng vừa enqueue. Cắt về millisecond trước khi so sánh.
+          sql`date_trunc('milliseconds', ${casSyncInbox.nextAttemptAt}) <= ${now}`,
           or(isNull(casSyncInbox.leaseUntil), lte(casSyncInbox.leaseUntil, now)),
           opts.bankConnectionId !== undefined
             ? eq(casSyncInbox.bankConnectionId, opts.bankConnectionId)

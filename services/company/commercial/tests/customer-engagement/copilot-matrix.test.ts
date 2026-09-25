@@ -24,6 +24,7 @@ import {
   applyCopilotResultApi,
 } from "../../handlers/customer-engagement/copilot.handler";
 import { setCustomCopilotRunner } from "../../services/customer-engagement/copilot-cosa-client";
+import { mintTestWorkerToken } from "../../../shared/auth/worker-service-auth";
 
 describe("P1 Copilot Test Matrix (Company Service)", () => {
   let dispatchedRuns: any[] = [];
@@ -228,7 +229,7 @@ describe("P1 Copilot Test Matrix (Company Service)", () => {
       status: "completed",
       artifactRef: "art_ref_999",
       summaryRef: "sum_ref_999",
-      serviceToken: process.env.COSA_SERVICE_TOKEN || "local-dev-service-token",
+      serviceToken: mintTestWorkerToken("copilot-worker"),
     });
 
     const invocation = await getCopilotInvocationApi({

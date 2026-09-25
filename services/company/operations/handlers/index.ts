@@ -31,3 +31,5 @@ export * from "./founder-asset-query.handler";
 export * from "./okr-weekly-generator.handler";
 export * from "./onboard.handler";
 export * from "./goals.handler";
+export * from "./organization-overview.handler";
+export * from "./ai-workforce.handler";

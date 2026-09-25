@@ -99,7 +99,9 @@ def test_boundaries_ci_installs_checker_runtimes() -> None:
     boundaries = workflow.split("  boundaries:\n", 1)[1].split("\n  e2e-golden-path:", 1)[0]
 
     assert "- run: npm ci\n        working-directory: services/company" in boundaries
-    assert "- run: pip install pytest" in boundaries
+    # boundary-check import module thật (sqlalchemy...) nên job cài đủ lock + pytest.
+    assert "pip install --require-hashes -r packages/agent/requirements.txt" in boundaries
+    assert "pip install pytest" in boundaries
 
 
 def test_claude_requires_encore_guardrails() -> None:

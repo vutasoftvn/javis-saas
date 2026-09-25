@@ -21,15 +21,7 @@ from agent.vault.models import (
 from agent.vault.repository import InMemoryVaultRepository, PostgresVaultRepository, VaultRepository
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-# Chỉ nhánh `[postgres]` (`PostgresVaultRepository` + RLS) đụng schema `vault.*`
-# đã bị drop khỏi baseline Founder Trial R1; nhánh `[in_memory]` vẫn chạy.
-_R1_DESCOPED_SKIP = pytest.mark.skip(
-    reason="Subsystem PLANNED, not in Founder Trial R1 — reset spec "
-    "docs/superpowers/specs/2026-09-09-founder-trial-mvp-reset-baseline-design.md §7.3 "
-    "(Vault/RAG, eval promotion, agent memory/artifact). Schema intentionally dropped "
-    "from the 001 baseline; re-enable when the subsystem is promoted to R1."
-)
-_KIND_PARAMS = ["in_memory", pytest.param("postgres", marks=_R1_DESCOPED_SKIP)]
+_KIND_PARAMS = ["in_memory", "postgres"]
 
 _RAW_DB_URL = os.environ.get("AGENT_TEST_DATABASE_URL")
 if _RAW_DB_URL and "postgresql+asyncpg://" not in _RAW_DB_URL and "postgresql://" in _RAW_DB_URL:
@@ -190,7 +182,6 @@ async def test_update_document_state_preserves_classification_and_visibility(kin
     assert updated.visibility == VaultVisibility.WORKSPACE
 
 
-@_R1_DESCOPED_SKIP
 @pytest.mark.asyncio
 async def test_postgres_rls_fails_closed_when_workspace_context_missing():
     """Fail-closed thật (không nhánh bypass): 1 query trên `vault.documents` KHÔNG

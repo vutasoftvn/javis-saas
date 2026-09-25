@@ -51,7 +51,10 @@ services:
     restart: unless-stopped
 
   minio:
-    image: minio/minio:latest
+    # MinIO ngừng phát hành image công khai (minio/minio trên Docker Hub trả
+    # 404, quay.io trả unauthorized). pgsty/minio là fork cộng đồng thay thế
+    # trực tiếp (cùng entrypoint); ghim release cụ thể.
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
     container_name: cosa_minio
     ports:
       - "127.0.0.1:9000:9000"
@@ -124,8 +127,14 @@ services:
     ports:
       - "127.0.0.1:4001:4001"
     environment:
-      - COSA_DATABASE_URL=${COSA_DATABASE_URL:?COSA_DATABASE_URL is required}
+      # Giống cosa-api: URL trong .env/.env.e2e trỏ 127.0.0.1 cho process trên
+      # host; trong container phải đi qua service `postgres` của mạng Docker.
+      - COSA_DATABASE_URL=${SERVICES_COSA_DATABASE_URL:-postgresql://cosa_app:${COSA_APP_PASSWORD:-change-me-cosa-app}@postgres:5432/cosa?sslmode=disable}
       - WORKER_SERVICE_JWT_SECRET=${WORKER_SERVICE_JWT_SECRET:?WORKER_SERVICE_JWT_SECRET is required}
+    volumes:
+      # Build context là ./services nên image không có shared/contracts của
+      # repo; mvp-contract-policy.ts dò ngược lên /app/shared/contracts.
+      - ./shared/contracts:/app/shared/contracts:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -150,8 +159,14 @@ services:
     ports:
       - "127.0.0.1:4000:4000"
     environment:
-      - WORKSPACE_DATABASE_URL=${WORKSPACE_DATABASE_URL:?WORKSPACE_DATABASE_URL is required}
+      - WORKSPACE_DATABASE_URL=${SERVICES_COMPANY_WORKSPACE_DATABASE_URL:-postgresql://workspace_app:${WORKSPACE_APP_PASSWORD:-change-me-workspace-app}@postgres:5432/workspace?sslmode=disable}
       - E2E_TEST_SEED_ENABLED=${E2E_TEST_SEED_ENABLED:-}
+      # Verifier worker của Company fail-closed khi thiếu secret (>= 32 ký tự).
+      - WORKER_SERVICE_JWT_SECRET=${WORKER_SERVICE_JWT_SECRET:?WORKER_SERVICE_JWT_SECRET is required}
+      # Relay outbox → cosa-api intake qua tên service Docker (mặc định 127.0.0.1:8000
+      # là chính container này), giống deploy/central_vps/docker-compose.prod.yaml.
+      - COSA_INTERNAL_URL=${SERVICES_COMPANY_COSA_INTERNAL_URL:-http://cosa-api:8000}
+      - COSA_AGENTOS_INTAKE_URL=${SERVICES_COMPANY_COSA_AGENTOS_INTAKE_URL:-http://cosa-api:8000}
     depends_on:
       postgres:
         condition: service_healthy

@@ -14,6 +14,7 @@ export type StrategyGovernancePermission =
 export const PERMISSION_CATALOG: readonly PermissionDefinition[] = [
   { permissionKey: "permissions.read", domain: "identity", description: "Xem danh mục và phân quyền" },
   { permissionKey: "permissions.manage", domain: "identity", description: "Cấu hình vai trò và gán quyền" },
+  { permissionKey: "organization.workforce.manage", domain: "identity", description: "Xếp AI workforce vào sơ đồ tổ chức" },
   { permissionKey: "agent.policy.manage", domain: "agent", description: "Quản lý chính sách và giới hạn của agent" },
   { permissionKey: "agent.sweep.manage", domain: "agent", description: "Bật tắt và cấu hình task sweep của agent" },
   { permissionKey: "execution.plan.approve", domain: "operations", description: "Duyệt execution plan thành task" },

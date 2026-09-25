@@ -55,22 +55,25 @@ describe("Control Plane Service", () => {
     expect(profile.is_platform_admin).toBe(false);
   });
 
-  it("updates platform user profile with social persona fields", async () => {
-    const updated = await updateMe(
-      asCaller(verifyPlatformToken(platformToken).sub),
-      {
-        full_name: "John Doe Updated",
-        phone: `+84912${Math.floor(100000 + Math.random() * 900000)}`,
-        headline: "Founder @ Cosa AI",
-        bio: "Building next-gen AI workspace",
-      }
-    );
-
-    expect(updated.full_name).toBe("John Doe Updated");
-    expect(updated.phone).toBeDefined();
+  it("updates COSA-owned persona fields but rejects core-owned contact fields", async () => {
+    const caller = asCaller(verifyPlatformToken(platformToken).sub);
+    const updated = await updateMe(caller, {
+      headline: "Founder @ Cosa AI",
+      bio: "Building next-gen AI workspace",
+    });
     expect(updated.headline).toBe("Founder @ Cosa AI");
     expect(updated.bio).toBe("Building next-gen AI workspace");
     expect(updated.role_id).toBe("founder");
+
+    // Spec 2026-09-25 §8 — phone/tên hiển thị thuộc Core, COSA không ghi.
+    await expect(updateMe(caller, { full_name: "John Doe Updated" })).rejects.toMatchObject({
+      code: "invalid_argument",
+    });
+    await expect(updateMe(caller, { phone: "+84912345678" })).rejects.toMatchObject({
+      code: "invalid_argument",
+    });
+    const after = await getMe(caller);
+    expect(after.full_name).toBe("John Doe");
   });
 
   it("does not mutate the global role from self-profile input", async () => {

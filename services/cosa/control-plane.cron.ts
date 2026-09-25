@@ -4,6 +4,7 @@ import * as schedulerSvc from "./services/control-plane-scheduler.service";
 
 import * as workspaceScheduleSvc from "./services/workspace-schedule.service";
 import * as snowflakeRegistrySvc from "./services/snowflake-registry.service";
+import * as workspaceInvitationSvc from "./services/workspace-invitation.service";
 
 /**
  * Phase 3 (Durable Queue Recovery, docs/implementation/production-runtime-
@@ -47,3 +48,16 @@ const _heartbeatSnowflakeGeneratorJob = new CronJob("heartbeat-snowflake-generat
   endpoint: heartbeatSnowflakeGeneratorCron,
 });
 
+
+// Spec 2026-09-25 §8 — reconciler cho saga cấp membership của invitation:
+// chiếu grant đã `core_granted` và hỏi lại core (idempotent) cho grant
+// `requested` bị bỏ dở do crash/timeout giữa chừng.
+export const reconcileInvitationGrantsCron = api({}, async (): Promise<void> => {
+  await workspaceInvitationSvc.reconcileInvitationGrants();
+});
+
+const _reconcileInvitationGrantsJob = new CronJob("reconcile-invitation-grants", {
+  title: "Reconcile pending organization invitation membership grants",
+  every: "5m",
+  endpoint: reconcileInvitationGrantsCron,
+});

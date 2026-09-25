@@ -267,6 +267,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | PATCH | `/identity/workspaces/:workspaceId/lifecycle` | company | ✓ |  | services/company/identity/handlers/workspace-lifecycle.handler.ts |
 | GET | `/identity/workspaces/:workspaceId/lifecycle/events` | company | ✓ |  | services/company/identity/handlers/workspace-lifecycle.handler.ts |
 | GET | `/identity/workspaces/:workspaceId/platform-company` | company | ✓ |  | services/company/identity/handlers/workspace.handler.ts |
+| POST | `/internal/identity/membership-events` | company | ✓ |  | services/company/identity/handlers/membership-event.handler.ts |
 | POST | `/internal/operations/founder/assets/status-callback` | company | ✓ |  | services/company/operations/handlers/founder-asset-authoring.handler.ts |
 | GET | `/internal/operations/projects/:projectId/agent-deployments/:projectAgentDeploymentId/deployment-authority` | company | ✓ |  | services/company/operations/handlers/founder-asset-deployment.handler.ts |
 | GET | `/internal/operations/projects/:projectId/agents/:workspaceAgentId/deployment-authority` | company | ✓ |  | services/company/operations/handlers/founder-asset-deployment.handler.ts |
@@ -357,6 +358,9 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/operations/onboard/sessions` | company | ✓ |  | services/company/operations/handlers/onboard.handler.ts |
 | POST | `/operations/onboard/snapshots` | company | ✓ |  | services/company/operations/handlers/onboard.handler.ts |
 | POST | `/operations/onboard/turns` | company | ✓ |  | services/company/operations/handlers/onboard.handler.ts |
+| POST | `/operations/organizations/:organizationId/ai-workforce` | company | ✓ |  | services/company/operations/handlers/ai-workforce.handler.ts |
+| GET | `/operations/organizations/:organizationId/overview` | company | ✓ |  | services/company/operations/handlers/organization-overview.handler.ts |
+| GET | `/operations/organizations/:organizationId/workforce` | company | ✓ |  | services/company/operations/handlers/organization-overview.handler.ts |
 | POST | `/operations/outcome-assessments` | company | ✓ |  | services/company/operations/handlers/task-outcome-analysis.handler.ts |
 | POST | `/operations/people-risk-dossiers` | company | ✓ |  | services/company/operations/handlers/people-risk-dossier.handler.ts |
 | POST | `/operations/people-risk-dossiers/:id/revisions` | company | ✓ |  | services/company/operations/handlers/people-risk-dossier.handler.ts |
@@ -594,7 +598,6 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /operations/tasks` | ✓ |  | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart:46, frontend/lib/modules/tasks/services/task_service.dart:18, frontend/lib/modules/tasks/services/task_service.dart:42 … |
 | `GET /operations/tasks/founder-inbox` | ✓ |  | frontend/lib/modules/strategy/services/execution_plan_service.dart:81 |
 | `GET /operations/workspaces` | ✓ |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:21 |
-| `GET /org` | ✗ GHOST |  | frontend/lib/modules/organization/services/organization_service.dart:14, frontend/lib/modules/organization/services/organization_service.dart:25, frontend/lib/modules/organization/services/organization_service.dart:36 … |
 | `GET /plugins` | ✗ GHOST |  | frontend/lib/modules/skills/services/plugins_service.dart:14 |
 | `GET /policy-programs` | ✗ GHOST |  | frontend/lib/modules/finance/services/policy_funding_service.dart:174, frontend/lib/modules/finance/services/policy_funding_service.dart:204 |
 | `GET /policy-programs/draft-watchlist` | ✗ GHOST |  | frontend/lib/modules/finance/services/policy_funding_service.dart:167 |
@@ -695,11 +698,11 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | GET | `/knowledge/sources` | apps/cosa/api/vault_routes.py |
 | POST | `/knowledge/uploads` | apps/cosa/api/knowledge_routes.py |
 | POST | `/knowledge/uploads/{ingestion_id}/complete` | apps/cosa/api/knowledge_routes.py |
-| GET | `/live` | apps/cosa/api/app.py |
 | GET | `/live` | apps/cosa/worker/health.py |
-| GET | `/metrics` | apps/cosa/api/app.py |
-| GET | `/metrics` | apps/cosa/api/autopilot_metrics_routes.py |
+| GET | `/live` | apps/cosa/api/app.py |
 | GET | `/metrics` | apps/cosa/worker/health.py |
+| GET | `/metrics` | apps/cosa/api/autopilot_metrics_routes.py |
+| GET | `/metrics` | apps/cosa/api/app.py |
 | GET | `/model-policies/{agent_profile}` | apps/cosa/api/model_policy_routes.py |
 | PUT | `/model-policies/{agent_profile}` | apps/cosa/api/model_policy_routes.py |
 | GET | `/model-providers` | apps/cosa/api/model_policy_routes.py |
@@ -709,8 +712,8 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | GET | `/projects/{project_id}/activity` | apps/cosa/api/project_activity_routes.py |
 | GET | `/projects/{project_id}/activity/stream` | apps/cosa/api/project_activity_routes.py |
 | GET | `/projects/{project_id}/activity/{event_id}` | apps/cosa/api/project_activity_routes.py |
-| GET | `/ready` | apps/cosa/api/app.py |
 | GET | `/ready` | apps/cosa/worker/health.py |
+| GET | `/ready` | apps/cosa/api/app.py |
 | POST | `/retrieval/query` | apps/cosa/api/vault_routes.py |
 | GET | `/roster` | apps/cosa/api/workforce_routes.py |
 | GET | `/runs` | apps/cosa/api/workforce_routes.py |
@@ -720,12 +723,12 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | GET | `/runs/{run_id}/events` | apps/cosa/api/workforce_routes.py |
 | GET | `/runs/{run_id}/events` | apps/cosa/api/routes.py |
 | GET | `/runs/{run_id}/investigation` | apps/cosa/api/workforce_internal_routes.py |
-| GET | `/schedules` | apps/cosa/api/schedule_routes.py |
 | GET | `/schedules` | apps/cosa/api/workforce_routes.py |
-| POST | `/schedules` | apps/cosa/api/schedule_routes.py |
+| GET | `/schedules` | apps/cosa/api/schedule_routes.py |
 | POST | `/schedules` | apps/cosa/api/workforce_routes.py |
-| POST | `/schedules/{schedule_id}/run-now` | apps/cosa/api/schedule_routes.py |
+| POST | `/schedules` | apps/cosa/api/schedule_routes.py |
 | POST | `/schedules/{schedule_id}/run-now` | apps/cosa/api/workforce_routes.py |
+| POST | `/schedules/{schedule_id}/run-now` | apps/cosa/api/schedule_routes.py |
 | GET | `/sessions/{conversation_id}` | apps/cosa/api/conversation_routes.py |
 | GET | `/sessions/{conversation_id}/artifacts` | apps/cosa/api/conversation_routes.py |
 | GET | `/sessions/{conversation_id}/timeline` | apps/cosa/api/conversation_routes.py |

@@ -60,7 +60,14 @@ export E2E_BASE_URL_API="${E2E_BASE_URL_API:-http://127.0.0.1:8001}"
 # (`ExternalClusterDsns.from_env`) cần chúng cho assert DB của S1/S4/S7.
 export E2E_TEST_SEED_ENABLED=1
 
-docker compose --profile e2e up -d --build --wait
+# Stack không lên được thì in log các service ứng dụng trước khi thoát — nếu
+# không, CI chỉ báo "container ... is unhealthy" mà không có nguyên nhân.
+if ! docker compose --profile e2e up -d --build --wait; then
+  docker compose --profile e2e ps -a || true
+  docker compose --profile e2e logs --no-color --tail=200 migrate-all services-cosa services-company cosa-api cosa-worker || true
+  docker compose --profile e2e down -v || true
+  exit 1
+fi
 trap 'echo "🧹 Tearing down E2E stack..."; docker compose --profile e2e down -v' EXIT
 
 mkdir -p test-results

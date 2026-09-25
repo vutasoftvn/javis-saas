@@ -38,6 +38,25 @@ describe("worker-service-auth", () => {
       .rejects.toMatchObject({ code: "internal" });
   });
 
+  it("fails closed in development when no secret is configured outside the test runtime", async () => {
+    process.env.ENVIRONMENT = "development";
+    process.env.NODE_ENV = "development";
+    delete process.env.VITEST;
+    delete process.env.WORKER_SERVICE_JWT_SECRET;
+
+    await expect(() => requireWorkerServiceAuth({ authorization: "Bearer anything" }))
+      .rejects.toMatchObject({ code: "internal" });
+  });
+
+  it("ignores the test override when staging/production is declared", async () => {
+    process.env.ENVIRONMENT = "staging";
+    delete process.env.WORKER_SERVICE_JWT_SECRET;
+    setWorkerServiceSecretForTesting(TEST_SECRET);
+
+    await expect(() => requireWorkerServiceAuth({ authorization: "Bearer anything" }))
+      .rejects.toMatchObject({ code: "internal" });
+  });
+
   it("rejects static dev-worker-service-token", async () => {
     process.env.ENVIRONMENT = "development";
     process.env.WORKER_SERVICE_JWT_SECRET = TEST_SECRET;

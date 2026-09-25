@@ -16,13 +16,12 @@ This test verifies all 7 invariants:
 from __future__ import annotations
 
 import asyncio
-import os
 import time
 import psycopg2
 import httpx
 import pytest
 
-from tests.e2e.conftest import _workspace_database_url
+from tests.e2e.conftest import _workspace_database_url, mint_e2e_worker_token
 
 from apps.cosa.agents.startup_team_profiles_generated import STARTUP_TEAM_PROFILE_KEYS
 from apps.cosa.company.project_team_client import (
@@ -30,10 +29,14 @@ from apps.cosa.company.project_team_client import (
     ProjectTeamAuthorityError,
 )
 
-_SERVICE_TOKEN = os.environ.get(
-    "COSA_WORKER_SERVICE_TOKEN",
-    "dev-worker-service-token",
-)
+
+
+def _service_token() -> str:
+    # Company chỉ nhận JWT worker ký bằng WORKER_SERVICE_JWT_SECRET (spec
+    # 2026-09-25 §5); token opaque tĩnh cũ giờ bị 401.
+    return mint_e2e_worker_token("startup-team-e2e")
+
+
 # Cùng DB mà `real_company_service` đang chạy (ưu tiên WORKSPACE_TEST_DATABASE_URL), không phải DB dev.
 _WORKSPACE_DB_URL = _workspace_database_url()
 
@@ -234,7 +237,7 @@ def test_invariant_4_and_5_startup_team_activation_pause_and_authority(e2e_tenan
     # 3. Check ProjectTeamClient / internal run authority endpoint
     pt_client = ProjectTeamClient(
         base_url=base_url,
-        service_token=_SERVICE_TOKEN,
+        service_token=_service_token(),
     )
     authority = asyncio.run(
         pt_client.get_run_authority(
@@ -319,7 +322,7 @@ def test_invariant_6_non_founder_and_cross_tenant_isolation(e2e_tenants):
     # 3. Internal run authority cross-tenant check
     pt_client = ProjectTeamClient(
         base_url=base_url,
-        service_token=_SERVICE_TOKEN,
+        service_token=_service_token(),
     )
     # Non-existent project
     with pytest.raises(ProjectTeamAuthorityError) as exc_info:
@@ -354,7 +357,7 @@ def test_invariant_7_pending_and_deferred_profiles_cannot_activate(e2e_tenants):
     client = httpx.Client(base_url=base_url, timeout=10.0)
     pt_client = ProjectTeamClient(
         base_url=base_url,
-        service_token=_SERVICE_TOKEN,
+        service_token=_service_token(),
     )
 
     # Coding đã READY (migration 009) nên không còn bị hoãn; profile chưa được kích hoạt thì
@@ -461,7 +464,7 @@ def test_invariant_operations_profile_lifecycle_and_authority(e2e_tenants):
     # 3. Check ProjectTeamClient / internal run authority endpoint
     pt_client = ProjectTeamClient(
         base_url=base_url,
-        service_token=_SERVICE_TOKEN,
+        service_token=_service_token(),
     )
     authority = asyncio.run(
         pt_client.get_run_authority(

@@ -10,16 +10,19 @@ reject route cũ/thiếu token.
 
 from __future__ import annotations
 
-import os
 import time
 import uuid
 from datetime import UTC, datetime
 
 import httpx
 
-from tests.e2e.conftest import CompanyServiceHandle, count_runtime_source_signals
+from tests.e2e.conftest import (
+    CompanyServiceHandle,
+    count_runtime_source_signals,
+    mint_e2e_worker_token,
+)
 
-_SERVICE_TOKEN = os.environ.get("COSA_WORKER_SERVICE_TOKEN", "dev-worker-service-token")
+_SERVICE_TOKEN = mint_e2e_worker_token("runtime-signal-e2e")
 
 
 def _signal_envelope(workspace_id: str, source_kind: str, source_id: str, sequence: int) -> dict:

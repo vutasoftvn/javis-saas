@@ -4,6 +4,7 @@ import { db } from "../../operations/db";
 import { makeBusinessEvent } from "../../shared/events/envelope";
 import { ingestKnowledgePublished } from "../services/knowledge-published.service";
 import { readOutbox } from "../../operations/tests/helpers/outbox";
+import { mintTestWorkerToken } from "../../shared/auth/worker-service-auth";
 
 function envelope(overrides: Record<string, unknown> = {}) {
   return {
@@ -34,7 +35,7 @@ describe("ingestKnowledgePublished", () => {
   });
 
   it("appends one knowledge.source.published.v1 outbox row from a valid envelope", async () => {
-    await ingestKnowledgePublished({ envelope: envelope(), serviceToken: "tok" }, "tok");
+    await ingestKnowledgePublished({ envelope: envelope(), serviceToken: mintTestWorkerToken() });
     const rows = await readOutbox("ws_kp", "knowledge_source", "src_1");
     expect(rows).toHaveLength(1);
     expect(rows[0].eventType).toBe("knowledge.source.published.v1");
@@ -42,8 +43,8 @@ describe("ingestKnowledgePublished", () => {
 
   it("is idempotent on a duplicate eventId", async () => {
     const e = envelope();
-    await ingestKnowledgePublished({ envelope: e, serviceToken: "tok" }, "tok");
-    await ingestKnowledgePublished({ envelope: e, serviceToken: "tok" }, "tok");
+    await ingestKnowledgePublished({ envelope: e, serviceToken: mintTestWorkerToken() });
+    await ingestKnowledgePublished({ envelope: e, serviceToken: mintTestWorkerToken() });
     expect(await readOutbox("ws_kp", "knowledge_source", "src_1")).toHaveLength(1);
   });
 
@@ -51,21 +52,33 @@ describe("ingestKnowledgePublished", () => {
     const bad = envelope();
     delete (bad as Record<string, unknown>).correlationId;
     await expect(
-      ingestKnowledgePublished({ envelope: bad, serviceToken: "tok" }, "tok")
+      ingestKnowledgePublished({ envelope: bad, serviceToken: mintTestWorkerToken() })
     ).rejects.toThrow();
   });
 
   it("rejects a wrong service token", async () => {
     await expect(
-      ingestKnowledgePublished({ envelope: envelope(), serviceToken: "wrong" }, "tok")
-    ).rejects.toThrow(/invalid service token/i);
+      ingestKnowledgePublished({ envelope: envelope(), serviceToken: "wrong" })
+    ).rejects.toMatchObject({ code: "unauthenticated" });
+  });
+
+  it("rejects the old raw shared token even if COSA_WORKER_SERVICE_TOKEN is set", async () => {
+    const previous = process.env.COSA_WORKER_SERVICE_TOKEN;
+    process.env.COSA_WORKER_SERVICE_TOKEN = "raw-shared-token";
+    try {
+      await expect(
+        ingestKnowledgePublished({ envelope: envelope(), serviceToken: "raw-shared-token" })
+      ).rejects.toMatchObject({ code: "unauthenticated" });
+    } finally {
+      if (previous === undefined) delete process.env.COSA_WORKER_SERVICE_TOKEN;
+      else process.env.COSA_WORKER_SERVICE_TOKEN = previous;
+    }
   });
 
   it("rejects a non knowledge.source.published event type", async () => {
     await expect(
       ingestKnowledgePublished(
-        { envelope: envelope({ eventType: "operations.task.created.v1", projectId: "p_1" }), serviceToken: "tok" },
-        "tok"
+        { envelope: envelope({ eventType: "operations.task.created.v1", projectId: "p_1" }), serviceToken: mintTestWorkerToken() }
       )
     ).rejects.toThrow(/eventType/i);
   });

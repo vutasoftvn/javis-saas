@@ -30,21 +30,35 @@ describe("hireWorkforceMember + getWorkforceMember", () => {
     expect(fetched).toEqual(member);
   });
 
-  it("hires an AI_AGENT member with an agentSpecId + agentSpecVersion reference", async () => {
+  it("refuses AI_AGENT members on the generic endpoint (client-supplied spec)", async () => {
     const session = await createTestSession({ displayName: "AI Hire Test Owner" });
     const authorization = `Bearer ${session.accessToken}`;
 
-    const member = await hireWorkforceMember({
-      workspaceId: session.workspaceId,
-      memberType: "AI_AGENT",
-      roleTitle: "CFO Agent",
-      agentSpecId: "finance-cfo",
-      agentSpecVersion: "1.0",
-      authorization,
-    });
-    expect(member.agentSpecId).toBe("finance-cfo");
-    expect(member.agentSpecVersion).toBe("1.0");
-    expect(member.humanUserId).toBeNull();
+    await expect(
+      hireWorkforceMember({
+        workspaceId: session.workspaceId,
+        memberType: "AI_AGENT",
+        roleTitle: "CFO Agent",
+        agentSpecId: "finance-cfo",
+        agentSpecVersion: "1.0",
+        authorization,
+      })
+    ).rejects.toMatchObject({ code: "invalid_argument" });
+  });
+
+  it("refuses a humanUserId that is not a member of the workspace", async () => {
+    const owner = await createTestSession({ displayName: "Arbitrary Human Owner" });
+    const stranger = await createTestSession({ displayName: "Arbitrary Human Stranger" });
+
+    await expect(
+      hireWorkforceMember({
+        workspaceId: owner.workspaceId,
+        memberType: "HUMAN",
+        roleTitle: "Ops Lead",
+        humanUserId: stranger.userId,
+        authorization: `Bearer ${owner.accessToken}`,
+      })
+    ).rejects.toMatchObject({ code: "invalid_argument" });
   });
 
   it("supports a manager hierarchy via managerMemberId", async () => {
@@ -57,6 +71,15 @@ describe("hireWorkforceMember + getWorkforceMember", () => {
       roleTitle: "VP Ops",
       humanUserId: managerSession.userId,
       authorization,
+    });
+    // Report phải là membership thật của workspace trước khi được xếp vào sơ đồ.
+    const { db, schema } = await import("../models/db");
+    const { generateSnowflake } = await import("../../shared/services/snowflake.service");
+    await db.insert(schema.identityWorkspaceMemberships).values({
+      id: generateSnowflake(),
+      workspaceId: BigInt(managerSession.workspaceId),
+      userId: BigInt(reportSession.userId),
+      role: "member",
     });
     const report = await hireWorkforceMember({
       workspaceId: managerSession.workspaceId,
@@ -109,18 +132,6 @@ describe("hireWorkforceMember + getWorkforceMember", () => {
         workspaceId: session.workspaceId,
         memberType: "HUMAN",
         roleTitle: "Ops Lead",
-        authorization: `Bearer ${session.accessToken}`,
-      })
-    ).rejects.toThrow();
-  });
-
-  it("rejects an AI_AGENT member without agentSpecId/agentSpecVersion", async () => {
-    const session = await createTestSession({ displayName: "Missing Agent Spec Owner" });
-    await expect(
-      hireWorkforceMember({
-        workspaceId: session.workspaceId,
-        memberType: "AI_AGENT",
-        roleTitle: "CFO Agent",
         authorization: `Bearer ${session.accessToken}`,
       })
     ).rejects.toThrow();
