@@ -2378,13 +2378,6 @@
       "expires_on": "2027-06-01"
     },
     {
-      "path": "/platform/auth/me",
-      "method": "PATCH",
-      "owner": "control-plane",
-      "reason": "Auth bootstrap — profile self-update tied to session identity (moved to Control Plane by the auth migration d39a1bee); not an MVP business capability. Backend: services/cosa/handlers/auth.handler.ts.",
-      "expires_on": "2027-06-01"
-    },
-    {
       "path": "/platform/preferences/me",
       "method": "PATCH",
       "owner": "control-plane",

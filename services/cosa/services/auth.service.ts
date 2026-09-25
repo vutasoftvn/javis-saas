@@ -69,16 +69,38 @@ const CORE_OWNED_PROFILE_FIELDS = [
   "avatarUrl",
 ] as const;
 
-export async function updateCosaPreferences(
-  userIdStr: string,
-  params: UpdateCosaPreferenceParams
-): Promise<PlatformUserProfile> {
+/** Từ chối mọi trường liên hệ thuộc Core trong một lệnh tự cập nhật hồ sơ ở COSA. */
+export function assertNoCoreOwnedProfileFields(params: Partial<Record<(typeof CORE_OWNED_PROFILE_FIELDS)[number], unknown>>): void {
   const coreOwned = CORE_OWNED_PROFILE_FIELDS.filter((field) => params[field] !== undefined);
   if (coreOwned.length > 0) {
     throw APIError.invalidArgument(
       `${coreOwned.join(", ")} is owned by core; update it through the core profile API`
     );
   }
+}
+
+/**
+ * `PATCH /platform/auth/me` chỉ còn ghi preference thuộc COSA; phone/tên
+ * hiển thị/avatar đi thẳng tới API profile của Core (spec 2026-09-25 §8).
+ */
+export async function updateOwnPlatformProfile(
+  userIdStr: string,
+  params: UpdateMeParams
+): Promise<PlatformUserProfile> {
+  assertNoCoreOwnedProfileFields(params);
+  return updatePlatformUserProfile(userIdStr, {
+    preferred_locale: params.preferred_locale,
+    preferredLocale: params.preferredLocale,
+    headline: params.headline,
+    bio: params.bio,
+  });
+}
+
+export async function updateCosaPreferences(
+  userIdStr: string,
+  params: UpdateCosaPreferenceParams
+): Promise<PlatformUserProfile> {
+  assertNoCoreOwnedProfileFields(params);
   if (params.headline !== undefined && params.headline.length > 200) {
     throw APIError.invalidArgument("headline must be at most 200 characters");
   }

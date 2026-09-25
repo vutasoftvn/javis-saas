@@ -43,21 +43,6 @@ class FakeAuthService extends AuthService {
       'role': 'founder',
     };
   }
-
-  @override
-  Future<Map<String, dynamic>?> updateProfile({
-    String? phone,
-    String? displayName,
-    String? preferredLocale,
-  }) async {
-    return {
-      'id': 'user-1',
-      'email': 'test@javis.ai',
-      'display_name': displayName ?? 'Tester',
-      'phone': phone,
-      'preferred_locale': preferredLocale ?? 'vi-VN',
-    };
-  }
 }
 
 Widget buildProfileWithLocaleController({LocaleController? lc}) {

@@ -7,7 +7,7 @@ import {
   UpdateMeParams,
   SupportedLocale,
   getPlatformUserProfile,
-  updatePlatformUserProfile,
+  updateOwnPlatformProfile,
   updateCosaPreferences,
   UpdateCosaPreferenceParams,
 } from "../services/auth.service";
@@ -64,7 +64,7 @@ export async function getMe(authData: AuthData): Promise<PlatformUserProfile> {
 }
 
 export async function updateMe(authData: AuthData, params: UpdateMeParams): Promise<PlatformUserProfile> {
-  return updatePlatformUserProfile(authData.userID, params);
+  return updateOwnPlatformProfile(authData.userID, params);
 }
 
 export const getPlatformUserMe = api(
