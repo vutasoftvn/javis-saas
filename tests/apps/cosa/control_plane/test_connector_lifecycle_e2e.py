@@ -188,7 +188,7 @@ def control_plane_service(control_plane_dsn: str):
 
 
 async def _seed_tenants(async_dsn: str, company_a_id: int, company_b_id: int):
-    """Seed users, companies, and memberships vào control plane DB."""
+    """Seed role và users vào control plane DB."""
     engine = create_async_engine(async_dsn)
     try:
         async with engine.begin() as conn:
@@ -221,42 +221,9 @@ async def _seed_tenants(async_dsn: str, company_a_id: int, company_b_id: int):
                 {"now": now},
             )
 
-            # Seed companies (company_a, company_b)
-            # Sử dụng company_a_id và company_b_id làm ID
-            await conn.execute(
-                text("""
-                    INSERT INTO cosa.companies (id, slug, name, created_by, status, created_at, updated_at)
-                    VALUES (:id, :slug, 'Company A', 1001, 'active', :now, :now)
-                    ON CONFLICT (id) DO NOTHING
-                """),
-                {"id": company_a_id, "slug": f"company-a-{company_a_id}", "now": now},
-            )
-            await conn.execute(
-                text("""
-                    INSERT INTO cosa.companies (id, slug, name, created_by, status, created_at, updated_at)
-                    VALUES (:id, :slug, 'Company B', 1002, 'active', :now, :now)
-                    ON CONFLICT (id) DO NOTHING
-                """),
-                {"id": company_b_id, "slug": f"company-b-{company_b_id}", "now": now},
-            )
-
-            # Seed memberships
-            await conn.execute(
-                text("""
-                    INSERT INTO cosa.company_memberships (id, company_id, user_id, role_id, created_at, updated_at)
-                    VALUES (:membership_id, :company_a_id, 1001, 'user', :now, :now)
-                    ON CONFLICT (id) DO NOTHING
-                """),
-                {"membership_id": 99000 + company_a_id, "company_a_id": company_a_id, "now": now},
-            )
-            await conn.execute(
-                text("""
-                    INSERT INTO cosa.company_memberships (id, company_id, user_id, role_id, created_at, updated_at)
-                    VALUES (:membership_id, :company_b_id, 1002, 'user', :now, :now)
-                    ON CONFLICT (id) DO NOTHING
-                """),
-                {"membership_id": 99000 + company_b_id, "company_b_id": company_b_id, "now": now},
-            )
+            # Không seed companies/memberships: bảng cosa.companies đã bị gỡ khỏi baseline,
+            # và caller dùng control-plane delegation nên services/cosa tin claim workspace
+            # (verifyWorkspaceMembership) mà không tra membership trong DB.
 
     finally:
         await engine.dispose()
