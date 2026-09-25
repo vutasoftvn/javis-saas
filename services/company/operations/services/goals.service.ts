@@ -29,6 +29,31 @@ export interface GoalTreeNode {
   children: GoalTreeNode[];
 }
 
+// Mọi id do caller gửi lên (goal cha, goal, objective, KR) phải thuộc đúng
+// workspace đã được guard ở handler — nếu không, caller có quyền ở workspace A
+// có thể sửa dữ liệu workspace B chỉ bằng cách gửi id của B.
+async function assertGoalInWorkspace(wsId: bigint, goalId: bigint): Promise<void> {
+  const [row] = await db
+    .select({ id: goals.id })
+    .from(goals)
+    .where(and(eq(goals.id, goalId), eq(goals.workspaceId, wsId)))
+    .limit(1);
+  if (!row) {
+    throw APIError.notFound("Không tìm thấy Goal trong workspace này.");
+  }
+}
+
+export async function assertObjectiveInWorkspace(wsId: bigint, objectiveId: bigint): Promise<void> {
+  const [row] = await db
+    .select({ id: objectives.id })
+    .from(objectives)
+    .where(and(eq(objectives.id, objectiveId), eq(objectives.workspaceId, wsId)))
+    .limit(1);
+  if (!row) {
+    throw APIError.notFound("Không tìm thấy Objective trong workspace này.");
+  }
+}
+
 export async function createGoalService(params: {
   workspaceId: string;
   parentId?: string;
@@ -51,6 +76,10 @@ export async function createGoalService(params: {
   // Validate dates: cả hai phải cùng NULL hoặc cùng NOT NULL
   if ((params.startDate && !params.endDate) || (!params.startDate && params.endDate)) {
     throw APIError.invalidArgument("start_date và end_date phải cùng có hoặc cùng để trống.");
+  }
+
+  if (params.parentId) {
+    await assertGoalInWorkspace(wsId, BigInt(params.parentId));
   }
 
   // 1. Kiểm tra cadence các chiều 'fast' (stage_scale, challenges)
@@ -247,6 +276,8 @@ export async function completeGoalService(params: {
   const wsId = BigInt(params.workspaceId);
   const gId = BigInt(params.goalId);
 
+  await assertGoalInWorkspace(wsId, gId);
+
   // Kiểm tra xem có objective nào đang active không
   const activeObjs = await db
     .select()
@@ -254,6 +285,7 @@ export async function completeGoalService(params: {
     .where(
       and(
         eq(objectives.goalId, gId),
+        eq(objectives.workspaceId, wsId),
         eq(objectives.status, "active")
       )
     );
@@ -280,7 +312,7 @@ export async function completeGoalService(params: {
     await db
       .update(objectives)
       .set({ status: "completed" })
-      .where(eq(objectives.goalId, gId));
+      .where(and(eq(objectives.goalId, gId), eq(objectives.workspaceId, wsId)));
   }
 
   // 3. Cascade cập nhật KRs con: nếu đạt -> achieved, nếu chưa -> missed
@@ -288,7 +320,8 @@ export async function completeGoalService(params: {
     UPDATE strategy.cosa_key_results kr
     SET status = CASE WHEN kr.current_value >= kr.target THEN 'achieved' ELSE 'missed' END
     FROM strategy.objectives o
-    WHERE kr.objective_id = o.id AND o.goal_id = ${gId} AND kr.status = 'active'
+    WHERE kr.objective_id = o.id AND o.goal_id = ${gId} AND o.workspace_id = ${wsId}
+      AND kr.status = 'active'
   `);
 
   return {
@@ -309,6 +342,7 @@ export async function createObjectiveService(params: {
 }): Promise<{ objectiveId: string }> {
   const wsId = BigInt(params.workspaceId);
   const gId = BigInt(params.goalId);
+  await assertGoalInWorkspace(wsId, gId);
   const objId = generateSnowflake();
 
   await db.insert(objectives).values({
@@ -328,6 +362,7 @@ export async function createObjectiveService(params: {
 }
 
 export async function addKeyResultService(params: {
+  workspaceId: string;
   objectiveId: string;
   metricName: string;
   baseline?: number;
@@ -336,6 +371,7 @@ export async function addKeyResultService(params: {
   displayOrder?: number;
 }): Promise<{ keyResultId: string }> {
   const objId = BigInt(params.objectiveId);
+  await assertObjectiveInWorkspace(BigInt(params.workspaceId), objId);
   const krId = generateSnowflake();
 
   await db.insert(cosaKeyResults).values({
@@ -354,16 +390,22 @@ export async function addKeyResultService(params: {
 }
 
 export async function updateKeyResultValueService(params: {
+  workspaceId: string;
   keyResultId: string;
   currentValue: number;
 }): Promise<{ keyResultId: string; objectiveProgressPct: number }> {
   const krId = BigInt(params.keyResultId);
 
-  const [kr] = await db
-    .select()
+  // KR không có cột workspace_id — xác định tenant qua objective cha.
+  const [joined] = await db
+    .select({ kr: cosaKeyResults })
     .from(cosaKeyResults)
-    .where(eq(cosaKeyResults.id, krId))
+    .innerJoin(objectives, eq(objectives.id, cosaKeyResults.objectiveId))
+    .where(
+      and(eq(cosaKeyResults.id, krId), eq(objectives.workspaceId, BigInt(params.workspaceId)))
+    )
     .limit(1);
+  const kr = joined?.kr;
 
   if (!kr) {
     throw APIError.notFound("Không tìm thấy Key Result.");

@@ -84,7 +84,21 @@ export async function startOnboardSessionService(params: {
   return { sessionId: sessionId.toString(), status: "in_progress" };
 }
 
+// Session onboarding do caller gửi lên phải thuộc workspace đã được guard ở
+// handler — không thì ghi được dimension/turn vào session của workspace khác.
+async function assertOnboardSessionInWorkspace(wsId: bigint, sessionId: bigint): Promise<void> {
+  const [row] = await db
+    .select({ id: onboardSessions.id })
+    .from(onboardSessions)
+    .where(and(eq(onboardSessions.id, sessionId), eq(onboardSessions.workspaceId, wsId)))
+    .limit(1);
+  if (!row) {
+    throw APIError.notFound("Không tìm thấy phiên onboarding trong workspace này.");
+  }
+}
+
 export async function recordConversationTurnService(params: {
+  workspaceId: string;
   sessionId: string;
   turnNumber: number;
   role: "user" | "assistant" | "system";
@@ -92,6 +106,7 @@ export async function recordConversationTurnService(params: {
   dimension?: string;
 }): Promise<{ turnId: string }> {
   const sId = BigInt(params.sessionId);
+  await assertOnboardSessionInWorkspace(BigInt(params.workspaceId), sId);
   const turnId = generateSnowflake();
 
   await db.insert(conversationTurns).values({
@@ -114,6 +129,7 @@ export async function updateDimensionService(params: {
 }): Promise<{ success: boolean; dimension: string; recordId: string }> {
   const wsId = BigInt(params.workspaceId);
   const sId = BigInt(params.sessionId);
+  await assertOnboardSessionInWorkspace(wsId, sId);
   const recordId = generateSnowflake();
   const now = new Date();
 
@@ -314,6 +330,7 @@ export async function createSnapshotService(params: {
 }): Promise<{ snapshotId: string; capturedAt: string }> {
   const wsId = BigInt(params.workspaceId);
   const sId = BigInt(params.sessionId);
+  await assertOnboardSessionInWorkspace(wsId, sId);
   const snapshotId = generateSnowflake();
 
   // Truy vấn toàn bộ 7 chiều hiện tại

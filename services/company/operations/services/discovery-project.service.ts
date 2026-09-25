@@ -1,7 +1,7 @@
 import { APIError } from "encore.dev/api";
 import { eq, and } from "drizzle-orm";
 import { db, schema } from "../models/db";
-import { createObjectiveService } from "./goals.service";
+import { assertObjectiveInWorkspace, createObjectiveService } from "./goals.service";
 
 const { projects, objectives } = schema;
 
@@ -68,6 +68,7 @@ export async function triageProjectService(params: {
         throw APIError.invalidArgument("Cần cung cấp targetObjectiveId để liên kết dự án.");
       }
       const objId = BigInt(params.targetObjectiveId);
+      await assertObjectiveInWorkspace(wsId, objId);
       await db
         .update(projects)
         .set({
