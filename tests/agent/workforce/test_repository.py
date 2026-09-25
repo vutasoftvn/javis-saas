@@ -77,19 +77,7 @@ async def test_retire_assignment_updates_status(kind: str) -> None:
     "kind",
     [
         "in_memory",
-        # `agent.workforce_schedules` bị drop khỏi baseline Founder Trial R1
-        # (reset spec §7.3 — schedule-driven workforce là PLANNED). Chỉ nhánh
-        # Postgres cần bảng này; nhánh in_memory vẫn chạy. Re-enable khi
-        # subsystem được promote lên R1.
-        pytest.param(
-            "postgres",
-            marks=pytest.mark.skip(
-                reason="agent.workforce_schedules dropped from Founder Trial R1 baseline "
-                "(reset spec docs/superpowers/specs/"
-                "2026-09-09-founder-trial-mvp-reset-baseline-design.md §7.3); "
-                "re-enable when schedule-driven workforce is promoted to R1."
-            ),
-        ),
+        "postgres",
     ],
 )
 async def test_schedule_is_scoped_and_persists(kind: str) -> None:
@@ -181,3 +169,59 @@ async def test_cost_observation_records_and_lists(kind: str) -> None:
     costs = await workforce_repo.list_cost_observations("1001", run_id=run_id)
     assert len(costs) == 1
     assert costs[0].model_key == "gpt-4o"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["in_memory", "postgres"])
+async def test_outcome_analysis_binding_upsert_bumps_version_and_is_scoped(kind: str) -> None:
+    """Migration 016 — agent.outcome_analysis_bindings: upsert lần 2 cùng
+    (workspace_id, analysis_kind) phải tăng version, không tạo bản ghi mới;
+    workspace khác không thấy binding."""
+    workforce_repo = get_workforce_repo(kind)
+    ws = f"ws_{uuid4().hex[:8]}"
+    employee = await workforce_repo.create_employee(
+        workspace_id=ws,
+        employee_code=f"emp_{uuid4().hex[:6]}",
+        display_name="Outcome analyst",
+        created_by="user:1",
+    )
+    assignment = await workforce_repo.create_assignment(
+        workspace_id=ws,
+        functional_key="outcome_analyst",
+        spec_id="functional.outcome_analyst",
+        spec_version="1.0.0",
+        definition_hash=f"sha256:{uuid4().hex}",
+        configured_by="user:1",
+        agent_instance_id=employee.agent_instance_id,
+    )
+
+    first = await workforce_repo.upsert_outcome_analysis_binding(
+        workspace_id=ws,
+        analysis_kind="project_outcome",
+        analyst_employee_id=employee.agent_instance_id,
+        analyst_assignment_id=assignment.assignment_id,
+        policy="manual",
+        skill_id="skill.outcome",
+        skill_version="1.0.0",
+        definition_hash="sha256:v1",
+        updated_by="user:1",
+    )
+    assert first.version == 1
+
+    second = await workforce_repo.upsert_outcome_analysis_binding(
+        workspace_id=ws,
+        analysis_kind="project_outcome",
+        analyst_employee_id=employee.agent_instance_id,
+        analyst_assignment_id=assignment.assignment_id,
+        policy="manual",
+        skill_id="skill.outcome",
+        skill_version="1.1.0",
+        definition_hash="sha256:v2",
+        updated_by="user:1",
+    )
+    assert second.version == 2
+    assert second.skill_version == "1.1.0"
+    assert second.agent_instance_id == str(employee.agent_instance_id)
+
+    other_ws = f"ws_{uuid4().hex[:8]}"
+    assert await workforce_repo.get_outcome_analysis_binding(other_ws, "project_outcome") is None

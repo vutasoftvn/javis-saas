@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "generated_at": "2026-09-25T14:28:04.027Z",
+  "generated_at": "2026-09-25T14:36:05.701Z",
   "groups": {
     "agent": {
-      "fingerprint": "bcf4dd75f5c0af880ba481a7a85e4f188cc6a3bbb324038839e441c173e11aaa",
+      "fingerprint": "a9eac3da0e8443571f984a49c02b3f12ad157a752ee42a9b25a3eb6d3be3dc7e",
       "schemas": [
         "agent",
         "agent_artifact",
@@ -13,7 +13,7 @@
         "knowledge",
         "models"
       ],
-      "tables_count": 53,
+      "tables_count": 56,
       "enums": [],
       "tables": {
         "agent.agent_skill_candidates": {
@@ -2093,6 +2093,276 @@
             {
               "name": "local_ingestion_events_pkey",
               "definition": "CREATE UNIQUE INDEX local_ingestion_events_pkey ON agent.local_ingestion_events USING btree (event_id)"
+            }
+          ]
+        },
+        "agent.local_upload_tickets": {
+          "schema": "agent",
+          "name": "local_upload_tickets",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "workspace_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "upload_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "secret_hash",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "max_bytes",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "expires_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "quarantine_relative_path",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "local_upload_tickets_pkey",
+            "columns": [
+              "workspace_id",
+              "upload_id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [],
+          "check_constraints": [
+            {
+              "name": "local_upload_tickets_max_bytes_check",
+              "clause": "((max_bytes > 0))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_local_upload_tickets_expires",
+              "definition": "CREATE INDEX idx_local_upload_tickets_expires ON agent.local_upload_tickets USING btree (expires_at)"
+            },
+            {
+              "name": "local_upload_tickets_pkey",
+              "definition": "CREATE UNIQUE INDEX local_upload_tickets_pkey ON agent.local_upload_tickets USING btree (workspace_id, upload_id)"
+            }
+          ]
+        },
+        "agent.outcome_analysis_bindings": {
+          "schema": "agent",
+          "name": "outcome_analysis_bindings",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "workspace_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "analysis_kind",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "analyst_employee_id",
+              "type": "uuid",
+              "udt": "uuid",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "analyst_assignment_id",
+              "type": "uuid",
+              "udt": "uuid",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "policy",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "skill_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "skill_version",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "definition_hash",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "version",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": "1",
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "updated_by",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "outcome_analysis_bindings_pkey",
+            "columns": [
+              "workspace_id",
+              "analysis_kind"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "outcome_analysis_bindings_analyst_assignment_id_fkey",
+              "columns": [
+                "analyst_assignment_id"
+              ],
+              "foreign_table": "agent.workforce_assignments",
+              "foreign_columns": [
+                "assignment_id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "NO ACTION"
+            },
+            {
+              "name": "outcome_analysis_bindings_analyst_employee_id_fkey",
+              "columns": [
+                "analyst_employee_id"
+              ],
+              "foreign_table": "agent.workforce_employees",
+              "foreign_columns": [
+                "agent_instance_id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "NO ACTION"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "outcome_analysis_bindings_pkey",
+              "definition": "CREATE UNIQUE INDEX outcome_analysis_bindings_pkey ON agent.outcome_analysis_bindings USING btree (workspace_id, analysis_kind)"
             }
           ]
         },
@@ -5462,6 +5732,137 @@
             {
               "name": "workforce_employees_workspace_id_employee_code_key",
               "definition": "CREATE UNIQUE INDEX workforce_employees_workspace_id_employee_code_key ON agent.workforce_employees USING btree (workspace_id, employee_code)"
+            }
+          ]
+        },
+        "agent.workforce_schedules": {
+          "schema": "agent",
+          "name": "workforce_schedules",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "schedule_id",
+              "type": "uuid",
+              "udt": "uuid",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "workspace_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "name",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "functional_key",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "cron_expression",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "input_payload",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'{}'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "configured_by",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'ACTIVE'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "retired_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "workforce_schedules_pkey",
+            "columns": [
+              "schedule_id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [],
+          "check_constraints": [
+            {
+              "name": "workforce_schedules_status_check",
+              "clause": "((status = ANY (ARRAY['ACTIVE'::text, 'RETIRED'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_workforce_schedules_workspace_status",
+              "definition": "CREATE INDEX idx_workforce_schedules_workspace_status ON agent.workforce_schedules USING btree (workspace_id, status, created_at)"
+            },
+            {
+              "name": "workforce_schedules_pkey",
+              "definition": "CREATE UNIQUE INDEX workforce_schedules_pkey ON agent.workforce_schedules USING btree (schedule_id)"
             }
           ]
         },
