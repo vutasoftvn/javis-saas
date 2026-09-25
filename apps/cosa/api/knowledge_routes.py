@@ -75,8 +75,8 @@ async def create_knowledge_upload(
     # Create control-plane record via services/cosa
     execution_plane_url = resolve_execution_plane_url()
     try:
-        # Use member bearer token for public endpoint
-        token = identity.bearer_token
+        # Control-plane delegation (services/cosa không verify được local session)
+        token = identity.control_plane_token_or_403()
         # Use injected client if available, else create one
         http_client = getattr(request.app.state, "cosa_document_ingestion_client", None)
         should_close = False
@@ -257,8 +257,8 @@ async def review_knowledge_ingestion(
 
     execution_plane_url = resolve_execution_plane_url()
     try:
-        # Use member bearer token for member-only review endpoint
-        token = identity.bearer_token
+        # Control-plane delegation (services/cosa không verify được local session)
+        token = identity.control_plane_token_or_403()
 
         # Map Python-side decision to TS-side decision
         ts_decision = "PUBLISHED" if payload.decision == "publish_reference" else "REJECTED"

@@ -133,7 +133,7 @@ async def list_settings_skills(
 
     try:
         policies = await plane.workspace_settings_client.list_policies(
-            workspace_id=identity.workspace_id, bearer_token=identity.bearer_token
+            workspace_id=identity.workspace_id, bearer_token=identity.control_plane_token_or_403()
         )
     except WorkspaceSettingsClientError as exc:
         logger.exception("workspace settings control plane unavailable")
@@ -188,13 +188,13 @@ async def update_settings_skill(
             skill_key=skill_key,
             enabled=enabled,
             config=config,
-            bearer_token=identity.bearer_token,
+            bearer_token=identity.control_plane_token_or_403(),
         )
         # Read-after-write: KHÔNG tin thẳng response của chính PUT — đọc lại
         # từ control plane để trả giá trị đã thật sự persist (đúng yêu cầu
         # "không echo body thành success").
         policies_after = await plane.workspace_settings_client.list_policies(
-            workspace_id=identity.workspace_id, bearer_token=identity.bearer_token
+            workspace_id=identity.workspace_id, bearer_token=identity.control_plane_token_or_403()
         )
     except WorkspaceSettingsClientError as exc:
         logger.exception("workspace settings control plane unavailable")

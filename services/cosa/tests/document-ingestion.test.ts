@@ -1,3 +1,4 @@
+import jwt from "jsonwebtoken";
 import { describe, it, expect, beforeEach } from "vitest";
 import { APIError } from "encore.dev/api";
 import { signWorkerServiceToken } from "../services/token.service";
@@ -111,6 +112,43 @@ describe("Document Ingestion Lifecycle", () => {
           authorization: `Bearer ${userToken}`,
         })
       ).rejects.toThrow();
+    });
+
+    it("accepts a control-plane delegation from apps/cosa scoped to the organization", async () => {
+      // apps/cosa (knowledge_routes) gọi endpoint này bằng delegation có dấu
+      // chấm — trước đây resolveCallerIdentity từ chối mọi token dạng JWT.
+      const secret = "test-control-delegation-secret-min-32-chars";
+      const original = process.env.COSA_CONTROL_DELEGATION_SECRET;
+      process.env.COSA_CONTROL_DELEGATION_SECRET = secret;
+      try {
+        const sign = (organizationId: string) =>
+          jwt.sign({ sub: "user-alice", workspace_id: organizationId, role: "member" }, secret, {
+            audience: "cosa_control",
+            issuer: "cosa_apps",
+            expiresIn: "10m",
+          });
+
+        const created = await createDocumentIngestionEndpoint({
+          organizationId: "ws-test-1",
+          originalFilename: "document.md",
+          declaredMediaType: "text/markdown",
+          idempotencyKey: "delegation-key-1",
+          authorization: `Bearer ${sign("ws-test-1")}`,
+        });
+        expect(created.id).toBeDefined();
+
+        await expect(
+          createDocumentIngestionEndpoint({
+            organizationId: "ws-test-1",
+            originalFilename: "document.md",
+            declaredMediaType: "text/markdown",
+            idempotencyKey: "delegation-key-2",
+            authorization: `Bearer ${sign("ws-test-other")}`,
+          })
+        ).rejects.toMatchObject({ code: "permission_denied" });
+      } finally {
+        process.env.COSA_CONTROL_DELEGATION_SECRET = original;
+      }
     });
 
     it("rejects worker service token on public endpoint", async () => {
@@ -445,7 +483,19 @@ describe("Document Ingestion Lifecycle", () => {
       current = await transitionDocumentIngestionForWorker(current.id, "claim_2", ["VALIDATING"], "CONVERTING", {});
       current = await transitionDocumentIngestionForWorker(current.id, "claim_3", ["CONVERTING"], "REVIEW_PENDING", {});
 
+      // Org khác không được duyệt tài liệu của ws-test-1 (IDOR).
+      await expect(
+        reviewDocumentIngestion({
+          organizationId: "ws-test-other",
+          ingestionId: current.id,
+          reviewerId: "user-intruder",
+          decision: "PUBLISHED",
+          reason: "cross-org",
+        })
+      ).rejects.toMatchObject({ code: "not_found" });
+
       const reviewed = await reviewDocumentIngestion({
+        organizationId: "ws-test-1",
         ingestionId: current.id,
         reviewerId: "user-reviewer",
         decision: "PUBLISHED",
@@ -475,6 +525,7 @@ describe("Document Ingestion Lifecycle", () => {
 
       await expect(
         reviewDocumentIngestion({
+          organizationId: "ws-test-1",
           ingestionId: completed.id,
           reviewerId: "user-reviewer",
           decision: "PUBLISHED",

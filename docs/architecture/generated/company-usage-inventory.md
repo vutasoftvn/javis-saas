@@ -6,7 +6,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | Lớp | Occurrences | Files |
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 112 | 22 |
-| VALID_KEEP (giữ nguyên) | 131 | 36 |
+| VALID_KEEP (giữ nguyên) | 132 | 37 |
 | REVIEW (chưa phân loại) | 1212 | 274 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
@@ -351,6 +351,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | landing/src/components/sections/EmailSubscribeForm.tsx | 1 |
 | landing/src/components/sections/FaqSection.tsx | 1 |
 | landing/src/lib/early-access.ts | 1 |
+| services/company/commercial/services/customer-engagement/connector-grant.client.ts | 1 |
 | services/company/commercial/services/customer-engagement/copilot-cosa-client.ts | 1 |
 | services/company/commercial/services/lead-field-definition.service.ts | 1 |
 | services/company/commercial/services/project-lead.service.ts | 1 |

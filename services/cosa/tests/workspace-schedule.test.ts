@@ -253,9 +253,34 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
         .where(eq(workspaceScheduleExecutions.definitionId, def.id));
       expect(executionsAfterNoop.length).toBe(1);
       expect(executionsAfterNoop[0].state).toBe("enqueue_failed");
+
     } finally {
       spy.mockRestore();
     }
+  });
+
+  it("refuses runScheduleNow for a legacy schedule without project scope", async () => {
+    const def = await scheduleSvc.createWorkspaceSchedule({
+      organizationId: "ws_1",
+      createdBy: "user_alice",
+      scheduleKind: "daily",
+      hour: 7,
+      minute: 0,
+      promptTemplate: "Legacy report",
+      projectId: "proj_test",
+    });
+    await db
+      .update(workspaceScheduleDefinitions)
+      .set({ projectId: null, isLegacyUnscoped: true })
+      .where(eq(workspaceScheduleDefinitions.id, def.id));
+
+    await expect(
+      scheduleSvc.runScheduleNow({
+        scheduleId: def.id,
+        organizationId: "ws_1",
+        principalId: "user_alice",
+      })
+    ).rejects.toMatchObject({ code: "failed_precondition" });
   });
 
   it("allows runScheduleNow to trigger immediate execution", async () => {

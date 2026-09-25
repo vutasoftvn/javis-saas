@@ -1,3 +1,5 @@
+import { getPlatformUrl } from "../../../identity/services/platform.client";
+
 export interface AssertConnectorGrantParams {
   workspaceId: string;
   conversationId: string;
@@ -27,10 +29,12 @@ export async function assertConnectorGrant(
     }
   }
 
-  const cosaBaseUrl = process.env.COSA_CONTROL_PLANE_URL || "http://127.0.0.1:4000";
   const workerServiceToken = process.env.COSA_WORKER_SERVICE_TOKEN || process.env.COSA_SERVICE_TOKEN || "local-dev-service-token";
 
   try {
+    // Control plane (services/cosa) chạy ở :4001 khi dev; mặc định cũ :4000 là
+    // chính services/company nên mọi assert đều 404 và fail closed.
+    const cosaBaseUrl = process.env.COSA_CONTROL_PLANE_URL || getPlatformUrl();
     const resp = await fetch(`${cosaBaseUrl}/cosa/connectors/assert`, {
       method: "POST",
       headers: {
@@ -38,7 +42,8 @@ export async function assertConnectorGrant(
         Authorization: `Bearer ${workerServiceToken}`,
       },
       body: JSON.stringify({
-        workspaceId: params.workspaceId,
+        // Endpoint /cosa/connectors/assert đã đổi sang organizationId (migration 007).
+        organizationId: params.workspaceId,
         conversationId: params.conversationId,
         connectorKey: params.connectorKey,
         action: params.action,

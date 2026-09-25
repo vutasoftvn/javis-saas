@@ -41,11 +41,13 @@ class FakeWorkspaceSettingsClient:
     def __init__(self) -> None:
         self._policies: dict[tuple[str, str], dict[str, Any]] = {}
         self.list_calls: list[str] = []
+        self.bearer_tokens: list[str] = []
         self.put_calls: list[dict[str, Any]] = []
         self.raise_unavailable = False
 
     async def list_policies(self, *, workspace_id: str, bearer_token: str) -> list[dict[str, Any]]:
         self.list_calls.append(workspace_id)
+        self.bearer_tokens.append(bearer_token)
         if self.raise_unavailable:
             raise WorkspaceSettingsClientError("control plane unreachable (fake)")
         return [p for (ws, _), p in self._policies.items() if ws == workspace_id]
@@ -60,7 +62,12 @@ class FakeWorkspaceSettingsClient:
         bearer_token: str,
     ) -> dict[str, Any]:
         self.put_calls.append(
-            {"workspace_id": workspace_id, "skill_key": skill_key, "enabled": enabled, "config": config}
+            {
+                "workspace_id": workspace_id,
+                "skill_key": skill_key,
+                "enabled": enabled,
+                "config": config,
+            }
         )
         if self.raise_unavailable:
             raise WorkspaceSettingsClientError("control plane unreachable (fake)")
@@ -154,7 +161,32 @@ async def test_skill_settings_shows_truthful_source(test_app) -> None:
 
 
 @pytest.mark.asyncio
-async def test_skill_settings_registry_unavailable_returns_503_not_fake_empty_list(test_app) -> None:
+async def test_skill_settings_calls_control_plane_with_delegation_not_local_session(
+    test_app, fake_settings_client: FakeWorkspaceSettingsClient
+) -> None:
+    """services/cosa không verify được local session (JWT_SECRET) — gửi thẳng
+    bearer gốc làm GET/PUT luôn 503 ngoài đời thật (cùng loại lỗi B5)."""
+    import jwt
+
+    override_authenticated_identity(test_app, workspace_id="ws_1001", role_id="founder")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app),
+        base_url="http://test",
+    ) as client:
+        res = await client.get("/agent/settings/skills")
+        assert res.status_code == 200
+
+    token = fake_settings_client.bearer_tokens[-1]
+    assert token != "test-bearer-token"
+    claims = jwt.decode(token, options={"verify_signature": False})
+    assert claims["aud"] == "cosa_control"
+    assert claims["workspace_id"] == "ws_1001"
+
+
+@pytest.mark.asyncio
+async def test_skill_settings_registry_unavailable_returns_503_not_fake_empty_list(
+    test_app,
+) -> None:
     """Đây là bug đã phát hiện: registry lỗi trước đây bị nuốt (`except
     Exception: pass`) rồi trả `200 {data: [], source: agent_db}` — coi lỗi
     là "chưa có skill nào". Giờ PHẢI trả 503, không bao giờ echo thành công

@@ -54,6 +54,7 @@ async def authorize_connector(
         resp = await client.post(
             f"{control_plane_url}/cosa/connectors/authorize",
             json={
+                "organizationId": identity.workspace_id,
                 "installationId": body.installation_id,
                 "secretRef": body.secret_ref,
                 "grantedScopes": body.granted_scopes,
@@ -74,16 +75,19 @@ async def grant_connector(
 ):
     control_plane_url = resolve_platform_control_plane_url()
     token = f"Bearer {identity.mint_control_plane_delegation()}"
+    grant_payload: dict[str, object] = {
+        "organizationId": identity.workspace_id,
+        "conversationId": body.conversation_id,
+        "authorizationId": body.authorization_id,
+        "allowedActions": body.allowed_actions,
+    }
+    # Encore từ chối literal null cho field optional — bỏ hẳn key khi không có hạn.
+    if body.expires_at is not None:
+        grant_payload["expiresAt"] = body.expires_at.isoformat()
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(
             f"{control_plane_url}/cosa/connectors/grant",
-            json={
-                "organizationId": identity.workspace_id,
-                "conversationId": body.conversation_id,
-                "authorizationId": body.authorization_id,
-                "allowedActions": body.allowed_actions,
-                "expiresAt": body.expires_at.isoformat() if body.expires_at else None,
-            },
+            json=grant_payload,
             headers={"Authorization": token},
         )
         if resp.status_code != 200:
