@@ -240,7 +240,12 @@ async def execute_run_task(
                     run_id=run_id,
                     conversation_id=conversation_id,
                     event_type="run.failed",
-                    payload={"error": "project_team_authority_denied", "details": str(exc)},
+                    # Không đưa str(exc) ra stream: nó chứa thân response thô của
+                    # Company. Chỉ trả status code đã phân loại; chi tiết nằm ở log.
+                    payload={
+                        "error": "project_team_authority_denied",
+                        "status_code": exc.status_code,
+                    },
                     activity_service=getattr(plane, "project_activity_service", None),
                     workspace_id=workspace_id,
                     project_id=project_id,
@@ -271,6 +276,21 @@ async def execute_run_task(
 
         local_spec = _AGENT_PROFILE_SPECS.get(agent_profile)
         if not local_spec:
+            # Profile có trong startup-team nhưng không có spec (vd. `crm`):
+            # phải phát run.failed, nếu không client chờ stream mãi.
+            conversation_id = payload.get("conversation_id")
+            stream_repo = getattr(plane, "stream_event_repository", None)
+            if stream_repo and conversation_id and stream_mgr:
+                await stream_mgr.emit(
+                    stream_repo,
+                    run_id=run_id,
+                    conversation_id=conversation_id,
+                    event_type="run.failed",
+                    payload={"error": "unknown_agent_profile"},
+                    activity_service=getattr(plane, "project_activity_service", None),
+                    workspace_id=workspace_id,
+                    project_id=project_id,
+                )
             return RunTaskResult(status="failed", error="unknown_agent_profile", run_id=run_id)
 
         if (
@@ -993,19 +1013,47 @@ async def execute_resume_task(
             return
 
     _resume_start = time.monotonic()
-    async with trace_span(
-        "kernel.resume",
-        attributes={
-            "run_id": run_id,
-            "checkpoint_ref": checkpoint_ref,
-            "workspace_id": workspace_id,
-        },
-    ):
-        res = await plane.kernel.resume(
+    try:
+        async with trace_span(
+            "kernel.resume",
+            attributes={
+                "run_id": run_id,
+                "checkpoint_ref": checkpoint_ref,
+                "workspace_id": workspace_id,
+            },
+        ):
+            res = await plane.kernel.resume(
+                run_id=run_id,
+                checkpoint_ref=checkpoint_ref,
+                updates=resume_updates,
+            )
+    except Exception:
+        # Cùng quy tắc Task 6 như `_execute_run_task_inner`: không đưa exception
+        # thô ra client, nhưng PHẢI phát run.failed — trước đây lỗi ở đây rò
+        # ra worker, client chờ stream mãi.
+        record_run_outcome("failed", duration_sec=time.monotonic() - _resume_start)
+        logger.exception("agent resume failed", extra={"run_id": run_id})
+        if conversation_id != "unknown":
+            await _append_message(
+                plane,
+                conversation_id=conversation_id,
+                role="assistant",
+                content="Đã xảy ra lỗi không mong muốn khi tiếp tục run sau khi duyệt. Vui lòng thử lại.",
+                run_id=run_id,
+                status_="failed",
+                project_id=project_id,
+            )
+        await stream_mgr.emit(
+            stream_repo,
             run_id=run_id,
-            checkpoint_ref=checkpoint_ref,
-            updates=resume_updates,
+            conversation_id=conversation_id,
+            event_type="run.failed",
+            payload={"error": "internal_error"},
+            activity_service=getattr(plane, "project_activity_service", None),
+            workspace_id=workspace_id,
+            project_id=project_id,
         )
+        return
     _resume_duration = time.monotonic() - _resume_start
 
     if getattr(res, "usage", None):
@@ -1063,6 +1111,50 @@ async def execute_resume_task(
             await advance_wga_task_after_resume(
                 plane, run_id=run_id, workspace_id=workspace_id, sub=_sub
             )
+
+    elif res.status == RunStatus.WAITING_APPROVAL:
+        # Bước kế tiếp sau khi resume lại cần duyệt: phát approval.required như
+        # lần chạy đầu, nếu không UI không biết có approval mới và run treo.
+        record_run_outcome("waiting_approval", duration_sec=_resume_duration)
+        wait_desc = res.interruptions_waits[0] if res.interruptions_waits else None
+        await stream_mgr.emit(
+            stream_repo,
+            run_id=run_id,
+            conversation_id=conversation_id,
+            event_type="approval.required",
+            payload={
+                "approval_id": wait_desc.related_ref if wait_desc else None,
+                "checkpoint_ref": wait_desc.checkpoint_ref if wait_desc else None,
+                "reason": wait_desc.reason if wait_desc else "Approval required",
+            },
+            activity_service=getattr(plane, "project_activity_service", None),
+            workspace_id=workspace_id,
+            project_id=project_id,
+        )
+
+    else:
+        record_run_outcome("failed", duration_sec=_resume_duration)
+        err_msg = res.errors[0] if res.errors else "Run failed"
+        if conversation_id != "unknown":
+            await _append_message(
+                plane,
+                conversation_id=conversation_id,
+                role="assistant",
+                content=f"Error: {err_msg}",
+                run_id=run_id,
+                status_="failed",
+                project_id=project_id,
+            )
+        await stream_mgr.emit(
+            stream_repo,
+            run_id=run_id,
+            conversation_id=conversation_id,
+            event_type="run.failed",
+            payload={"error": err_msg},
+            activity_service=getattr(plane, "project_activity_service", None),
+            workspace_id=workspace_id,
+            project_id=project_id,
+        )
 
 
 async def _report_schedule_execution_complete(

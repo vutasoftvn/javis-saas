@@ -46,7 +46,7 @@ async def test_customer_360_read_with_identity_verified_true():
 
     def mock_handler(request: httpx.Request) -> httpx.Response:
         captured_requests.append(request)
-        if request.url.path == "/commercial/engagement/customer360/c_123":
+        if request.url.path == "/commercial/engagement/contacts/c_123/360":
             return httpx.Response(
                 200,
                 json={
