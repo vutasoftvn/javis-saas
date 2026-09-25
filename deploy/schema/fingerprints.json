@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "generated_at": "2026-09-25T14:24:34.068Z",
+  "generated_at": "2026-09-25T14:28:04.027Z",
   "groups": {
     "agent": {
-      "fingerprint": "e4d27fe0683a0247d9601c929c4709d3da1c7b027f298e91489b69a092c01c19",
+      "fingerprint": "bcf4dd75f5c0af880ba481a7a85e4f188cc6a3bbb324038839e441c173e11aaa",
       "schemas": [
         "agent",
         "agent_artifact",
@@ -13,7 +13,7 @@
         "knowledge",
         "models"
       ],
-      "tables_count": 51,
+      "tables_count": 53,
       "enums": [],
       "tables": {
         "agent.agent_skill_candidates": {
@@ -1776,6 +1776,323 @@
             {
               "name": "uq_agent_idempotency_claims_scope",
               "definition": "CREATE UNIQUE INDEX uq_agent_idempotency_claims_scope ON agent.idempotency_claims USING btree (scope_kind, scope_key, capability_id, idempotency_key)"
+            }
+          ]
+        },
+        "agent.local_ingestion_attempts": {
+          "schema": "agent",
+          "name": "local_ingestion_attempts",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "workspace_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "upload_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "state",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'QUEUED'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "quarantine_relative_path",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "declared_media_type",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "detected_media_type",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "source_sha256",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "size_bytes",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "claim_token_hash",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "knowledge_source_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "manifest_json",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "vault_document_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "vault_version_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "failure_code",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_by",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "local_ingestion_attempts_pkey",
+            "columns": [
+              "workspace_id",
+              "upload_id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [],
+          "check_constraints": [
+            {
+              "name": "local_ingestion_attempts_size_bytes_check",
+              "clause": "(((size_bytes IS NULL) OR (size_bytes >= 0)))"
+            },
+            {
+              "name": "local_ingestion_attempts_state_check",
+              "clause": "((state = ANY (ARRAY['QUEUED'::text, 'VALIDATING'::text, 'CONVERTING'::text, 'REVIEW_PENDING'::text, 'PUBLISHED'::text, 'REJECTED'::text, 'FAILED'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_local_ingestion_attempts_state",
+              "definition": "CREATE INDEX idx_local_ingestion_attempts_state ON agent.local_ingestion_attempts USING btree (workspace_id, state, updated_at DESC)"
+            },
+            {
+              "name": "local_ingestion_attempts_pkey",
+              "definition": "CREATE UNIQUE INDEX local_ingestion_attempts_pkey ON agent.local_ingestion_attempts USING btree (workspace_id, upload_id)"
+            }
+          ]
+        },
+        "agent.local_ingestion_events": {
+          "schema": "agent",
+          "name": "local_ingestion_events",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "event_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": "nextval('agent.local_ingestion_events_event_id_seq'::regclass)",
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "upload_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "old_state",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "new_state",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "reason",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "local_ingestion_events_pkey",
+            "columns": [
+              "event_id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "fk_local_ingestion_events_attempt",
+              "columns": [
+                "workspace_id",
+                "upload_id"
+              ],
+              "foreign_table": "agent.local_ingestion_attempts",
+              "foreign_columns": [
+                "workspace_id",
+                "upload_id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "idx_local_ingestion_events_attempt",
+              "definition": "CREATE INDEX idx_local_ingestion_events_attempt ON agent.local_ingestion_events USING btree (workspace_id, upload_id, created_at)"
+            },
+            {
+              "name": "local_ingestion_events_pkey",
+              "definition": "CREATE UNIQUE INDEX local_ingestion_events_pkey ON agent.local_ingestion_events USING btree (event_id)"
             }
           ]
         },
