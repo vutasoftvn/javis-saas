@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 114 | 24 |
 | VALID_KEEP (giữ nguyên) | 139 | 38 |
-| REVIEW (chưa phân loại) | 1292 | 289 |
+| REVIEW (chưa phân loại) | 1297 | 289 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -48,10 +48,10 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/shared/auth/cosa-delegation.service.ts | 24 |
 | apps/cosa/api/workforce_routes.py | 22 |
 | packages/agent/workforce/repository.py | 22 |
+| apps/cosa/worker/wga_run.py | 21 |
 | apps/cosa/worker/copilot_run.py | 20 |
 | apps/cosa/auth/dependency.py | 19 |
 | apps/cosa/project_activity/company_event_projector.py | 18 |
-| apps/cosa/worker/wga_run.py | 18 |
 | services/company/shared/auth/ai-governance-snapshot-verification.ts | 16 |
 | apps/cosa/api/project_context.py | 15 |
 | apps/cosa/capabilities/startup_os_onboard.py | 15 |
@@ -109,6 +109,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/authorization/live_authorizer.py | 5 |
 | apps/cosa/capabilities/engagement_message_send.py | 5 |
 | apps/cosa/capabilities/marketing_write.py | 5 |
+| apps/cosa/capabilities/operations_write.py | 5 |
 | apps/cosa/capabilities/project_crm_read.py | 5 |
 | apps/cosa/capabilities/workspace_context_read.py | 5 |
 | apps/cosa/events/automation_outcome_client.py | 5 |
@@ -152,7 +153,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/capabilities/data_governance_read.py | 3 |
 | apps/cosa/capabilities/finance_read.py | 3 |
 | apps/cosa/capabilities/legal_issue_read.py | 3 |
-| apps/cosa/capabilities/operations_write.py | 3 |
 | apps/cosa/capabilities/people_risk_read.py | 3 |
 | apps/cosa/capabilities/product_decision_read.py | 3 |
 | apps/cosa/capabilities/security_posture_read.py | 3 |

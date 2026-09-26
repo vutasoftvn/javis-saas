@@ -92,7 +92,7 @@ describe("listAgentClaimableTasksService", () => {
     // complete "first"
     const firstTaskId = claimable[0]!.taskId;
     await advanceTaskByAgentService({ taskId: firstTaskId, toStatus: "in_progress", runId: "r" }, ctxFor(s.workspaceId));
-    await advanceTaskByAgentService({ taskId: firstTaskId, toStatus: "done", runId: "r" }, ctxFor(s.workspaceId));
+    await advanceTaskByAgentService({ taskId: firstTaskId, toStatus: "done", runId: "r", evidenceRefs: ["artifact:a1"] }, ctxFor(s.workspaceId));
 
     claimable = await listAgentClaimableTasksService(s.workspaceId, 10, s.auth);
     expect(claimable.map((t) => t.title)).toEqual(["second"]);

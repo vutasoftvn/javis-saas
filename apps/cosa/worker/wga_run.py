@@ -20,12 +20,14 @@ v1 boundary (xem spec §15.2c):
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import logging
 import os
 import re
 import uuid
 from typing import Any
 
+from agent.artifacts import WorkspaceArtifact
 from agent.contracts.run import RunStatus
 from agent.conversations.models import MessageRecord
 
@@ -51,6 +53,8 @@ __all__ = [
     "advance_wga_task_after_resume",
     "execute_goal_decomposition_task",
     "execute_workspace_task_sweep_task",
+    "finalize_wga_task_completion",
+    "record_wga_task_evidence",
 ]
 
 # run_id của task-execution run trong sweep: wga_task_<task_id>_<hex>
@@ -85,16 +89,62 @@ async def _advance_task(
     run_id: str,
     token: str,
     note: str | None = None,
-) -> None:
+    evidence_refs: list[str] | None = None,
+) -> bool:
+    """Gọi operations.task.advance. Trả False nếu company từ chối (không raise —
+    caller quyết định fallback)."""
     body: dict[str, Any] = {"toStatus": to_status, "runId": run_id}
     if note:
         body["note"] = note[:500]
-    with contextlib.suppress(CompanyServiceError):
+    if evidence_refs:
+        body["evidenceRefs"] = evidence_refs
+    try:
         await plane.company_client.post(
             f"/operations/tasks/{task_id}/advance",
             json=body,
             headers={"X-Workspace-Id": workspace_id, "Authorization": f"Bearer {token}"},
         )
+    except CompanyServiceError as exc:
+        logger.warning("advance task=%s to=%s run=%s rejected: %s", task_id, to_status, run_id, exc)
+        return False
+    return True
+
+
+async def record_wga_task_evidence(
+    plane: CosaAgentPlane,
+    *,
+    workspace_id: str,
+    run_id: str,
+    output_text: str,
+) -> list[str]:
+    """Lưu output của task run thành WorkspaceArtifact và trả evidenceRefs.
+
+    Company chỉ cho agent đóng task khi có ≥1 evidence (IA22/IA23). Không có
+    output hoặc lưu artifact thất bại -> trả [] để task giữ `completion_pending`
+    (run hoàn tất chưa mặc nhiên là task hoàn tất — R2/F05), không bịa evidence.
+    """
+    text = (output_text or "").strip()
+    repo = getattr(plane, "artifact_repository", None)
+    if not text or repo is None:
+        return []
+    data = text.encode("utf-8")
+    try:
+        artifact = WorkspaceArtifact(
+            workspace_id=workspace_id,
+            conversation_id=f"wga_task_{run_id}",
+            run_id=run_id,
+            artifact_kind="report",
+            display_name="WGA task output",
+            media_type="text/plain",
+            object_ref=f"artifact://run/{run_id}/task-output",
+            checksum=hashlib.sha256(data).hexdigest(),
+            size_bytes=len(data),
+        )
+        await repo.create(artifact)
+    except Exception as exc:
+        logger.warning("record task evidence failed run=%s: %s", run_id, exc)
+        return []
+    return [f"artifact:{artifact.artifact_id}", f"run:{run_id}"]
 
 
 async def finalize_wga_task_completion(
@@ -104,53 +154,52 @@ async def finalize_wga_task_completion(
     task_id: str,
     run_id: str,
     token: str,
+    evidence_refs: list[str] | None = None,
+    summary: str | None = None,
     note: str = "completion_pending",
 ) -> None:
     """Finalizer chung cho task WGA khi run hoàn tất (cả initial lẫn resumed).
 
-    Gọi S3 validateTaskCompletion nếu endpoint có sẵn; trong giai đoạn chưa deploy
-    S3 endpoint, giữ task 'in_progress' kèm completion_pending, không advance('done')
-    trực tiếp (theo R2 / F05: 'Run hoàn tất chưa mặc nhiên là task hoặc KR hoàn tất').
+    Có evidence -> advance('done') kèm evidenceRefs (company kiểm tra lại).
+    Không có evidence hoặc company từ chối -> giữ 'in_progress' + completion_pending
+    để founder xác nhận (R2 / F05: run hoàn tất chưa mặc nhiên là task hoàn tất).
     """
-    validated = False
-    try:
-        resp = await plane.company_client.post(
-            f"/operations/tasks/{task_id}/validate-completion",
-            json={"taskId": task_id},
-            headers={"X-Workspace-Id": workspace_id, "Authorization": f"Bearer {token}"},
-        )
-        if isinstance(resp, dict) and resp.get("status") in ("done", "completed"):
-            validated = True
-    except Exception:
-        validated = False
-
-    if validated:
-        await _advance_task(
+    if evidence_refs:
+        done = await _advance_task(
             plane,
             workspace_id=workspace_id,
             task_id=task_id,
             to_status="done",
             run_id=run_id,
             token=token,
-            note="validated_completion",
+            note=(summary or "completed_with_evidence"),
+            evidence_refs=evidence_refs,
         )
-    else:
-        await _advance_task(
-            plane,
-            workspace_id=workspace_id,
-            task_id=task_id,
-            to_status="in_progress",
-            run_id=run_id,
-            token=token,
-            note=note or "completion_pending",
-        )
+        if done:
+            return
+        note = "completion_rejected"
+
+    await _advance_task(
+        plane,
+        workspace_id=workspace_id,
+        task_id=task_id,
+        to_status="in_progress",
+        run_id=run_id,
+        token=token,
+        note=note or "completion_pending",
+    )
 
 
 async def advance_wga_task_after_resume(
-    plane: CosaAgentPlane, *, run_id: str, workspace_id: str | None, sub: str
+    plane: CosaAgentPlane,
+    *,
+    run_id: str,
+    workspace_id: str | None,
+    sub: str,
+    output_text: str = "",
 ) -> None:
     """Sau khi founder duyệt checkpoint và `execute_resume_task` chạy xong
-    (COMPLETED), gọi finalizer chung thay vì advance(done) trực tiếp."""
+    (COMPLETED), lưu evidence từ output rồi gọi finalizer chung."""
     m = _WGA_TASK_RUN_RE.match(run_id or "")
     if not m or not workspace_id:
         return
@@ -161,13 +210,18 @@ async def advance_wga_task_after_resume(
         run_id=run_id,
         capability_ids=[_CAP_TASK_ADVANCE],
     )
+    evidence = await record_wga_task_evidence(
+        plane, workspace_id=workspace_id, run_id=run_id, output_text=output_text
+    )
     await finalize_wga_task_completion(
         plane,
         workspace_id=workspace_id,
         task_id=task_id,
         run_id=run_id,
         token=token,
-        note="hoàn tất sau khi founder duyệt",
+        evidence_refs=evidence,
+        summary=output_text.strip()[:500] or None,
+        note="hoàn tất sau khi founder duyệt — chờ xác nhận",
     )
 
 
@@ -407,12 +461,18 @@ async def execute_workspace_task_sweep_task(
         run_result, _ = await run_kernel(plane, prep, workspace_id=workspace_id, run_id=task_run_id)
 
         if run_result.status == RunStatus.COMPLETED:
+            output_text = _extract_text(run_result)
+            evidence = await record_wga_task_evidence(
+                plane, workspace_id=workspace_id, run_id=task_run_id, output_text=output_text
+            )
             await finalize_wga_task_completion(
                 plane,
                 workspace_id=workspace_id,
                 task_id=task_id,
                 run_id=task_run_id,
                 token=adv_token,
+                evidence_refs=evidence,
+                summary=output_text.strip()[:500] or None,
                 note="completion_pending",
             )
         elif run_result.status == RunStatus.WAITING_APPROVAL:

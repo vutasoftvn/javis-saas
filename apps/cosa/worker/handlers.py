@@ -923,7 +923,11 @@ async def execute_resume_task(
         with contextlib.suppress(Exception):
             _sub = str(payload.get("principal") or "0").split(":")[-1]
             await advance_wga_task_after_resume(
-                plane, run_id=run_id, workspace_id=workspace_id, sub=_sub
+                plane,
+                run_id=run_id,
+                workspace_id=workspace_id,
+                sub=_sub,
+                output_text=output_text,
             )
 
     elif res.status == RunStatus.WAITING_APPROVAL:

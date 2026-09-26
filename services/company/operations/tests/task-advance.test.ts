@@ -67,7 +67,7 @@ describe("advanceTaskByAgentService", () => {
   it("advances an AI-assigned task in_progress -> done and emits task.completed", async () => {
     const { workspaceId, taskId } = await seedTask({ assignee: "ai", status: "in_progress" });
     const r = await advanceTaskByAgentService(
-      { taskId, toStatus: "done", runId: "run_1" },
+      { taskId, toStatus: "done", runId: "run_1", evidenceRefs: ["artifact:a1"] },
       ctxFor(workspaceId)
     );
     expect(r.status).toBe("done");
@@ -97,7 +97,7 @@ describe("advanceTaskByAgentService", () => {
     );
     expect(w.status).toBe("waiting_approval");
     const d = await advanceTaskByAgentService(
-      { taskId, toStatus: "done", runId: "wga_task_1_abcd" },
+      { taskId, toStatus: "done", runId: "wga_task_1_abcd", evidenceRefs: ["artifact:a1"] },
       ctxFor(workspaceId)
     );
     expect(d.status).toBe("done");
@@ -106,22 +106,44 @@ describe("advanceTaskByAgentService", () => {
   it("rejects advancing a human-assigned task", async () => {
     const { workspaceId, taskId } = await seedTask({ assignee: "human", status: "in_progress" });
     await expect(
-      advanceTaskByAgentService({ taskId, toStatus: "done", runId: "r" }, ctxFor(workspaceId))
+      advanceTaskByAgentService(
+        { taskId, toStatus: "done", runId: "r", evidenceRefs: ["artifact:a1"] },
+        ctxFor(workspaceId)
+      )
     ).rejects.toThrow(/AI member/);
   });
 
   it("rejects advancing a task with no assignee", async () => {
     const { workspaceId, taskId } = await seedTask({ assignee: "none", status: "in_progress" });
     await expect(
-      advanceTaskByAgentService({ taskId, toStatus: "done", runId: "r" }, ctxFor(workspaceId))
+      advanceTaskByAgentService(
+        { taskId, toStatus: "done", runId: "r", evidenceRefs: ["artifact:a1"] },
+        ctxFor(workspaceId)
+      )
     ).rejects.toThrow(/AI member/);
   });
 
   it("rejects done from todo", async () => {
     const { workspaceId, taskId } = await seedTask({ assignee: "ai", status: "todo" });
     await expect(
+      advanceTaskByAgentService(
+        { taskId, toStatus: "done", runId: "r", evidenceRefs: ["artifact:a1"] },
+        ctxFor(workspaceId)
+      )
+    ).rejects.toThrow(/không thể hoàn thành/);
+  });
+
+  it("rejects done without evidence (blank refs count as none)", async () => {
+    const { workspaceId, taskId } = await seedTask({ assignee: "ai", status: "in_progress" });
+    await expect(
       advanceTaskByAgentService({ taskId, toStatus: "done", runId: "r" }, ctxFor(workspaceId))
-    ).rejects.toThrow();
+    ).rejects.toThrow(/evidenceRefs/);
+    await expect(
+      advanceTaskByAgentService(
+        { taskId, toStatus: "done", runId: "r", evidenceRefs: ["  "] },
+        ctxFor(workspaceId)
+      )
+    ).rejects.toThrow(/evidenceRefs/);
   });
 
   it("rejects an out-of-range status", async () => {

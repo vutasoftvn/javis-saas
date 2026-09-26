@@ -499,6 +499,8 @@ export interface AdvanceTaskByAgentParams {
   toStatus: AgentAdvanceStatus;
   runId: string;
   note?: string;
+  /** Bắt buộc (≥1 ref không rỗng) khi toStatus='done' — xem IA22/IA23. */
+  evidenceRefs?: string[];
 }
 
 /**
@@ -520,6 +522,20 @@ export async function advanceTaskByAgentService(
   }
   if (!params.runId || !params.runId.trim()) {
     throw APIError.invalidArgument("runId là bắt buộc");
+  }
+
+  // Cùng chính sách với validateTaskCompletion (IA22/IA23): agent không được
+  // đóng task mà không có bằng chứng. Trước đây run nền WGA gọi một endpoint
+  // validate-completion không tồn tại nên task không bao giờ tới 'done' và
+  // mọi task phụ thuộc bị kẹt; nay agent gửi evidence thẳng qua advance.
+  const evidenceRefs = (params.evidenceRefs ?? [])
+    .filter((ref): ref is string => typeof ref === "string")
+    .map((ref) => ref.trim())
+    .filter((ref) => ref.length > 0);
+  if (params.toStatus === "done" && evidenceRefs.length === 0) {
+    throw APIError.invalidArgument(
+      "Task completion requires at least one non-blank evidence reference (evidenceRefs)"
+    );
   }
 
   const wsId = BigInt(ctx.workspaceId);
@@ -570,7 +586,15 @@ export async function advanceTaskByAgentService(
       capabilityId: "operations.task.advance",
       triggeredByKind: "agent",
       status: params.toStatus === "blocked" ? "FAILED" : "SUCCESS",
-      errorDetails: params.note ? { note: params.note } : null,
+      // error_details là cột jsonb chung của bản ghi — lưu cả evidence để truy
+      // vết task được đóng dựa trên kết quả nào (không cần migration).
+      errorDetails:
+        params.note || evidenceRefs.length > 0
+          ? {
+              ...(params.note ? { note: params.note } : {}),
+              ...(evidenceRefs.length > 0 ? { evidenceRefs } : {}),
+            }
+          : null,
     });
 
     const t = toTask(updated!);

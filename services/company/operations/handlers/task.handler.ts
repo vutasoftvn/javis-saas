@@ -136,6 +136,7 @@ export const advanceTask = api(
     toStatus,
     runId,
     note,
+    evidenceRefs,
     workspaceId,
     authorization,
   }: {
@@ -143,6 +144,7 @@ export const advanceTask = api(
     toStatus: AgentAdvanceStatus;
     runId: string;
     note?: string;
+    evidenceRefs?: string[];
     workspaceId: Header<"X-Workspace-Id">;
     authorization?: Header<"Authorization">;
   }): Promise<Task> => {
@@ -152,7 +154,7 @@ export const advanceTask = api(
       capabilityId: WGA_CAP_TASK_ADVANCE,
       runId,
     });
-    return advanceTaskByAgentService({ taskId: id, toStatus, runId, note }, ctx);
+    return advanceTaskByAgentService({ taskId: id, toStatus, runId, note, evidenceRefs }, ctx);
   }
 );
 

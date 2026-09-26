@@ -130,6 +130,8 @@ OPERATIONS_TASK_ADVANCE_SPEC = CapabilitySpec(
             "to_status": {"type": "string", "enum": ["in_progress", "done", "blocked"]},
             "run_id": {"type": "string", "minLength": 1},
             "note": {"type": "string"},
+            # Bắt buộc khi to_status=done: company từ chối đóng task không có evidence.
+            "evidence_refs": {"type": "array", "items": {"type": "string"}},
         },
     },
     output_schema={
@@ -166,6 +168,16 @@ def create_operations_task_advance_handler(client: CompanyServiceClient):
         note = payload.get("note")
         if note:
             body["note"] = str(note)
+        evidence_refs = [
+            str(r).strip() for r in (payload.get("evidence_refs") or []) if str(r).strip()
+        ]
+        if to_status == "done" and not evidence_refs:
+            # Lỗi đầu vào trả về model để tự sửa (không gọi company rồi mới 400).
+            raise ValueError(
+                "operations.task.advance: evidence_refs is required when to_status=done"
+            )
+        if evidence_refs:
+            body["evidenceRefs"] = evidence_refs
 
         task = await client.post(f"/operations/tasks/{task_id}/advance", json=body, headers=headers)
         return {"task": task}

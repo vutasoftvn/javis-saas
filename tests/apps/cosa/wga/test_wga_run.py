@@ -28,6 +28,7 @@ def _plane(company_client, *, kernel_result):
         compliance_resolver=resolver,
         spec_registry=SimpleNamespace(),
         conversation_repository=AsyncMock(),
+        artifact_repository=AsyncMock(),
         scheduler=AsyncMock(),
     )
 
@@ -65,7 +66,9 @@ _VALID_PLAN = json.dumps(
 async def test_goal_decomposition_posts_execution_plan():
     company = AsyncMock()
     company.post.return_value = {"id": "plan-1", "status": "draft"}
-    plane = _plane(company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": _VALID_PLAN}))
+    plane = _plane(
+        company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": _VALID_PLAN})
+    )
 
     await wga_run.execute_goal_decomposition_task(
         plane,
@@ -128,7 +131,9 @@ async def test_goal_decomposition_skips_post_when_kernel_not_completed():
 async def test_goal_decomposition_posts_chat_cta_when_origin_chat():
     company = AsyncMock()
     company.post.return_value = {"id": "p"}
-    plane = _plane(company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": _VALID_PLAN}))
+    plane = _plane(
+        company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": _VALID_PLAN})
+    )
     await wga_run.execute_goal_decomposition_task(
         plane,
         None,
@@ -144,84 +149,114 @@ async def test_goal_decomposition_posts_chat_cta_when_origin_chat():
     plane.conversation_repository.add_message.assert_awaited_once()
 
 
-@pytest.mark.asyncio
-async def test_sweep_runs_auto_tasks_and_marks_done():
-    company = AsyncMock()
-    company.get.return_value = {
-        "tasks": [
-            {
-                "taskId": "t1",
-                "autonomyClass": "AUTO",
-                "ownerAgentProfile": "operations",
-                "expectedCapability": "operations.task.list",
-                "title": "List stale tasks",
-                "decisionReason": "cleanup",
-                "planItemId": "i1",
-            }
-        ]
-    }
-    async def mock_post(path, *args, **kwargs):
-        if "validate-completion" in path:
-            return {"status": "done"}
-        return {"status": "ok"}
-    company.post.side_effect = mock_post
+_AUTO_TASK = {
+    "taskId": "t1",
+    "autonomyClass": "AUTO",
+    "ownerAgentProfile": "operations",
+    "expectedCapability": "operations.task.list",
+    "title": "List stale tasks",
+    "decisionReason": "cleanup",
+    "planItemId": "i1",
+}
 
-    plane = _plane(company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": "done"}))
+
+@pytest.mark.asyncio
+async def test_sweep_runs_auto_tasks_and_marks_done_with_evidence():
+    company = AsyncMock()
+    company.get.return_value = {"tasks": [dict(_AUTO_TASK)]}
+    company.post.return_value = {"status": "ok"}
+
+    plane = _plane(
+        company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": "3 stale tasks"})
+    )
 
     await wga_run.execute_workspace_task_sweep_task(
         plane, None, {"run_id": "wga_sweep_1", "workspace_id": "ws1", "actor_id": "42"}
     )
 
-    # in_progress then done
+    # output được lưu thành artifact có checksum -> làm evidence
+    plane.artifact_repository.create.assert_awaited_once()
+    artifact = plane.artifact_repository.create.await_args.args[0]
+    assert artifact.workspace_id == "ws1"
+    assert artifact.checksum and artifact.size_bytes == len(b"3 stale tasks")
+
     advance_calls = [c for c in company.post.await_args_list if "advance" in c.args[0]]
-    assert len(advance_calls) == 2
-    assert advance_calls[0].kwargs["json"]["toStatus"] == "in_progress"
-    assert advance_calls[1].kwargs["json"]["toStatus"] == "done"
+    assert [c.kwargs["json"]["toStatus"] for c in advance_calls] == ["in_progress", "done"]
+    done_body = advance_calls[1].kwargs["json"]
+    assert done_body["evidenceRefs"][0] == f"artifact:{artifact.artifact_id}"
+    assert done_body["note"] == "3 stale tasks"
+    # không còn gọi endpoint validate-completion không tồn tại
+    assert not any("validate-completion" in c.args[0] for c in company.post.await_args_list)
 
 
 @pytest.mark.asyncio
-async def test_sweep_keeps_task_in_progress_when_completion_not_validated():
-    """R2 / F05: Trong giai đoạn S3 chưa deploy hoặc validate-completion không 'done',
-    giữ task in_progress kèm completion_pending, không advance('done') trực tiếp."""
+async def test_sweep_keeps_task_in_progress_when_no_evidence():
+    """R2 / F05: output rỗng -> không có evidence -> không advance('done')."""
     company = AsyncMock()
-    company.get.return_value = {
-        "tasks": [
-            {
-                "taskId": "t1",
-                "autonomyClass": "AUTO",
-                "ownerAgentProfile": "operations",
-                "expectedCapability": "operations.task.list",
-                "title": "List stale tasks",
-                "decisionReason": "cleanup",
-                "planItemId": "i1",
-            }
-        ]
-    }
-    # validate-completion returns 404/exception or status != "done"
-    async def mock_post(path, *args, **kwargs):
-        if "validate-completion" in path:
-            return {"status": "pending"}
-        return {"status": "ok"}
-    company.post.side_effect = mock_post
-
-    plane = _plane(company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": "done"}))
+    company.get.return_value = {"tasks": [dict(_AUTO_TASK)]}
+    company.post.return_value = {"status": "ok"}
+    plane = _plane(company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": "  "}))
 
     await wga_run.execute_workspace_task_sweep_task(
         plane, None, {"run_id": "wga_sweep_unval", "workspace_id": "ws1", "actor_id": "42"}
     )
 
+    plane.artifact_repository.create.assert_not_awaited()
     advance_calls = [c for c in company.post.await_args_list if "advance" in c.args[0]]
-    assert len(advance_calls) == 2
-    assert advance_calls[0].kwargs["json"]["toStatus"] == "in_progress"
-    assert advance_calls[1].kwargs["json"]["toStatus"] == "in_progress"
+    assert [c.kwargs["json"]["toStatus"] for c in advance_calls] == ["in_progress", "in_progress"]
     assert advance_calls[1].kwargs["json"]["note"] == "completion_pending"
+
+
+@pytest.mark.asyncio
+async def test_sweep_falls_back_to_pending_when_artifact_persist_fails():
+    company = AsyncMock()
+    company.get.return_value = {"tasks": [dict(_AUTO_TASK)]}
+    company.post.return_value = {"status": "ok"}
+    plane = _plane(company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": "x"}))
+    plane.artifact_repository.create.side_effect = RuntimeError("disk full")
+
+    await wga_run.execute_workspace_task_sweep_task(
+        plane, None, {"run_id": "s", "workspace_id": "ws1", "actor_id": "42"}
+    )
+
+    advance_calls = [c for c in company.post.await_args_list if "advance" in c.args[0]]
+    assert advance_calls[-1].kwargs["json"]["toStatus"] == "in_progress"
+    assert "evidenceRefs" not in advance_calls[-1].kwargs["json"]
+
+
+@pytest.mark.asyncio
+async def test_finalize_keeps_pending_when_company_rejects_done():
+    company = AsyncMock()
+
+    async def mock_post(path, *args, json=None, **kwargs):
+        if json and json.get("toStatus") == "done":
+            raise CompanyServiceError("EVIDENCE_REQUIRED", status_code=400)
+        return {"status": "ok"}
+
+    company.post.side_effect = mock_post
+    plane = _plane(company, kernel_result=_run_result(RunStatus.COMPLETED))
+
+    await wga_run.finalize_wga_task_completion(
+        plane,
+        workspace_id="ws1",
+        task_id="t1",
+        run_id="wga_task_t1_ab",
+        token="tok",
+        evidence_refs=["artifact:a1"],
+    )
+
+    statuses = [c.kwargs["json"]["toStatus"] for c in company.post.await_args_list]
+    assert statuses == ["done", "in_progress"]
+    assert company.post.await_args_list[1].kwargs["json"]["note"] == "completion_rejected"
 
 
 @pytest.mark.asyncio
 async def test_sweep_skips_non_auto_tasks():
     company = AsyncMock()
     company.get.return_value = {
-        "tasks": [{"taskId": "t1", "autonomyClass": "NEEDS_APPROVAL", "title": "x", "decisionReason": "y"}]
+        "tasks": [
+            {"taskId": "t1", "autonomyClass": "NEEDS_APPROVAL", "title": "x", "decisionReason": "y"}
+        ]
     }
     plane = _plane(company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": "d"}))
     await wga_run.execute_workspace_task_sweep_task(
@@ -259,7 +294,10 @@ async def test_sweep_fails_closed_on_unsupported_owner_agent_profile():
     advance_calls = [c for c in company.post.await_args_list if "advance" in c.args[0]]
     assert len(advance_calls) == 1
     assert advance_calls[0].kwargs["json"]["toStatus"] == "blocked"
-    assert advance_calls[0].kwargs["json"]["note"] == "unsupported_owner_agent_profile_unknown_bogus_profile"
+    assert (
+        advance_calls[0].kwargs["json"]["note"]
+        == "unsupported_owner_agent_profile_unknown_bogus_profile"
+    )
 
 
 @pytest.mark.asyncio
@@ -281,20 +319,21 @@ async def test_sweep_marks_waiting_approval_on_kernel_waiting():
 @pytest.mark.asyncio
 async def test_advance_wga_task_after_resume_closes_the_task():
     company = AsyncMock()
-    async def mock_post(path, *args, **kwargs):
-        if "validate-completion" in path:
-            return {"status": "done"}
-        return {"status": "ok"}
-    company.post.side_effect = mock_post
+    company.post.return_value = {"status": "ok"}
 
     plane = _plane(company, kernel_result=_run_result(RunStatus.COMPLETED))
     await wga_run.advance_wga_task_after_resume(
-        plane, run_id="wga_task_909_abcd1234", workspace_id="ws1", sub="42"
+        plane,
+        run_id="wga_task_909_abcd1234",
+        workspace_id="ws1",
+        sub="42",
+        output_text="Đã gửi báo cáo",
     )
     advance_calls = [c for c in company.post.await_args_list if "advance" in c.args[0]]
     assert len(advance_calls) == 1
     assert advance_calls[0].args[0] == "/operations/tasks/909/advance"
     assert advance_calls[0].kwargs["json"]["toStatus"] == "done"
+    assert advance_calls[0].kwargs["json"]["evidenceRefs"]
 
 
 @pytest.mark.asyncio
