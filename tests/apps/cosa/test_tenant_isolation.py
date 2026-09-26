@@ -208,6 +208,65 @@ async def test_decide_approval_dispatches_resume_scoped_to_tool_call_id(test_app
         assert resume_tasks[0].input_payload.get("approval_id") == approval.approval_id
 
 
+async def _decide_and_get_resume_payload(test_app) -> tuple[int, dict]:
+    override_authenticated_identity(test_app, workspace_id="ws_a")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app), base_url="http://test"
+    ) as ac:
+        plane = test_app.state.plane
+        from agent.runs.models import RunRecord
+
+        run = RunRecord(
+            workspace_id="ws_a",
+            project_id="proj_a",
+            principal="user:test_user",
+            root_executable_id="test-spec",
+        )
+        await plane.repository.create_run(run)
+        approval, _wait_desc = await plane.approval_service.create_approval_request(
+            run_id=run.run_id,
+            tool_call_id="tc_locale_call",
+            checkpoint_ref="ckpt_locale_1",
+            requirement={"risk_level": "high"},
+            requester="user:test_user",
+            action="finance.payout.execute",
+            subject="Acme Corp",
+        )
+        res = await ac.post(
+            f"/agent/workforce/approvals/{approval.approval_id}/decision",
+            json={"approved": True},
+        )
+        due = await plane.scheduler.poll_due_tasks()
+        resume_tasks = [t for t in due if t.target_spec_id == "cosa.resume"]
+        assert len(resume_tasks) == 1
+        return res.status_code, resume_tasks[0].input_payload
+
+
+@pytest.mark.asyncio
+async def test_decide_approval_forwards_profile_locale_to_resume(test_app):
+    """Lỗi ở nhánh resume phải theo ngôn ngữ người dùng — payload resume mang
+    locale lấy từ cùng nguồn profile locale mà chat run dùng."""
+    test_app.state.plane.profile_locale_client = FakeProfileLocaleClient("en-US")
+    status_code, payload = await _decide_and_get_resume_payload(test_app)
+    assert status_code == 200
+    assert payload["locale"] == "en-US"
+    assert payload["project_id"] == "proj_a"
+
+
+@pytest.mark.asyncio
+async def test_decide_approval_resume_without_locale_when_profile_unavailable(test_app):
+    from apps.cosa.policies.locale_policy import ProfileLocaleUnavailable
+
+    class _Unavailable:
+        async def get_snapshot(self, bearer_token: str, workspace_id: str):
+            raise ProfileLocaleUnavailable("down")
+
+    test_app.state.plane.profile_locale_client = _Unavailable()
+    status_code, payload = await _decide_and_get_resume_payload(test_app)
+    assert status_code == 200
+    assert "locale" not in payload
+
+
 @pytest.mark.asyncio
 async def test_tenant_b_cannot_decide_approval_of_tenant_a_run(test_app):
     """approval_id không tự mang tenant scope — phải tra run liên kết trước
@@ -269,9 +328,7 @@ async def test_workspace_id_collision_across_companies_does_not_leak(test_app):
     SECRET = os.environ.get("JWT_SECRET") or "cosa-dev-jwt-secret-do-not-use-in-prod"
 
     def _token(sub: str) -> str:
-        return pyjwt.encode(
-            {"sub": sub, "exp": int(time.time()) + 3600}, SECRET, algorithm="HS256"
-        )
+        return pyjwt.encode({"sub": sub, "exp": int(time.time()) + 3600}, SECRET, algorithm="HS256")
 
     def _workspace_client_for(workspace_id: str) -> WorkspaceTenantContextClient:
         def handler(request: httpx.Request) -> httpx.Response:

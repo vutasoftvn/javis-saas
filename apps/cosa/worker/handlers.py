@@ -445,9 +445,8 @@ async def _execute_run_task_inner(
     if assignment_id:
         extra_md["assignment_id"] = str(assignment_id)
     # project_id do conversation_routes đặt từ project đã verify, không lấy từ client.
-    run_project_id = payload.get("project_id")
-    if run_project_id:
-        extra_md["project_id"] = str(run_project_id)
+    if project_id:
+        extra_md["project_id"] = str(project_id)
     direct_message_data_access = payload.get("direct_message_data_access")
     if direct_message_data_access is not None:
         extra_md["direct_message_data_access"] = direct_message_data_access
@@ -688,8 +687,10 @@ async def _execute_run_task_inner(
                 run_id=run_id,
                 conversation_id=conversation_id,
                 event_type="run.failed",
+                # `error` giữ cho consumer cũ nhưng chỉ mang mã đã phân loại —
+                # chuỗi thô của provider chỉ nằm trong log (`error_raw`).
                 payload={
-                    "error": err_msg,
+                    "error": classified.code,
                     "error_code": classified.code,
                     "user_message": classified.user_message,
                 },
@@ -758,6 +759,10 @@ async def execute_resume_task(
         )
         return
     resume_updates: dict[str, Any] = {"approved_tool_calls": {tool_call_id: True}}
+    # Scope project của run cũng phải có khi resume (context resume dựng từ
+    # updates) — để tool tự điền/chặn project_id như lúc chạy lần đầu.
+    if project_id:
+        resume_updates["project_id"] = str(project_id)
     if workspace_id:
         try:
             fresh_snapshot = await plane.tenant_policy_client.get_snapshot(
@@ -965,7 +970,7 @@ async def execute_resume_task(
             conversation_id=conversation_id,
             event_type="run.failed",
             payload={
-                "error": err_msg,
+                "error": classified.code,
                 "error_code": classified.code,
                 "user_message": classified.user_message,
             },

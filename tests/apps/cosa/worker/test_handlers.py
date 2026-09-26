@@ -794,3 +794,82 @@ async def test_founder_assistant_run_rejects_conversation_project_mismatch():
 
     assert result.error == "project_context_mismatch"
     assert await plane.run_repository.get_run("run_handler_test_1") is None
+
+
+# --- Độ tin cậy chat agent: run.failed không lộ chuỗi thô của provider, resume
+# mang project_id + locale của run.
+
+_RAW_PROVIDER_ERROR = (
+    'litellm.BadRequestError: DeepseekException - {"error":{"message":"Insufficient '
+    'Balance (request_id: secret-req-1)"}}'
+)
+
+
+def _failed_result(run_id: str) -> SimpleNamespace:
+    return SimpleNamespace(
+        run_id=run_id,
+        status=RunStatus.FAILED,
+        final_output=None,
+        errors=[_RAW_PROVIDER_ERROR],
+        usage=None,
+    )
+
+
+async def _run_failed_payloads(plane, run_id: str) -> list[dict]:
+    events = await plane.stream_event_repository.list_since(run_id)
+    return [e.payload for e in events if e.event_type == "run.failed"]
+
+
+@pytest.mark.asyncio
+async def test_run_failed_payload_error_is_not_raw_provider_string():
+    plane = _plane()
+    await seed_cosa_runtime_specs(
+        spec_registry=plane.spec_registry,
+        capability_registry=plane.capability_registry,
+    )
+    captured: dict = {}
+
+    async def fake_run_kernel(_plane, prep, **_kw):
+        captured["metadata"] = prep.req.metadata
+        return _failed_result("run_handler_test_1"), 0.0
+
+    with patch("apps.cosa.worker.handlers.run_kernel", fake_run_kernel):
+        await execute_run_task(plane, CosaEventStreamManager(), _payload(locale="en-US"))
+
+    # project_id của run (đã verify) đi vào metadata -> context của tool.
+    assert captured["metadata"]["project_id"] == "proj_1"
+    [failed] = await _run_failed_payloads(plane, "run_handler_test_1")
+    assert failed["error"] == failed["error_code"] == "provider_insufficient_balance"
+    assert "quota" in failed["user_message"].lower()
+    assert "litellm" not in str(failed) and "secret-req-1" not in str(failed)
+
+
+@pytest.mark.asyncio
+async def test_resume_forwards_project_id_and_failure_follows_run_locale():
+    plane = _plane()
+    payload = await _seed_approved_resume(plane, run_id="run_resume_fail_en")
+    payload.update(project_id="proj_1", locale="en-US")
+    plane.kernel.resume = AsyncMock(return_value=_failed_result(payload["run_id"]))
+
+    await execute_resume_task(plane, CosaEventStreamManager(), payload)
+
+    updates = plane.kernel.resume.await_args.kwargs["updates"]
+    assert updates["project_id"] == "proj_1"
+    [failed] = await _run_failed_payloads(plane, payload["run_id"])
+    assert failed["error"] == failed["error_code"] == "provider_insufficient_balance"
+    assert "quota" in failed["user_message"].lower()
+    visible_text = await _all_client_visible_text(
+        plane, run_id=payload["run_id"], conversation_id=payload["conversation_id"]
+    )
+    assert "litellm" not in visible_text and "secret-req-1" not in visible_text
+
+
+@pytest.mark.asyncio
+async def test_resume_without_project_id_does_not_set_scope():
+    plane = _plane()
+    payload = await _seed_approved_resume(plane, run_id="run_resume_noproj")
+    plane.kernel.resume = AsyncMock(return_value=_failed_result(payload["run_id"]))
+
+    await execute_resume_task(plane, CosaEventStreamManager(), payload)
+
+    assert "project_id" not in plane.kernel.resume.await_args.kwargs["updates"]

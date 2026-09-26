@@ -29,6 +29,7 @@ def test_insufficient_balance_en() -> None:
         ("litellm.ServiceUnavailableError: 503", "provider_unavailable"),
         ("litellm.Timeout: request timed out", "provider_unavailable"),
         ("Error running tool x: 422: unknown variables: ['query']", "tool_input_invalid"),
+        ("Max turns (10) exceeded", "agent_max_turns"),
         ("something else entirely", "unknown"),
     ],
 )

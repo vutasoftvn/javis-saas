@@ -414,7 +414,13 @@ class ChatController extends GetxController {
             isStreaming.value = false;
             reasoningStatus.value = '';
             assistantMsg.status = 'failed';
-            if (payload['error'] != null) {
+            // Ưu tiên thông điệp thân thiện theo locale từ backend (user_message);
+            // lùi về mã lỗi `error` nếu thiếu.
+            final friendly = payload['user_message']?.toString();
+            if (friendly != null && friendly.isNotEmpty) {
+              assistantMsg.content +=
+                  assistantMsg.content.isEmpty ? friendly : '\n\n$friendly';
+            } else if (payload['error'] != null) {
               assistantMsg.content += '\n\n[Error: ${payload['error']}]';
             }
             messages.refresh();

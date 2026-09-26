@@ -50,6 +50,7 @@ from apps.cosa.auth.dependency import (
 from apps.cosa.auth.jwt import MissingPlatformIdentityError
 from apps.cosa.capabilities.client import CompanyServiceError
 from apps.cosa.composition.agent_plane import CosaAgentPlane
+from apps.cosa.policies.locale_policy import ProfileLocaleUnavailable
 
 logger = logging.getLogger(__name__)
 
@@ -1066,9 +1067,23 @@ async def decide_approval(
                 "cannot auto-resume run %s: principal has no platform identity", run_id
             )
         else:
+            resume_workspace_id = run_record.workspace_id if run_record else None
+            # Locale lỗi ở nhánh resume theo cùng nguồn profile locale mà chat
+            # run dùng (conversation_routes). Best-effort: không lấy được thì
+            # bỏ trống (worker fallback vi-VN), KHÔNG làm hỏng quyết định duyệt.
+            resume_locale: str | None = None
+            if resume_workspace_id:
+                try:
+                    locale_snapshot = await plane.profile_locale_client.get_snapshot(
+                        control_plane_delegation_token, resume_workspace_id
+                    )
+                    resume_locale = locale_snapshot.preferred_locale
+                except ProfileLocaleUnavailable:
+                    logger.warning("profile locale unavailable for resume of run %s", run_id)
             await plane.scheduler.schedule(
                 target_spec_id="cosa.resume",
                 input_payload={
+                    **({"locale": resume_locale} if resume_locale else {}),
                     "task_type": "resume",
                     "run_id": run_id,
                     "checkpoint_ref": decided.checkpoint_ref,

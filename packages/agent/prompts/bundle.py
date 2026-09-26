@@ -35,8 +35,14 @@ class PromptBundle(BaseModel):
             sections.append(self.agent_instructions)
         for skill_text in self.skill_instructions:
             sections.append(skill_text)
-        if self.session_context:
-            lines = [f"- {k}: {v}" for k, v in self.session_context.items() if v]
+        # Bỏ giá trị rỗng; gộp xuống dòng thành khoảng trắng để giá trị không
+        # chèn được dòng chỉ thị mới vào prompt. Không còn dòng nào -> bỏ section.
+        lines = [
+            f"- {k}: {' '.join(str(v).split())}"
+            for k, v in self.session_context.items()
+            if v and str(v).strip()
+        ]
+        if lines:
             sections.append(
                 "Session context (verified by the platform):\n"
                 + "\n".join(lines)
