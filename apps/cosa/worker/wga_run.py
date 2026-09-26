@@ -44,6 +44,7 @@ from apps.cosa.agents.specs import COSA_OPERATIONS_AGENT_SPEC
 from apps.cosa.auth.jwt import mint_company_delegation
 from apps.cosa.capabilities.client import CompanyServiceError
 from apps.cosa.composition.agent_plane import CosaAgentPlane
+from apps.cosa.policies.evaluator import REQUIRE_APPROVAL_CAPABILITIES_KEY
 from apps.cosa.worker.provider_errors import classify_run_error
 from apps.cosa.worker.run_core import RunCoreError, prepare_run, run_kernel
 
@@ -518,7 +519,11 @@ async def execute_workspace_task_sweep_task(
         logger.error("sweep list failed ws=%s: %s", workspace_id, exc)
         return
 
-    claimable = [t for t in (resp.get("tasks") or []) if t.get("autonomyClass") == "AUTO"]
+    # AUTO chạy thẳng; NEEDS_APPROVAL chạy với capability của item bị policy
+    # siết thành REQUIRE_APPROVAL (G7) — agent dừng ở checkpoint chờ founder.
+    claimable = [
+        t for t in (resp.get("tasks") or []) if t.get("autonomyClass") in ("AUTO", "NEEDS_APPROVAL")
+    ]
     if not claimable:
         return
 
@@ -602,6 +607,11 @@ async def execute_workspace_task_sweep_task(
             logger.warning("sweep could not claim task=%s: %s", task_id, exc)
             continue
 
+        needs_approval = t.get("autonomyClass") == "NEEDS_APPROVAL"
+        extra_metadata: dict[str, Any] = {"execution_plan_item_id": t.get("planItemId")}
+        if needs_approval and expected_cap:
+            extra_metadata[REQUIRE_APPROVAL_CAPABILITIES_KEY] = [expected_cap]
+
         try:
             prep = await prepare_run(
                 plane,
@@ -612,7 +622,7 @@ async def execute_workspace_task_sweep_task(
                 workspace_id=workspace_id,
                 conversation_id=f"wga_task_{task_run_id}",
                 policy_snapshot=None,
-                extra_metadata={"execution_plan_item_id": t.get("planItemId")},
+                extra_metadata=extra_metadata,
                 project_id=task_project_id,
             )
         except RunCoreError as exc:
@@ -634,15 +644,19 @@ async def execute_workspace_task_sweep_task(
             evidence = await record_wga_task_evidence(
                 plane, workspace_id=workspace_id, run_id=task_run_id, output_text=output_text
             )
+            # NEEDS_APPROVAL mà run xong không qua checkpoint duyệt (agent không
+            # gọi capability cần duyệt) -> không tự đóng; founder xác nhận.
             await finalize_wga_task_completion(
                 plane,
                 workspace_id=workspace_id,
                 task_id=task_id,
                 run_id=task_run_id,
                 token=adv_token,
-                evidence_refs=evidence,
+                evidence_refs=None if needs_approval else evidence,
                 summary=output_text.strip()[:500] or None,
-                note="completion_pending",
+                note="completion_pending_founder_review"
+                if needs_approval
+                else "completion_pending",
             )
         elif run_result.status == RunStatus.WAITING_APPROVAL:
             # Kernel đã tạo bản ghi approval (hiện ở WaitingForYouWidget). Đặt

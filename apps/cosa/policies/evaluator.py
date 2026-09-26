@@ -10,7 +10,10 @@ from agent.governance.contracts import (
 
 from apps.cosa.policies.snapshot import PolicySnapshot
 
-__all__ = ["CosaPolicyEngine"]
+__all__ = ["REQUIRE_APPROVAL_CAPABILITIES_KEY", "CosaPolicyEngine"]
+
+# Key metadata run: danh sách capability bắt buộc founder duyệt trong run này.
+REQUIRE_APPROVAL_CAPABILITIES_KEY = "require_approval_capabilities"
 
 
 class CosaPolicyEngine:
@@ -56,6 +59,27 @@ class CosaPolicyEngine:
         self.default_outcome = default_outcome
 
     def evaluate(
+        self,
+        capability_id: str,
+        payload: dict[str, Any],
+        context: dict[str, Any] | None = None,
+    ) -> PolicyDecision:
+        decision = self._evaluate_base(capability_id, payload, context)
+        # 4. WGA G7 — item NEEDS_APPROVAL của execution plan: run nền đánh dấu
+        # capability của item trong metadata (`REQUIRE_APPROVAL_CAPABILITIES_KEY`).
+        # Chỉ SIẾT: ALLOW -> REQUIRE_APPROVAL (founder); DENY/REQUIRE_APPROVAL giữ
+        # nguyên. Approval sinh ra bind run_id + tool_call_id + checkpoint_ref như
+        # mọi approval khác của gateway (quy tắc 5).
+        required = (context or {}).get(REQUIRE_APPROVAL_CAPABILITIES_KEY) or ()
+        if decision.outcome == PolicyOutcome.ALLOW and capability_id in required:
+            return PolicyDecision(
+                outcome=PolicyOutcome.REQUIRE_APPROVAL,
+                requirement=RoleApproval(role="founder"),
+                reasons=("Execution plan item is NEEDS_APPROVAL — founder must approve",),
+            )
+        return decision
+
+    def _evaluate_base(
         self,
         capability_id: str,
         payload: dict[str, Any],

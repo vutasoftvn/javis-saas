@@ -252,18 +252,61 @@ async def test_finalize_keeps_pending_when_company_rejects_done():
 
 
 @pytest.mark.asyncio
-async def test_sweep_skips_non_auto_tasks():
+async def test_sweep_runs_needs_approval_task_with_capability_gated_by_policy():
+    """G7 — NEEDS_APPROVAL không còn nằm todo mãi: chạy với capability của
+    item bị đánh dấu cần founder duyệt (policy siết thành REQUIRE_APPROVAL)."""
+    task = dict(_AUTO_TASK)
+    task["autonomyClass"] = "NEEDS_APPROVAL"
+    task["expectedCapability"] = "operations.task.create_draft"
     company = AsyncMock()
-    company.get.return_value = {
-        "tasks": [
-            {"taskId": "t1", "autonomyClass": "NEEDS_APPROVAL", "title": "x", "decisionReason": "y"}
-        ]
-    }
-    plane = _plane(company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": "d"}))
+    company.get.return_value = {"tasks": [task]}
+    company.post.return_value = {"status": "ok"}
+    plane = _plane(company, kernel_result=_run_result(RunStatus.WAITING_APPROVAL))
+
     await wga_run.execute_workspace_task_sweep_task(
-        plane, None, {"run_id": "s", "workspace_id": "ws1"}
+        plane, None, {"run_id": "s", "workspace_id": "ws1", "actor_id": "42"}
     )
-    company.post.assert_not_awaited()
+
+    req = plane.kernel.run.await_args.args[0]
+    assert req.metadata["require_approval_capabilities"] == ["operations.task.create_draft"]
+    advance_calls = [c for c in company.post.await_args_list if "advance" in c.args[0]]
+    assert [c.kwargs["json"]["toStatus"] for c in advance_calls] == [
+        "in_progress",
+        "waiting_approval",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_sweep_does_not_auto_close_needs_approval_task_that_skipped_approval():
+    task = dict(_AUTO_TASK)
+    task["autonomyClass"] = "NEEDS_APPROVAL"
+    company = AsyncMock()
+    company.get.return_value = {"tasks": [task]}
+    company.post.return_value = {"status": "ok"}
+    plane = _plane(company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": "ok"}))
+
+    await wga_run.execute_workspace_task_sweep_task(
+        plane, None, {"run_id": "s", "workspace_id": "ws1", "actor_id": "42"}
+    )
+
+    last = [c for c in company.post.await_args_list if "advance" in c.args[0]][-1]
+    assert last.kwargs["json"]["toStatus"] == "in_progress"
+    assert last.kwargs["json"]["note"] == "completion_pending_founder_review"
+
+
+@pytest.mark.asyncio
+async def test_sweep_auto_task_has_no_approval_gate_metadata():
+    company = AsyncMock()
+    company.get.return_value = {"tasks": [dict(_AUTO_TASK)]}
+    company.post.return_value = {"status": "ok"}
+    plane = _plane(company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": "ok"}))
+
+    await wga_run.execute_workspace_task_sweep_task(
+        plane, None, {"run_id": "s", "workspace_id": "ws1", "actor_id": "42"}
+    )
+
+    req = plane.kernel.run.await_args.args[0]
+    assert "require_approval_capabilities" not in req.metadata
 
 
 @pytest.mark.asyncio
