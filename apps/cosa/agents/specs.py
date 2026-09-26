@@ -345,14 +345,16 @@ COSA_FINANCE_AGENT_SPEC = AgentSpec(
 
 COSA_MARKETING_AGENT_SPEC = AgentSpec(
     id="cosa.agents.marketing",
-    version="1.1.0",
+    # 1.2.0: sửa capability id sai `campaign.asset.write`/`experiment.write` (không
+    # đăng ký, kernel bỏ qua âm thầm) thành id thật `commercial.*`.
+    version="1.2.0",
     autonomy_level=AutonomyLevel.L0_OBSERVE,
     instructions="Chuyên viên chiến lược marketing và sáng tạo nội dung, xây dựng định vị sản phẩm và copywriting dựa trên bằng chứng thực nghiệm.",
     capability_refs=[
         "commercial.marketing_context.read",
         "commercial.marketing_context.write",
-        "campaign.asset.write",
-        "experiment.write",
+        "commercial.campaign_asset.write",
+        "commercial.experiment.write",
         "web.search",
         "knowledge.profile.read",
     ],
