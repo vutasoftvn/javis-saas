@@ -1118,13 +1118,17 @@ class FounderCommandCenterController extends GetxController {
                 terminal = true;
                 final idx = chatMessages.indexOf(assistantMsg);
                 if (idx != -1) {
+                  // Ưu tiên thông điệp thân thiện từ backend (user_message).
+                  final friendly = payload['user_message']?.toString();
                   final reason = payload['error']?.toString() ?? payload['reason']?.toString();
                   assistantMsg['role'] = 'error';
                   assistantMsg['content'] =
                       (assistantMsg['content'] ?? '').isEmpty
-                      ? (reason == null || reason.isEmpty
-                          ? 'Mission thất bại hoặc bị huỷ.'
-                          : 'Mission thất bại: $reason')
+                      ? (friendly != null && friendly.isNotEmpty
+                          ? friendly
+                          : (reason == null || reason.isEmpty
+                              ? 'Mission thất bại hoặc bị huỷ.'
+                              : 'Mission thất bại: $reason'))
                       : assistantMsg['content']!;
                   chatMessages[idx] = assistantMsg;
                 }

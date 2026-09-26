@@ -103,14 +103,14 @@ DirectAgentChatController _controller({
   required _FakeChatService chat,
   required _FakeTaskService tasks,
   String? projectId = 'proj-1',
-  Stream<Map<String, dynamic>> Function(String)? events,
+  Stream<Map<String, dynamic>> Function(String, {String? conversationId})? events,
 }) {
   return DirectAgentChatController(
     projectId: projectId,
     profileKey: 'finance',
     chatService: chat,
     taskService: tasks,
-    runEvents: events ?? (_) => Stream.fromIterable([_delta('Runway 10 tháng.'), _completed()]),
+    runEvents: events ?? (_, {conversationId}) => Stream.fromIterable([_delta('Runway 10 tháng.'), _completed()]),
   );
 }
 
@@ -163,7 +163,7 @@ void main() {
     final controller = _controller(
       chat: _FakeChatService(),
       tasks: _FakeTaskService(),
-      events: (_) => const Stream.empty(),
+      events: (_, {conversationId}) => const Stream.empty(),
     );
 
     await controller.send('Runway?', _declaration);
@@ -178,7 +178,7 @@ void main() {
     final controller = _controller(
       chat: _FakeChatService(),
       tasks: _FakeTaskService(),
-      events: (_) => Stream.value({
+      events: (_, {conversationId}) => Stream.value({
         'event_type': 'run.failed',
         'payload': {'error': 'compliance_denied'},
       }),
@@ -190,6 +190,39 @@ void main() {
     expect(assistant.state, DirectChatMessageState.failed);
     expect(assistant.text, isEmpty);
     expect(assistant.error, 'compliance_denied');
+  });
+
+  test('run.failed hiển thị user_message thay vì chuỗi thô', () async {
+    final controller = _controller(
+      chat: _FakeChatService(),
+      tasks: _FakeTaskService(),
+      events: (_, {conversationId}) => Stream.value({
+        'event_type': 'run.failed',
+        'payload': {'error': 'litellm.BadRequestError raw', 'user_message': 'Hết hạn mức nhà cung cấp.'},
+      }),
+    );
+
+    await controller.send('hi', _declaration);
+
+    expect(controller.errorMessage, 'Hết hạn mức nhà cung cấp.');
+    expect(controller.messages.last.error, 'Hết hạn mức nhà cung cấp.');
+  });
+
+  test('mở SSE kèm conversationId của cuộc trò chuyện', () async {
+    String? seen;
+    final controller = _controller(
+      chat: _FakeChatService(),
+      tasks: _FakeTaskService(),
+      events: (runId, {conversationId}) {
+        seen = conversationId;
+        return Stream.fromIterable([_delta('ok'), _completed()]);
+      },
+    );
+
+    await controller.send('hi', _declaration);
+
+    expect(seen, isNotNull);
+    expect(seen, controller.conversationId);
   });
 
   test('missing Project sends nothing and shows a recoverable error', () async {

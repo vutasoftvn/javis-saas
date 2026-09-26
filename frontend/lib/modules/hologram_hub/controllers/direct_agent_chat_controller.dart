@@ -46,14 +46,14 @@ class DirectAgentChatController extends ChangeNotifier {
     required this.profileKey,
     required this.chatService,
     required this.taskService,
-    Stream<Map<String, dynamic>> Function(String runId)? runEvents,
+    Stream<Map<String, dynamic>> Function(String runId, {String? conversationId})? runEvents,
   }) : _runEvents = runEvents ?? chatService.streamRunEvents;
 
   final String? projectId;
   final String profileKey;
   final AgentChatService chatService;
   final TaskService taskService;
-  final Stream<Map<String, dynamic>> Function(String runId) _runEvents;
+  final Stream<Map<String, dynamic>> Function(String runId, {String? conversationId}) _runEvents;
 
   final List<DirectChatMessage> messages = [];
   String? _conversationId;
@@ -165,7 +165,7 @@ class DirectAgentChatController extends ChangeNotifier {
     }
 
     _subscription?.cancel();
-    _subscription = _runEvents(runId).listen(
+    _subscription = _runEvents(runId, conversationId: _conversationId).listen(
       (event) {
         final type = event['event_type']?.toString() ?? '';
         final payload = (event['payload'] as Map?)?.cast<String, dynamic>() ?? const {};
@@ -181,7 +181,8 @@ class DirectAgentChatController extends ChangeNotifier {
             notifyListeners();
             if (!done.isCompleted) done.complete();
           case 'run.failed':
-            fail(payload['error']?.toString() ?? 'Run failed');
+            // Ưu tiên thông điệp thân thiện từ backend; lùi về chuỗi lỗi thô nếu thiếu.
+            fail(payload['user_message']?.toString() ?? payload['error']?.toString() ?? 'Run failed');
           case 'run.cancelled':
             fail('Run cancelled');
         }
