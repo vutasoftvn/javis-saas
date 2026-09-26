@@ -1087,7 +1087,7 @@ class FounderCommandCenterController extends GetxController {
     _pendingAssistantMsg = assistantMsg;
     var terminal = false;
     _chatSseSubscription = _chatService
-        .streamRunEvents(runId)
+        .streamRunEvents(runId, conversationId: _cofounderConversationId)
         .listen(
           (event) {
             final eventType = event['event_type']?.toString() ?? '';

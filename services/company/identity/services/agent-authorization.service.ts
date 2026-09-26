@@ -461,7 +461,83 @@ export async function revokeAgentCapability(
   });
 }
 
-export async function getAuthorizationOverview(ctx: TenantContext) {
+// Response tường minh cho `/identity/authorization/overview` — Encore chỉ dựng
+// schema response từ kiểu khai báo; kiểu suy luận khiến HTTP trả body rỗng.
+export interface AuthorizationOverviewRole {
+  id: string;
+  roleKey: string;
+  name: string;
+  isSystem: boolean;
+  allowedMemberTypes: string[];
+  permissions: Array<{ permissionKey: string; effect: string }>;
+}
+
+export interface AuthorizationOverviewAssignment {
+  id: string;
+  workforceMemberId: string;
+  roleId: string;
+  roleKey: string;
+  roleName: string;
+  memberType: string;
+  roleTitle: string | null;
+  validFrom: string;
+  validUntil: string | null;
+}
+
+export interface AuthorizationOverviewGrant {
+  id: string;
+  agentWorkforceMemberId: string;
+  capabilityId: string;
+  projectId: string | null;
+  legalEntityId: string | null;
+  constraints: Record<string, unknown>;
+  validFrom: string;
+  validUntil: string | null;
+  status: string;
+  grantedByFounderMemberId: string;
+  revokedAt: string | null;
+  revokeReason: string | null;
+}
+
+export interface AuthorizationOverviewMember {
+  id: string;
+  memberType: string;
+  status: string;
+  roleTitle: string | null;
+  agentSpecId: string | null;
+  agentSpecVersion: string | null;
+  humanUserId: string | null;
+  createdAt: string;
+}
+
+export interface AuthorizationOverviewEvent {
+  id: string;
+  eventType: string;
+  actorMemberId: string | null;
+  targetMemberId: string | null;
+  capabilityId: string | null;
+  roleId: string | null;
+  grantId: string | null;
+  policyVersion: number | null;
+  authorizationEpoch: number | null;
+  reason: string | null;
+  createdAt: string;
+}
+
+export interface AuthorizationOverview {
+  workspaceId: string;
+  enforcementMode: string;
+  authorizationEpoch: number;
+  policyVersion: number;
+  members: AuthorizationOverviewMember[];
+  roles: AuthorizationOverviewRole[];
+  assignments: AuthorizationOverviewAssignment[];
+  grants: AuthorizationOverviewGrant[];
+  bindings: CapabilityPermissionBinding[];
+  events: AuthorizationOverviewEvent[];
+}
+
+export async function getAuthorizationOverview(ctx: TenantContext): Promise<AuthorizationOverview> {
   await requireFounderAuthorization(ctx);
 
   const wsId = BigInt(ctx.workspaceId);

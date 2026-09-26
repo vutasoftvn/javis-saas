@@ -1,4 +1,5 @@
 import { api, Header } from "encore.dev/api";
+import type { MvpSuccess } from "../../shared/contracts/mvp-response";
 import {
   OkrCycle,
   CreateOkrCycleParams,
@@ -118,7 +119,7 @@ export const listOkrCycles = api(
   }: {
     authorization?: Header<"Authorization">;
     workspaceId: Header<"X-Workspace-Id">;
-  }) => {
+  }): Promise<MvpSuccess<readonly OkrCycle[]>> => {
     const ctx = await requireWorkspaceAccess(authorization, workspaceId);
     return listOkrCyclesService(ctx);
   }
@@ -132,7 +133,7 @@ export const listObjectives = api(
   }: {
     authorization?: Header<"Authorization">;
     workspaceId: Header<"X-Workspace-Id">;
-  }) => {
+  }): Promise<MvpSuccess<readonly Objective[]>> => {
     const ctx = await requireWorkspaceAccess(authorization, workspaceId);
     return listObjectivesService(ctx);
   }
@@ -146,7 +147,7 @@ export const listKeyResults = api(
   }: {
     authorization?: Header<"Authorization">;
     workspaceId: Header<"X-Workspace-Id">;
-  }) => {
+  }): Promise<MvpSuccess<readonly KeyResult[]>> => {
     const ctx = await requireWorkspaceAccess(authorization, workspaceId);
     return listKeyResultsService(ctx);
   },
