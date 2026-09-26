@@ -38,6 +38,7 @@ from apps.cosa.agents.goal_decomposition import (
     PlanSchemaError,
     build_decomposition_prompt,
     parse_plan_output,
+    validate_plan_capabilities,
 )
 from apps.cosa.agents.specs import COSA_OPERATIONS_AGENT_SPEC
 from apps.cosa.auth.jwt import mint_company_delegation
@@ -61,6 +62,12 @@ _WGA_TASK_RUN_RE = re.compile(r"^wga_task_(\d+)_[0-9a-f]+$")
 # Bảng tường minh profile -> spec, dựng từ đúng danh sách company route tới.
 # Profile ngoài bảng vẫn fail closed (không fallback về operations).
 _SPEC_BY_PROFILE = {p: AGENT_PROFILE_SPECS[p] for p in OWNER_AGENT_PROFILES}
+
+
+def _capability_catalog() -> dict[str, list[str]]:
+    """Capability thật của từng owner profile — nguồn cho prompt và validate."""
+    return {p: list(spec.capability_refs) for p, spec in _SPEC_BY_PROFILE.items()}
+
 
 _CAP_EXECUTION_PLAN_CREATE = "operations.execution_plan.create"
 _CAP_TASK_LIST = "operations.task.list"
@@ -239,8 +246,14 @@ async def execute_goal_decomposition_task(
         logger.warning("goal_decomposition run=%s missing goal_text/project_id — skip", run_id)
         return
 
+    catalog = _capability_catalog()
     prompt = build_decomposition_prompt(
-        goal_text, {"lifecycle_stage": payload.get("lifecycle_stage") or "unknown"}
+        goal_text,
+        {
+            "lifecycle_stage": payload.get("lifecycle_stage") or "unknown",
+            "existing_task_titles": list(payload.get("existing_task_titles") or []),
+            "capability_catalog": catalog,
+        },
     )
 
     try:
@@ -265,7 +278,7 @@ async def execute_goal_decomposition_task(
         return
 
     try:
-        items = parse_plan_output(_extract_text(run_result))
+        items = validate_plan_capabilities(parse_plan_output(_extract_text(run_result)), catalog)
     except PlanSchemaError as exc:
         logger.error("goal_decomposition plan_schema_invalid run=%s: %s", run_id, exc)
         return
@@ -421,6 +434,21 @@ async def execute_workspace_task_sweep_task(
                 run_id=task_run_id,
                 token=adv_token,
                 note=f"unsupported_owner_agent_profile_{owner_profile}",
+            )
+            continue
+
+        # G5 — agent được giao phải thật sự có capability của item; không thì
+        # run chắc chắn thất bại hoặc agent tự làm việc khác. Fail closed.
+        expected_cap = t.get("expectedCapability")
+        if expected_cap and expected_cap not in spec.capability_refs:
+            await _advance_task(
+                plane,
+                workspace_id=workspace_id,
+                task_id=task_id,
+                to_status="blocked",
+                run_id=task_run_id,
+                token=adv_token,
+                note=f"capability_not_in_profile:{expected_cap}",
             )
             continue
 

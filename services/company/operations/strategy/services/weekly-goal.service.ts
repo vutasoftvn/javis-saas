@@ -1,12 +1,16 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { APIError } from "encore.dev/api";
 import { db } from "../../models/db";
 import {
   projects,
+  tasks,
   twelveWeekCycles,
   weeklyPlans,
 } from "../../../shared/db/schema/operations";
+
+// Số tiêu đề task đang mở gửi kèm event để agent phân rã tránh trùng việc.
+const DECOMPOSITION_OPEN_TASK_TITLES_LIMIT = 20;
 import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
 import { appendOutboxEvent } from "../../../shared/events/outbox.repository";
 import { makeBusinessEvent } from "../../../shared/events/envelope";
@@ -94,7 +98,7 @@ export async function setWeeklyGoalService(
 
   return await db.transaction(async (tx) => {
     const [proj] = await tx
-      .select({ id: projects.id })
+      .select({ id: projects.id, lifecycleStage: projects.lifecycleStage })
       .from(projects)
       .where(and(eq(projects.id, pId), eq(projects.workspaceId, wsId)))
       .limit(1);
@@ -219,6 +223,22 @@ export async function setWeeklyGoalService(
     const weeklyPlanId = plan!.id.toString();
 
     if (params.triggerDecomposition) {
+      // Ngữ cảnh cho agent phân rã (G4): giai đoạn P0–P6 và task đang mở của
+      // Project — đọc tại đây (đã qua tenant guard) thay vì cấp thêm quyền đọc
+      // cho run nền.
+      const openTasks = await tx
+        .select({ title: tasks.title })
+        .from(tasks)
+        .where(
+          and(
+            eq(tasks.workspaceId, wsId),
+            eq(tasks.projectId, pId),
+            isNull(tasks.deletedAt),
+            inArray(tasks.status, ["todo", "in_progress", "waiting_approval", "blocked"])
+          )
+        )
+        .orderBy(desc(tasks.updatedAt))
+        .limit(DECOMPOSITION_OPEN_TASK_TITLES_LIMIT);
       const event = makeBusinessEvent({
         eventType: WEEKLY_GOAL_SET,
         workspaceId: ctx.workspaceId,
@@ -234,6 +254,8 @@ export async function setWeeklyGoalService(
           focus,
           origin: params.origin,
           originRef: params.originRef ?? null,
+          lifecycleStage: proj.lifecycleStage,
+          existingTaskTitles: openTasks.map((t) => t.title),
         },
       });
       await appendOutboxEvent(tx, event);

@@ -188,6 +188,9 @@ def _self_trigger_payload(event_type: str, env: object) -> dict:
             "goal_text": payload.get("focus", ""),
             "origin": payload.get("origin", "command_center"),
             "origin_ref": payload.get("originRef"),
+            # Ngữ cảnh do company đọc lúc ghi mục tiêu (stage P0-P6, task đang mở).
+            "lifecycle_stage": payload.get("lifecycleStage"),
+            "existing_task_titles": payload.get("existingTaskTitles") or [],
             "actor_id": actor_id,
             "correlation_id": corr,
         }

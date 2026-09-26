@@ -480,3 +480,63 @@ async def test_sweep_blocks_task_without_matching_project(task_project, expected
     assert len(advance_calls) == 1
     assert advance_calls[0].kwargs["json"]["toStatus"] == "blocked"
     assert advance_calls[0].kwargs["json"]["note"] == expected_note
+
+
+@pytest.mark.asyncio
+async def test_goal_decomposition_uses_event_context_and_drops_invented_capability():
+    plan = json.dumps(
+        {
+            "items": [
+                {
+                    "title": "Draft onboarding SOP",
+                    "decision_reason": "Standardise week-one onboarding",
+                    "evidence_refs": [],
+                    "suggested_domain": "operations",
+                    "expected_capability": "operations.sop.draft",
+                }
+            ]
+        }
+    )
+    company = AsyncMock()
+    company.post.return_value = {"id": "p"}
+    plane = _plane(company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": plan}))
+
+    await wga_run.execute_goal_decomposition_task(
+        plane,
+        None,
+        {
+            "run_id": "r",
+            "workspace_id": "ws1",
+            "project_id": "proj1",
+            "goal_text": "g",
+            "lifecycle_stage": "P1_PROBLEM_FIT",
+            "existing_task_titles": ["Interview 3 customers"],
+        },
+    )
+
+    prompt = plane.kernel.run.await_args.args[0].input["prompt"]
+    assert "P1_PROBLEM_FIT" in prompt
+    assert "- Interview 3 customers" in prompt
+    body = company.post.await_args.kwargs["json"]
+    assert body["items"][0]["expectedCapability"] is None
+
+
+@pytest.mark.asyncio
+async def test_sweep_blocks_task_whose_capability_is_not_in_owner_profile():
+    task = dict(_AUTO_TASK)
+    task["expectedCapability"] = "finance.transaction.record"  # không thuộc operations
+    company = AsyncMock()
+    company.get.return_value = {"tasks": [task]}
+    company.post.return_value = {"status": "ok"}
+    plane = _plane(company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": "ok"}))
+
+    await wga_run.execute_workspace_task_sweep_task(
+        plane, None, {"run_id": "s", "workspace_id": "ws1", "actor_id": "42"}
+    )
+
+    plane.kernel.run.assert_not_awaited()
+    advance_calls = [c for c in company.post.await_args_list if "advance" in c.args[0]]
+    assert advance_calls[0].kwargs["json"]["toStatus"] == "blocked"
+    assert advance_calls[0].kwargs["json"]["note"] == (
+        "capability_not_in_profile:finance.transaction.record"
+    )
