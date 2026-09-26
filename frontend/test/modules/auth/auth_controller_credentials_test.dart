@@ -93,9 +93,9 @@ void main() {
 
         ApiClient.client = MockClient((request) async {
           // Đăng nhập trực tiếp với backend/core rồi đổi lấy access token OIDC (PKCE).
-          if (request.url.path == '/auth/login') {
+          if (request.url.path == '/auth/signin') {
             return http.Response(
-              '{"user":{"id":"42"},"accessToken":"session-jwt","refreshToken":"r0","expiresIn":3600}',
+              '{"sessionId":"1","userId":"42","steps":[],"tokens":{"accessToken":"session-jwt","refreshToken":"r0","expiresIn":3600}}',
               200,
             );
           }

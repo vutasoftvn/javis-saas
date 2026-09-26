@@ -5,11 +5,11 @@ import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 
 /// Cấu hình backend/core (danh tính, mật khẩu, OIDC). Đặt bằng
-/// `--dart-define=CORE_BASE_URL=https://...`; mặc định là core chạy local ở cổng 4010.
+/// `--dart-define=CORE_BASE_URL=https://...`; mặc định là core chạy local ở cổng 4000.
 class CoreConfig {
   static const String _configuredBaseUrl = String.fromEnvironment(
     'CORE_BASE_URL',
-    defaultValue: 'http://127.0.0.1:4010',
+    defaultValue: 'http://127.0.0.1:4000',
   );
   static String? _overrideBaseUrl;
 
@@ -59,7 +59,7 @@ class CoreSession {
 /// Đăng nhập/đăng ký trực tiếp với backend/core rồi đổi lấy access token OIDC của
 /// client `vn.mivacorp.cosa` (Authorization Code + PKCE). COSA không còn giữ mật khẩu.
 ///
-/// Luồng first-party của core: `/auth/login` cấp phiên (JWT) -> `/oauth/authorize` bằng phiên đó
+/// Luồng first-party của core: `/auth/signin` cấp phiên (JWT) -> `/oauth/authorize` bằng phiên đó
 /// trả `redirectUrl` chứa `code` -> `/oauth/token` đổi `code` + `code_verifier` lấy access token.
 class CoreAuthClient {
   CoreAuthClient({http.Client? client, String? baseUrl})
@@ -69,6 +69,8 @@ class CoreAuthClient {
   final http.Client _client;
   final String _baseUrl;
   final Random _random = Random.secure();
+  // deviceId ổn định trong suốt vòng đời client (server yêu cầu cho /auth/signin).
+  late final String _deviceId = 'javis-web-${_randomUrlSafe(12)}';
 
   static const Duration _timeout = Duration(seconds: 15);
 
@@ -81,19 +83,31 @@ class CoreAuthClient {
       Uri.parse('$_baseUrl$path').replace(queryParameters: query);
 
   Future<CoreSession> login(String identifier, String password, {String? deviceId}) async {
+    final isEmail = identifier.contains('@');
     final response = await _client
         .post(
-          _uri('/auth/login'),
+          _uri('/auth/signin'),
           headers: _jsonHeaders,
           body: jsonEncode({
-            'emailOrPhone': identifier,
+            if (isEmail) 'email': identifier else 'phone': identifier,
             'password': password,
             'clientId': CoreConfig.clientId,
-            'deviceId': ?deviceId,
+            'deviceId': deviceId ?? _deviceId,
           }),
         )
         .timeout(_timeout);
-    return _exchangeSession(_decode(response));
+    final body = _decode(response);
+    final steps = (body['steps'] as List?) ?? const [];
+    final tokens = (body['tokens'] as Map?)?.cast<String, dynamic>();
+    // Client COSA có thể yêu cầu thêm bước (PIN/OTP/TOTP) tuỳ mức xác thực của tài khoản: web chưa
+    // hỗ trợ các bước đó nên báo rõ thay vì coi như đăng nhập thất bại vì sai mật khẩu.
+    if (steps.isNotEmpty || tokens == null) {
+      throw CoreAuthException(412, 'Tài khoản yêu cầu thêm bước xác thực: ${steps.join(', ')}');
+    }
+    return _exchangeSession({
+      'accessToken': tokens['accessToken'],
+      'user': {'id': body['userId']},
+    });
   }
 
   /// Bước 1 đăng ký: core gửi OTP tới email.

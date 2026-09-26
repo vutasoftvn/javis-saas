@@ -81,7 +81,7 @@ class WaitingForYouWidget extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: const Color(0xFF0F172A).withValues(alpha: 0.38),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.5), width: 1.2),
       ),
@@ -155,7 +155,7 @@ class WaitingForYouWidget extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: const Color(0xFF0F172A).withValues(alpha: 0.38),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFF3B82F6).withValues(alpha: 0.3), width: 1.0),
       ),

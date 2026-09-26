@@ -40,9 +40,9 @@ class ExecutionPlanCardWidget extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B).withValues(alpha: 0.6),
+        color: const Color(0xFF0F172A).withValues(alpha: 0.38),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF6366F1)),
+        border: Border.all(color: const Color(0x446366F1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

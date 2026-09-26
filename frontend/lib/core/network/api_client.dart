@@ -96,11 +96,11 @@ class ApiClient {
     _customDesktopWorkerUrl = url;
   }
 
-  /// Base API URL for Local Company Microservices. Defaults to `http://127.0.0.1:4000`.
+  /// Base API URL for Local Company Microservices. Defaults to `http://127.0.0.1:4002`.
   static String get baseUrl {
     if (_customBaseUrl != null && _customBaseUrl!.isNotEmpty) return _customBaseUrl!;
     if (_configuredBaseUrl.isNotEmpty) return _configuredBaseUrl;
-    return 'http://127.0.0.1:4000';
+    return 'http://127.0.0.1:4002';
   }
 
   /// Base API URL for COSA Central Control Plane (Platform Identity, Companies, Licenses).
