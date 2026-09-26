@@ -95,6 +95,7 @@ describe("setWeeklyGoalService", () => {
     // Ngữ cảnh cho agent phân rã: stage của Project + task đang mở (mới tạo nên rỗng).
     expect(events[0]!.envelope.payload.lifecycleStage).toBe("P0_DISCOVERY");
     expect(events[0]!.envelope.payload.existingTaskTitles).toEqual([]);
+    expect(events[0]!.envelope.payload.nextBestActions).toEqual([]);
   });
 
   it("does not append an event when triggerDecomposition is false", async () => {

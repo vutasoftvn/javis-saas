@@ -554,11 +554,13 @@ async def test_goal_decomposition_uses_event_context_and_drops_invented_capabili
             "goal_text": "g",
             "lifecycle_stage": "P1_PROBLEM_FIT",
             "existing_task_titles": ["Interview 3 customers"],
+            "next_best_actions": ["Validate pricing with 5 customers"],
         },
     )
 
     prompt = plane.kernel.run.await_args.args[0].input["prompt"]
     assert "P1_PROBLEM_FIT" in prompt
+    assert "- Validate pricing with 5 customers" in prompt
     assert "- Interview 3 customers" in prompt
     body = company.post.await_args.kwargs["json"]
     assert body["items"][0]["expectedCapability"] is None

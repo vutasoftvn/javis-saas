@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { APIError } from "encore.dev/api";
 import { db } from "../../models/db";
+import { nextBestActions } from "../../../shared/db/schema/strategy";
 import {
   projects,
   tasks,
@@ -11,6 +12,8 @@ import {
 
 // Số tiêu đề task đang mở gửi kèm event để agent phân rã tránh trùng việc.
 const DECOMPOSITION_OPEN_TASK_TITLES_LIMIT = 20;
+// Số next-best-action (xác định, không LLM) gửi kèm làm gợi ý cho agent phân rã.
+const DECOMPOSITION_NEXT_BEST_ACTIONS_LIMIT = 5;
 import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
 import { appendOutboxEvent } from "../../../shared/events/outbox.repository";
 import { makeBusinessEvent } from "../../../shared/events/envelope";
@@ -250,6 +253,20 @@ export async function setWeeklyGoalService(
         )
         .orderBy(desc(tasks.updatedAt))
         .limit(DECOMPOSITION_OPEN_TASK_TITLES_LIMIT);
+      // Next-best-action còn hiệu lực của Project (PROPOSED/ACCEPTED), ưu tiên
+      // cao trước — cùng thứ tự với listNextBestActions.
+      const nbaRows = await tx
+        .select({ recommendation: nextBestActions.recommendation })
+        .from(nextBestActions)
+        .where(
+          and(
+            eq(nextBestActions.workspaceId, wsId),
+            eq(nextBestActions.projectId, pId),
+            inArray(nextBestActions.status, ["PROPOSED", "ACCEPTED"])
+          )
+        )
+        .orderBy(desc(nextBestActions.priority), desc(nextBestActions.createdAt))
+        .limit(DECOMPOSITION_NEXT_BEST_ACTIONS_LIMIT);
       const event = makeBusinessEvent({
         eventType: WEEKLY_GOAL_SET,
         workspaceId: ctx.workspaceId,
@@ -267,6 +284,7 @@ export async function setWeeklyGoalService(
           originRef: params.originRef ?? null,
           lifecycleStage: proj.lifecycleStage,
           existingTaskTitles: openTasks.map((t) => t.title),
+          nextBestActions: nbaRows.map((r) => r.recommendation),
         },
       });
       await appendOutboxEvent(tx, event);

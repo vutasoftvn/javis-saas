@@ -191,6 +191,7 @@ def _self_trigger_payload(event_type: str, env: object) -> dict:
             # Ngữ cảnh do company đọc lúc ghi mục tiêu (stage P0-P6, task đang mở).
             "lifecycle_stage": payload.get("lifecycleStage"),
             "existing_task_titles": payload.get("existingTaskTitles") or [],
+            "next_best_actions": payload.get("nextBestActions") or [],
             "actor_id": actor_id,
             "correlation_id": corr,
         }

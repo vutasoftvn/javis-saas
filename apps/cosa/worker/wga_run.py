@@ -271,6 +271,7 @@ async def execute_goal_decomposition_task(
         {
             "lifecycle_stage": payload.get("lifecycle_stage") or "unknown",
             "existing_task_titles": list(payload.get("existing_task_titles") or []),
+            "next_best_actions": list(payload.get("next_best_actions") or []),
             "capability_catalog": catalog,
         },
     )
