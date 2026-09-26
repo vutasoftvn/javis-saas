@@ -4,8 +4,10 @@ Ngày: 2026-09-26. Tiếp nối `2026-09-26-chat-agent-reliability.md` (độ ti
 Tài liệu này xét **cả vòng khép kín** (WGA — Weekly Goal → Agent Execution) từ tin nhắn chat
 tới task hoàn tất và kết quả quay lại chat.
 
-Trạng thái: phân tích đã xác minh bằng đọc code (chưa chạy E2E). Mỗi phát hiện có tham chiếu
-file để kiểm lại. Kế hoạch chưa triển khai.
+Trạng thái: đã triển khai Task 1–9 trên nhánh `claude/festive-fermi-ami9pa` (xem mục 6).
+Trục trạng thái: IMPLEMENTED + WIRED; VERIFIED ở mức test Python/Flutter + typecheck TS +
+migration chạy thật trên Postgres; **chưa** VERIFIED qua `encore test`/E2E Encore (môi trường
+không có `encore` CLI/runtime).
 
 ## 1. Luồng hiện tại (đã xác minh)
 
@@ -212,3 +214,35 @@ trước rồi mới nâng chất lượng.
 - Fallback model lúc chạy và lỗi HTTP 500 dashboard: xem mục "Kế hoạch riêng cần làm sau"
   của `2026-09-26-chat-agent-reliability.md`.
 - Canvas workflow mở (Hướng 3) và clone asset do founder cấu hình.
+
+## 6. Nhật ký triển khai (2026-09-26)
+
+| Task | Commit | Khác với kế hoạch ban đầu |
+|---|---|---|
+| 1 (G1) | `7716bf3` | Không thêm endpoint `validate-completion`. `advance(done)` của agent bắt buộc `evidenceRefs` (cùng chính sách IA22/IA23), vì endpoint riêng sẽ bỏ qua kiểm tra AI-member và `task_execution_records`. Evidence là `WorkspaceArtifact` (checksum) của output run. |
+| 2 (G2) | `331bcd4` | Đúng kế hoạch. Có test chéo đọc union `OwnerAgentProfile` trong TS. |
+| 3 (G3) | `dbc2ef1` | Đúng kế hoạch. |
+| 4 (G4, G5) | `be9b55a` | Ngữ cảnh (stage, task đang mở) đi trong payload event `weekly_goal.set.v1` thay vì worker gọi thêm API. **Chưa** đưa next-best-actions vào prompt. Prompt liệt kê catalog capability thật; sweep chặn capability không thuộc profile. |
+| 5 (G6) | `de7923e` | Migration 029 (Expand) trên `weekly_plans` thay vì thêm trạng thái `failed` cho `execution_plans` (plan chỉ tồn tại khi phân rã thành công). |
+| 6 (G7) | `3b42287` | Không tạo approval trước khi chạy. Policy siết capability của item thành REQUIRE_APPROVAL, nên gateway tạo approval bind `tool_call_id` như đường hiện có. Run xong mà không qua checkpoint thì không tự đóng task. |
+| 7 (G8, G9) | `7961638`, `86acbb9` | Thêm capability `operations.execution_plan.read` (operations 1.4.0, founder_assistant 1.2.0). Tiến độ gửi dạng message `plan_progress`, 1 message/plan/lượt sweep. Sửa thêm lỗi: thẻ `goal_confirm` không truyền `originRef`. |
+| 8 (G10) | `932184e` | Đúng kế hoạch. |
+| 9 | `07922be` | Test tích hợp phía worker với company giả lập, thay cho E2E Encore thật (không chạy được ở đây). |
+
+**Gate đã chạy xanh:** `make lint`, `make typecheck-py`, `make apps-cosa-test` (84%),
+`make frontend-test`, `flutter analyze`, `tsc --noEmit` (company), `boundary-check`,
+`company-boundary-check`, `encore-handler-boundary-check`, `ts-suppression-check`,
+`route-auth-allowlist-check`, `frontend-api-contract-check`, `contract-freeze-check`,
+`migration-compat-check`, `skillpacks-validate`. Migration company 001–029 đã chạy thật trên
+Postgres 16 (up, down, up lặp lại); golden fingerprint của group `workspace` cập nhật đúng các
+cột mới.
+
+**Chưa chạy được ở đây (cần máy có Encore):** `make services-test-company` (gồm test mới
+`decomposition-state.test.ts` và các test đã sửa `task-advance`, `agent-claimable`,
+`weekly-goal`), `make e2e-test` (các test cần `encore`), `tenancy-check` phần vitest DB.
+`make agent-test` có 3 lỗi có sẵn từ trước, do cần Postgres ở cổng 5432.
+
+**Còn mở:**
+- Đưa next-best-actions vào prompt phân rã.
+- Đẩy `plan_progress` qua SSE: hiện message chỉ hiện khi tải lại hội thoại.
+- Fallback model và lỗi HTTP 500: xem kế hoạch reliability.
