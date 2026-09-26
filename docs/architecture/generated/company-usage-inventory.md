@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 113 | 23 |
 | VALID_KEEP (giữ nguyên) | 132 | 37 |
-| REVIEW (chưa phân loại) | 1263 | 286 |
+| REVIEW (chưa phân loại) | 1265 | 286 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -121,6 +121,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/finance-legal/services/ai-compliance-e2e-seed.service.ts | 5 |
 | services/company/identity/services/platform-workspace-mapping.service.ts | 5 |
 | services/company/identity/services/token.service.ts | 5 |
+| services/company/operations/handlers/onboard.handler.ts | 5 |
 | services/company/shared/services/snowflake.service.ts | 5 |
 | services/cosa/services/workspace-settings.service.ts | 5 |
 | apps/cosa/api/approval_authority.py | 4 |
@@ -175,7 +176,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/identity/handlers/tenant-context.handler.ts | 3 |
 | services/company/identity/services/platform.client.ts | 3 |
 | services/company/operations/application/runtime/runtime-overview-query.ts | 3 |
-| services/company/operations/handlers/onboard.handler.ts | 3 |
 | services/company/operations/services/advisor-overlay.client.ts | 3 |
 | services/company/operations/services/okr.service.ts | 3 |
 | services/company/operations/services/onboard.service.ts | 3 |

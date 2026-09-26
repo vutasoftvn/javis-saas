@@ -7,6 +7,7 @@ import {
   assembleCurrentCompanyContext,
   getCadenceStatusService,
   seedReviewCadenceService,
+  DimensionCadenceStatus,
 } from "../services/onboard.service";
 import { requireWorkspaceAccess, requireWorkspaceWrite } from "../../shared/auth/workspace-access";
 import { AGENT_CAP } from "../../shared/auth/agent-capabilities";
@@ -43,9 +44,46 @@ export interface CreateSnapshotParams {
   changedDimensions?: string[];
 }
 
+// Kiểu response khai báo tường minh: Encore sinh schema response từ annotation
+// của handler; handler không khai báo kiểu trả về thì HTTP trả body rỗng
+// (e2e test_startup_os_founder_flow nhận 200 với body rỗng).
+export interface OnboardSessionResponse {
+  sessionId: string;
+  status: string;
+}
+
+export interface OnboardTurnResponse {
+  turnId: string;
+}
+
+export interface OnboardDimensionResponse {
+  success: boolean;
+  dimension: string;
+  recordId: string;
+}
+
+export interface OnboardSnapshotResponse {
+  snapshotId: string;
+  capturedAt: string;
+}
+
+export interface CurrentCompanyContextResponse {
+  workspaceId: string;
+  fullContext: Record<string, unknown>;
+}
+
+export interface CadenceStatusResponse {
+  cadences: DimensionCadenceStatus[];
+}
+
+export interface SeedCadenceResponse {
+  success: boolean;
+  workspaceId: string;
+}
+
 export const startOnboardSession = api(
   { method: "POST", path: "/operations/onboard/sessions", expose: true },
-  async (params: WithAuth<StartSessionParams>) => {
+  async (params: WithAuth<StartSessionParams>): Promise<OnboardSessionResponse> => {
     await requireWorkspaceWrite(params.authorization, params.workspaceId, {
       agentCapabilities: [AGENT_CAP.STARTUP_OS_SESSION_START],
     });
@@ -56,7 +94,7 @@ export const startOnboardSession = api(
 
 export const recordConversationTurn = api(
   { method: "POST", path: "/operations/onboard/turns", expose: true },
-  async (params: WithAuth<RecordTurnParams>) => {
+  async (params: WithAuth<RecordTurnParams>): Promise<OnboardTurnResponse> => {
     await requireWorkspaceWrite(params.authorization, params.workspaceId);
     const { authorization: _auth, ...input } = params;
     return recordConversationTurnService(input);
@@ -65,7 +103,7 @@ export const recordConversationTurn = api(
 
 export const updateOnboardDimension = api(
   { method: "POST", path: "/operations/onboard/dimensions/:dimension", expose: true },
-  async (params: WithAuth<UpdateDimensionParams>) => {
+  async (params: WithAuth<UpdateDimensionParams>): Promise<OnboardDimensionResponse> => {
     await requireWorkspaceWrite(params.authorization, params.workspaceId, {
       agentCapabilities: [AGENT_CAP.STARTUP_OS_DIMENSION_UPDATE],
     });
@@ -80,7 +118,7 @@ export const updateOnboardDimension = api(
 
 export const createOnboardSnapshot = api(
   { method: "POST", path: "/operations/onboard/snapshots", expose: true },
-  async (params: WithAuth<CreateSnapshotParams>) => {
+  async (params: WithAuth<CreateSnapshotParams>): Promise<OnboardSnapshotResponse> => {
     await requireWorkspaceWrite(params.authorization, params.workspaceId, {
       agentCapabilities: [AGENT_CAP.STARTUP_OS_SNAPSHOT_CREATE],
     });
@@ -91,7 +129,7 @@ export const createOnboardSnapshot = api(
 
 export const getCurrentCompanyContext = api(
   { method: "GET", path: "/operations/onboard/context/current", expose: true },
-  async (params: WithAuth<{ workspaceId: Query<string> }>) => {
+  async (params: WithAuth<{ workspaceId: Query<string> }>): Promise<CurrentCompanyContextResponse> => {
     await requireWorkspaceAccess(params.authorization, params.workspaceId, {
       agentCapabilities: [AGENT_CAP.STARTUP_OS_CONTEXT_READ, AGENT_CAP.STARTUP_OS_GOAL_ADVISORY],
     });
@@ -102,7 +140,7 @@ export const getCurrentCompanyContext = api(
 
 export const getOnboardCadenceStatus = api(
   { method: "GET", path: "/operations/onboard/cadence/status", expose: true },
-  async (params: WithAuth<{ workspaceId: Query<string> }>) => {
+  async (params: WithAuth<{ workspaceId: Query<string> }>): Promise<CadenceStatusResponse> => {
     await requireWorkspaceAccess(params.authorization, params.workspaceId, {
       agentCapabilities: [
         AGENT_CAP.STARTUP_OS_CADENCE_STATUS,
@@ -116,7 +154,7 @@ export const getOnboardCadenceStatus = api(
 
 export const seedOnboardCadence = api(
   { method: "POST", path: "/operations/onboard/cadence/seed", expose: true },
-  async (params: WithAuth<{ workspaceId: string }>) => {
+  async (params: WithAuth<{ workspaceId: string }>): Promise<SeedCadenceResponse> => {
     await requireWorkspaceWrite(params.authorization, params.workspaceId);
     await seedReviewCadenceService(BigInt(params.workspaceId));
     return { success: true, workspaceId: params.workspaceId };

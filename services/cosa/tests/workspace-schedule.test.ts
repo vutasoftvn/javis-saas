@@ -235,13 +235,15 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
       expect(executions[0].attemptCount).toBe(scheduleSvc.MAX_ENQUEUE_RETRIES);
       expect(executions[0].error).toBeTruthy();
 
-      // Definition must never have advanced past this occurrence — a task
-      // was never successfully dispatched for it.
+      // Occurrence thất bại vĩnh viễn được bỏ qua: nextRunAt tiến sang slot
+      // kế tiếp (lịch không chết), nhưng lastRunAt không đổi vì chưa từng chạy.
       const [defAfter] = await db
         .select()
         .from(workspaceScheduleDefinitions)
         .where(eq(workspaceScheduleDefinitions.id, def.id));
-      expect(defAfter.nextRunAt?.getTime()).toBe(pastDue.getTime());
+      expect(defAfter.nextRunAt).not.toBeNull();
+      expect(defAfter.nextRunAt!.getTime()).toBeGreaterThan(pastDue.getTime());
+      expect(defAfter.lastRunAt).toBeNull();
 
       // One more tick must be a no-op: terminal rows are not retried further,
       // and no duplicate occurrence gets created for the same slot.
@@ -257,6 +259,44 @@ describe("Workspace Schedules Service & Dispatcher (Task 4)", () => {
     } finally {
       spy.mockRestore();
     }
+  });
+
+  it("unsticks a definition whose due occurrence was already enqueue_failed", async () => {
+    const pastDue = new Date(Date.now() - 5000);
+    const def = await scheduleSvc.createWorkspaceSchedule({
+      organizationId: "ws_1",
+      createdBy: "user_alice",
+      scheduleKind: "daily",
+      timezone: "Asia/Ho_Chi_Minh",
+      hour: 9,
+      minute: 0,
+      promptTemplate: "Stuck scan",
+      projectId: "proj_test",
+    });
+    await db
+      .update(workspaceScheduleDefinitions)
+      .set({ nextRunAt: pastDue })
+      .where(eq(workspaceScheduleDefinitions.id, def.id));
+    // Mô phỏng dữ liệu cũ: occurrence đã enqueue_failed nhưng nextRunAt kẹt.
+    await db.insert(workspaceScheduleExecutions).values({
+      id: `sched_exec_stuck_${def.id}`,
+      definitionId: def.id,
+      organizationId: "ws_1",
+      scheduledFor: pastDue,
+      promptTemplateSnapshot: "Stuck scan",
+      agentProfileSnapshot: "operations",
+      connectorGrantIdsSnapshot: [],
+      projectIdSnapshot: "proj_test",
+      state: "enqueue_failed",
+    });
+
+    await scheduleSvc.dispatchDueWorkspaceSchedules(new Date());
+
+    const [defAfter] = await db
+      .select()
+      .from(workspaceScheduleDefinitions)
+      .where(eq(workspaceScheduleDefinitions.id, def.id));
+    expect(defAfter.nextRunAt!.getTime()).toBeGreaterThan(pastDue.getTime());
   });
 
   it("refuses runScheduleNow for a legacy schedule without project scope", async () => {

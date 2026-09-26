@@ -9,6 +9,55 @@ const { goals, objectives, cosaKeyResults, onboardSnapshots, projects } = schema
 export type GoalType = "vision" | "strategic" | "tactical" | "sprint";
 export type GoalStatus = "draft" | "active" | "completed" | "abandoned";
 
+// Kiểu kết quả đặt tên để handler khai báo response tường minh (Encore chỉ sinh
+// schema response từ annotation; thiếu annotation thì HTTP trả body rỗng).
+export interface CadenceWarning {
+  dimension: string;
+  urgency: string;
+  message: string;
+}
+
+export interface CreateGoalResult {
+  goalId: string;
+  onboardSnapshotId: string | null;
+  cadenceWarnings: CadenceWarning[];
+}
+
+export interface GoalTreeResult {
+  tree: GoalTreeNode[];
+}
+
+export interface GoalNeedingReview {
+  goalId: string;
+  goalTitle: string;
+  goalType: string;
+  snapshotAgeDays: number;
+  urgency: "high" | "medium" | "low";
+}
+
+export interface GoalsNeedingReviewResult {
+  goals: GoalNeedingReview[];
+}
+
+export interface CompleteGoalResult {
+  success: boolean;
+  completedObjectivesCount: number;
+  reviewAmbitionPrompt?: string;
+}
+
+export interface CreateObjectiveResult {
+  objectiveId: string;
+}
+
+export interface AddKeyResultResult {
+  keyResultId: string;
+}
+
+export interface KeyResultCheckinResult {
+  keyResultId: string;
+  objectiveProgressPct: number;
+}
+
 export interface GoalTreeNode {
   id: string;
   parentId: string | null;
@@ -65,11 +114,7 @@ export async function createGoalService(params: {
   durationWeeks?: number;
   status?: GoalStatus;
   snapshotId?: string;
-}): Promise<{
-  goalId: string;
-  onboardSnapshotId: string | null;
-  cadenceWarnings: Array<{ dimension: string; urgency: string; message: string }>;
-}> {
+}): Promise<CreateGoalResult> {
   const wsId = BigInt(params.workspaceId);
   const goalId = generateSnowflake();
 
@@ -136,7 +181,7 @@ export async function createGoalService(params: {
   };
 }
 
-export async function getGoalTreeService(workspaceId: string): Promise<{ tree: GoalTreeNode[] }> {
+export async function getGoalTreeService(workspaceId: string): Promise<GoalTreeResult> {
   const wsId = BigInt(workspaceId);
 
   // Lấy toàn bộ goals của workspace
@@ -219,15 +264,7 @@ export async function getGoalTreeService(workspaceId: string): Promise<{ tree: G
   return { tree: rootNodes };
 }
 
-export async function getGoalsNeedingReviewService(workspaceId: string): Promise<{
-  goals: Array<{
-    goalId: string;
-    goalTitle: string;
-    goalType: string;
-    snapshotAgeDays: number;
-    urgency: "high" | "medium" | "low";
-  }>;
-}> {
+export async function getGoalsNeedingReviewService(workspaceId: string): Promise<GoalsNeedingReviewResult> {
   const wsId = BigInt(workspaceId);
 
   // Tìm snapshot hiện tại
@@ -284,11 +321,7 @@ export async function completeGoalService(params: {
   workspaceId: string;
   goalId: string;
   forceCompleteActiveObjectives?: boolean;
-}): Promise<{
-  success: boolean;
-  completedObjectivesCount: number;
-  reviewAmbitionPrompt?: string;
-}> {
+}): Promise<CompleteGoalResult> {
   const wsId = BigInt(params.workspaceId);
   const gId = BigInt(params.goalId);
 
@@ -355,7 +388,7 @@ export async function createObjectiveService(params: {
   ownerUserId?: string;
   weight?: number;
   displayOrder?: number;
-}): Promise<{ objectiveId: string }> {
+}): Promise<CreateObjectiveResult> {
   const wsId = BigInt(params.workspaceId);
   const gId = BigInt(params.goalId);
   await assertGoalInWorkspace(wsId, gId);
@@ -385,7 +418,7 @@ export async function addKeyResultService(params: {
   target: number;
   unit?: string;
   displayOrder?: number;
-}): Promise<{ keyResultId: string }> {
+}): Promise<AddKeyResultResult> {
   const objId = BigInt(params.objectiveId);
   await assertObjectiveInWorkspace(BigInt(params.workspaceId), objId);
   const krId = generateSnowflake();
@@ -409,7 +442,7 @@ export async function updateKeyResultValueService(params: {
   workspaceId: string;
   keyResultId: string;
   currentValue: number;
-}): Promise<{ keyResultId: string; objectiveProgressPct: number }> {
+}): Promise<KeyResultCheckinResult> {
   const krId = BigInt(params.keyResultId);
 
   // KR không có cột workspace_id — xác định tenant qua objective cha.
