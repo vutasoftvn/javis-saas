@@ -31,17 +31,15 @@ from agent.artifacts import WorkspaceArtifact
 from agent.contracts.run import RunStatus
 from agent.conversations.models import MessageRecord
 
+from apps.cosa.agents.agent_profile_specs import AGENT_PROFILE_SPECS
 from apps.cosa.agents.capability_risk_map import capability_risk
 from apps.cosa.agents.goal_decomposition import (
+    OWNER_AGENT_PROFILES,
     PlanSchemaError,
     build_decomposition_prompt,
     parse_plan_output,
 )
-from apps.cosa.agents.specs import (
-    COSA_FINANCE_AGENT_SPEC,
-    COSA_MARKETING_AGENT_SPEC,
-    COSA_OPERATIONS_AGENT_SPEC,
-)
+from apps.cosa.agents.specs import COSA_OPERATIONS_AGENT_SPEC
 from apps.cosa.auth.jwt import mint_company_delegation
 from apps.cosa.capabilities.client import CompanyServiceError
 from apps.cosa.composition.agent_plane import CosaAgentPlane
@@ -60,11 +58,9 @@ __all__ = [
 # run_id của task-execution run trong sweep: wga_task_<task_id>_<hex>
 _WGA_TASK_RUN_RE = re.compile(r"^wga_task_(\d+)_[0-9a-f]+$")
 
-_SPEC_BY_PROFILE = {
-    "operations": COSA_OPERATIONS_AGENT_SPEC,
-    "finance": COSA_FINANCE_AGENT_SPEC,
-    "marketing": COSA_MARKETING_AGENT_SPEC,
-}
+# Bảng tường minh profile -> spec, dựng từ đúng danh sách company route tới.
+# Profile ngoài bảng vẫn fail closed (không fallback về operations).
+_SPEC_BY_PROFILE = {p: AGENT_PROFILE_SPECS[p] for p in OWNER_AGENT_PROFILES}
 
 _CAP_EXECUTION_PLAN_CREATE = "operations.execution_plan.create"
 _CAP_TASK_LIST = "operations.task.list"

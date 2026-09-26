@@ -12,6 +12,7 @@ import json
 from dataclasses import dataclass, field
 
 __all__ = [
+    "OWNER_AGENT_PROFILES",
     "PLAN_OUTPUT_JSON_SCHEMA",
     "PlanItemDraft",
     "PlanSchemaError",
@@ -20,6 +21,21 @@ __all__ = [
 ]
 
 _VALID_PRIORITIES = {"low", "medium", "high", "urgent"}
+
+# Nguồn sự thật phía Python cho các agent profile nhận task WGA. PHẢI khớp
+# union `OwnerAgentProfile` ở services/company/operations/services/
+# autonomy-classifier.ts (routeOwnerProfile) — test chéo trong
+# tests/apps/cosa/wga/test_owner_agent_profiles.py chặn lệch. Trước đây worker
+# chỉ biết 3 profile nên task company route cho strategy/sales/... bị block.
+OWNER_AGENT_PROFILES: tuple[str, ...] = (
+    "operations",
+    "finance",
+    "marketing",
+    "research_intelligence",
+    "strategy",
+    "sales",
+    "coding",
+)
 
 
 class PlanSchemaError(ValueError):
@@ -88,7 +104,9 @@ def build_decomposition_prompt(goal_text: str, context: dict) -> str:
         "- decision_reason: >=5 chars, why this item serves the goal\n"
         "- evidence_refs: array of reference strings in this workspace (may be "
         "empty for items only a human can do)\n"
-        "- suggested_domain: one of 'operations' | 'finance' | 'marketing', or null\n"
+        "- suggested_domain: one of "
+        + " | ".join(f"'{p}'" for p in OWNER_AGENT_PROFILES)
+        + ", or null\n"
         "- expected_capability: the single capability id the AI would call to do "
         "this (e.g. 'operations.sop.draft'), or null if NO capability can do it "
         "(interviews, calls, meetings, strategic decisions -> null)\n"
