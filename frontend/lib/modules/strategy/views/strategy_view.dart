@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../startup_os/widgets/startup_os_panel.dart';
 import '../controllers/strategy_controller.dart';
 import '../models/mvp_strategy_models.dart';
 import '../widgets/okr_weekly_generator_dialog.dart';
@@ -28,6 +29,32 @@ class StrategyView extends GetView<StrategyController> {
 
   @override
   Widget build(BuildContext context) {
+    // Startup OS (plan 2026-09-18 Phase 4): cây mục tiêu + ngữ cảnh 7 chiều là tab
+    // đầu; danh sách Objective cũ giữ nguyên ở tab thứ hai.
+    return DefaultTabController(
+      length: 2,
+      child: Column(
+        children: [
+          const TabBar(
+            tabs: [
+              Tab(key: Key('strategy-tab-startup-os'), text: 'Mục tiêu & Ngữ cảnh'),
+              Tab(key: Key('strategy-tab-objectives'), text: 'Objectives'),
+            ],
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                const StartupOsPanel(),
+                _buildObjectives(context),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildObjectives(BuildContext context) {
     return Obx(() {
       if (controller.isLoading.value && controller.objectives.isEmpty) {
         return const Center(child: CircularProgressIndicator());

@@ -287,7 +287,7 @@ Founder chấp thuận D1–D4 theo đề xuất mặc định.
 | 4 | DONE | `criticRequired=true` → `CRITIC_REVIEW_NOT_AVAILABLE`; bỏ `criticRequired` khỏi Flutter service; UI cho quyết định ở `CRITIC_REVIEW` (dữ liệu cũ). |
 | 5 | DONE | APPROVE/MODIFY/REJECT chỉ ở `AWAITING_FOUNDER`/`CRITIC_REVIEW`; test cũ đã sửa đi qua callback. |
 | 6 | DONE | `resolveChatRunAuthority` (mode-aware) thay `getProjectAgentRunAuthority` ở endpoint run-authority; path/shape response giữ nguyên. |
-| 7 | DONE (backend) | `p0CoreBootstrap: COMPLETE/INCOMPLETE` trong response tạo Project. Banner Flutter **chưa làm** — Board đã có action repair `p0CoreBootstrapAvailable`. |
+| 7 | DONE | `p0CoreBootstrap: COMPLETE/INCOMPLETE` trong response tạo Project. Banner Flutter "Hoàn tất thiết lập P0 Core" (2026-09-26) trên màn phân tích sau khi tạo Project, gọi action repair idempotent của Board (`frontend/lib/modules/projects/widgets/p0_core_setup_banner.dart`). |
 
 Kiểm chứng đã chạy:
 - Company: toàn bộ vitest (1657 pass; 1 fail `finance-legal/tests/cas-link.test.ts` có sẵn trên base) + `tsc --noEmit`.

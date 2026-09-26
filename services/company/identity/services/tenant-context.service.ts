@@ -4,6 +4,7 @@ import { randomUUID } from "crypto";
 import { TenantContext } from "../../shared/types/tenant_context";
 import { db, schema } from "../models/db";
 import { verifyAccessToken } from "./token.service";
+import { assertSessionAfterRevocation } from "./membership-reconciliation.service";
 import { verifyCosaDelegationForCapability } from "../../shared/auth/cosa-delegation.service";
 
 const {
@@ -102,11 +103,13 @@ export async function resolveTenantContext(
   // và endpoint cho phép agent, thử delegation của agent: agent hành động thay mặt
   // user nên vẫn đi qua đúng membership/role của user bên dưới (không vượt quyền user).
   let identitySub: string;
+  let sessionAuthTime: number | undefined;
   let isAiAgent = false;
   let delegationCorrelationId: string | undefined;
   try {
     const payload = verifyAccessToken(rawToken);
     identitySub = payload.sub;
+    sessionAuthTime = payload.auth_time;
   } catch {
     const delegated = params.agentCapabilities?.length
       ? verifyAgentDelegation(rawToken, String(params.workspaceId), params.agentCapabilities)
@@ -155,6 +158,7 @@ export async function resolveTenantContext(
     .select({
       role: identityWorkspaceMemberships.role,
       membershipState: identityWorkspaceMemberships.membershipState,
+      sessionNotBefore: identityWorkspaceMemberships.sessionNotBefore,
     })
     .from(identityWorkspaceMemberships)
     .where(
@@ -176,6 +180,12 @@ export async function resolveTenantContext(
     throw APIError.permissionDenied(
       `membership của user tại workspace ${params.workspaceId} đã bị thu hồi`
     );
+  }
+  // Session epoch (plan 2026-09-25 Task 4): membership từng bị thu hồi rồi cấp lại
+  // không trả quyền cho local session cấp trước lần thu hồi. Delegation của agent
+  // do apps/cosa mint theo từng run ngắn hạn nên chỉ kiểm membership active ở trên.
+  if (!isAiAgent) {
+    assertSessionAfterRevocation(sessionAuthTime, membership.sessionNotBefore, String(params.workspaceId));
   }
 
   // Tìm workforce member id — scoped chỉ tới workspace hiện tại

@@ -159,3 +159,23 @@ Triển khai trọn vẹn kiến trúc dữ liệu và các luồng vận hành 
 3. **API & End-to-End Tests:**
    - Test toàn bộ các endpoint của `onboard.handler` và `goals.handler`.
    - Test luồng triage discovery project sang objective mới.
+
+---
+
+## Trạng thái thực thi (2026-09-26)
+
+| Phase | Trạng thái | Ghi chú |
+|---|---|---|
+| 1 — Schema & migration | DONE | Migration Company operations 028 (bảng onboard_*, goals, view/function). |
+| 2 — Service & endpoint | DONE | `onboard.service.ts`, `goals.service.ts`, `discovery-project.service.ts`, handler onboard/goals. Sửa 2026-09-26: validator field 7 chiều (`onboard-dimension-fields.ts`, từ chối field lạ), context 7 chiều an toàn JSON (trước đây BigInt làm hỏng context/current và snapshot), cadence luôn đủ 7 chiều và chiều chưa ghi nhận là `critical`, seed không giả vờ "vừa rà soát", `depth`/`hierarchy` cây Goal đúng thứ tự. |
+| 3 — Agent Platform | DONE | 10 capability `startup_os.*` đăng ký registry và gắn `founder_assistant` 1.1.0; `startup_os.onboard.interview_plan` (kịch bản `/cs:setup`, `/cs:update` + phát hiện sự kiện); `startup_os.goal.advisory` (Task 3.2); Company nhận delegation agent cho các endpoint tương ứng. `goal.create`/`project.triage` cố ý không mở cho agent (Founder quyết định). |
+| 4 — Flutter | DONE | Tab "Mục tiêu & Ngữ cảnh" trong route Strategy: cây Goal + tiến độ KR gộp, độ tươi 7 chiều, wizard form 7 chiều / cập nhật nhanh, tạo/hoàn thành Goal, triage dự án khám phá. |
+
+**Ngoài phạm vi / còn mở:**
+- Triage hành động `link` (gắn vào Objective có sẵn) chưa có trên UI vì Company chưa có API liệt kê Objective.
+- Môi trường nào bật binding compliance (`legal.ai_system_capability_bindings`) phải bind thêm 10 capability `startup_os.*` cho AI system của `founder_assistant`, nếu không run chat sẽ bị từ chối "out of scope".
+
+**Chưa kiểm chứng:** `encore test` (test mới `operations/tests/startup-os-onboard.test.ts`)
+và E2E `tests/e2e/test_startup_os_http.py` — cần Encore CLI, không tải được trong môi
+trường thực thi. Đã chạy: `make apps-cosa-test`, `tests/contracts`, lint, mypy, `tsc`,
+gate contract/boundary, `flutter test` + `flutter analyze`.

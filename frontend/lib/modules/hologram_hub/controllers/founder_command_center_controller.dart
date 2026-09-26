@@ -25,6 +25,7 @@ import '../../../modules/workforce/models/workforce_mvp_models.dart';
 import '../../../modules/workforce/services/workforce_mvp_service.dart';
 import '../models/project_startup_team.dart';
 import '../services/project_startup_team_service.dart';
+import '../../projects/widgets/p0_core_setup_banner.dart';
 
 /// Fix-review (2026-09-01, Task 3) — trạng thái tải Workforce Packs cần phân
 /// biệt rõ "chưa tải xong"/"đã tải, hợp lệ (có thể rỗng)"/"tải thất bại,
@@ -694,6 +695,12 @@ class FounderCommandCenterController extends GetxController {
         description: description.isNotEmpty ? description : null,
       );
       final createdId = project['id']?.toString();
+      if (isP0CoreBootstrapIncomplete(project)) {
+        AppToast.warning(
+          'Dự án đã được tạo nhưng bộ cố vấn P0 Core chưa thiết lập xong. '
+          'Mở Hội đồng cố vấn và chọn "Khởi tạo P0 Core" để hoàn tất.',
+        );
+      }
       await loadDashboardData();
       return createdId;
     } catch (e) {

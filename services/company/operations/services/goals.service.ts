@@ -86,12 +86,17 @@ export async function createGoalService(params: {
   const cadenceStatus = await getCadenceStatusService(params.workspaceId);
   const cadenceWarnings: Array<{ dimension: string; urgency: string; message: string }> = [];
 
+  // Chỉ 2 chiều Fast quyết định ngữ cảnh khi đặt mục tiêu (plan Startup OS Task 2.2).
+  const fastDimensions = new Set(["stage_scale", "challenges"]);
   for (const c of cadenceStatus.cadences) {
+    if (!fastDimensions.has(c.dimension)) continue;
     if (c.urgency === "critical" || c.urgency === "recommended") {
       cadenceWarnings.push({
         dimension: c.dimension,
         urgency: c.urgency,
-        message: `Chiều ${c.dimension} đã ${c.daysSinceLastReview} ngày chưa cập nhật (mức độ: ${c.urgency}). Nên cập nhật trước khi tạo mục tiêu.`,
+        message: c.neverReviewed
+          ? `Chiều ${c.dimension} chưa từng được ghi nhận. Nên cập nhật trước khi tạo mục tiêu.`
+          : `Chiều ${c.dimension} đã ${c.daysSinceLastReview} ngày chưa cập nhật (mức độ: ${c.urgency}). Nên cập nhật trước khi tạo mục tiêu.`,
       });
     }
   }
@@ -190,14 +195,25 @@ export async function getGoalTreeService(workspaceId: string): Promise<{ tree: G
 
   const rootNodes: GoalTreeNode[] = [];
   for (const node of nodeMap.values()) {
-    if (node.parentId && nodeMap.has(node.parentId)) {
-      const parent = nodeMap.get(node.parentId)!;
-      node.depth = parent.depth + 1;
-      node.hierarchy = `${parent.hierarchy} › ${node.title}`;
+    const parent = node.parentId ? nodeMap.get(node.parentId) : undefined;
+    if (parent) {
       parent.children.push(node);
     } else {
       rootNodes.push(node);
     }
+  }
+
+  // depth/hierarchy tính sau khi dựng xong cây: trước đây gán ngay trong vòng lặp
+  // nên Goal con duyệt trước Goal cha nhận depth/hierarchy sai.
+  const assignDepth = (node: GoalTreeNode, depth: number, hierarchy: string): void => {
+    node.depth = depth;
+    node.hierarchy = hierarchy;
+    for (const child of node.children) {
+      assignDepth(child, depth + 1, `${hierarchy} › ${child.title}`);
+    }
+  };
+  for (const root of rootNodes) {
+    assignDepth(root, 0, root.title);
   }
 
   return { tree: rootNodes };

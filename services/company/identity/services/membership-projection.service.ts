@@ -178,9 +178,11 @@ export async function applyMembershipProjection(
           .onConflictDoNothing();
         return { applied: false, reason: "stale_after_revocation" };
       }
+      // Event Core đã áp là một quan sát mới của membership (syncedAt).
       const updateValues: Partial<typeof identityWorkspaceMemberships.$inferInsert> = {
         membershipState: targetState,
         sourceMembershipVersion: eventVersion,
+        syncedAt: now,
         updatedAt: now,
       };
 
@@ -189,8 +191,11 @@ export async function applyMembershipProjection(
           updateValues.role = event.role;
         }
         updateValues.revokedAt = null;
+        // Giữ sessionNotBefore: session cấp trước lần thu hồi không sống lại.
       } else {
         updateValues.revokedAt = occurredAt;
+        // Session epoch: mọi local session cấp trước lúc Company biết việc thu hồi.
+        updateValues.sessionNotBefore = now;
       }
 
       await tx

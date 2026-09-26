@@ -393,3 +393,25 @@ Task 8 invitation grant saga/reconciliation
 - Placeholder scan: no deferred design placeholders; every task identifies concrete files, interface and observable test behavior.
 - Type consistency: `WorkerServiceClaims`, `membershipVersion`, `membershipState`, `workspaceAgentId` and `CreateAiWorkforceRequest` are used consistently across tasks.
 - Review focus coverage: each of the five stated cases is asserted in its owning task.
+
+## Trạng thái thực thi (2026-09-26)
+
+| Task | Trạng thái | Ghi chú |
+|---|---|---|
+| 1–3 | DONE | Verifier JWT worker dùng chung, callback bind authority, consumer event membership forward-only (PR core-auth). |
+| 4 | DONE (có giới hạn) | Session epoch: cột `core.workspace_memberships.session_not_before` (migration identity 006); tenant context, `/identity/me`, renew từ chối session có `auth_time` không sau mốc thu hồi. Đối soát: `/identity/me` trả `membershipObservedAt`/`membershipObservationStale`; Flutter chạy lại `/identity/sync-from-platform` bằng token Core khi quá tuổi (giãn cách 5 phút, lỗi giữ nguyên trạng thái). |
+| 5–8 | DONE | Organization API + Flutter typed, preference COSA, saga invitation (PR core-auth). |
+| 9 | CHƯA LÀM | Rollout/soak và điều kiện gỡ đường cũ. |
+
+**Giới hạn đã biết của Task 4:** Company không có credential dịch vụ để tự hỏi Core
+trạng thái membership, và bản chiếu `cosa.organization_memberships` không có
+version/trạng thái thu hồi. Vì vậy đối soát chạy khi client có token Core của người
+dùng; job nền phía server cần Core mở API dịch vụ đọc membership (ngoài repo này)
+và một quyết định về credential mới (ADR-COSA-DELEGATION-002). Producer event
+`organization.membership.changed.v1` nằm ở `backend/core`, cũng ngoài repo.
+
+**Chưa kiểm chứng:** `encore test` và E2E process thật
+(`tests/e2e/test_membership_session_epoch_http.py`): môi trường thực thi không tải
+được Encore CLI (proxy chặn `encore.dev`) → `UNVERIFIED_ENVIRONMENT`. Đã chạy:
+`tsc --noEmit`, migration compat, schema fingerprint trên Postgres 16 thật, gate
+boundary/handler/suppression/route-auth/contract-freeze, Flutter test + analyze.

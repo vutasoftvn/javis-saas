@@ -11,6 +11,8 @@ export interface AuthParams {
 
 export interface AuthData {
   userID: string;
+  /** auth_time của local session (giây epoch) — dùng cho session epoch. */
+  authTime?: number;
 }
 
 export const auth = authHandler<AuthParams, AuthData>(async (params) => {
@@ -21,7 +23,7 @@ export const auth = authHandler<AuthParams, AuthData>(async (params) => {
   const token = header.slice("Bearer ".length);
   try {
     const decoded = verifyAccessToken(token);
-    return { userID: decoded.sub };
+    return { userID: decoded.sub, authTime: decoded.auth_time };
   } catch {
     throw APIError.unauthenticated("invalid or expired token");
   }
@@ -30,7 +32,7 @@ export const auth = authHandler<AuthParams, AuthData>(async (params) => {
 export const gateway = new Gateway({ authHandler: auth });
 
 export async function getMe(authData: AuthData): Promise<MeResponse> {
-  return getMeProfile(authData.userID);
+  return getMeProfile(authData.userID, undefined, authData.authTime);
 }
 
 export const meEndpoint = api(
@@ -46,7 +48,7 @@ export const meEndpoint = api(
     if (!authData?.userID) {
       throw APIError.unauthenticated("missing auth data");
     }
-    return getMeProfile(authData.userID, workspaceId);
+    return getMeProfile(authData.userID, workspaceId, authData.authTime);
   }
 );
 
@@ -76,7 +78,8 @@ export const renewLocalSession = api(
     } catch {
       throw APIError.unauthenticated("local session cannot be renewed");
     }
-    await assertLocalSessionRenewable(verifyAccessToken(token).sub);
+    const renewed = verifyAccessToken(token);
+    await assertLocalSessionRenewable(renewed.sub, renewed.auth_time);
     return { local_session_token: token, token_type: "bearer" };
   }
 );

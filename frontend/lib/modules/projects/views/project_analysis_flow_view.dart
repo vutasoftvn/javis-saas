@@ -5,17 +5,22 @@ import '../../../core/localization/supported_locale.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../../data/models/stage_model.dart';
 import '../controllers/project_analysis_flow_controller.dart';
+import '../widgets/p0_core_setup_banner.dart';
 
 class ProjectAnalysisFlowView extends StatelessWidget {
   final String projectId;
   final String projectTitle;
   final String? initialStage;
 
+  /// true khi response tạo Project báo P0 Core chưa hội tụ (plan 2026-09-25 Task 7).
+  final bool showP0CoreSetupBanner;
+
   const ProjectAnalysisFlowView({
     super.key,
     required this.projectId,
     required this.projectTitle,
     this.initialStage,
+    this.showP0CoreSetupBanner = false,
   });
 
   bool _isEnglish() {
@@ -78,6 +83,9 @@ class ProjectAnalysisFlowView extends StatelessWidget {
 
             return Column(
               children: [
+                if (showP0CoreSetupBanner)
+                  P0CoreSetupBanner(projectId: projectId, isEnglish: isEn),
+
                 // Step Indicator Header
                 _buildStepHeader(controller, isEn),
 
