@@ -456,8 +456,10 @@ function convertJsonSafe(value: unknown): JsonSafe {
 
 export type CadenceUrgency = "critical" | "recommended" | "optional" | "ok";
 
+// Kiểu trên wire phải là kiểu đơn giản: Encore dựng schema response lúc biên dịch và
+// không hiểu `keyof typeof` của bảng field, khiến response HTTP bị rỗng (E2E đã bắt).
 export interface DimensionCadenceStatus {
-  dimension: OnboardDimension;
+  dimension: string;
   cadence: string;
   intervalDays: number;
   lastReviewedAt: string | null;
