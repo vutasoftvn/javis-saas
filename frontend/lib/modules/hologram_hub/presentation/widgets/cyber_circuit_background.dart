@@ -26,6 +26,7 @@ class CyberCircuitBackground extends StatefulWidget {
   final ValueListenable<bool>? isVoiceActiveNotifier;
   final VoidCallback? onVoiceTap;
   final void Function(PlanetHologramData planet)? onPlanetTap;
+  final bool? isEn;
 
   const CyberCircuitBackground({
     super.key,
@@ -37,6 +38,7 @@ class CyberCircuitBackground extends StatefulWidget {
     this.isVoiceActiveNotifier,
     this.onVoiceTap,
     this.onPlanetTap,
+    this.isEn,
   });
 
   @override
@@ -104,7 +106,11 @@ class _CyberCircuitBackgroundState extends State<CyberCircuitBackground>
       if (widget.onPlanetTap != null) {
         widget.onPlanetTap!(closestPlanet);
       } else {
-        PlanetHologramInspectorDialog.show(context, closestPlanet);
+        PlanetHologramInspectorDialog.show(
+          context,
+          closestPlanet,
+          isEn: widget.isEn ?? isEnglishLocale(context),
+        );
       }
     }
   }
@@ -226,6 +232,7 @@ class _CyberCircuitBackgroundState extends State<CyberCircuitBackground>
   Widget build(BuildContext context) {
     final activeAudio = widget.audioLevel ?? _audioLevel;
     final activeVoice = widget.isVoiceActive ?? _isVoiceActive;
+    final isEn = widget.isEn ?? isEnglishLocale(context);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -330,6 +337,7 @@ class _CyberCircuitBackgroundState extends State<CyberCircuitBackground>
                     pulseProgress: _pulseController.value,
                     rotationProgress: _rotationController.value,
                     drumRadius: drumRadius,
+                    isEn: isEn,
                   ),
                 );
               },
@@ -717,11 +725,13 @@ class _HolographicLedRingsOverlayPainter extends CustomPainter {
   final double pulseProgress;
   final double rotationProgress;
   final double drumRadius;
+  final bool isEn;
 
   _HolographicLedRingsOverlayPainter({
     required this.pulseProgress,
     required this.rotationProgress,
     required this.drumRadius,
+    this.isEn = false,
   });
 
   // 8 hành tinh Hệ Mặt Trời lồng ghép tương ứng theo các tầng hoa văn đồng tâm của Trống Đồng:
@@ -967,9 +977,16 @@ class _HolographicLedRingsOverlayPainter extends CustomPainter {
   /// HUD hiển thị đếm ngược chu kỳ hoặc thông báo Thất Tinh Hội Tụ
   void _drawConvergenceHud(Canvas canvas, Offset center, double alignmentIntensity, double secondsLeft) {
     final isConverged = alignmentIntensity > 0.18;
-    final hudText = isConverged
-        ? '⚡ THẤT DIỆU HỘI TỤ • CỘNG HƯỞNG THIÊN HÀ'
-        : '⏳ Thất Tinh Hội Tụ: ${secondsLeft.toInt().toString().padLeft(2, '0')}s';
+    final String hudText;
+    if (isEn) {
+      hudText = isConverged
+          ? '⚡ SEVEN STARS CONVERGENCE • GALACTIC RESONANCE'
+          : '⏳ Planetary Alignment: ${secondsLeft.toInt().toString().padLeft(2, '0')}s';
+    } else {
+      hudText = isConverged
+          ? '⚡ THẤT DIỆU HỘI TỤ • CỘNG HƯỞNG THIÊN HÀ'
+          : '⏳ Thất Tinh Hội Tụ: ${secondsLeft.toInt().toString().padLeft(2, '0')}s';
+    }
 
     final textSpan = TextSpan(
       text: hudText,
@@ -1187,7 +1204,7 @@ class _HolographicLedRingsOverlayPainter extends CustomPainter {
   /// Nhãn tên Cyber HUD rõ ràng, sắc nét và nổi bật bên cạnh hành tinh
   void _drawPlanetLabel(Canvas canvas, Offset pos, _PlanetSpec planet) {
     final textSpan = TextSpan(
-      text: planet.nameVi,
+      text: planet.name(isEn),
       style: TextStyle(
         color: Colors.white.withValues(alpha: 0.92),
         fontSize: 11.5,
@@ -1225,6 +1242,7 @@ class _HolographicLedRingsOverlayPainter extends CustomPainter {
   bool shouldRepaint(covariant _HolographicLedRingsOverlayPainter oldDelegate) {
     return oldDelegate.pulseProgress != pulseProgress ||
         oldDelegate.rotationProgress != rotationProgress ||
-        oldDelegate.drumRadius != drumRadius;
+        oldDelegate.drumRadius != drumRadius ||
+        oldDelegate.isEn != isEn;
   }
 }

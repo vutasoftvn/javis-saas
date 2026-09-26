@@ -1,14 +1,31 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../../../../core/localization/locale_controller.dart';
+import '../../../../core/localization/supported_locale.dart';
+
+/// Helper to detect if the active app language is English
+bool isEnglishLocale(BuildContext? context) {
+  if (Get.isRegistered<LocaleController>()) {
+    return Get.find<LocaleController>().current.value == SupportedLocale.enUS;
+  }
+  final locale = (context != null ? Localizations.maybeLocaleOf(context) : null) ?? Get.locale;
+  return locale?.languageCode == 'en';
+}
 
 /// Data specifications for 8 planets in the Solar System,
 /// connecting sacred Trống Đồng astronomical orbits with COSA OS enterprise philosophy.
+/// Fully bilingual (Vietnamese & English).
 class PlanetHologramData {
   final String id;
   final String nameVi;
   final String nameEn;
   final String symbol;
-  final String chineseStarName;
+
+  // Bilingual ancient constellation names
+  final String chineseStarNameVi;
+  final String chineseStarNameEn;
+
   final double orbitRatio;
   final double radius;
   final Color primaryColor;
@@ -22,18 +39,26 @@ class PlanetHologramData {
   final bool hasPolarCap;
   final bool hasVerticalRing;
 
-  // Astronomical & Physical specs
-  final String solarDistance;
-  final String orbitalPeriod;
+  // Astronomical & Physical specs (Bilingual)
+  final String solarDistanceVi;
+  final String solarDistanceEn;
+  final String orbitalPeriodVi;
+  final String orbitalPeriodEn;
   final String diameter;
-  final String surfaceTemp;
-  final String keyFeatures;
+  final String surfaceTempVi;
+  final String surfaceTempEn;
+  final String keyFeaturesVi;
+  final String keyFeaturesEn;
 
-  // COSA OS System Role & Philosophy
-  final String cosaRole;
-  final String cosaBadge;
-  final String cosaDescription;
-  final String cosaMetric;
+  // COSA OS System Role & Philosophy (Bilingual)
+  final String cosaRoleVi;
+  final String cosaRoleEn;
+  final String cosaBadgeVi;
+  final String cosaBadgeEn;
+  final String cosaDescriptionVi;
+  final String cosaDescriptionEn;
+  final String cosaMetricVi;
+  final String cosaMetricEn;
   final IconData cosaIcon;
 
   const PlanetHologramData({
@@ -41,7 +66,8 @@ class PlanetHologramData {
     required this.nameVi,
     required this.nameEn,
     required this.symbol,
-    required this.chineseStarName,
+    required this.chineseStarNameVi,
+    required this.chineseStarNameEn,
     required this.orbitRatio,
     required this.radius,
     required this.primaryColor,
@@ -54,17 +80,48 @@ class PlanetHologramData {
     this.hasRings = false,
     this.hasPolarCap = false,
     this.hasVerticalRing = false,
-    required this.solarDistance,
-    required this.orbitalPeriod,
+    required this.solarDistanceVi,
+    required this.solarDistanceEn,
+    required this.orbitalPeriodVi,
+    required this.orbitalPeriodEn,
     required this.diameter,
-    required this.surfaceTemp,
-    required this.keyFeatures,
-    required this.cosaRole,
-    required this.cosaBadge,
-    required this.cosaDescription,
-    required this.cosaMetric,
+    required this.surfaceTempVi,
+    required this.surfaceTempEn,
+    required this.keyFeaturesVi,
+    required this.keyFeaturesEn,
+    required this.cosaRoleVi,
+    required this.cosaRoleEn,
+    required this.cosaBadgeVi,
+    required this.cosaBadgeEn,
+    required this.cosaDescriptionVi,
+    required this.cosaDescriptionEn,
+    required this.cosaMetricVi,
+    required this.cosaMetricEn,
     required this.cosaIcon,
   });
+
+  // Localized helpers
+  String name([bool isEn = false]) => isEn ? nameEn : nameVi;
+  String localizedChineseStarName(bool isEn) => isEn ? chineseStarNameEn : chineseStarNameVi;
+  String localizedSolarDistance(bool isEn) => isEn ? solarDistanceEn : solarDistanceVi;
+  String localizedOrbitalPeriod(bool isEn) => isEn ? orbitalPeriodEn : orbitalPeriodVi;
+  String localizedSurfaceTemp(bool isEn) => isEn ? surfaceTempEn : surfaceTempVi;
+  String localizedKeyFeatures(bool isEn) => isEn ? keyFeaturesEn : keyFeaturesVi;
+  String localizedCosaRole(bool isEn) => isEn ? cosaRoleEn : cosaRoleVi;
+  String localizedCosaBadge(bool isEn) => isEn ? cosaBadgeEn : cosaBadgeVi;
+  String localizedCosaDescription(bool isEn) => isEn ? cosaDescriptionEn : cosaDescriptionVi;
+  String localizedCosaMetric(bool isEn) => isEn ? cosaMetricEn : cosaMetricVi;
+
+  // Backward compatibility getters (defaults to Vietnamese)
+  String get chineseStarName => chineseStarNameVi;
+  String get solarDistance => solarDistanceVi;
+  String get orbitalPeriod => orbitalPeriodVi;
+  String get surfaceTemp => surfaceTempVi;
+  String get keyFeatures => keyFeaturesVi;
+  String get cosaRole => cosaRoleVi;
+  String get cosaBadge => cosaBadgeVi;
+  String get cosaDescription => cosaDescriptionVi;
+  String get cosaMetric => cosaMetricVi;
 
   static const double alignmentAxis = -math.pi / 3.8;
 
@@ -74,7 +131,8 @@ class PlanetHologramData {
       nameVi: 'Thủy Tinh',
       nameEn: 'Mercury',
       symbol: '☿',
-      chineseStarName: 'Thần Tinh (Thủy Đức)',
+      chineseStarNameVi: 'Thần Tinh (Thủy Đức)',
+      chineseStarNameEn: 'Shenxing (Mercury Star - Water Virtue)',
       orbitRatio: 0.28,
       radius: 4.8,
       primaryColor: Color(0xFFE2E8F0),
@@ -82,15 +140,23 @@ class PlanetHologramData {
       glowColor: Color(0xFF94A3B8),
       turns: 16,
       startAngle: alignmentAxis,
-      solarDistance: '57.9 triệu km (0.39 AU)',
-      orbitalPeriod: '88 ngày Trái Đất',
+      solarDistanceVi: '57.9 triệu km (0.39 AU)',
+      solarDistanceEn: '57.9M km (0.39 AU)',
+      orbitalPeriodVi: '88 ngày Trái Đất',
+      orbitalPeriodEn: '88 Earth days',
       diameter: '4,879 km',
-      surfaceTemp: '-180°C đến 430°C',
-      keyFeatures: 'Hành tinh nhỏ nhất, bề mặt nhiều hố va chạm và chuyển động nhanh nhất quanh Mặt Trời.',
-      cosaRole: 'Tốc độ phản hồi & Tác chiến tức thời',
-      cosaBadge: 'TỐC ĐỘ PHẢN HỒI',
-      cosaDescription: 'Đại diện cho nhịp độ xung thần kinh thời gian thực, độ trễ xử lý < 250ms và sự thích ứng siêu linh hoạt của hệ thống trước mọi biến động thị trường.',
-      cosaMetric: 'Độ trễ API: < 120ms | Tần số xử lý: 16 Hz',
+      surfaceTempVi: '-180°C đến 430°C',
+      surfaceTempEn: '-180°C to 430°C',
+      keyFeaturesVi: 'Hành tinh nhỏ nhất, bề mặt nhiều hố va chạm và chuyển động nhanh nhất quanh Mặt Trời.',
+      keyFeaturesEn: 'Smallest planet, heavily cratered surface, and fastest orbital speed around the Sun.',
+      cosaRoleVi: 'Tốc độ phản hồi & Tác chiến tức thời',
+      cosaRoleEn: 'Response Velocity & Instant Reflex',
+      cosaBadgeVi: 'TỐC ĐỘ PHẢN HỒI',
+      cosaBadgeEn: 'AGILE RESPONSE',
+      cosaDescriptionVi: 'Đại diện cho nhịp độ xung thần kinh thời gian thực, độ trễ xử lý < 250ms và sự thích ứng siêu linh hoạt của hệ thống trước mọi biến động thị trường.',
+      cosaDescriptionEn: 'Represents real-time cognitive neural pulses, sub-250ms response latency, and hyper-agile system adaptation to market fluctuations.',
+      cosaMetricVi: 'Độ trễ API: < 120ms | Tần số xử lý: 16 Hz',
+      cosaMetricEn: 'API Latency: < 120ms | Pulse Rate: 16 Hz',
       cosaIcon: Icons.bolt_rounded,
     ),
     PlanetHologramData(
@@ -98,7 +164,8 @@ class PlanetHologramData {
       nameVi: 'Kim Tinh',
       nameEn: 'Venus',
       symbol: '♀',
-      chineseStarName: 'Thái Bạch (Kim Đức)',
+      chineseStarNameVi: 'Thái Bạch (Kim Đức)',
+      chineseStarNameEn: 'Taibai (Venus Star - Metal Virtue)',
       orbitRatio: 0.39,
       radius: 6.8,
       primaryColor: Color(0xFFFEF08A),
@@ -106,15 +173,23 @@ class PlanetHologramData {
       glowColor: Color(0xFFF59E0B),
       turns: 11,
       startAngle: alignmentAxis,
-      solarDistance: '108.2 triệu km (0.72 AU)',
-      orbitalPeriod: '225 ngày Trái Đất',
+      solarDistanceVi: '108.2 triệu km (0.72 AU)',
+      solarDistanceEn: '108.2M km (0.72 AU)',
+      orbitalPeriodVi: '225 ngày Trái Đất',
+      orbitalPeriodEn: '225 Earth days',
       diameter: '12,104 km',
-      surfaceTemp: '465°C (Nhiệt độ cao nhất hệ)',
-      keyFeatures: 'Hành tinh sáng nhất bầu trời đêm với bầu khí quyển dày đặc phản chiếu 75% ánh sáng.',
-      cosaRole: 'Giá trị cốt lõi & Trải nghiệm khách hàng',
-      cosaBadge: 'TRẢI NGHIỆM KHÁCH HÀNG',
-      cosaDescription: 'Biểu trưng cho sức hút thương hiệu mãnh liệt, thiết kế tinh xảo vị nhân sinh và giá trị cốt lõi không thể thay thế khiến khách hàng gắn bó lâu dài.',
-      cosaMetric: 'NPS Trải nghiệm: 94.8% | Retention: 89.2%',
+      surfaceTempVi: '465°C (Nhiệt độ cao nhất hệ)',
+      surfaceTempEn: '465°C (Extreme greenhouse effect)',
+      keyFeaturesVi: 'Hành tinh sáng nhất bầu trời đêm với bầu khí quyển dày đặc phản chiếu 75% ánh sáng.',
+      keyFeaturesEn: 'Brightest planet in the night sky with a dense atmosphere reflecting 75% sunlight.',
+      cosaRoleVi: 'Giá trị cốt lõi & Trải nghiệm khách hàng',
+      cosaRoleEn: 'Core Value & Customer Experience',
+      cosaBadgeVi: 'TRẢI NGHIỆM KHÁCH HÀNG',
+      cosaBadgeEn: 'CUSTOMER DELIGHT',
+      cosaDescriptionVi: 'Biểu trưng cho sức hút thương hiệu mãnh liệt, thiết kế tinh xảo vị nhân sinh và giá trị cốt lõi không thể thay thế khiến khách hàng gắn bó lâu dài.',
+      cosaDescriptionEn: 'Embodies magnetic brand resonance, human-centric refined aesthetics, and indispensable value propositions that retain customers.',
+      cosaMetricVi: 'NPS Trải nghiệm: 94.8% | Retention: 89.2%',
+      cosaMetricEn: 'Experience NPS: 94.8% | Retention: 89.2%',
       cosaIcon: Icons.auto_awesome_rounded,
     ),
     PlanetHologramData(
@@ -122,7 +197,8 @@ class PlanetHologramData {
       nameVi: 'Trái Đất',
       nameEn: 'Earth',
       symbol: '♁',
-      chineseStarName: 'Địa Cầu (Nhân Hòa)',
+      chineseStarNameVi: 'Địa Cầu (Nhân Hòa)',
+      chineseStarNameEn: 'Earth (Human Harmony Axis)',
       orbitRatio: 0.51,
       radius: 7.6,
       primaryColor: Color(0xFF38BDF8),
@@ -131,15 +207,23 @@ class PlanetHologramData {
       turns: 8,
       startAngle: alignmentAxis,
       hasMoon: true,
-      solarDistance: '149.6 triệu km (1.00 AU)',
-      orbitalPeriod: '365.25 ngày (1 năm)',
+      solarDistanceVi: '149.6 triệu km (1.00 AU)',
+      solarDistanceEn: '149.6M km (1.00 AU)',
+      orbitalPeriodVi: '365.25 ngày (1 năm)',
+      orbitalPeriodEn: '365.25 days (1 year)',
       diameter: '12,742 km',
-      surfaceTemp: '15°C (Vùng sinh thái vàng)',
-      keyFeatures: 'Cái nôi của sự sống, 71% bề mặt là đại dương lấp lánh, có bầu khí quyển bảo vệ và Mặt Trăng đồng hành.',
-      cosaRole: 'Khách hàng, Thị trường & Product-Market Fit',
-      cosaBadge: 'THỊ TRƯỜNG & PMF',
-      cosaDescription: 'Trung tâm sinh quyển của doanh nghiệp — nơi sản phẩm giải quyết nỗi đau thực tế của khách hàng, nuôi dưỡng hệ sinh thái cộng đồng và đạt PMF bền vững.',
-      cosaMetric: 'PMF Score: 92/100 | Active Users: 100K+',
+      surfaceTempVi: '15°C (Vùng sinh thái vàng)',
+      surfaceTempEn: '15°C (Goldilocks habitable zone)',
+      keyFeaturesVi: 'Cái nôi của sự sống, 71% bề mặt là đại dương lấp lánh, có bầu khí quyển bảo vệ và Mặt Trăng đồng hành.',
+      keyFeaturesEn: 'Cradle of life, 71% ocean surface, protective atmosphere, accompanied by the Moon.',
+      cosaRoleVi: 'Khách hàng, Thị trường & Product-Market Fit',
+      cosaRoleEn: 'Target Market & Product-Market Fit',
+      cosaBadgeVi: 'THỊ TRƯỜNG & PMF',
+      cosaBadgeEn: 'TARGET MARKET & PMF',
+      cosaDescriptionVi: 'Trung tâm sinh quyển của doanh nghiệp — nơi sản phẩm giải quyết nỗi đau thực tế của khách hàng, nuôi dưỡng hệ sinh thái cộng đồng và đạt PMF bền vững.',
+      cosaDescriptionEn: 'The biosphere center of the enterprise — solving authentic customer pain points, cultivating community vitality, and sustaining true PMF.',
+      cosaMetricVi: 'PMF Score: 92/100 | Active Users: 100K+',
+      cosaMetricEn: 'PMF Score: 92/100 | Active Users: 100K+',
       cosaIcon: Icons.public_rounded,
     ),
     PlanetHologramData(
@@ -147,7 +231,8 @@ class PlanetHologramData {
       nameVi: 'Hỏa Tinh',
       nameEn: 'Mars',
       symbol: '♂',
-      chineseStarName: 'Huỳnh Hoặc (Hỏa Đức)',
+      chineseStarNameVi: 'Huỳnh Hoặc (Hỏa Đức)',
+      chineseStarNameEn: 'Yinghuo (Mars Star - Fire Virtue)',
       orbitRatio: 0.63,
       radius: 5.8,
       primaryColor: Color(0xFFF87171),
@@ -156,15 +241,23 @@ class PlanetHologramData {
       turns: 6,
       startAngle: alignmentAxis,
       hasPolarCap: true,
-      solarDistance: '227.9 triệu km (1.52 AU)',
-      orbitalPeriod: '687 ngày Trái Đất',
+      solarDistanceVi: '227.9 triệu km (1.52 AU)',
+      solarDistanceEn: '227.9M km (1.52 AU)',
+      orbitalPeriodVi: '687 ngày Trái Đất',
+      orbitalPeriodEn: '687 Earth days',
       diameter: '6,779 km',
-      surfaceTemp: '-63°C (Khô lạnh & bão cát)',
-      keyFeatures: 'Hành tinh Đỏ giàu oxit sắt, sở hữu chỏm băng cực Bắc vĩnh cửu và hẻm vực Valles Marineris kỳ vĩ.',
-      cosaRole: 'Đột phá tiên phong & Thử nghiệm táo bạo',
-      cosaBadge: 'TIÊN PHONG ĐỘT PHÁ',
-      cosaDescription: 'Tinh thần dấn thân khai phá lãnh địa mới, chiến lược R&D quyết đoán, văn hóa thử nghiệm A/B liên tục và vượt qua mọi rào cản giới hạn.',
-      cosaMetric: 'Tốc độ thử nghiệm: 48 chu kỳ/quý | R&D Score: Top 1%',
+      surfaceTempVi: '-63°C (Khô lạnh & bão cát)',
+      surfaceTempEn: '-63°C (Cold arid & dust storms)',
+      keyFeaturesVi: 'Hành tinh Đỏ giàu oxit sắt, sở hữu chỏm băng cực Bắc vĩnh cửu và hẻm vực Valles Marineris kỳ vĩ.',
+      keyFeaturesEn: 'The Red Planet rich in iron oxide, featuring permanent north polar ice cap and vast canyons.',
+      cosaRoleVi: 'Đột phá tiên phong & Thử nghiệm táo bạo',
+      cosaRoleEn: 'Pioneering Exploration & Bold Experiments',
+      cosaBadgeVi: 'TIÊN PHONG ĐỘT PHÁ',
+      cosaBadgeEn: 'BOLD EXPERIMENTS',
+      cosaDescriptionVi: 'Tinh thần dấn thân khai phá lãnh địa mới, chiến lược R&D quyết đoán, văn hóa thử nghiệm A/B liên tục và vượt qua mọi rào cản giới hạn.',
+      cosaDescriptionEn: 'The relentless drive into uncharted territory, decisive R&D vectors, continuous A/B test rhythms, and shattering conventional boundaries.',
+      cosaMetricVi: 'Tốc độ thử nghiệm: 48 chu kỳ/quý | R&D Score: Top 1%',
+      cosaMetricEn: 'Experiment Velocity: 48 cycles/qtr | R&D: Top 1%',
       cosaIcon: Icons.rocket_launch_rounded,
     ),
     PlanetHologramData(
@@ -172,7 +265,8 @@ class PlanetHologramData {
       nameVi: 'Mộc Tinh',
       nameEn: 'Jupiter',
       symbol: '♃',
-      chineseStarName: 'Tuế Tinh (Mộc Đức)',
+      chineseStarNameVi: 'Tuế Tinh (Mộc Đức)',
+      chineseStarNameEn: 'Suixing (Jupiter Star - Wood Virtue)',
       orbitRatio: 0.76,
       radius: 12.8,
       primaryColor: Color(0xFFFDE68A),
@@ -181,15 +275,23 @@ class PlanetHologramData {
       turns: 4,
       startAngle: alignmentAxis,
       hasStripes: true,
-      solarDistance: '778.5 triệu km (5.20 AU)',
-      orbitalPeriod: '11.86 năm Trái Đất',
+      solarDistanceVi: '778.5 triệu km (5.20 AU)',
+      solarDistanceEn: '778.5M km (5.20 AU)',
+      orbitalPeriodVi: '11.86 năm Trái Đất',
+      orbitalPeriodEn: '11.86 Earth years',
       diameter: '139,820 km',
-      surfaceTemp: '-110°C (Áp suất khổng lồ)',
-      keyFeatures: 'Đại hành tinh khí lớn nhất Hệ Mặt Trời với các dải mây xoáy caramel và cơn bão Đốm Đỏ Lớn tồn tại hàng thế kỷ.',
-      cosaRole: 'Tăng trưởng quy mô & Động lực dòng vốn',
-      cosaBadge: 'TĂNG TRƯỞNG & VỐN',
-      cosaDescription: 'Trọng lực hấp dẫn khổng lồ biểu trưng cho cỗ máy mở rộng quy mô cấp số nhân, hiệu ứng mạng lưới bao trùm và năng lực tập trung dòng vốn mạnh mẽ.',
-      cosaMetric: 'Tốc độ mở rộng ARR: +240%/năm | Hiệu ứng mạng lưới',
+      surfaceTempVi: '-110°C (Áp suất khổng lồ)',
+      surfaceTempEn: '-110°C (Enormous gas pressure)',
+      keyFeaturesVi: 'Đại hành tinh khí lớn nhất Hệ Mặt Trời với các dải mây xoáy caramel và cơn bão Đốm Đỏ Lớn tồn tại hàng thế kỷ.',
+      keyFeaturesEn: 'Largest gas giant with caramel cloud belts and the century-old Great Red Spot storm.',
+      cosaRoleVi: 'Tăng trưởng quy mô & Động lực dòng vốn',
+      cosaRoleEn: 'Scale Expansion & Capital Magnet',
+      cosaBadgeVi: 'TĂNG TRƯỞNG & VỐN',
+      cosaBadgeEn: 'SCALE & CAPITAL',
+      cosaDescriptionVi: 'Trọng lực hấp dẫn khổng lồ biểu trưng cho cỗ máy mở rộng quy mô cấp số nhân, hiệu ứng mạng lưới bao trùm và năng lực tập trung dòng vốn mạnh mẽ.',
+      cosaDescriptionEn: 'Colossal gravitational pull representing exponential scaling engines, ubiquitous network effects, and robust capital accumulation power.',
+      cosaMetricVi: 'Tốc độ mở rộng ARR: +240%/năm | Hiệu ứng mạng lưới',
+      cosaMetricEn: 'ARR Expansion: +240%/yr | Network Effects',
       cosaIcon: Icons.trending_up_rounded,
     ),
     PlanetHologramData(
@@ -197,7 +299,8 @@ class PlanetHologramData {
       nameVi: 'Thổ Tinh',
       nameEn: 'Saturn',
       symbol: '♄',
-      chineseStarName: 'Trấn Tinh (Thổ Đức)',
+      chineseStarNameVi: 'Trấn Tinh (Thổ Đức)',
+      chineseStarNameEn: 'Zhenxing (Saturn Star - Earth Virtue)',
       orbitRatio: 0.89,
       radius: 10.2,
       primaryColor: Color(0xFFFEF08A),
@@ -206,15 +309,23 @@ class PlanetHologramData {
       turns: 3,
       startAngle: alignmentAxis,
       hasRings: true,
-      solarDistance: '1.43 tỷ km (9.58 AU)',
-      orbitalPeriod: '29.45 năm Trái Đất',
+      solarDistanceVi: '1.43 tỷ km (9.58 AU)',
+      solarDistanceEn: '1.43B km (9.58 AU)',
+      orbitalPeriodVi: '29.45 năm Trái Đất',
+      orbitalPeriodEn: '29.45 Earth years',
       diameter: '116,460 km',
-      surfaceTemp: '-140°C (Hệ vành đai băng đá)',
-      keyFeatures: 'Tuyệt tác thiên văn với hệ vành đai nghiêng Cassini lấp lánh trải rộng hàng trăm ngàn kilomet từ băng đá và bụi vũ trụ.',
-      cosaRole: 'Quản trị hệ thống, Kỷ luật & Pháp trị',
-      cosaBadge: 'QUẢN TRỊ & PHÁP TRỊ',
-      cosaDescription: 'Hệ vành đai bảo vệ trứ danh tượng trưng cho khuôn khổ pháp lý vững như bàn thạch, chuẩn mực quản trị rủi ro, bảo mật nghiêm ngặt và tính kỷ luật vận hành.',
-      cosaMetric: 'Tuân thủ SLA: 99.98% | Kiểm toán & Rào chắn: 100%',
+      surfaceTempVi: '-140°C (Hệ vành đai băng đá)',
+      surfaceTempEn: '-140°C (Icy ring systems)',
+      keyFeaturesVi: 'Tuyệt tác thiên văn với hệ vành đai nghiêng Cassini lấp lánh trải rộng hàng trăm ngàn kilomet từ băng đá và bụi vũ trụ.',
+      keyFeaturesEn: 'Astronomical jewel with shimmering tilted Cassini rings spanning hundreds of thousands of kilometers.',
+      cosaRoleVi: 'Quản trị hệ thống, Kỷ luật & Pháp trị',
+      cosaRoleEn: 'Systemic Governance, Rule of Law & Discipline',
+      cosaBadgeVi: 'QUẢN TRỊ & PHÁP TRỊ',
+      cosaBadgeEn: 'GOVERNANCE & LAW',
+      cosaDescriptionVi: 'Hệ vành đai bảo vệ trứ danh tượng trưng cho khuôn khổ pháp lý vững như bàn thạch, chuẩn mực quản trị rủi ro, bảo mật nghiêm ngặt và tính kỷ luật vận hành.',
+      cosaDescriptionEn: 'Legendary defensive rings symbolizing rock-solid legal shields, enterprise risk management standards, uncompromising cybersecurity, and operational discipline.',
+      cosaMetricVi: 'Tuân thủ SLA: 99.98% | Kiểm toán & Rào chắn: 100%',
+      cosaMetricEn: 'SLA Compliance: 99.98% | Zero Defect Audit',
       cosaIcon: Icons.shield_rounded,
     ),
     PlanetHologramData(
@@ -222,7 +333,8 @@ class PlanetHologramData {
       nameVi: 'Thiên Vương',
       nameEn: 'Uranus',
       symbol: '♅',
-      chineseStarName: 'Thiên Vương Tinh',
+      chineseStarNameVi: 'Thiên Vương Tinh',
+      chineseStarNameEn: 'Tianwangxing (Uranus - Sky King)',
       orbitRatio: 1.02,
       radius: 8.4,
       primaryColor: Color(0xFFA5F3FC),
@@ -231,15 +343,23 @@ class PlanetHologramData {
       turns: 2,
       startAngle: alignmentAxis,
       hasVerticalRing: true,
-      solarDistance: '2.87 tỷ km (19.2 AU)',
-      orbitalPeriod: '84 năm Trái Đất',
+      solarDistanceVi: '2.87 tỷ km (19.2 AU)',
+      solarDistanceEn: '2.87B km (19.2 AU)',
+      orbitalPeriodVi: '84 năm Trái Đất',
+      orbitalPeriodEn: '84 Earth years',
       diameter: '50,724 km',
-      surfaceTemp: '-195°C (Hành tinh băng khổng lồ)',
-      keyFeatures: 'Trục tự quay nghiêng 98 độ gần như nằm ngang với hệ vành đai dựng đứng độc nhất trong Hệ Mặt Trời.',
-      cosaRole: 'Công nghệ lõi sâu (Deep-Tech) & AI Đột phá',
-      cosaBadge: 'DEEP-TECH MOAT',
-      cosaDescription: 'Tư duy phản biện khác biệt hoàn toàn với số đông — tượng trưng cho con hào công nghệ trí tuệ nhân tạo độc quyền và kiến trúc nền tảng không thể sao chép.',
-      cosaMetric: 'Hệ thống 16 AI Agents tự hành | Deep-Tech Moat',
+      surfaceTempVi: '-195°C (Hành tinh băng khổng lồ)',
+      surfaceTempEn: '-195°C (Ice giant atmosphere)',
+      keyFeaturesVi: 'Trục tự quay nghiêng 98 độ gần như nằm ngang với hệ vành đai dựng đứng độc nhất trong Hệ Mặt Trời.',
+      keyFeaturesEn: 'Unique 98° axial tilt rotating on its side, featuring vertical ice ring systems.',
+      cosaRoleVi: 'Công nghệ lõi sâu (Deep-Tech) & AI Đột phá',
+      cosaRoleEn: 'Deep-Tech Moats & Disruptive AI',
+      cosaBadgeVi: 'DEEP-TECH MOAT',
+      cosaBadgeEn: 'DEEP-TECH MOAT',
+      cosaDescriptionVi: 'Tư duy phản biện khác biệt hoàn toàn với số đông — tượng trưng cho con hào công nghệ trí tuệ nhân tạo độc quyền và kiến trúc nền tảng không thể sao chép.',
+      cosaDescriptionEn: 'Contrarian first-principles thinking — signifying defensible proprietary AI agent algorithms and an uncopyable technological moat.',
+      cosaMetricVi: 'Hệ thống 16 AI Agents tự hành | Deep-Tech Moat',
+      cosaMetricEn: '16 Autonomous AI Agents | Deep-Tech Moats',
       cosaIcon: Icons.psychology_rounded,
     ),
     PlanetHologramData(
@@ -247,7 +367,8 @@ class PlanetHologramData {
       nameVi: 'Hải Vương',
       nameEn: 'Neptune',
       symbol: '♆',
-      chineseStarName: 'Hải Vương Tinh',
+      chineseStarNameVi: 'Hải Vương Tinh',
+      chineseStarNameEn: 'Haiwangxing (Neptune - Ocean King)',
       orbitRatio: 1.16,
       radius: 8.0,
       primaryColor: Color(0xFF60A5FA),
@@ -255,15 +376,23 @@ class PlanetHologramData {
       glowColor: Color(0xFF3B82F6),
       turns: 1,
       startAngle: alignmentAxis,
-      solarDistance: '4.50 tỷ km (30.1 AU)',
-      orbitalPeriod: '164.8 năm Trái Đất',
+      solarDistanceVi: '4.50 tỷ km (30.1 AU)',
+      solarDistanceEn: '4.50B km (30.1 AU)',
+      orbitalPeriodVi: '164.8 năm Trái Đất',
+      orbitalPeriodEn: '164.8 Earth years',
       diameter: '49,244 km',
-      surfaceTemp: '-200°C (Gió bão siêu thanh 2,100 km/h)',
-      keyFeatures: 'Quả cầu xanh thẳm của đại dương vũ trụ với những cơn gió bão dữ dội nhất Hệ Mặt Trời và đốm đen Great Dark Spot.',
-      cosaRole: 'Tầm nhìn dài hạn & Chiến lược đại dương xanh',
-      cosaBadge: 'TẦM NHÌN DÀI HẠN',
-      cosaDescription: 'Quỹ đạo xa nhất hướng về chiều sâu vô cực — tượng trưng cho định hướng chiến lược 10 năm, khám phá những thị trường ngách đại dương xanh chưa từng ai chạm tới.',
-      cosaMetric: 'Tầm nhìn chiến lược: 10 năm | Blue Ocean Strategy',
+      surfaceTempVi: '-200°C (Gió bão siêu thanh 2,100 km/h)',
+      surfaceTempEn: '-200°C (Supersonic winds 2,100 km/h)',
+      keyFeaturesVi: 'Quả cầu xanh thẳm của đại dương vũ trụ với những cơn gió bão dữ dội nhất Hệ Mặt Trời và đốm đen Great Dark Spot.',
+      keyFeaturesEn: 'Deep cosmic blue sphere with the most ferocious supersonic winds and the Great Dark Spot.',
+      cosaRoleVi: 'Tầm nhìn dài hạn & Chiến lược đại dương xanh',
+      cosaRoleEn: 'Long-Term Horizon & Blue Ocean Strategy',
+      cosaBadgeVi: 'TẦM NHÌN DÀI HẠN',
+      cosaBadgeEn: 'LONG-TERM VISION',
+      cosaDescriptionVi: 'Quỹ đạo xa nhất hướng về chiều sâu vô cực — tượng trưng cho định hướng chiến lược 10 năm, khám phá những thị trường ngách đại dương xanh chưa từng ai chạm tới.',
+      cosaDescriptionEn: 'The outermost orbit gazing into cosmic infinities — symbolizing 10-year strategic clarity and conquering uncontested blue ocean frontiers.',
+      cosaMetricVi: 'Tầm nhìn chiến lược: 10 năm | Blue Ocean Strategy',
+      cosaMetricEn: 'Strategic Horizon: 10 Years | Blue Ocean Strategy',
       cosaIcon: Icons.explore_rounded,
     ),
   ];
@@ -278,16 +407,19 @@ class PlanetHologramData {
 
 /// Modal inspector dialog with smooth holographic zoom animation,
 /// 3D rotating planet preview, astronomical specs, and COSA OS strategic symbolism.
+/// Fully localized in Vietnamese and English.
 class PlanetHologramInspectorDialog extends StatefulWidget {
   final PlanetHologramData planet;
+  final bool? isEn;
 
   const PlanetHologramInspectorDialog({
     super.key,
     required this.planet,
+    this.isEn,
   });
 
   /// Opens the inspector with a smooth holographic scale & fade transition
-  static Future<void> show(BuildContext context, PlanetHologramData planet) {
+  static Future<void> show(BuildContext context, PlanetHologramData planet, {bool? isEn}) {
     return showGeneralDialog(
       context: context,
       barrierDismissible: true,
@@ -295,7 +427,7 @@ class PlanetHologramInspectorDialog extends StatefulWidget {
       barrierColor: Colors.black.withValues(alpha: 0.78),
       transitionDuration: const Duration(milliseconds: 320),
       pageBuilder: (context, anim1, anim2) {
-        return PlanetHologramInspectorDialog(planet: planet);
+        return PlanetHologramInspectorDialog(planet: planet, isEn: isEn);
       },
       transitionBuilder: (context, anim1, anim2, child) {
         final curved = CurvedAnimation(
@@ -340,6 +472,7 @@ class _PlanetHologramInspectorDialogState extends State<PlanetHologramInspectorD
   @override
   Widget build(BuildContext context) {
     final planet = widget.planet;
+    final isEn = widget.isEn ?? isEnglishLocale(context);
     final screenWidth = MediaQuery.of(context).size.width;
     final isCompact = screenWidth < 680;
 
@@ -379,7 +512,7 @@ class _PlanetHologramInspectorDialogState extends State<PlanetHologramInspectorD
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // ── Cyber Top Bar ────────────────────────────────────
-                _buildTopBar(context, planet),
+                _buildTopBar(context, planet, isEn),
 
                 // ── Main Content Area ────────────────────────────────
                 Flexible(
@@ -392,9 +525,11 @@ class _PlanetHologramInspectorDialogState extends State<PlanetHologramInspectorD
                             children: [
                               Center(child: _buildPlanet3DPreview(planet)),
                               const SizedBox(height: 20),
-                              _buildCosaOsCard(planet),
+                              _buildCosaOsCard(planet, isEn),
                               const SizedBox(height: 16),
-                              _buildAstronomicalSpecsCard(planet),
+                              _buildAstronomicalSpecsCard(planet, isEn),
+                              const SizedBox(height: 16),
+                              _buildOrbitalMechanicsCard(planet, isEn),
                             ],
                           )
                         : Row(
@@ -407,7 +542,7 @@ class _PlanetHologramInspectorDialogState extends State<PlanetHologramInspectorD
                                   children: [
                                     _buildPlanet3DPreview(planet),
                                     const SizedBox(height: 16),
-                                    _buildAstronomicalSpecsCard(planet),
+                                    _buildAstronomicalSpecsCard(planet, isEn),
                                   ],
                                 ),
                               ),
@@ -417,9 +552,9 @@ class _PlanetHologramInspectorDialogState extends State<PlanetHologramInspectorD
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    _buildCosaOsCard(planet),
+                                    _buildCosaOsCard(planet, isEn),
                                     const SizedBox(height: 16),
-                                    _buildOrbitalMechanicsCard(planet),
+                                    _buildOrbitalMechanicsCard(planet, isEn),
                                   ],
                                 ),
                               ),
@@ -435,7 +570,7 @@ class _PlanetHologramInspectorDialogState extends State<PlanetHologramInspectorD
     );
   }
 
-  Widget _buildTopBar(BuildContext context, PlanetHologramData planet) {
+  Widget _buildTopBar(BuildContext context, PlanetHologramData planet, bool isEn) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       decoration: BoxDecoration(
@@ -477,28 +612,31 @@ class _PlanetHologramInspectorDialogState extends State<PlanetHologramInspectorD
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Row(
-              children: [
-                Text(
-                  planet.nameVi.toUpperCase(),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.2,
-                    color: Colors.white,
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: '${planet.name(isEn).toUpperCase()} ',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.2,
+                      color: Colors.white,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '// ${planet.nameEn.toUpperCase()}',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.0,
-                    color: planet.glowColor.withValues(alpha: 0.85),
+                  TextSpan(
+                    text: isEn ? '// ${planet.nameVi.toUpperCase()}' : '// ${planet.nameEn.toUpperCase()}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.0,
+                      color: planet.glowColor.withValues(alpha: 0.85),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           // Close button ✕
@@ -558,7 +696,7 @@ class _PlanetHologramInspectorDialogState extends State<PlanetHologramInspectorD
     );
   }
 
-  Widget _buildCosaOsCard(PlanetHologramData planet) {
+  Widget _buildCosaOsCard(PlanetHologramData planet, bool isEn) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -599,7 +737,7 @@ class _PlanetHologramInspectorDialogState extends State<PlanetHologramInspectorD
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'BIỂU TƯỢNG COSA OS',
+                      isEn ? 'COSA OS ARCHITECTURAL METAPHOR' : 'BIỂU TƯỢNG COSA OS',
                       style: TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w800,
@@ -609,7 +747,7 @@ class _PlanetHologramInspectorDialogState extends State<PlanetHologramInspectorD
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      planet.cosaBadge,
+                      planet.localizedCosaBadge(isEn),
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
@@ -624,7 +762,7 @@ class _PlanetHologramInspectorDialogState extends State<PlanetHologramInspectorD
           ),
           const SizedBox(height: 12),
           Text(
-            planet.cosaDescription,
+            planet.localizedCosaDescription(isEn),
             style: const TextStyle(
               fontSize: 13,
               height: 1.55,
@@ -648,7 +786,7 @@ class _PlanetHologramInspectorDialogState extends State<PlanetHologramInspectorD
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    planet.cosaMetric,
+                    planet.localizedCosaMetric(isEn),
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -664,7 +802,7 @@ class _PlanetHologramInspectorDialogState extends State<PlanetHologramInspectorD
     );
   }
 
-  Widget _buildAstronomicalSpecsCard(PlanetHologramData planet) {
+  Widget _buildAstronomicalSpecsCard(PlanetHologramData planet, bool isEn) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -682,29 +820,33 @@ class _PlanetHologramInspectorDialogState extends State<PlanetHologramInspectorD
             children: [
               Icon(Icons.public, size: 16, color: planet.glowColor),
               const SizedBox(width: 8),
-              const Text(
-                'THÔNG SỐ THIÊN VĂN',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.2,
-                  color: Colors.white70,
+              Expanded(
+                child: Text(
+                  isEn ? 'ASTRONOMICAL SPECIFICATIONS' : 'THÔNG SỐ THIÊN VĂN',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.2,
+                    color: Colors.white70,
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          _buildSpecRow('Cổ danh Thất Tinh', planet.chineseStarName),
-          _buildSpecRow('Khoảng cách', planet.solarDistance),
-          _buildSpecRow('Chu kỳ quỹ đạo', planet.orbitalPeriod),
-          _buildSpecRow('Đường kính xích đạo', planet.diameter),
-          _buildSpecRow('Nhiệt độ bề mặt', planet.surfaceTemp),
+          _buildSpecRow(isEn ? 'Ancient Star Name' : 'Cổ danh Thất Tinh', planet.localizedChineseStarName(isEn)),
+          _buildSpecRow(isEn ? 'Solar Distance' : 'Khoảng cách', planet.localizedSolarDistance(isEn)),
+          _buildSpecRow(isEn ? 'Orbital Period' : 'Chu kỳ quỹ đạo', planet.localizedOrbitalPeriod(isEn)),
+          _buildSpecRow(isEn ? 'Equatorial Diameter' : 'Đường kính xích đạo', planet.diameter),
+          _buildSpecRow(isEn ? 'Surface Temperature' : 'Nhiệt độ bề mặt', planet.localizedSurfaceTemp(isEn)),
         ],
       ),
     );
   }
 
-  Widget _buildOrbitalMechanicsCard(PlanetHologramData planet) {
+  Widget _buildOrbitalMechanicsCard(PlanetHologramData planet, bool isEn) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -722,29 +864,33 @@ class _PlanetHologramInspectorDialogState extends State<PlanetHologramInspectorD
             children: [
               Icon(Icons.track_changes_rounded, size: 16, color: planet.glowColor),
               const SizedBox(width: 8),
-              const Text(
-                'CƠ HỌC QUỸ ĐẠO TRỐNG ĐỒNG',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.2,
-                  color: Colors.white70,
+              Expanded(
+                child: Text(
+                  isEn ? 'TRỐNG ĐỒNG ORBITAL MECHANICS' : 'CƠ HỌC QUỸ ĐẠO TRỐNG ĐỒNG',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.2,
+                    color: Colors.white70,
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
           _buildSpecRow(
-            'Tỷ lệ bán kính Trống Đồng',
+            isEn ? 'Drum Radius Ratio' : 'Tỷ lệ bán kính Trống Đồng',
             '${(planet.orbitRatio * 100).toStringAsFixed(0)}% (${planet.orbitRatio}x R)',
           ),
           _buildSpecRow(
-            'Tần số quay chu kỳ 120s',
-            '${planet.turns} vòng toàn phần',
+            isEn ? 'Rotation Frequency' : 'Tần số quay chu kỳ 120s',
+            isEn ? '${planet.turns} full revolutions' : '${planet.turns} vòng toàn phần',
           ),
           _buildSpecRow(
-            'Đặc trưng hình thái',
-            planet.keyFeatures,
+            isEn ? 'Key Features' : 'Đặc trưng hình thái',
+            planet.localizedKeyFeatures(isEn),
           ),
         ],
       ),
@@ -758,7 +904,7 @@ class _PlanetHologramInspectorDialogState extends State<PlanetHologramInspectorD
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 130,
+            width: 115,
             child: Text(
               label,
               style: TextStyle(
@@ -767,6 +913,7 @@ class _PlanetHologramInspectorDialogState extends State<PlanetHologramInspectorD
               ),
             ),
           ),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               value,
