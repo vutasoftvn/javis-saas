@@ -755,7 +755,6 @@ class _HolographicLedRingsOverlayPainter extends CustomPainter {
     // - Tại 120s (progress = 1.0 / 0.0): Toàn bộ 8 thiên thể xếp thẳng một tia duy nhất từ tâm Mặt Trời!
     final cycleProgress = (rotationProgress * 2.0) % 1.0;
     final distFromAlignment = math.min(cycleProgress, 1.0 - cycleProgress);
-    final secondsToAlignment = ((1.0 - cycleProgress) * 60.0).clamp(0.0, 60.0);
     const alignmentWindow = 4.5 / 60.0; // Khoảng hội tụ rực rỡ kéo dài ~4.5 giây
 
     double alignmentIntensity = 0.0;
@@ -876,9 +875,6 @@ class _HolographicLedRingsOverlayPainter extends CustomPainter {
       // E. Nhãn tên Cyber HUD
       _drawPlanetLabel(canvas, pos, planet);
     }
-
-    // 5. HUD ĐẾM NGƯỢC & CHỈ SỐ THẤT TINH HỘI TỤ
-    _drawConvergenceHud(canvas, center, alignmentIntensity, secondsToAlignment);
   }
 
   /// Mạng dây năng lượng kết nối các hành tinh với Tâm Mặt Trời
@@ -972,68 +968,6 @@ class _HolographicLedRingsOverlayPainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.0 * intensity,
     );
-  }
-
-  /// HUD hiển thị đếm ngược chu kỳ hoặc thông báo Thất Tinh Hội Tụ
-  void _drawConvergenceHud(Canvas canvas, Offset center, double alignmentIntensity, double secondsLeft) {
-    final isConverged = alignmentIntensity > 0.18;
-    final String hudText;
-    if (isEn) {
-      hudText = isConverged
-          ? '⚡ SEVEN STARS CONVERGENCE • GALACTIC RESONANCE'
-          : '⏳ Planetary Alignment: ${secondsLeft.toInt().toString().padLeft(2, '0')}s';
-    } else {
-      hudText = isConverged
-          ? '⚡ THẤT DIỆU HỘI TỤ • CỘNG HƯỞNG THIÊN HÀ'
-          : '⏳ Thất Tinh Hội Tụ: ${secondsLeft.toInt().toString().padLeft(2, '0')}s';
-    }
-
-    final textSpan = TextSpan(
-      text: hudText,
-      style: TextStyle(
-        color: isConverged
-            ? const Color(0xFFFEF08A)
-            : const Color(0xFF00F0FF).withValues(alpha: 0.70),
-        fontSize: isConverged ? 10.5 : 9.0,
-        fontWeight: isConverged ? FontWeight.bold : FontWeight.w500,
-        letterSpacing: 0.8,
-        shadows: isConverged
-            ? [
-                const Shadow(color: Colors.black, blurRadius: 4.0),
-                const Shadow(color: Color(0xFFE5A93C), blurRadius: 8.0),
-              ]
-            : [
-                const Shadow(color: Colors.black, blurRadius: 3.0),
-              ],
-      ),
-    );
-
-    final tp = TextPainter(text: textSpan, textDirection: TextDirection.ltr);
-    tp.layout();
-
-    // Vị trí đặt ở phía trên đỉnh của Trống Đồng
-    final hudY = center.dy - (drumRadius * 1.18);
-    final hudRect = Rect.fromCenter(
-      center: Offset(center.dx, hudY),
-      width: tp.width + 18,
-      height: tp.height + 8,
-    );
-
-    if (isConverged) {
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(hudRect, const Radius.circular(8)),
-        Paint()..color = const Color(0xFF0F172A).withValues(alpha: 0.75),
-      );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(hudRect, const Radius.circular(8)),
-        Paint()
-          ..color = const Color(0xFFE5A93C).withValues(alpha: alignmentIntensity * 0.85)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.0,
-      );
-    }
-
-    tp.paint(canvas, Offset(center.dx - (tp.width / 2), hudY - (tp.height / 2)));
   }
 
   /// Vẽ vết đuôi mờ lướt nhẹ theo sau hành tinh
