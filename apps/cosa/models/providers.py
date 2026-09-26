@@ -227,10 +227,14 @@ class ModelProviderFactory:
         # thường auth qua login session cục bộ của chính CLI, không phải API
         # key COSA quản lý) — không gọi `_resolve_credential` ở đây, khác với
         # nhánh litellm/local_openai_compatible.
-        from apps.cosa.models.cli_bridge import CliBridge, CliBridgeModel
+        from apps.cosa.models.cli_bridge import (
+            CliBridge,
+            CliBridgeModel,
+            cli_env_overrides_from_environment,
+        )
 
         if self._cli_bridge is None:
-            self._cli_bridge = CliBridge()
+            self._cli_bridge = CliBridge(env_overrides=cli_env_overrides_from_environment())
 
         role = _CLI_ROLE_BY_PROVIDER[route.provider_type]
         executable = self._cli_bridge.executable_for_role(role)

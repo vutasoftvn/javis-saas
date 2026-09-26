@@ -168,11 +168,34 @@ class WorkspaceAuthorityOverviewOperation:
                 detail="Company service client not configured",
             )
 
-        res = await client.get(
-            "/identity/authorization/overview",
-            headers={"X-Workspace-Id": str(identity.workspace_id)},
-        )
-        return res
+        # Company endpoint `/identity/authorization/overview` bắt buộc bearer
+        # (`requireWorkspaceAccess`). Trước đây chỉ gửi X-Workspace-Id nên
+        # Company trả 401 -> `CompanyServiceError` lọt ra thành HTTP 500
+        # ("GraphQL request failed: 500" ở màn Cài đặt). Forward bearer của
+        # chính caller (cùng cách `workforce_routes.py` gọi endpoint này).
+        headers = {"X-Workspace-Id": str(identity.workspace_id)}
+        bearer_token = getattr(identity, "bearer_token", None)
+        if bearer_token:
+            headers["Authorization"] = f"Bearer {bearer_token}"
+
+        from fastapi import HTTPException, status
+
+        from apps.cosa.capabilities.client import CompanyServiceError
+
+        try:
+            return await client.get("/identity/authorization/overview", headers=headers)
+        except CompanyServiceError as exc:
+            upstream = exc.status_code
+            if upstream in (401, 403):
+                code = upstream
+            elif upstream == 404:
+                code = status.HTTP_404_NOT_FOUND
+            else:
+                code = status.HTTP_502_BAD_GATEWAY
+            raise HTTPException(
+                status_code=code,
+                detail=f"workspace authority overview unavailable (company status {upstream})",
+            ) from exc
 
 
 PERSISTED_OPERATIONS: dict[str, PersistedOperation] = {

@@ -235,3 +235,64 @@ async def test_emit_maps_approval_required_stream_event_to_activity_requested_ki
 
     activity_events = await activity_repo.list_since(workspace_id="ws_a", project_id="proj_a")
     assert [e.kind for e in activity_events] == ["approval.requested"]
+
+
+@pytest.mark.asyncio
+async def test_stream_events_picks_up_events_persisted_by_another_process(monkeypatch):
+    """Worker chạy tiến trình riêng: event của nó chỉ vào durable store, không
+    vào queue RAM của API. SSE phải poll store để thấy chúng — trước fix, chat
+    hiện bong bóng trả lời rỗng vì stream chỉ phát heartbeat mãi."""
+    monkeypatch.setattr(event_stream_module, "POLL_INTERVAL_SEC", 0.02)
+    repo = InMemoryRunStreamEventRepository()
+    api_mgr = CosaEventStreamManager()
+    worker_mgr = CosaEventStreamManager()  # mô phỏng singleton của process worker
+    api_mgr.start_run("run_x")
+
+    gen = api_mgr.stream_events(repo, "run_x")
+    pending = asyncio.ensure_future(gen.__anext__())
+    await asyncio.sleep(0.05)
+
+    await worker_mgr.emit(
+        repo,
+        run_id="run_x",
+        conversation_id="conv_1",
+        event_type="message.delta",
+        payload={"delta": "xin chào"},
+    )
+    await worker_mgr.emit(
+        repo,
+        run_id="run_x",
+        conversation_id="conv_1",
+        event_type="run.completed",
+        payload={"output": "xin chào"},
+    )
+
+    first = await asyncio.wait_for(pending, timeout=2.0)
+    assert "event: message.delta" in first
+    second = await asyncio.wait_for(gen.__anext__(), timeout=2.0)
+    assert "event: run.completed" in second
+    with pytest.raises(StopAsyncIteration):
+        await asyncio.wait_for(gen.__anext__(), timeout=2.0)
+
+
+@pytest.mark.asyncio
+async def test_stream_events_does_not_duplicate_event_seen_via_queue_and_poll(monkeypatch):
+    monkeypatch.setattr(event_stream_module, "POLL_INTERVAL_SEC", 0.02)
+    repo = InMemoryRunStreamEventRepository()
+    mgr = CosaEventStreamManager()
+    mgr.start_run("run_d")
+
+    async def consume() -> list[str]:
+        return [c async for c in mgr.stream_events(repo, "run_d") if not c.startswith(":")]
+
+    task = asyncio.ensure_future(consume())
+    await asyncio.sleep(0.05)
+    await mgr.emit(
+        repo, run_id="run_d", conversation_id="c", event_type="message.delta", payload={}
+    )
+    await asyncio.sleep(0.05)
+    await mgr.emit(
+        repo, run_id="run_d", conversation_id="c", event_type="run.completed", payload={}
+    )
+    chunks = await asyncio.wait_for(task, timeout=2.0)
+    assert [c.split("\n")[1] for c in chunks] == ["event: message.delta", "event: run.completed"]

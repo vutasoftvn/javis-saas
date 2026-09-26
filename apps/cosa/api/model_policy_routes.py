@@ -71,7 +71,9 @@ _TEST_CONNECTION_PROMPT = "ping"
 # Timeout ngắn dành riêng cho tầng live-call CLI (subprocess) — không dùng
 # `CliBridgeModel` default (120s, tối ưu cho 1 câu trả lời agent thật) vì test-
 # connection chỉ cần biết CLI khởi động/trả lời được, không cần đợi lâu.
-_TEST_CONNECTION_CLI_TIMEOUT_SECONDS = 10.0
+# Claude Code cần khởi động Node + 1 round-trip API (thường 5-15s) — 10s cũ
+# làm test-connection báo lỗi giả dù CLI hoạt động bình thường.
+_TEST_CONNECTION_CLI_TIMEOUT_SECONDS = 45.0
 
 # Provider có thể gọi thật qua litellm.acompletion với endpoint OpenAI-style.
 _LITELLM_TESTABLE_PROVIDERS = frozenset(
