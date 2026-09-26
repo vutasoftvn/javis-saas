@@ -9,11 +9,20 @@ import {
   updateKeyResultValueService,
   GoalType,
   GoalStatus,
+  CreateGoalResult,
+  GoalTreeResult,
+  GoalsNeedingReviewResult,
+  CompleteGoalResult,
+  CreateObjectiveResult,
+  AddKeyResultResult,
+  KeyResultCheckinResult,
 } from "../services/goals.service";
 import {
   listPendingReviewProjectsService,
   triageProjectService,
   ProjectTriageAction,
+  PendingReviewProjectsResult,
+  TriageProjectResult,
 } from "../services/discovery-project.service";
 import { requireWorkspaceAccess, requireWorkspaceWrite } from "../../shared/auth/workspace-access";
 import { AGENT_CAP } from "../../shared/auth/agent-capabilities";
@@ -76,7 +85,7 @@ export interface TriageProjectParams {
 
 export const createGoal = api(
   { method: "POST", path: "/operations/goals", expose: true },
-  async (params: WithAuth<CreateGoalParams>) => {
+  async (params: WithAuth<CreateGoalParams>): Promise<CreateGoalResult> => {
     await requireWorkspaceWrite(params.authorization, params.workspaceId);
     const { authorization: _auth, ...input } = params;
     return createGoalService(input);
@@ -85,7 +94,7 @@ export const createGoal = api(
 
 export const getGoalTree = api(
   { method: "GET", path: "/operations/goals/tree", expose: true },
-  async (params: WithAuth<{ workspaceId: Query<string> }>) => {
+  async (params: WithAuth<{ workspaceId: Query<string> }>): Promise<GoalTreeResult> => {
     await requireWorkspaceAccess(params.authorization, params.workspaceId, {
       agentCapabilities: [AGENT_CAP.STARTUP_OS_GOAL_TREE_READ, AGENT_CAP.STARTUP_OS_GOAL_ADVISORY],
     });
@@ -95,7 +104,7 @@ export const getGoalTree = api(
 
 export const getGoalsNeedingReview = api(
   { method: "GET", path: "/operations/goals/needing-review", expose: true },
-  async (params: WithAuth<{ workspaceId: Query<string> }>) => {
+  async (params: WithAuth<{ workspaceId: Query<string> }>): Promise<GoalsNeedingReviewResult> => {
     await requireWorkspaceAccess(params.authorization, params.workspaceId, {
       agentCapabilities: [AGENT_CAP.STARTUP_OS_GOALS_NEEDING_REVIEW, AGENT_CAP.STARTUP_OS_GOAL_ADVISORY],
     });
@@ -105,7 +114,7 @@ export const getGoalsNeedingReview = api(
 
 export const completeGoal = api(
   { method: "POST", path: "/operations/goals/:id/complete", expose: true },
-  async (params: WithAuth<CompleteGoalParams>) => {
+  async (params: WithAuth<CompleteGoalParams>): Promise<CompleteGoalResult> => {
     await requireWorkspaceWrite(params.authorization, params.workspaceId);
     return completeGoalService({
       workspaceId: params.workspaceId,
@@ -117,7 +126,7 @@ export const completeGoal = api(
 
 export const createCosaObjective = api(
   { method: "POST", path: "/operations/cosa/objectives", expose: true },
-  async (params: WithAuth<CreateCosaObjectiveParams>) => {
+  async (params: WithAuth<CreateCosaObjectiveParams>): Promise<CreateObjectiveResult> => {
     await requireWorkspaceWrite(params.authorization, params.workspaceId);
     const { authorization: _auth, ...input } = params;
     return createObjectiveService(input);
@@ -126,7 +135,7 @@ export const createCosaObjective = api(
 
 export const addCosaKeyResult = api(
   { method: "POST", path: "/operations/cosa/objectives/:id/key-results", expose: true },
-  async (params: WithAuth<AddCosaKeyResultParams>) => {
+  async (params: WithAuth<AddCosaKeyResultParams>): Promise<AddKeyResultResult> => {
     await requireWorkspaceWrite(params.authorization, params.workspaceId);
     return addKeyResultService({
       workspaceId: params.workspaceId,
@@ -142,7 +151,7 @@ export const addCosaKeyResult = api(
 
 export const checkinCosaKeyResult = api(
   { method: "POST", path: "/operations/cosa/key-results/:id/checkin", expose: true },
-  async (params: WithAuth<CheckinKeyResultParams>) => {
+  async (params: WithAuth<CheckinKeyResultParams>): Promise<KeyResultCheckinResult> => {
     await requireWorkspaceWrite(params.authorization, params.workspaceId);
     return updateKeyResultValueService({
       workspaceId: params.workspaceId,
@@ -154,7 +163,7 @@ export const checkinCosaKeyResult = api(
 
 export const listPendingReviewProjects = api(
   { method: "GET", path: "/operations/projects/pending-review", expose: true },
-  async (params: WithAuth<{ workspaceId: Query<string> }>) => {
+  async (params: WithAuth<{ workspaceId: Query<string> }>): Promise<PendingReviewProjectsResult> => {
     await requireWorkspaceAccess(params.authorization, params.workspaceId);
     return listPendingReviewProjectsService(params.workspaceId);
   }
@@ -162,7 +171,7 @@ export const listPendingReviewProjects = api(
 
 export const triageProject = api(
   { method: "POST", path: "/operations/projects/triage", expose: true },
-  async (params: WithAuth<TriageProjectParams>) => {
+  async (params: WithAuth<TriageProjectParams>): Promise<TriageProjectResult> => {
     await requireWorkspaceWrite(params.authorization, params.workspaceId);
     const { authorization: _auth, ...input } = params;
     return triageProjectService(input);

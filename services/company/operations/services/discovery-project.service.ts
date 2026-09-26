@@ -7,16 +7,26 @@ const { projects, objectives } = schema;
 
 export type ProjectTriageAction = "link" | "mark_rd" | "archive" | "roll_to_new_goal";
 
-export async function listPendingReviewProjectsService(workspaceId: string): Promise<{
-  projects: Array<{
-    id: string;
-    title: string;
-    description: string | null;
-    origin: string | null;
-    linkStatus: string | null;
-    createdAt: string;
-  }>;
-}> {
+export interface PendingReviewProject {
+  id: string;
+  title: string;
+  description: string | null;
+  origin: string | null;
+  linkStatus: string | null;
+  createdAt: string;
+}
+
+export interface PendingReviewProjectsResult {
+  projects: PendingReviewProject[];
+}
+
+export interface TriageProjectResult {
+  success: boolean;
+  projectId: string;
+  action: string;
+}
+
+export async function listPendingReviewProjectsService(workspaceId: string): Promise<PendingReviewProjectsResult> {
   const wsId = BigInt(workspaceId);
 
   const rows = await db
@@ -48,7 +58,7 @@ export async function triageProjectService(params: {
   targetObjectiveId?: string;
   newGoalId?: string;
   newObjectiveTitle?: string;
-}): Promise<{ success: boolean; projectId: string; action: string }> {
+}): Promise<TriageProjectResult> {
   const wsId = BigInt(params.workspaceId);
   const pId = BigInt(params.projectId);
 
