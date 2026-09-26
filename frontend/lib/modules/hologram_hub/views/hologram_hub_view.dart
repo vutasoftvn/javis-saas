@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -517,38 +518,13 @@ class _HologramHubViewState extends State<HologramHubView> {
           ],
         );
 
-    Widget leftColumn() {
-      final projectSelected = controller.activeProjectId.value != null;
+    final projectSelected = controller.activeProjectId.value != null;
 
+    Widget leftColumn() {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Khung chat với Co-Founder (Cột bên trái) - hiệu ứng kính mờ trong suốt
-          Container(
-            height: 480,
-            decoration: BoxDecoration(
-              color: const Color(0xFF0F172A).withValues(alpha: 0.38),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppTheme.primary.withValues(alpha: 0.25)),
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.primary.withValues(alpha: 0.05),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: ChatPanelContent(
-                controller: controller,
-                enabled: projectSelected,
-                showCloseButton: false,
-              ),
-            ),
-          ),
           if (controller.selectedProjectId != null) ...[
-            const SizedBox(height: 16),
             Obx(() => ProjectOperatingWeekCard(
               operatingLoop: controller.currentOperatingLoop.value,
               isLoading: controller.isOperatingLoopLoading.value,
@@ -560,6 +536,30 @@ class _HologramHubViewState extends State<HologramHubView> {
                 }
               },
             )),
+          ] else ...[
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A).withValues(alpha: 0.38),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppTheme.primary.withValues(alpha: 0.2)),
+              ),
+              child: Column(
+                children: [
+                  Icon(Icons.hub_outlined, size: 36, color: AppTheme.primary.withValues(alpha: 0.6)),
+                  const SizedBox(height: 12),
+                  _LocalizedText(
+                    en: 'Select a project from the top bar to view weekly rhythm and tasks',
+                    vi: 'Chọn dự án ở thanh trên để xem chu kỳ hoạt động và nhiệm vụ',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.6),
+                      fontSize: 12.5,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
           ],
           if (controller.hasProjects.value && projectSelected) ...[
             const SizedBox(height: 16),
@@ -569,55 +569,95 @@ class _HologramHubViewState extends State<HologramHubView> {
       );
     }
 
-    // ── DESKTOP (≥1100): 3 Cột (3/12 - 6/12 - 3/12)
-    // Cột bên trái (3/12): Khung chat Co-Founder + Card Chu kỳ hoạt động
-    // Ở giữa (6/12): Để trống (tập trung tôn vinh toàn bộ Trống Đồng trung tâm)
-    // Cột bên phải (3/12): Thống kê Pulse + Top 3 Focus + Cần bạn duyệt + Hoạt động
-    if (isDesktop) {
-      return SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(flex: 3, child: leftColumn()),
-            const SizedBox(width: 24),
-            const Expanded(
-              flex: 6,
-              child: SizedBox.shrink(),
+    // Khung chat kính mờ (Glass) đặt chính giữa màn hình nổi trên Trống Đồng
+    Widget centerChat() {
+      final chatWidth = isDesktop
+          ? math.min(width * 0.46, 680.0)
+          : (width >= 800 ? math.min(width * 0.72, 600.0) : (width - 32.0));
+
+      return Align(
+        alignment: Alignment.bottomCenter,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 32),
+          child: SizedBox(
+            width: chatWidth,
+            child: ChatPanelContent(
+              controller: controller,
+              enabled: projectSelected,
+              showCloseButton: false,
             ),
-            const SizedBox(width: 24),
-            Expanded(flex: 3, child: statsColumn()),
-          ],
+          ),
         ),
       );
     }
 
-    // ── TABLET (800 - 1099): 2 Cột — Trái 6/12 | Phải 6/12 ──
-    if (width >= 800) {
-      return SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(flex: 6, child: leftColumn()),
-            const SizedBox(width: 20),
-            Expanded(flex: 6, child: statsColumn()),
-          ],
-        ),
-      );
-    }
-
-    // ── MOBILE (<800): Cuộn dọc — Khung Chat & Chu kỳ trước, Thống kê bên dưới ──
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+    // ── DESKTOP (≥1100): 3 Cột (3/12 - 6/12 - 3/12) + Chat trung tâm trên Trống Đồng ──
+    if (isDesktop) {
+      return Stack(
         children: [
-          leftColumn(),
-          const SizedBox(height: 20),
-          statsColumn(),
+          Positioned.fill(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 110),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 3, child: leftColumn()),
+                  const SizedBox(width: 24),
+                  const Expanded(
+                    flex: 6,
+                    child: SizedBox.shrink(),
+                  ),
+                  const SizedBox(width: 24),
+                  Expanded(flex: 3, child: statsColumn()),
+                ],
+              ),
+            ),
+          ),
+          centerChat(),
         ],
-      ),
+      );
+    }
+
+    // ── TABLET (800 - 1099): 2 Cột — Trái 6/12 | Phải 6/12 + Chat trung tâm ──
+    if (width >= 800) {
+      return Stack(
+        children: [
+          Positioned.fill(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 6, child: leftColumn()),
+                  const SizedBox(width: 20),
+                  Expanded(flex: 6, child: statsColumn()),
+                ],
+              ),
+            ),
+          ),
+          centerChat(),
+        ],
+      );
+    }
+
+    // ── MOBILE (<800): Cuộn dọc + Chat nổi ở dưới cùng ──
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 110),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                leftColumn(),
+                const SizedBox(height: 16),
+                statsColumn(),
+              ],
+            ),
+          ),
+        ),
+        centerChat(),
+      ],
     );
   }
 
@@ -1163,11 +1203,13 @@ class _LocalizedText extends StatelessWidget {
     required this.en,
     required this.vi,
     this.style,
+    this.textAlign,
   });
 
   final String en;
   final String vi;
   final TextStyle? style;
+  final TextAlign? textAlign;
 
   @override
   Widget build(BuildContext context) {
@@ -1175,10 +1217,10 @@ class _LocalizedText extends StatelessWidget {
       return Obx(() {
         final isEn =
             Get.find<LocaleController>().current.value == SupportedLocale.enUS;
-        return Text(isEn ? en : vi, style: style);
+        return Text(isEn ? en : vi, style: style, textAlign: textAlign);
       });
     }
     final isEn = Get.locale?.languageCode == 'en';
-    return Text(isEn ? en : vi, style: style);
+    return Text(isEn ? en : vi, style: style, textAlign: textAlign);
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -42,184 +43,240 @@ class ChatPanelContent extends StatelessWidget {
     final isEn = _isEnglish();
     if (!enabled) {
       return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.chat_bubble_outline, size: 40, color: Colors.white.withValues(alpha: 0.2)),
-              const SizedBox(height: 12),
-              Text(
-                isEn ? 'Select a Project to proceed' : 'Chọn một Project / Dự án để tiếp tục',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 13),
-                textAlign: TextAlign.center,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(100),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A).withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(100),
+                border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
-            ],
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.chat_bubble_outline, size: 18, color: AppTheme.primaryLight),
+                  const SizedBox(width: 10),
+                  Text(
+                    isEn ? 'Select a Project to proceed' : 'Chọn một Project / Dự án để tiếp tục',
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       );
     }
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.psychology, color: AppTheme.primary, size: 24),
-              const SizedBox(width: 10),
-              // Expanded + ellipsis: panel nổi (`DraggableChatPanel`) hẹp hơn
-              // nhiều so với bottom sheet cũ, tránh RenderFlex overflow khi tiêu
-              // đề dài hơn bề rộng khả dụng.
-              Expanded(
-                child: Text(
-                  AppCopy.hubChatPanelTitle,
-                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              IconButton(
-                key: const Key('hub_chat_new_chat_button'),
-                tooltip: AppCopy.hubChatNewChatTooltip,
-                onPressed: controller.startNewChat,
-                icon: const Icon(Icons.add, color: AppTheme.primary),
-                visualDensity: VisualDensity.compact,
-                splashRadius: 18,
-              ),
-              if (showCloseButton && onClose != null)
-                IconButton(
-                  onPressed: onClose,
-                  icon: const Icon(Icons.close, color: Colors.white70),
-                  visualDensity: VisualDensity.compact,
-                  splashRadius: 18,
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Divider(color: AppTheme.primary.withValues(alpha: 0.2), height: 1),
-          const SizedBox(height: 8),
-        Expanded(
-          child: Obx(() {
-            if (controller.chatMessages.isEmpty) {
-              return Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.chat_bubble_outline, size: 48, color: Colors.white.withValues(alpha: 0.2)),
-                    const SizedBox(height: 12),
-                    Text(
-                      AppCopy.hubChatEmptyState,
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 13),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              );
-            }
-            return ListView.builder(
-              itemCount: controller.chatMessages.length,
-              itemBuilder: (c, idx) {
-                final msg = controller.chatMessages[idx];
-                final isUser = msg['role'] == 'user';
-                final isError = msg['role'] == 'error';
 
-                // WGA — agent chèn 1 message JSON {"kind":"goal_confirm",...}
-                // khi nhận diện phát biểu mục tiêu tuần. Render 2 nút thay vì text.
-                final content = (msg['content'] ?? '').trim();
-                if (!isUser &&
-                    !isError &&
-                    content.startsWith('{') &&
-                    content.contains('"goal_confirm"')) {
-                  String goal = '';
-                  try {
-                    final parsed = jsonDecode(content) as Map<String, dynamic>;
-                    goal = (parsed['normalized_goal'] ?? '') as String;
-                  } catch (_) {}
-                  return _GoalConfirmCard(
-                    goal: goal,
-                    onConfirm: () => controller.requestDecomposition(
-                      goal,
-                      origin: 'chat',
-                    ),
-                  );
-                }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        // Khi có nội dung chat hoặc khi showCloseButton == true: hiển thị phần tin nhắn / header từ dưới lên dạng glass
+        Obx(() {
+          final hasMessages = controller.chatMessages.isNotEmpty;
+          if (!hasMessages && !showCloseButton) {
+            return const SizedBox.shrink();
+          }
 
-                return Align(
-                  alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 6),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: isUser
-                          ? AppTheme.primary.withValues(alpha: 0.2)
-                          : (isError ? const Color(0x33EF4444) : const Color(0xFF1E293B)),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isUser
-                            ? AppTheme.primary.withValues(alpha: 0.4)
-                            : (isError ? const Color(0xFFEF4444) : const Color(0xFF334155)),
-                        width: 1,
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            constraints: const BoxConstraints(maxHeight: 380),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0F172A).withValues(alpha: 0.72),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.4),
+                        blurRadius: 24,
+                        offset: const Offset(0, 8),
                       ),
-                    ),
-                    // Bong bóng trả lời chưa có nội dung = đang chờ SSE — hiện
-                    // chỉ báo thay vì 1 khung rỗng.
-                    child: content.isEmpty && !isUser && !isError
-                        ? Text(
-                            isEn ? 'COSA is thinking…' : 'COSA đang suy nghĩ…',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.5),
-                              fontSize: 13,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          )
-                        : Text(
-                            msg['content'] ?? '',
-                            style: const TextStyle(color: Colors.white, fontSize: 13),
-                          ),
+                    ],
                   ),
-                );
-              },
-            );
-          }),
-        ),
-        Obx(() => controller.isChatLoading.value
-            ? Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: LinearProgressIndicator(color: AppTheme.primary, backgroundColor: AppTheme.primary.withValues(alpha: 0.15)),
-              )
-            : const SizedBox.shrink()),
-        const SizedBox(height: 10),
-        TextField(
-          controller: controller.chatInputController,
-          style: const TextStyle(color: Colors.white, fontSize: 13),
-          decoration: InputDecoration(
-            hintText: AppCopy.hubChatInputHint,
-            hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
-            filled: true,
-            fillColor: const Color(0xFF1E293B),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(100),
-              borderSide: BorderSide.none,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.psychology, color: AppTheme.primary, size: 22),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              AppCopy.hubChatPanelTitle,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (showCloseButton && onClose != null)
+                            IconButton(
+                              onPressed: onClose,
+                              icon: const Icon(Icons.close, color: Colors.white70, size: 18),
+                              visualDensity: VisualDensity.compact,
+                              splashRadius: 16,
+                            ),
+                        ],
+                      ),
+                      if (hasMessages) ...[
+                        const SizedBox(height: 8),
+                        Divider(color: AppTheme.primary.withValues(alpha: 0.2), height: 1),
+                        const SizedBox(height: 8),
+                        Flexible(
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: controller.chatMessages.length,
+                            itemBuilder: (c, idx) {
+                              final msg = controller.chatMessages[idx];
+                              final isUser = msg['role'] == 'user';
+                              final isError = msg['role'] == 'error';
+
+                              // WGA — agent chèn 1 message JSON {"kind":"goal_confirm",...}
+                              // khi nhận diện phát biểu mục tiêu tuần. Render 2 nút thay vì text.
+                              final content = (msg['content'] ?? '').trim();
+                              if (!isUser &&
+                                  !isError &&
+                                  content.startsWith('{') &&
+                                  content.contains('"goal_confirm"')) {
+                                String goal = '';
+                                try {
+                                  final parsed = jsonDecode(content) as Map<String, dynamic>;
+                                  goal = (parsed['normalized_goal'] ?? '') as String;
+                                } catch (_) {}
+                                return _GoalConfirmCard(
+                                  goal: goal,
+                                  onConfirm: () => controller.requestDecomposition(
+                                    goal,
+                                    origin: 'chat',
+                                  ),
+                                );
+                              }
+
+                              return Align(
+                                alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                                child: Container(
+                                  margin: const EdgeInsets.symmetric(vertical: 6),
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: isUser
+                                        ? AppTheme.primary.withValues(alpha: 0.2)
+                                        : (isError ? const Color(0x33EF4444) : const Color(0xFF1E293B)),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: isUser
+                                          ? AppTheme.primary.withValues(alpha: 0.4)
+                                          : (isError ? const Color(0xFFEF4444) : const Color(0xFF334155)),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    msg['content'] ?? '',
+                                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                      if (controller.isChatLoading.value)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: LinearProgressIndicator(
+                            color: AppTheme.primary,
+                            backgroundColor: AppTheme.primary.withValues(alpha: 0.15),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
             ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(100),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(100),
-              borderSide: BorderSide(color: AppTheme.primary.withValues(alpha: 0.4), width: 1),
-            ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            suffixIcon: IconButton(
-              onPressed: () => controller.sendChatMessage(controller.chatInputController.text),
-              icon: const Icon(Icons.send, color: AppTheme.primary, size: 20),
-              splashRadius: 20,
+          );
+        }),
+
+        // Text chat input: bo góc 100, dạng glass, icon add bên trái, icon send bên phải
+        ClipRRect(
+          borderRadius: BorderRadius.circular(100),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A).withValues(alpha: 0.65),
+                borderRadius: BorderRadius.circular(100),
+                border: Border.all(
+                  color: AppTheme.primary.withValues(alpha: 0.35),
+                  width: 1.2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.primary.withValues(alpha: 0.08),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.35),
+                    blurRadius: 20,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: TextField(
+                controller: controller.chatInputController,
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+                decoration: InputDecoration(
+                  hintText: AppCopy.hubChatInputHint,
+                  hintStyle: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.5),
+                    fontSize: 12.5,
+                  ),
+                  filled: false,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  prefixIcon: IconButton(
+                    key: const Key('hub_chat_new_chat_button'),
+                    tooltip: AppCopy.hubChatNewChatTooltip,
+                    onPressed: controller.startNewChat,
+                    icon: const Icon(Icons.add, color: AppTheme.primary, size: 20),
+                    splashRadius: 20,
+                  ),
+                  suffixIcon: IconButton(
+                    key: const Key('hub_chat_send_button'),
+                    tooltip: isEn ? 'Send' : 'Gửi',
+                    onPressed: () => controller.sendChatMessage(controller.chatInputController.text),
+                    icon: const Icon(Icons.send, color: AppTheme.primary, size: 20),
+                    splashRadius: 20,
+                  ),
+                ),
+                onSubmitted: (text) => controller.sendChatMessage(text),
+              ),
             ),
           ),
-          onSubmitted: (text) => controller.sendChatMessage(text),
         ),
       ],
-    ),
-  );
+    );
   }
 }
 
