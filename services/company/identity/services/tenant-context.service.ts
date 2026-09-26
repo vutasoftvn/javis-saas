@@ -4,6 +4,7 @@ import { randomUUID } from "crypto";
 import { TenantContext } from "../../shared/types/tenant_context";
 import { db, schema } from "../models/db";
 import { verifyAccessToken } from "./token.service";
+import { verifyCosaDelegationForCapability } from "../../shared/auth/cosa-delegation.service";
 
 const {
   identityUserProjections,
@@ -16,6 +17,48 @@ export interface ResolveTenantContextParams {
   authorization?: string;
   workspaceId: string | number;
   correlationId?: string;
+  /**
+   * Capability id mà endpoint cho phép agent dùng thay mặt user. Rỗng/thiếu ⇒
+   * endpoint chỉ nhận phiên đăng nhập của người dùng (mặc định, least privilege).
+   */
+  agentCapabilities?: readonly string[];
+}
+
+interface AgentDelegationIdentity {
+  userSub: string;
+  jti: string;
+}
+
+/**
+ * Agent (apps/cosa) gọi Company bằng delegation ký bởi COSA_COMPANY_DELEGATION_SECRET,
+ * scoped {workspace_id, run_id, capability_ids}. Chỉ chấp nhận khi endpoint khai báo
+ * capability và token có ít nhất một capability đó, đúng workspace. Trả null nếu token
+ * không phải delegation hợp lệ (để caller báo unauthenticated như cũ).
+ */
+function verifyAgentDelegation(
+  rawToken: string,
+  workspaceId: string,
+  capabilities: readonly string[]
+): AgentDelegationIdentity | null {
+  let scopeError: Error | null = null;
+  for (const capabilityId of capabilities) {
+    try {
+      const claims = verifyCosaDelegationForCapability(rawToken, { workspaceId, capabilityId });
+      // apps/cosa mint `sub` = principal của request, dạng "user:<local user id>".
+      const userSub = claims.sub.startsWith("user:") ? claims.sub.slice(5) : claims.sub;
+      return { userSub, jti: claims.jti };
+    } catch (err) {
+      const message = (err as Error).message;
+      if (message.startsWith("invalid cosa delegation token")) {
+        return null;
+      }
+      scopeError = err as Error;
+    }
+  }
+  if (scopeError) {
+    throw APIError.permissionDenied(`cosa delegation rejected: ${scopeError.message}`);
+  }
+  return null;
 }
 
 export function getRolePermissions(role: string): readonly string[] {
@@ -55,13 +98,25 @@ export async function resolveTenantContext(
     throw APIError.unauthenticated("invalid authorization token");
   }
 
-  // Xác thực local identity token (public path)
+  // Xác thực local identity token (public path). Nếu không phải phiên người dùng
+  // và endpoint cho phép agent, thử delegation của agent: agent hành động thay mặt
+  // user nên vẫn đi qua đúng membership/role của user bên dưới (không vượt quyền user).
   let identitySub: string;
+  let isAiAgent = false;
+  let delegationCorrelationId: string | undefined;
   try {
     const payload = verifyAccessToken(rawToken);
     identitySub = payload.sub;
   } catch {
-    throw APIError.unauthenticated("invalid or expired token");
+    const delegated = params.agentCapabilities?.length
+      ? verifyAgentDelegation(rawToken, String(params.workspaceId), params.agentCapabilities)
+      : null;
+    if (!delegated) {
+      throw APIError.unauthenticated("invalid or expired token");
+    }
+    identitySub = delegated.userSub;
+    isAiAgent = true;
+    delegationCorrelationId = delegated.jti;
   }
 
   // BigInt() ném SyntaxError trần với chuỗi không phải số — phải map thành
@@ -157,9 +212,10 @@ export async function resolveTenantContext(
     workforceMemberId,
     membershipRole: membership.role,
     permissions: getRolePermissions(membership.role),
-    correlationId,
+    correlationId: delegationCorrelationId ?? correlationId,
     platformUserId: userRow.platformUserId ?? null,
     policyVersion,
+    ...(isAiAgent ? { isAiAgent: true } : {}),
   });
 
   return context;

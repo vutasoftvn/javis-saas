@@ -1,5 +1,6 @@
 import { api, Header } from "encore.dev/api";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { AGENT_CAP } from "../../shared/auth/agent-capabilities";
 import {
   AiGovernanceDossierSnapshot,
   AiGovernanceReasonCode,
@@ -70,7 +71,7 @@ export const readAiGovernanceSnapshotEndpoint = api(
     workspaceId: Header<"X-Workspace-Id">;
     authorization?: Header<"Authorization">;
   }): Promise<AiGovernanceDossierSnapshot> => {
-    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId, { agentCapabilities: [AGENT_CAP.AI_GOVERNANCE_READ] });
     return readAiGovernanceSnapshot(ctx, params.projectId);
   }
 );

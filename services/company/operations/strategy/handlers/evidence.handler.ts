@@ -1,5 +1,6 @@
 import { api, Header } from "encore.dev/api";
 import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
+import { AGENT_CAP } from "../../../shared/auth/agent-capabilities";
 import {
   Evidence,
   RecordEvidenceInput,
@@ -77,7 +78,7 @@ export const getEvidence = api(
 export const listEvidence = api(
   { method: "GET", path: "/operations/strategy/evidence", expose: true },
   async (params: ListEvidenceParams): Promise<{ items: Evidence[] }> => {
-    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId, { agentCapabilities: [AGENT_CAP.STRATEGY_EVIDENCE_LIST] });
     return listEvidenceInWorkspace(ctx, params);
   }
 );

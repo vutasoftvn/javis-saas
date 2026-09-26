@@ -4,6 +4,7 @@ import { db, schema } from "../models/db";
 import { getWorkspaceRecord } from "../../identity/services/workspace.service";
 import { getWorkforceMember } from "../../identity/handlers/workforce.handler";
 import { requireWorkspaceAccess, requireFounderCommand } from "../../shared/auth/workspace-access";
+import { AGENT_CAP } from "../../shared/auth/agent-capabilities";
 import { buildTaskCompletedEvent, buildTaskCreatedEvent, EventContext } from "./task-events.service";
 import { appendOutboxEvent } from "../../shared/events/outbox.repository";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
@@ -141,7 +142,9 @@ export async function createTaskService(
     );
   }
 
-  const authCtx = await requireWorkspaceAccess(authorization, params.workspaceId);
+  const authCtx = await requireWorkspaceAccess(authorization, params.workspaceId, {
+    agentCapabilities: [AGENT_CAP.OPERATIONS_TASK_CREATE_DRAFT],
+  });
   await getWorkspaceRecord(params.workspaceId);
 
   const wsId = BigInt(params.workspaceId);
@@ -410,11 +413,8 @@ export async function deleteTaskService(
   return { id: updated.id.toString(), deletedAt: updated.deletedAt!.toISOString() };
 }
 
-export async function listTasksService(
-  workspaceId: string,
-  authorization: string | undefined
-): Promise<Task[]> {
-  await requireWorkspaceAccess(authorization, workspaceId);
+// Caller (handler) đã xác thực và truyền workspace từ TenantContext.
+export async function listTasksService(workspaceId: string): Promise<Task[]> {
 
   const rows = await db
     .select()

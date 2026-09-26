@@ -1,5 +1,6 @@
 import { api, Header } from "encore.dev/api";
 import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
+import { AGENT_CAP } from "../../../shared/auth/agent-capabilities";
 import {
   ENGAGEMENT_PERMISSIONS,
   requireEngagementPermission,
@@ -186,7 +187,9 @@ export interface GetCustomer360Request extends WorkspaceRequest {
 export const getEngagementCustomer360Api = api(
   { expose: true, method: "GET", path: "/commercial/engagement/contacts/:id/360" },
   async (params: GetCustomer360Request) => {
-    const ctx = await workspaceContext(params);
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId, {
+      agentCapabilities: [AGENT_CAP.CUSTOMER_360_READ],
+    });
     requireEngagementPermission(ctx, ENGAGEMENT_PERMISSIONS.THREAD_READ);
     // The desk endpoint deliberately returns the identity-unverified view.
     // Customer-sensitive billing and interaction data stays unavailable until

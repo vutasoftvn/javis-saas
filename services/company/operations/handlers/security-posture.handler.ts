@@ -1,5 +1,6 @@
 import { api, Header } from "encore.dev/api";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { AGENT_CAP } from "../../shared/auth/agent-capabilities";
 import { EvidenceRef } from "../services/product-decision-dossier.service";
 import {
   SecurityControl,
@@ -72,7 +73,7 @@ export const readSecurityPostureSnapshotEndpoint = api(
     workspaceId: Header<"X-Workspace-Id">;
     authorization?: Header<"Authorization">;
   }): Promise<SecurityPostureSnapshot> => {
-    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId, { agentCapabilities: [AGENT_CAP.SECURITY_POSTURE_READ] });
     return readSecurityPostureSnapshot(ctx, params.projectId);
   }
 );

@@ -23,6 +23,7 @@ import {
   FounderInboxTask,
 } from "../services/task.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { AGENT_CAP } from "../../shared/auth/agent-capabilities";
 import {
   resolveCosaTaskContext,
   WGA_CAP_TASK_ADVANCE,
@@ -53,7 +54,7 @@ export const getTask = api(
     workspaceId: Header<"X-Workspace-Id">;
     authorization?: Header<"Authorization">;
   }): Promise<Task> => {
-    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId, { agentCapabilities: [AGENT_CAP.OPERATIONS_TASK_READ] });
     return getTaskService(id, ctx);
   }
 );
@@ -83,8 +84,8 @@ export const listTasks = api(
     workspaceId: Header<"X-Workspace-Id">;
     authorization?: Header<"Authorization">;
   }): Promise<{ tasks: Task[] }> => {
-    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
-    const tasks = await listTasksService(ctx.workspaceId, authorization);
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId, { agentCapabilities: [AGENT_CAP.OPERATIONS_TASK_LIST] });
+    const tasks = await listTasksService(ctx.workspaceId);
     return { tasks };
   }
 );
