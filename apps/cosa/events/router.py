@@ -191,9 +191,10 @@ def _self_trigger_payload(event_type: str, env: object) -> dict:
             "actor_id": actor_id,
             "correlation_id": corr,
         }
-    # workspace_task_sweep
+    # workspace_task_sweep — mang projectId của plan để run có scope Project.
     return {
         "workspace_id": ws,
+        "project_id": payload.get("projectId"),
         "actor_id": actor_id,
         "correlation_id": corr,
     }

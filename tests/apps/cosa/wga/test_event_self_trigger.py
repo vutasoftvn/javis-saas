@@ -160,6 +160,7 @@ async def test_execution_plan_accepted_schedules_workspace_task_sweep():
     assert res.outcome == "accepted"
     assert deps.execution_plane.platform_tasks[0]["task_type"] == "workspace_task_sweep"
     assert deps.execution_plane.platform_tasks[0]["input_payload"]["workspace_id"] == "ws_1"
+    assert deps.execution_plane.platform_tasks[0]["input_payload"]["project_id"] == "proj_1"
 
 
 @pytest.mark.asyncio

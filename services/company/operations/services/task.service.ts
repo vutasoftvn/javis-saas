@@ -620,6 +620,8 @@ export interface AgentClaimableTask {
   evidenceRefs: string[];
   planItemId: string;
   planId: string;
+  /** Project của execution plan — run của agent bắt buộc mang scope này. */
+  projectId: string;
 }
 
 /**
@@ -632,7 +634,8 @@ export async function listAgentClaimableTasksService(
   workspaceId: string,
   limit: number,
   authorization: string | undefined,
-  ctxOverride?: TenantContext
+  ctxOverride?: TenantContext,
+  projectId?: string
 ): Promise<AgentClaimableTask[]> {
   if (!ctxOverride) {
     await requireWorkspaceAccess(authorization, workspaceId);
@@ -677,6 +680,7 @@ export async function listAgentClaimableTasksService(
       evidenceRefs: executionPlanItems.evidenceRefs,
       planItemId: executionPlanItems.id,
       planId: executionPlanItems.planId,
+      projectId: executionPlans.projectId,
       sortKey: executionPlanItems.sortKey,
     })
     .from(tasks)
@@ -690,6 +694,8 @@ export async function listAgentClaimableTasksService(
         eq(tasks.source, "ai_agent_proposal"),
         eq(executionPlanItems.status, "accepted"),
         eq(executionPlans.status, "accepted"),
+        // Sweep theo Project của plan vừa accept (quy tắc 14 — không quét chéo Project).
+        projectId ? eq(executionPlans.projectId, BigInt(projectId)) : undefined,
         inArray(executionPlanItems.autonomyClass, ["AUTO", "NEEDS_APPROVAL"]),
         sql`${tasks.assigneeMemberId} IN (
           SELECT id FROM core.workforce_members
@@ -717,6 +723,7 @@ export async function listAgentClaimableTasksService(
     evidenceRefs: Array.isArray(r.evidenceRefs) ? (r.evidenceRefs as string[]) : [],
     planItemId: r.planItemId.toString(),
     planId: r.planId.toString(),
+    projectId: r.projectId.toString(),
   }));
 }
 

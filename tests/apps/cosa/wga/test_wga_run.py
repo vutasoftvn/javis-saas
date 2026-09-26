@@ -157,6 +157,7 @@ _AUTO_TASK = {
     "title": "List stale tasks",
     "decisionReason": "cleanup",
     "planItemId": "i1",
+    "projectId": "proj1",
 }
 
 
@@ -277,6 +278,7 @@ async def test_sweep_fails_closed_on_unsupported_owner_agent_profile():
                 "taskId": "t1",
                 "autonomyClass": "AUTO",
                 "ownerAgentProfile": "unknown_bogus_profile",
+                "projectId": "proj1",
                 "expectedCapability": "operations.task.list",
                 "title": "x",
                 "decisionReason": "y",
@@ -304,7 +306,15 @@ async def test_sweep_fails_closed_on_unsupported_owner_agent_profile():
 async def test_sweep_marks_waiting_approval_on_kernel_waiting():
     company = AsyncMock()
     company.get.return_value = {
-        "tasks": [{"taskId": "t1", "autonomyClass": "AUTO", "title": "x", "decisionReason": "y"}]
+        "tasks": [
+            {
+                "taskId": "t1",
+                "autonomyClass": "AUTO",
+                "title": "x",
+                "decisionReason": "y",
+                "projectId": "proj1",
+            }
+        ]
     }
     plane = _plane(company, kernel_result=_run_result(RunStatus.WAITING_APPROVAL))
     await wga_run.execute_workspace_task_sweep_task(
@@ -350,7 +360,15 @@ async def test_advance_wga_task_after_resume_ignores_non_wga_run_ids():
 async def test_sweep_marks_blocked_on_kernel_failure():
     company = AsyncMock()
     company.get.return_value = {
-        "tasks": [{"taskId": "t1", "autonomyClass": "AUTO", "title": "x", "decisionReason": "y"}]
+        "tasks": [
+            {
+                "taskId": "t1",
+                "autonomyClass": "AUTO",
+                "title": "x",
+                "decisionReason": "y",
+                "projectId": "proj1",
+            }
+        ]
     }
     plane = _plane(company, kernel_result=_run_result(RunStatus.FAILED, errors=["kernel exploded"]))
     await wga_run.execute_workspace_task_sweep_task(
@@ -402,3 +420,63 @@ async def test_sweep_tolerates_company_list_error():
         plane, None, {"run_id": "s", "workspace_id": "ws1"}
     )
     company.post.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_goal_decomposition_run_carries_project_scope():
+    company = AsyncMock()
+    company.post.return_value = {"id": "p"}
+    plane = _plane(
+        company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": _VALID_PLAN})
+    )
+    await wga_run.execute_goal_decomposition_task(
+        plane,
+        None,
+        {"run_id": "r", "workspace_id": "ws1", "project_id": "proj1", "goal_text": "g"},
+    )
+    req = plane.kernel.run.await_args.args[0]
+    assert req.metadata["project_id"] == "proj1"
+
+
+@pytest.mark.asyncio
+async def test_sweep_scopes_list_and_run_to_project():
+    company = AsyncMock()
+    company.get.return_value = {"tasks": [dict(_AUTO_TASK)]}
+    company.post.return_value = {"status": "ok"}
+    plane = _plane(company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": "ok"}))
+
+    await wga_run.execute_workspace_task_sweep_task(
+        plane,
+        None,
+        {"run_id": "s", "workspace_id": "ws1", "project_id": "proj1", "actor_id": "42"},
+    )
+
+    assert company.get.await_args.kwargs["params"]["projectId"] == "proj1"
+    req = plane.kernel.run.await_args.args[0]
+    assert req.metadata["project_id"] == "proj1"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("task_project", "expected_note"),
+    [(None, "missing_project_scope"), ("proj_other", "project_scope_mismatch")],
+)
+async def test_sweep_blocks_task_without_matching_project(task_project, expected_note):
+    task = dict(_AUTO_TASK)
+    task["projectId"] = task_project
+    company = AsyncMock()
+    company.get.return_value = {"tasks": [task]}
+    company.post.return_value = {"status": "ok"}
+    plane = _plane(company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": "ok"}))
+
+    await wga_run.execute_workspace_task_sweep_task(
+        plane,
+        None,
+        {"run_id": "s", "workspace_id": "ws1", "project_id": "proj1", "actor_id": "42"},
+    )
+
+    plane.kernel.run.assert_not_awaited()
+    advance_calls = [c for c in company.post.await_args_list if "advance" in c.args[0]]
+    assert len(advance_calls) == 1
+    assert advance_calls[0].kwargs["json"]["toStatus"] == "blocked"
+    assert advance_calls[0].kwargs["json"]["note"] == expected_note

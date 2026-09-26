@@ -253,6 +253,7 @@ async def execute_goal_decomposition_task(
             workspace_id=workspace_id,
             conversation_id=f"wga_decomp_{run_id}",
             policy_snapshot=None,
+            project_id=str(project_id),
         )
     except RunCoreError as exc:
         logger.error("goal_decomposition prep failed run=%s reason=%s", run_id, exc.reason_code)
@@ -358,6 +359,9 @@ async def execute_workspace_task_sweep_task(
     sub = str(payload.get("actor_id") or "0")
     depth = int(payload.get("sweep_depth") or 0)
     batch = int(os.environ.get("WGA_EXECUTOR_BATCH", "5"))
+    # Project của plan vừa accept (event mang projectId). Có thì chỉ quét task
+    # của Project đó; không có (sweep cũ) thì mỗi task tự mang projectId.
+    sweep_project_id = str(payload.get("project_id") or "") or None
 
     if depth >= _MAX_SWEEP_DEPTH:
         logger.warning("sweep ws=%s hit max depth %d — stop", workspace_id, _MAX_SWEEP_DEPTH)
@@ -369,7 +373,10 @@ async def execute_workspace_task_sweep_task(
     try:
         resp = await plane.company_client.get(
             "/operations/tasks/agent-claimable",
-            params={"limit": batch},
+            params={
+                "limit": batch,
+                **({"projectId": sweep_project_id} if sweep_project_id else {}),
+            },
             headers={"X-Workspace-Id": workspace_id, "Authorization": f"Bearer {list_token}"},
         )
     except CompanyServiceError as exc:
@@ -417,6 +424,21 @@ async def execute_workspace_task_sweep_task(
             )
             continue
 
+        # Quy tắc 14 — run business phải có Project; task lệch Project của
+        # sweep (hoặc thiếu Project) fail closed trước khi claim.
+        task_project_id = str(t.get("projectId") or "") or None
+        if not task_project_id or (sweep_project_id and task_project_id != sweep_project_id):
+            await _advance_task(
+                plane,
+                workspace_id=workspace_id,
+                task_id=task_id,
+                to_status="blocked",
+                run_id=task_run_id,
+                token=adv_token,
+                note="missing_project_scope" if not task_project_id else "project_scope_mismatch",
+            )
+            continue
+
         try:
             await plane.company_client.post(
                 f"/operations/tasks/{task_id}/advance",
@@ -441,6 +463,7 @@ async def execute_workspace_task_sweep_task(
                 conversation_id=f"wga_task_{task_run_id}",
                 policy_snapshot=None,
                 extra_metadata={"execution_plan_item_id": t.get("planItemId")},
+                project_id=task_project_id,
             )
         except RunCoreError as exc:
             await _advance_task(
@@ -504,9 +527,10 @@ async def execute_workspace_task_sweep_task(
                 input_payload={
                     "task_type": "workspace_task_sweep",
                     "workspace_id": workspace_id,
+                    "project_id": sweep_project_id,
                     "actor_id": sub,
                     "sweep_depth": depth + 1,
                     "delay_sec": int(os.environ.get("WGA_SWEEP_RESCHEDULE_DELAY_SEC", "15")),
                 },
-                coalescing_key=f"wga:sweep:{workspace_id}",
+                coalescing_key=f"wga:sweep:{workspace_id}:{sweep_project_id or '*'}",
             )
