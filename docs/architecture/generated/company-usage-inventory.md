@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 113 | 23 |
 | VALID_KEEP (giữ nguyên) | 132 | 37 |
-| REVIEW (chưa phân loại) | 1262 | 285 |
+| REVIEW (chưa phân loại) | 1263 | 286 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -255,6 +255,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | frontend/lib/modules/hologram_hub/widgets/top3_focus_widget.dart | 1 |
 | frontend/lib/modules/organization/models/organization_api_models.dart | 1 |
 | frontend/lib/modules/projects/models/project_operating_loop.dart | 1 |
+| frontend/lib/modules/projects/widgets/p0_core_setup_banner.dart | 1 |
 | frontend/lib/modules/settings/services/workspace_orientation_service.dart | 1 |
 | frontend/lib/modules/startup_os/models/startup_os_models.dart | 1 |
 | frontend/lib/modules/startup_os/widgets/project_triage_dialog.dart | 1 |
