@@ -41,16 +41,8 @@ class _ProjectContextBarState extends State<ProjectContextBar> {
           : null;
 
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFF0F172A).withValues(alpha: 0.95),
-          border: Border(
-            bottom: BorderSide(
-              color: AppTheme.primary.withValues(alpha: 0.2),
-              width: 1,
-            ),
-          ),
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        color: Colors.transparent,
         child: Row(
           children: [
             // Workspace name
@@ -123,23 +115,16 @@ class _ProjectContextBarState extends State<ProjectContextBar> {
           ),
         ),
         const SizedBox(width: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: AppTheme.primary.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Text(
-            stageText,
-            style: const TextStyle(
-              color: AppTheme.primaryLight,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-            ),
+        Text(
+          stageText,
+          style: const TextStyle(
+            color: AppTheme.primaryLight,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(width: 8),
-        const Icon(Icons.keyboard_arrow_down, size: 18, color: Colors.white70),
+        const SizedBox(width: 4),
+        const Icon(Icons.keyboard_arrow_down, size: 18, color: AppTheme.primaryLight),
       ],
     );
   }

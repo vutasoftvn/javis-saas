@@ -142,31 +142,37 @@ class _HologramHubViewState extends State<HologramHubView> {
     BuildContext context,
     FounderCommandCenterController controller,
   ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.45),
-        border: Border(
-          bottom: BorderSide(color: AppTheme.primary.withValues(alpha: 0.2), width: 1),
-        ),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final isCompact = constraints.maxWidth < 850;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final isMobile = width < 768;
+        final isCompact = width < 880;
+        final isEn = Get.locale?.languageCode != 'vi';
 
-          return Row(
+        return Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 12 : 24,
+            vertical: isMobile ? 8 : 12,
+          ),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0F172A).withValues(alpha: 0.45),
+            border: Border(
+              bottom: BorderSide(color: AppTheme.primary.withValues(alpha: 0.2), width: 1),
+            ),
+          ),
+          child: Row(
             children: [
               // --- LEFT: Brand Logo & Subtitle & Stage ---
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: EdgeInsets.all(isMobile ? 6 : 8),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                         colors: [AppTheme.primaryDark, AppTheme.primary],
                       ),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(isMobile ? 8 : 10),
                       boxShadow: [
                         BoxShadow(
                           color: AppTheme.primary.withValues(alpha: 0.3),
@@ -175,13 +181,13 @@ class _HologramHubViewState extends State<HologramHubView> {
                         ),
                       ],
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.rocket_launch,
                       color: Colors.white,
-                      size: 18,
+                      size: isMobile ? 16 : 18,
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  SizedBox(width: isMobile ? 6 : 10),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -212,7 +218,7 @@ class _HologramHubViewState extends State<HologramHubView> {
                     final stage = controller.pulse.value?.companyStage;
                     if (stage == null) return const SizedBox.shrink();
                     return Padding(
-                      padding: const EdgeInsets.only(left: 12),
+                      padding: EdgeInsets.only(left: isMobile ? 6 : 12),
                       child: StageBadge(
                         stage: ProjectStage.fromString(stage),
                         isCompact: true,
@@ -287,69 +293,7 @@ class _HologramHubViewState extends State<HologramHubView> {
                         ),
                       ),
 
-                      // Hội đồng Cố vấn (Executive Advisory Board Button)
-                      Container(
-                        margin: const EdgeInsets.only(right: 6),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primary.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: AppTheme.primary.withValues(alpha: 0.4),
-                          ),
-                        ),
-                        child: IconButton(
-                          key: const ValueKey('open_executive_board_button'),
-                          onPressed: () {
-                            final pid = controller.activeProjectId.value;
-                            if (pid != null) {
-                              _showExecutiveAdvisoryBoardModal(context, pid);
-                            } else {
-                              AppToast.warning(
-                                Get.locale?.languageCode == 'vi'
-                                    ? 'Vui lòng chọn dự án trước'
-                                    : 'Please select a project first',
-                              );
-                            }
-                          },
-                          icon: const Icon(
-                            Icons.shield_outlined,
-                            color: AppTheme.primary,
-                            size: 18,
-                          ),
-                          tooltip: Get.locale?.languageCode == 'vi'
-                              ? 'Hội đồng Cố vấn (Executive Advisory Board)'
-                              : 'Executive Advisory Board',
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                        ),
-                      ),
-
-                      // Project Operating Loop Icon Button (chuyển từ Top3 Focus lên AppBar)
-                      Obx(() {
-                        final pid = controller.activeProjectId.value;
-                        return IconButton(
-                          key: const Key('appbar_project_loop_button'),
-                          onPressed: pid != null
-                              ? () => Get.toNamed(AppRoutes.projectLoopFor(pid))
-                              : null,
-                          icon: const Icon(
-                            Icons.all_inclusive_rounded,
-                            color: Colors.white70,
-                            size: 20,
-                          ),
-                          tooltip: Get.locale?.languageCode == 'vi'
-                              ? 'Vòng lặp Vận hành (Project Loop)'
-                              : 'Open Project Operating Loop',
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(
-                            minWidth: 36,
-                            minHeight: 36,
-                          ),
-                        );
-                      }),
-                      const SizedBox(width: 4),
-
-                      // Module Switcher — thay cho sidebar không còn ở Hub
+                      // Module Switcher — giữ lại cả trên Desktop và Mobile (chuyển module nhanh)
                       IconButton(
                         onPressed: () => _openModuleSwitcher(context),
                         icon: const Icon(
@@ -364,66 +308,265 @@ class _HologramHubViewState extends State<HologramHubView> {
                           minHeight: 36,
                         ),
                       ),
-                      const SizedBox(width: 4),
 
-                      // Dashboard Button — vào màn hình quản trị (Dashboard)
-                      IconButton(
-                        onPressed: () => Get.find<HologramHubController>()
-                            .onSettingsPressed(),
-                        icon: const Icon(
-                          Icons.space_dashboard_outlined,
-                          color: Colors.white70,
-                          size: 20,
+                      // CHẾ ĐỘ MOBILE: Gom gọn các tác vụ phụ vào PopupMenu để thanh AppBar không bị tràn
+                      if (isMobile)
+                        PopupMenuButton<String>(
+                          icon: const Icon(
+                            Icons.more_vert_rounded,
+                            color: Colors.white70,
+                            size: 20,
+                          ),
+                          tooltip: isEn ? 'More options' : 'Tùy chọn',
+                          color: const Color(0xFF0F172A),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(
+                              color: AppTheme.primary.withValues(alpha: 0.25),
+                            ),
+                          ),
+                          onSelected: (val) {
+                            switch (val) {
+                              case 'project':
+                                _showMobileProjectPicker(context, controller);
+                                break;
+                              case 'board':
+                                final pid = controller.activeProjectId.value;
+                                if (pid != null) {
+                                  _showExecutiveAdvisoryBoardModal(context, pid);
+                                } else {
+                                  AppToast.warning(
+                                    isEn ? 'Please select a project first' : 'Vui lòng chọn dự án trước',
+                                  );
+                                }
+                                break;
+                              case 'loop':
+                                final pid = controller.activeProjectId.value;
+                                if (pid != null) {
+                                  Get.toNamed(AppRoutes.projectLoopFor(pid));
+                                } else {
+                                  AppToast.warning(
+                                    isEn ? 'Please select a project first' : 'Vui lòng chọn dự án trước',
+                                  );
+                                }
+                                break;
+                              case 'dashboard':
+                                Get.find<HologramHubController>().onSettingsPressed();
+                                break;
+                              case 'refresh':
+                                controller.loadDashboardData();
+                                break;
+                              case 'profile':
+                                Get.toNamed(AppRoutes.profile);
+                                break;
+                            }
+                          },
+                          itemBuilder: (context) => [
+                            PopupMenuItem(
+                              value: 'project',
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.folder_open_outlined, size: 18, color: AppTheme.primaryLight),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    isEn ? 'Select Project' : 'Chọn Dự án',
+                                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: 'board',
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.shield_outlined, size: 18, color: AppTheme.primaryLight),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    isEn ? 'Advisory Board' : 'Hội đồng Cố vấn',
+                                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: 'loop',
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.all_inclusive_rounded, size: 18, color: AppTheme.primaryLight),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    isEn ? 'Operating Loop' : 'Vòng lặp Vận hành',
+                                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: 'dashboard',
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.space_dashboard_outlined, size: 18, color: Colors.white70),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    L10nKey.hubManageDashboard.tr,
+                                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: 'refresh',
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.refresh, size: 18, color: Colors.white70),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    L10nKey.hubRefreshData.tr,
+                                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: 'profile',
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.account_circle_outlined, size: 18, color: Colors.white70),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    L10nKey.hubMyProfile.tr,
+                                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                        tooltip: L10nKey.hubManageDashboard.tr,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                          minWidth: 36,
-                          minHeight: 36,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
 
-                      // Refresh Button
-                      IconButton(
-                        onPressed: () => controller.loadDashboardData(),
-                        icon: const Icon(
-                          Icons.refresh,
-                          color: Colors.white70,
-                          size: 20,
+                      // TABLET / DESKTOP: Hiển thị đầy đủ các icon actions
+                      if (!isMobile) ...[
+                        const SizedBox(width: 4),
+                        // Hội đồng Cố vấn (Executive Advisory Board Button)
+                        Container(
+                          margin: const EdgeInsets.only(right: 6),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primary.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: AppTheme.primary.withValues(alpha: 0.4),
+                            ),
+                          ),
+                          child: IconButton(
+                            key: const ValueKey('open_executive_board_button'),
+                            onPressed: () {
+                              final pid = controller.activeProjectId.value;
+                              if (pid != null) {
+                                _showExecutiveAdvisoryBoardModal(context, pid);
+                              } else {
+                                AppToast.warning(
+                                  Get.locale?.languageCode == 'vi'
+                                      ? 'Vui lòng chọn dự án trước'
+                                      : 'Please select a project first',
+                                );
+                              }
+                            },
+                            icon: const Icon(
+                              Icons.shield_outlined,
+                              color: AppTheme.primary,
+                              size: 18,
+                            ),
+                            tooltip: Get.locale?.languageCode == 'vi'
+                                ? 'Hội đồng Cố vấn (Executive Advisory Board)'
+                                : 'Executive Advisory Board',
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                          ),
                         ),
-                        tooltip: L10nKey.hubRefreshData.tr,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                          minWidth: 36,
-                          minHeight: 36,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
 
-                      // Profile Button
-                      IconButton(
-                        onPressed: () => Get.toNamed(AppRoutes.profile),
-                        icon: const Icon(
-                          Icons.account_circle_outlined,
-                          color: Colors.white70,
-                          size: 20,
+                        // Project Operating Loop Icon Button (chuyển từ Top3 Focus lên AppBar)
+                        Obx(() {
+                          final pid = controller.activeProjectId.value;
+                          return IconButton(
+                            key: const Key('appbar_project_loop_button'),
+                            onPressed: pid != null
+                                ? () => Get.toNamed(AppRoutes.projectLoopFor(pid))
+                                : null,
+                            icon: const Icon(
+                              Icons.all_inclusive_rounded,
+                              color: Colors.white70,
+                              size: 20,
+                            ),
+                            tooltip: Get.locale?.languageCode == 'vi'
+                                ? 'Vòng lặp Vận hành (Project Loop)'
+                                : 'Open Project Operating Loop',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: 36,
+                              minHeight: 36,
+                            ),
+                          );
+                        }),
+                        const SizedBox(width: 4),
+
+                        // Dashboard Button — vào màn hình quản trị (Dashboard)
+                        IconButton(
+                          onPressed: () => Get.find<HologramHubController>()
+                              .onSettingsPressed(),
+                          icon: const Icon(
+                            Icons.space_dashboard_outlined,
+                            color: Colors.white70,
+                            size: 20,
+                          ),
+                          tooltip: L10nKey.hubManageDashboard.tr,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 36,
+                            minHeight: 36,
+                          ),
                         ),
-                        tooltip: L10nKey.hubMyProfile.tr,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                          minWidth: 36,
-                          minHeight: 36,
+                        const SizedBox(width: 4),
+
+                        // Refresh Button
+                        IconButton(
+                          onPressed: () => controller.loadDashboardData(),
+                          icon: const Icon(
+                            Icons.refresh,
+                            color: Colors.white70,
+                            size: 20,
+                          ),
+                          tooltip: L10nKey.hubRefreshData.tr,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 36,
+                            minHeight: 36,
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 4),
+
+                        // Profile Button
+                        IconButton(
+                          onPressed: () => Get.toNamed(AppRoutes.profile),
+                          icon: const Icon(
+                            Icons.account_circle_outlined,
+                            color: Colors.white70,
+                            size: 20,
+                          ),
+                          tooltip: L10nKey.hubMyProfile.tr,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 36,
+                            minHeight: 36,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
               ),
             ],
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -485,12 +628,8 @@ class _HologramHubViewState extends State<HologramHubView> {
                   founderNotes: notes,
                 ),
               ),
-              const SizedBox(height: 16),
-              SizedBox(
-                height: 420,
-                child: _ProjectActivityFeed(
-                  projectId: controller.activeProjectId.value!,
-                ),
+              _ProjectActivityFeed(
+                projectId: controller.activeProjectId.value!,
               ),
             ] else if (!controller.hasProjects.value) ...[
               Center(
@@ -640,24 +779,87 @@ class _HologramHubViewState extends State<HologramHubView> {
       );
     }
 
-    // ── MOBILE (<800): Cuộn dọc + Chat nổi ở dưới cùng ──
+    // ── MOBILE (<800): Chế độ tinh gọn — Ẩn các card cồng kềnh, giữ Trống Đồng Vũ Trụ + Text Chat ──
     return Stack(
       children: [
-        Positioned.fill(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 110),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                leftColumn(),
-                const SizedBox(height: 16),
-                statsColumn(),
-              ],
-            ),
-          ),
-        ),
         centerChat(),
       ],
+    );
+  }
+
+  void _showMobileProjectPicker(
+    BuildContext context,
+    FounderCommandCenterController controller,
+  ) {
+    final isEn = Get.locale?.languageCode != 'vi';
+    final projects = controller.projectsList.toList();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF0F172A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isEn ? 'Select Project' : 'Chọn Dự án',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (projects.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Text(
+                    isEn ? 'No projects available' : 'Chưa có dự án nào',
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
+                  ),
+                )
+              else
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: projects.length,
+                    itemBuilder: (_, i) {
+                      final project = projects[i];
+                      final pid = project['id']?.toString() ?? '';
+                      final title = project['title']?.toString() ?? (isEn ? 'Project ${i + 1}' : 'Dự án ${i + 1}');
+                      final isSelected = controller.activeProjectId.value == pid;
+
+                      return ListTile(
+                        leading: Icon(
+                          isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
+                          color: isSelected ? AppTheme.primaryLight : Colors.white54,
+                          size: 20,
+                        ),
+                        title: Text(
+                          title,
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : Colors.white70,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                        onTap: () {
+                          controller.selectProject(pid);
+                          Navigator.pop(ctx);
+                        },
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -1169,29 +1371,26 @@ class _ProjectActivityFeedState extends State<_ProjectActivityFeed> {
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return ProjectActivityTimeline(
-            events: const [],
-            onSelectEvent: (_) {},
-            loading: true,
-            unavailable: false,
-          );
+          return const SizedBox.shrink();
         }
         if (snapshot.hasError) {
-          return ProjectActivityTimeline(
-            events: const [],
-            onSelectEvent: (_) {},
-            loading: false,
-            unavailable: true,
-          );
+          // Khi lỗi hoặc chưa có endpoint dòng hoạt động: ẩn hoàn toàn
+          return const SizedBox.shrink();
         }
-        return ProjectActivityTimeline(
-          events: snapshot.data ?? const [],
-          loading: false,
-          unavailable: false,
-          // ProjectActivityTimeline tự hiển thị ProjectActivityInspector
-          // inline khi tap 1 event (xem widget) — không cần mở thêm dialog
-          // ở đây, tránh double inspector.
-          onSelectEvent: (_) {},
+        final events = snapshot.data ?? const [];
+        if (events.isEmpty) {
+          // Không có dữ liệu thì ẩn, chỉ khi có dữ liệu mới hiển thị
+          return const SizedBox.shrink();
+        }
+        return Container(
+          margin: const EdgeInsets.only(top: 16),
+          height: 420,
+          child: ProjectActivityTimeline(
+            events: events,
+            loading: false,
+            unavailable: false,
+            onSelectEvent: (_) {},
+          ),
         );
       },
     );

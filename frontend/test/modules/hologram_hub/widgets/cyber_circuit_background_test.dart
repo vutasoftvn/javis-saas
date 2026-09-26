@@ -89,5 +89,26 @@ void main() {
 
       expect(tapped, isTrue);
     });
+
+    testWidgets('renders solar system planetary orbits and drum overlay correctly across frames', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: CyberCircuitBackground(
+              child: SizedBox.shrink(),
+            ),
+          ),
+        ),
+      );
+
+      // Verify CustomPaint widgets exist (ambient, drum overlay with solar planets, voice visualizer)
+      expect(find.byType(CustomPaint), findsWidgets);
+
+      // Advance frames to simulate orbital motion
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(CustomPaint), findsWidgets);
+      await tester.pump(const Duration(milliseconds: 1000));
+      expect(find.byType(CustomPaint), findsWidgets);
+    });
   });
 }

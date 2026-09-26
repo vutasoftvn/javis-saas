@@ -153,6 +153,40 @@ class ProjectOperatingWeekCard extends StatelessWidget {
             .toList();
     final tasks = operatingLoop?.tasks ?? [];
 
+    // Tìm Objective và danh sách Key Results (KR) tương ứng
+    final objectives = operatingLoop?.objectives ?? [];
+    LoopObjectiveTree? currentObjective;
+    if (cycle.sourceObjectiveId != null) {
+      currentObjective = objectives.firstWhereOrNull(
+        (o) => o.objective.id == cycle.sourceObjectiveId,
+      );
+    }
+    currentObjective ??= objectives.firstWhereOrNull((o) {
+      final objTitle = o.objective.title.trim().toLowerCase();
+      final focus = (week?.focus ?? '').trim().toLowerCase();
+      return focus.isNotEmpty && (focus.contains(objTitle) || objTitle.contains(focus));
+    });
+    currentObjective ??= objectives.firstOrNull;
+
+    final keyResultTrees = currentObjective != null && currentObjective.keyResults.isNotEmpty
+        ? currentObjective.keyResults
+        : objectives.expand((o) => o.keyResults).toList();
+
+    // Tách P0 / giai đoạn làm title riêng nếu có dạng [P0 - ...] hoặc [P...]
+    final focusText = (week?.focus ?? '').trim();
+    String? phaseTitle;
+    String? focusBody;
+
+    if (focusText.isNotEmpty) {
+      final match = RegExp(r'^\[(.*?)\]\s*(.*)$', dotAll: true).firstMatch(focusText);
+      if (match != null) {
+        phaseTitle = match.group(1)?.trim();
+        focusBody = match.group(2)?.trim();
+      } else {
+        focusBody = focusText;
+      }
+    }
+
     return Container(
       key: const Key('operating_week_card'),
       padding: const EdgeInsets.all(20),
@@ -205,15 +239,178 @@ class ProjectOperatingWeekCard extends StatelessWidget {
               ),
             ],
           ),
-          if (week?.focus != null && week!.focus!.isNotEmpty) ...[
+          if (phaseTitle != null && phaseTitle.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: AppTheme.primary.withValues(alpha: 0.35),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.flag_circle_outlined,
+                        size: 15,
+                        color: AppTheme.primaryLight,
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          phaseTitle,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: AppTheme.primaryLight,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12.5,
+                            letterSpacing: 0.2,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (focusBody != null && focusBody.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
-              week.focus!,
+              focusBody,
               style: theme.textTheme.bodyMedium?.copyWith(
-                fontStyle: FontStyle.italic,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
+                fontStyle: phaseTitle == null ? FontStyle.italic : FontStyle.normal,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
+                height: 1.45,
               ),
             ),
+          ],
+          if (keyResultTrees.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Icon(Icons.track_changes, size: 16, color: AppTheme.primaryLight),
+                const SizedBox(width: 6),
+                Text(
+                  isEn ? 'Key Results (KR):' : 'Kết quả then chốt (Key Results):',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ...keyResultTrees.map((krTree) {
+              final kr = krTree.keyResult;
+              final title = (kr.title ?? '').trim();
+              final hasMetrics = kr.targetValue != null && kr.targetValue! > 0;
+              final current = kr.currentValue ?? 0.0;
+              final target = kr.targetValue ?? 0.0;
+              final unit = kr.unit ?? '';
+              final progress = hasMetrics && target > 0 ? (current / target).clamp(0.0, 1.0) : null;
+              final isCompleted = kr.status == 'done' || kr.status == 'completed' || (progress != null && progress >= 1.0);
+              final unitLower = unit.toLowerCase();
+              final isBinaryVerification = (target <= 1.0) || unitLower.contains('kiểm chứng') || kr.scoringType.toUpperCase() == 'BOOLEAN';
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6.0),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: AppTheme.primary.withValues(alpha: 0.18),
+                      width: 1,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2.0),
+                            child: Icon(
+                              isCompleted ? Icons.check_circle : Icons.radio_button_unchecked,
+                              size: 15,
+                              color: isCompleted ? Colors.green : AppTheme.primaryLight,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              title.isNotEmpty ? title : (isEn ? 'Key Result' : 'Kết quả then chốt'),
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w500,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          if (isBinaryVerification)
+                            Tooltip(
+                              message: isCompleted
+                                  ? (isEn ? 'Verified' : 'Đã kiểm chứng')
+                                  : (isEn ? 'Pending' : 'Chưa kiểm chứng'),
+                              child: Container(
+                                padding: const EdgeInsets.all(5),
+                                decoration: BoxDecoration(
+                                  color: isCompleted
+                                      ? Colors.green.withValues(alpha: 0.15)
+                                      : Colors.white.withValues(alpha: 0.06),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: isCompleted
+                                        ? Colors.green.withValues(alpha: 0.35)
+                                        : Colors.white.withValues(alpha: 0.15),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Icon(
+                                  isCompleted ? Icons.verified : Icons.hourglass_empty_rounded,
+                                  size: 13,
+                                  color: isCompleted ? Colors.green : const Color(0xFF94A3B8),
+                                ),
+                              ),
+                            )
+                          else if (hasMetrics)
+                            Text(
+                              '${current.toStringAsFixed(current.truncateToDouble() == current ? 0 : 1)} / ${target.toStringAsFixed(target.truncateToDouble() == target ? 0 : 1)}${unit.isNotEmpty ? ' $unit' : ''}',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: AppTheme.primaryLight,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                        ],
+                      ),
+                      if (!isBinaryVerification && progress != null) ...[
+                        const SizedBox(height: 6),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: progress,
+                            minHeight: 4,
+                            backgroundColor: AppTheme.primary.withValues(alpha: 0.12),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              isCompleted ? Colors.green : AppTheme.primary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            }),
           ],
           const SizedBox(height: 16),
           if (commitments.isEmpty)

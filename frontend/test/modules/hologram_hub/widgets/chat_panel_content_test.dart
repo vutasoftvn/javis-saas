@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:frontend/modules/hologram_hub/controllers/founder_command_center_controller.dart';
 import 'package:frontend/modules/hologram_hub/widgets/chat_panel_content.dart';
+import 'package:frontend/core/widgets/app_markdown_body.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -135,5 +136,28 @@ void main() {
     expect(controller.chatMessages.isEmpty, isTrue);
     expect(controller.chatInputController.text.isEmpty, isTrue);
     expect(find.text('Message 1'), findsNothing);
+  });
+
+
+  testWidgets('renders AI message with markdown body and AI robot icon', (
+    tester,
+  ) async {
+    final controller = Get.put(FounderCommandCenterController());
+    controller.chatMessages.add({
+      'role': 'assistant',
+      'content': 'Xin chào! **Theo dõi tiến độ** và `workspace_id`',
+    });
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        home: Scaffold(
+          body: ChatPanelContent(controller: controller, onClose: () {}),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byIcon(Icons.smart_toy_outlined), findsOneWidget);
+    expect(find.byType(AppMarkdownBody), findsOneWidget);
   });
 }
