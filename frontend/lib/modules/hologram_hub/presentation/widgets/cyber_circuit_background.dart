@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/services/voice_service.dart';
+import 'planet_hologram_inspector_dialog.dart';
 
 /// Animated Futuristic Cyber Trống Đồng Centerpiece Background
 /// Focuses on the sacred Vietnamese Bronze Drum (Trống Đồng Đông Sơn) in the center:
@@ -24,6 +25,7 @@ class CyberCircuitBackground extends StatefulWidget {
   final ValueListenable<double>? audioLevelNotifier;
   final ValueListenable<bool>? isVoiceActiveNotifier;
   final VoidCallback? onVoiceTap;
+  final void Function(PlanetHologramData planet)? onPlanetTap;
 
   const CyberCircuitBackground({
     super.key,
@@ -34,6 +36,7 @@ class CyberCircuitBackground extends StatefulWidget {
     this.audioLevelNotifier,
     this.isVoiceActiveNotifier,
     this.onVoiceTap,
+    this.onPlanetTap,
   });
 
   @override
@@ -51,6 +54,79 @@ class _CyberCircuitBackgroundState extends State<CyberCircuitBackground>
 
   double _audioLevel = 0.0;
   bool _isVoiceActive = false;
+  Offset? _pointerDownPos;
+  int? _pointerDownTime;
+  bool _isHoveringPlanet = false;
+
+  void _onPointerDown(PointerDownEvent event) {
+    _pointerDownPos = event.localPosition;
+    _pointerDownTime = DateTime.now().millisecondsSinceEpoch;
+  }
+
+  void _onPointerUp(PointerUpEvent event, double drumRadius, Size size) {
+    if (_pointerDownPos == null) return;
+    final distance = (event.localPosition - _pointerDownPos!).distance;
+    final duration = DateTime.now().millisecondsSinceEpoch - (_pointerDownTime ?? 0);
+    _pointerDownPos = null;
+
+    // Phải là một cú chạm dứt khoát (tap), không phải kéo cuộn (scroll drag)
+    if (distance > 14.0 || duration > 800) return;
+
+    _checkPlanetHit(event.localPosition, drumRadius, size);
+  }
+
+  void _checkPlanetHit(Offset tapPos, double drumRadius, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final rotationProgress = _rotationController.value;
+
+    PlanetHologramData? closestPlanet;
+    double minDistance = double.infinity;
+
+    for (final planet in PlanetHologramData.allPlanets) {
+      final orbitRadius = drumRadius * planet.orbitRatio;
+      final currentAngle = planet.startAngle - (rotationProgress * 2 * math.pi * planet.turns);
+      final planetPos = Offset(
+        center.dx + math.cos(currentAngle) * orbitRadius,
+        center.dy + math.sin(currentAngle) * orbitRadius,
+      );
+
+      // Nhận diện chạm thông minh (Generous Hitbox: ~30-36px quanh mỗi hành tinh)
+      // Giúp người dùng chạm vào rất dễ dàng và chính xác kể cả trên màn hình cảm ứng điện thoại
+      final hitRadius = math.max(planet.radius + 22.0, 36.0);
+      final distance = (tapPos - planetPos).distance;
+      if (distance <= hitRadius && distance < minDistance) {
+        minDistance = distance;
+        closestPlanet = planet;
+      }
+    }
+
+    if (closestPlanet != null) {
+      if (widget.onPlanetTap != null) {
+        widget.onPlanetTap!(closestPlanet);
+      } else {
+        PlanetHologramInspectorDialog.show(context, closestPlanet);
+      }
+    }
+  }
+
+  bool _isOverAnyPlanet(Offset hoverPos, double drumRadius, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final rotationProgress = _rotationController.value;
+
+    for (final planet in PlanetHologramData.allPlanets) {
+      final orbitRadius = drumRadius * planet.orbitRatio;
+      final currentAngle = planet.startAngle - (rotationProgress * 2 * math.pi * planet.turns);
+      final planetPos = Offset(
+        center.dx + math.cos(currentAngle) * orbitRadius,
+        center.dy + math.sin(currentAngle) * orbitRadius,
+      );
+      final hitRadius = math.max(planet.radius + 22.0, 36.0);
+      if ((hoverPos - planetPos).distance <= hitRadius) {
+        return true;
+      }
+    }
+    return false;
+  }
 
   @override
   void initState() {
@@ -155,13 +231,28 @@ class _CyberCircuitBackgroundState extends State<CyberCircuitBackground>
       builder: (context, constraints) {
         final w = constraints.maxWidth;
         final h = constraints.maxHeight;
-        // Drum size fits comfortably inside the 6/12 center column
-        final drumSize = math.min(w * 0.46, h * 0.82).clamp(380.0, 780.0);
+        // Drum size fits comfortably inside the center column; responsive on mobile
+        final isMobile = w < 768;
+        final drumSize = isMobile
+            ? (math.min(w * 0.72, h * 0.44).clamp(220.0, 320.0))
+            : (math.min(w * 0.46, h * 0.82).clamp(380.0, 780.0));
         final drumRadius = drumSize / 2;
 
-        return Stack(
-          fit: StackFit.expand,
-          children: [
+        return MouseRegion(
+          cursor: _isHoveringPlanet ? SystemMouseCursors.click : MouseCursor.defer,
+          onHover: (event) {
+            final isHover = _isOverAnyPlanet(event.localPosition, drumRadius, Size(w, h));
+            if (isHover != _isHoveringPlanet) {
+              setState(() => _isHoveringPlanet = isHover);
+            }
+          },
+          child: Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: _onPointerDown,
+            onPointerUp: (event) => _onPointerUp(event, drumRadius, Size(w, h)),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
             // 1. Ambient Deep Cyber Cosmic Gradient (Dark, sleek, non-intrusive)
             AnimatedBuilder(
               animation: _pulseController,
@@ -211,21 +302,7 @@ class _CyberCircuitBackgroundState extends State<CyberCircuitBackground>
               },
             ),
 
-            // 3. Concentric Drum Hologram Rings & Orbiting Photons Overlay (On top of Trống Đồng)
-            AnimatedBuilder(
-              animation: Listenable.merge([_pulseController, _rotationController]),
-              builder: (context, _) {
-                return CustomPaint(
-                  painter: _HolographicLedRingsOverlayPainter(
-                    pulseProgress: _pulseController.value,
-                    rotationProgress: _rotationController.value,
-                    drumRadius: drumRadius,
-                  ),
-                );
-              },
-            ),
-
-            // 4. Centerpiece Audio Voice Visualizer (Thay thế hình Âm Dương)
+            // 3. Centerpiece Audio Voice Visualizer (Thay thế hình Âm Dương)
             // Sóng âm thanh 360°, phổ tần số radial, vòng oscilloscope, và quả cầu voice ở tâm trống đồng
             AnimatedBuilder(
               animation: Listenable.merge([_pulseController, _audioWaveController]),
@@ -238,6 +315,21 @@ class _CyberCircuitBackgroundState extends State<CyberCircuitBackground>
                     audioLevel: activeAudio,
                     isVoiceActive: activeVoice,
                     frequencyBands: widget.frequencyBands,
+                  ),
+                );
+              },
+            ),
+
+            // 4. Concentric Drum Hologram Rings & Orbiting Solar System Planets Overlay (Nằm TRÊN hiệu ứng âm thanh)
+            // Cho phép Sao Thủy (Mercury) và các hành tinh lướt nổi rõ ràng TRÊN sóng âm và hiệu ứng âm thanh
+            AnimatedBuilder(
+              animation: Listenable.merge([_pulseController, _rotationController]),
+              builder: (context, _) {
+                return CustomPaint(
+                  painter: _HolographicLedRingsOverlayPainter(
+                    pulseProgress: _pulseController.value,
+                    rotationProgress: _rotationController.value,
+                    drumRadius: drumRadius,
                   ),
                 );
               },
@@ -266,6 +358,8 @@ class _CyberCircuitBackgroundState extends State<CyberCircuitBackground>
             // 6. Foreground Content (Cards & Chat)
             if (widget.child != null) widget.child!,
           ],
+            ),
+          ),
         );
       },
     );
@@ -336,7 +430,7 @@ class _AudioVoiceVisualizerPainter extends CustomPainter {
 
   void _drawVoiceVisualizer(Canvas canvas, Offset center) {
     final pulse = math.sin(pulseProgress * 2 * math.pi) * 0.5 + 0.5;
-    final coreRadius = (drumRadius * 0.23).clamp(58.0, 98.0);
+    final coreRadius = (drumRadius * 0.22).clamp(36.0, 98.0);
     final orbRadius = coreRadius * 0.44;
 
 
@@ -615,7 +709,10 @@ class _AudioVoiceVisualizerPainter extends CustomPainter {
   }
 }
 
-/// Paints Concentric Drum Holographic Rings and Orbiting Photons Overlay (On top of Trống Đồng)
+typedef _PlanetSpec = PlanetHologramData;
+
+/// Paints the Concentric Orbits and 8 Solar System Planets revolving around
+/// the Sacred Trống Đồng Sun Axis (Mô phỏng 8 hành tinh Hệ Mặt Trời quay quanh tâm Trống Đồng)
 class _HolographicLedRingsOverlayPainter extends CustomPainter {
   final double pulseProgress;
   final double rotationProgress;
@@ -627,88 +724,501 @@ class _HolographicLedRingsOverlayPainter extends CustomPainter {
     required this.drumRadius,
   });
 
+  // 8 hành tinh Hệ Mặt Trời lồng ghép tương ứng theo các tầng hoa văn đồng tâm của Trống Đồng:
+  // Tâm Trống Đồng (Mặt Trời) -> Sao Thủy -> Sao Kim -> Trái Đất -> Sao Hỏa -> Sao Mộc -> Sao Thổ -> Thiên Vương -> Hải Vương
+  // Trục góc hội tụ hoàng đạo: -pi/3.8 (~ -47 độ, hướng Tây Bắc - Đông Nam của Trống Đồng)
+  static const double _alignmentAxis = -math.pi / 3.8;
+
+  // 8 hành tinh Hệ Mặt Trời (Thất Tinh cổ điển + Thiên Vương, Hải Vương hiện đại):
+  static List<PlanetHologramData> get _solarPlanets => PlanetHologramData.allPlanets;
+
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    _drawHolographicLedRings(canvas, center);
+    _drawPlanetaryOrbitsAndCelestialBodies(canvas, center);
   }
 
-  void _drawHolographicLedRings(Canvas canvas, Offset center) {
-    // Holographic concentric rings aligning precisely with Trống Đồng concentric geometry
-    final ringRadii = [
-      drumRadius * 0.28, // Inner solar collar
-      drumRadius * 0.52, // Mid mythological animal & warrior ring
-      drumRadius * 0.78, // Outer concentric geometric band
-      drumRadius * 0.99, // Outer drum rim boundary (inside drum edge to prevent halo bleed)
-    ];
+  void _drawPlanetaryOrbitsAndCelestialBodies(Canvas canvas, Offset center) {
+    // ── TÍNH TOÁN THỜI ĐIỂM THẤT TINH HỘI TỤ (Chu kỳ 60 giây) ──
+    // Trong 120s của rotationController, hiện tượng xảy ra 2 lần:
+    // - Tại 60s (progress = 0.5): Thẳng hàng đối xứng qua tâm Mặt Trời (Syzygy)
+    // - Tại 120s (progress = 1.0 / 0.0): Toàn bộ 8 thiên thể xếp thẳng một tia duy nhất từ tâm Mặt Trời!
+    final cycleProgress = (rotationProgress * 2.0) % 1.0;
+    final distFromAlignment = math.min(cycleProgress, 1.0 - cycleProgress);
+    final secondsToAlignment = ((1.0 - cycleProgress) * 60.0).clamp(0.0, 60.0);
+    const alignmentWindow = 4.5 / 60.0; // Khoảng hội tụ rực rỡ kéo dài ~4.5 giây
 
-    final ringColors = [
-      const Color(0xFFE5A93C), // Sacred Bronze Gold
-      const Color(0xFF00F0FF), // Quantum Cyan
-      const Color(0xFFF59E0B), // Solar Amber
-      const Color(0xFFE5A93C), // Sacred Bronze Gold rim (softened from emerald green)
-    ];
+    double alignmentIntensity = 0.0;
+    if (distFromAlignment < alignmentWindow) {
+      final norm = distFromAlignment / alignmentWindow;
+      alignmentIntensity = (math.cos(norm * math.pi) * 0.5 + 0.5);
+    }
 
-    for (int i = 0; i < ringRadii.length; i++) {
-      final r = ringRadii[i];
-      final color = ringColors[i];
+    // 1. Vẽ các đường ray quỹ đạo đồng tâm (Concentric Orbital Tracks)
+    for (int i = 0; i < _solarPlanets.length; i++) {
+      final planet = _solarPlanets[i];
+      final orbitRadius = drumRadius * planet.orbitRatio;
 
-      // Base Track Ring
-      final ringPaint = Paint()
-        ..color = color.withValues(alpha: (i == 3) ? 0.15 : 0.12)
+      final isCyanTrack = (i == 2 || i == 6);
+      final trackColor = isCyanTrack ? const Color(0xFF00F0FF) : const Color(0xFFE5A93C);
+
+      final trackPaint = Paint()
+        ..color = trackColor.withValues(alpha: (i == 7) ? 0.13 : 0.09)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.1;
-      canvas.drawCircle(center, r, ringPaint);
+        ..strokeWidth = 0.9;
+      canvas.drawCircle(center, orbitRadius, trackPaint);
 
-      // Counter-rotating Segmented Hologram HUD Arcs
-      final counterAngle = -rotationProgress * 2 * math.pi * (1.1 + i * 0.3);
-      final arcPaint = Paint()
-        ..color = color.withValues(alpha: 0.28)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.4
-        ..strokeCap = StrokeCap.round;
+      if (i % 2 == 0) {
+        final counterAngle = -rotationProgress * 2 * math.pi * (1.0 + i * 0.25);
+        final arcPaint = Paint()
+          ..color = trackColor.withValues(alpha: 0.22)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.2
+          ..strokeCap = StrokeCap.round;
 
-      const segments = 4;
-      final sweepAngle = (math.pi / 5);
-      for (int s = 0; s < segments; s++) {
-        final startAngle = counterAngle + (s * (2 * math.pi / segments));
-        canvas.drawArc(
-          Rect.fromCircle(center: center, radius: r),
-          startAngle,
-          sweepAngle,
-          false,
-          arcPaint,
+        const segments = 4;
+        final sweepAngle = (math.pi / 7);
+        for (int s = 0; s < segments; s++) {
+          final startAngle = counterAngle + (s * (2 * math.pi / segments));
+          canvas.drawArc(
+            Rect.fromCircle(center: center, radius: orbitRadius),
+            startAngle,
+            sweepAngle,
+            false,
+            arcPaint,
+          );
+        }
+      }
+    }
+
+    // Tính toán tọa độ chính xác của 8 hành tinh
+    final planetPositions = <Offset>[];
+    final planetAngles = <double>[];
+    for (int i = 0; i < _solarPlanets.length; i++) {
+      final planet = _solarPlanets[i];
+      final orbitRadius = drumRadius * planet.orbitRatio;
+      final currentAngle = planet.startAngle - (rotationProgress * 2 * math.pi * planet.turns);
+      final pos = Offset(
+        center.dx + math.cos(currentAngle) * orbitRadius,
+        center.dy + math.sin(currentAngle) * orbitRadius,
+      );
+      planetPositions.add(pos);
+      planetAngles.add(currentAngle);
+    }
+
+    // 2. MẠNG DÂY NĂNG LƯỢNG KẾT NỐI THẤT TINH (Constellation Quantum Web)
+    // Nối từ Tâm Mặt Trời -> Thủy -> Kim -> Trái Đất -> Hỏa -> Mộc -> Thổ -> Thiên Vương -> Hải Vương
+    _drawConstellationWeb(canvas, center, planetPositions, alignmentIntensity);
+
+    // 3. KHI THẤT TINH HỘI TỤ (Alignment Resonance Laser Beam)
+    if (alignmentIntensity > 0.02) {
+      _drawAlignmentResonanceBeam(canvas, center, alignmentIntensity);
+    }
+
+    // 4. Vẽ 8 Hành tinh lướt trên quỹ đạo nhận ánh sáng từ Tâm Trống Đồng
+    for (int i = 0; i < _solarPlanets.length; i++) {
+      final planet = _solarPlanets[i];
+      final orbitRadius = drumRadius * planet.orbitRatio;
+      final currentAngle = planetAngles[i];
+      final pos = planetPositions[i];
+
+      // A. Vết đuôi quỹ đạo chuyển động lướt
+      _drawOrbitalTrail(canvas, center, orbitRadius, currentAngle, planet.glowColor);
+
+      // B. Hào quang khí quyển mềm (khi hội tụ hào quang bừng sáng)
+      final auraRadius = planet.radius + 4.0 + (alignmentIntensity * 6.0);
+      canvas.drawCircle(
+        pos,
+        auraRadius,
+        Paint()
+          ..color = planet.glowColor.withValues(alpha: 0.34 + (alignmentIntensity * 0.40))
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 4.5 + (alignmentIntensity * 4.0)),
+      );
+
+      // Khi hội tụ: Vòng sóng xung kích mở rộng tại mỗi hành tinh
+      if (alignmentIntensity > 0.10) {
+        canvas.drawCircle(
+          pos,
+          planet.radius * (1.3 + (1.0 - alignmentIntensity) * 1.8),
+          Paint()
+            ..color = planet.glowColor.withValues(alpha: alignmentIntensity * 0.55)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.4,
         );
       }
 
-      // Orbiting Hologram Photons along the drum's concentric tracks
-      _drawOrbitingPhotons(canvas, center, r, color, i);
+      // C. Quả cầu hành tinh 3D
+      _drawPlanetSphere(canvas, center, pos, planet);
+
+      // D. Các đặc điểm thiên văn đặc trưng
+      if (planet.hasMoon) {
+        _drawEarthMoon(canvas, pos, planet.radius);
+      } else if (planet.hasStripes) {
+        _drawJupiterStripes(canvas, pos, planet.radius);
+      } else if (planet.hasRings) {
+        _drawSaturnRings(canvas, pos, planet.radius);
+      } else if (planet.hasPolarCap) {
+        _drawMarsPolarCap(canvas, pos, planet.radius);
+      } else if (planet.hasVerticalRing) {
+        _drawUranusRing(canvas, pos, planet.radius);
+      }
+
+      // E. Nhãn tên Cyber HUD
+      _drawPlanetLabel(canvas, pos, planet);
+    }
+
+    // 5. HUD ĐẾM NGƯỢC & CHỈ SỐ THẤT TINH HỘI TỤ
+    _drawConvergenceHud(canvas, center, alignmentIntensity, secondsToAlignment);
+  }
+
+  /// Mạng dây năng lượng kết nối các hành tinh với Tâm Mặt Trời
+  void _drawConstellationWeb(Canvas canvas, Offset center, List<Offset> positions, double alignmentIntensity) {
+    final webColor = Color.lerp(
+      const Color(0xFF00F0FF),
+      const Color(0xFFE5A93C),
+      alignmentIntensity,
+    )!;
+
+    final path = Path()..moveTo(center.dx, center.dy);
+    for (final p in positions) {
+      path.lineTo(p.dx, p.dy);
+    }
+
+    // Dây liên kết mềm mờ (hơi phát sáng khi tiến gần hội tụ)
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = webColor.withValues(alpha: 0.12 + (alignmentIntensity * 0.35))
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0 + (alignmentIntensity * 1.5)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 1.5 + (alignmentIntensity * 2.5)),
+    );
+
+    // Hạt photon lượng tử lướt theo các đoạn nối từ tâm Mặt Trời ra các hành tinh
+    for (int k = 0; k < positions.length; k++) {
+      final p1 = (k == 0) ? center : positions[k - 1];
+      final p2 = positions[k];
+      final photonT = (pulseProgress + k * 0.13) % 1.0;
+      final photonPos = Offset.lerp(p1, p2, photonT)!;
+
+      canvas.drawCircle(
+        photonPos,
+        1.6 + (alignmentIntensity * 1.2),
+        Paint()..color = Colors.white.withValues(alpha: 0.85),
+      );
+      canvas.drawCircle(
+        photonPos,
+        3.2 + (alignmentIntensity * 2.0),
+        Paint()
+          ..color = webColor.withValues(alpha: 0.45)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.8),
+      );
     }
   }
 
-  void _drawOrbitingPhotons(Canvas canvas, Offset center, double radius, Color color, int index) {
-    final dir = (index % 2 == 0) ? 1.0 : -1.0;
-    for (int p = 0; p < 2; p++) {
-      final photonProgress = (pulseProgress * dir + (p * 0.5) + (index * 0.23)) % 1.0;
-      final angle = photonProgress * 2 * math.pi;
-      final pos = Offset(center.dx + math.cos(angle) * radius, center.dy + math.sin(angle) * radius);
+  /// Trục chùm tia năng lượng laser thần thánh xuyên tâm Trống Đồng khi Thất Tinh Hội Tụ
+  void _drawAlignmentResonanceBeam(Canvas canvas, Offset center, double intensity) {
+    final dir = Offset(math.cos(_alignmentAxis), math.sin(_alignmentAxis));
+    final beamLength = drumRadius * 1.35;
+    final p1 = center - (dir * beamLength);
+    final p2 = center + (dir * beamLength);
 
-      // Core Photon
-      canvas.drawCircle(
-        pos,
-        2.2,
-        Paint()..color = Colors.white.withValues(alpha: 0.90),
+    // Lớp 1: Hào quang vàng hổ phách rộng
+    canvas.drawLine(
+      p1,
+      p2,
+      Paint()
+        ..color = const Color(0xFFE5A93C).withValues(alpha: intensity * 0.45)
+        ..strokeWidth = 16.0 * intensity
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10.0),
+    );
+
+    // Lớp 2: Luồng plasma lượng tử Quantum Cyan
+    canvas.drawLine(
+      p1,
+      p2,
+      Paint()
+        ..color = const Color(0xFF00F0FF).withValues(alpha: intensity * 0.75)
+        ..strokeWidth = 4.5 * intensity
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.5),
+    );
+
+    // Lớp 3: Lõi laser trắng thuần khiết
+    canvas.drawLine(
+      p1,
+      p2,
+      Paint()
+        ..color = Colors.white.withValues(alpha: intensity * 0.95)
+        ..strokeWidth = 1.8 * intensity,
+    );
+
+    // Đợt sóng xung kích Mặt Trời (Solar Flare Shockwave) mở rộng từ tâm
+    final shockRadius = (drumRadius * 0.22) + ((1.0 - intensity) * drumRadius * 0.85);
+    canvas.drawCircle(
+      center,
+      shockRadius,
+      Paint()
+        ..color = const Color(0xFFF59E0B).withValues(alpha: intensity * 0.40)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0 * intensity,
+    );
+  }
+
+  /// HUD hiển thị đếm ngược chu kỳ hoặc thông báo Thất Tinh Hội Tụ
+  void _drawConvergenceHud(Canvas canvas, Offset center, double alignmentIntensity, double secondsLeft) {
+    final isConverged = alignmentIntensity > 0.18;
+    final hudText = isConverged
+        ? '⚡ THẤT DIỆU HỘI TỤ • CỘNG HƯỞNG THIÊN HÀ'
+        : '⏳ Thất Tinh Hội Tụ: ${secondsLeft.toInt().toString().padLeft(2, '0')}s';
+
+    final textSpan = TextSpan(
+      text: hudText,
+      style: TextStyle(
+        color: isConverged
+            ? const Color(0xFFFEF08A)
+            : const Color(0xFF00F0FF).withValues(alpha: 0.70),
+        fontSize: isConverged ? 10.5 : 9.0,
+        fontWeight: isConverged ? FontWeight.bold : FontWeight.w500,
+        letterSpacing: 0.8,
+        shadows: isConverged
+            ? [
+                const Shadow(color: Colors.black, blurRadius: 4.0),
+                const Shadow(color: Color(0xFFE5A93C), blurRadius: 8.0),
+              ]
+            : [
+                const Shadow(color: Colors.black, blurRadius: 3.0),
+              ],
+      ),
+    );
+
+    final tp = TextPainter(text: textSpan, textDirection: TextDirection.ltr);
+    tp.layout();
+
+    // Vị trí đặt ở phía trên đỉnh của Trống Đồng
+    final hudY = center.dy - (drumRadius * 1.18);
+    final hudRect = Rect.fromCenter(
+      center: Offset(center.dx, hudY),
+      width: tp.width + 18,
+      height: tp.height + 8,
+    );
+
+    if (isConverged) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(hudRect, const Radius.circular(8)),
+        Paint()..color = const Color(0xFF0F172A).withValues(alpha: 0.75),
       );
-
-      // Subtle Glowing Halo (tight blur 2.0 to avoid outer glare)
-      canvas.drawCircle(
-        pos,
-        4.0,
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(hudRect, const Radius.circular(8)),
         Paint()
-          ..color = color.withValues(alpha: 0.35)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.0),
+          ..color = const Color(0xFFE5A93C).withValues(alpha: alignmentIntensity * 0.85)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0,
       );
     }
+
+    tp.paint(canvas, Offset(center.dx - (tp.width / 2), hudY - (tp.height / 2)));
+  }
+
+  /// Vẽ vết đuôi mờ lướt nhẹ theo sau hành tinh
+  void _drawOrbitalTrail(Canvas canvas, Offset center, double orbitRadius, double currentAngle, Color color) {
+    const trailSweep = math.pi / 11; // ~16 độ
+    final trailPaint = Paint()
+      ..color = color.withValues(alpha: 0.26)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: orbitRadius),
+      currentAngle,
+      trailSweep,
+      false,
+      trailPaint,
+    );
+  }
+
+  /// Vẽ quả cầu 3D với hướng chiếu sáng tự nhiên xuất phát từ Tâm Trống Đồng (Mặt Trời)
+  void _drawPlanetSphere(Canvas canvas, Offset center, Offset pos, _PlanetSpec planet) {
+    final sunAngle = math.atan2(pos.dy - center.dy, pos.dx - center.dx);
+    final planetRect = Rect.fromCircle(center: pos, radius: planet.radius);
+
+    final sphereGradient = RadialGradient(
+      center: Alignment(
+        -math.cos(sunAngle) * 0.48,
+        -math.sin(sunAngle) * 0.48,
+      ),
+      radius: 0.95,
+      colors: [
+        Colors.white.withValues(alpha: 0.95),
+        planet.primaryColor,
+        planet.darkColor,
+      ],
+      stops: const [0.0, 0.42, 1.0],
+    );
+
+    canvas.drawCircle(
+      pos,
+      planet.radius,
+      Paint()..shader = sphereGradient.createShader(planetRect),
+    );
+  }
+
+  /// Trái Đất: Vệt mây xoáy và Mặt Trăng tí hon quay quanh
+  void _drawEarthMoon(Canvas canvas, Offset pos, double earthRadius) {
+    // Vệt mây xoáy nhẹ trên bề mặt
+    canvas.drawCircle(
+      Offset(pos.dx - 1.6, pos.dy - 0.8),
+      2.2,
+      Paint()..color = Colors.white.withValues(alpha: 0.55),
+    );
+
+    // Mặt Trăng quay quanh Trái Đất
+    final moonDist = earthRadius * 2.2;
+    final moonAngle = -(rotationProgress * 2 * math.pi * 32);
+    final moonPos = Offset(
+      pos.dx + math.cos(moonAngle) * moonDist,
+      pos.dy + math.sin(moonAngle) * moonDist,
+    );
+
+    // Quỹ đạo Mặt Trăng
+    canvas.drawCircle(
+      pos,
+      moonDist,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.12)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.8,
+    );
+
+    // Quả cầu Mặt Trăng
+    canvas.drawCircle(
+      moonPos,
+      2.2,
+      Paint()..color = const Color(0xFFF1F5F9),
+    );
+    canvas.drawCircle(
+      moonPos,
+      3.2,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.45)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.8),
+    );
+  }
+
+  /// Sao Mộc: Dải mây khí quyển caramel & Đốm Đỏ Lớn (Great Red Spot)
+  void _drawJupiterStripes(Canvas canvas, Offset pos, double jupiterRadius) {
+    final planetRect = Rect.fromCircle(center: pos, radius: jupiterRadius);
+    canvas.save();
+    canvas.clipPath(Path()..addOval(planetRect));
+
+    // Dải mây xích đạo
+    canvas.drawRect(
+      Rect.fromCenter(center: Offset(pos.dx, pos.dy - 2.6), width: jupiterRadius * 2.4, height: 2.8),
+      Paint()..color = const Color(0xFF92400E).withValues(alpha: 0.72),
+    );
+    canvas.drawRect(
+      Rect.fromCenter(center: Offset(pos.dx, pos.dy + 2.6), width: jupiterRadius * 2.4, height: 2.4),
+      Paint()..color = const Color(0xFFB45309).withValues(alpha: 0.62),
+    );
+
+    // Đốm Đỏ Lớn
+    canvas.drawCircle(
+      Offset(pos.dx + 3.6, pos.dy + 2.6),
+      2.4,
+      Paint()..color = const Color(0xFFDC2626).withValues(alpha: 0.92),
+    );
+
+    canvas.restore();
+  }
+
+  /// Sao Thổ: Vành đai Thổ tinh (Saturn's Ring Belt) nghiêng 25°
+  void _drawSaturnRings(Canvas canvas, Offset pos, double saturnRadius) {
+    canvas.save();
+    canvas.translate(pos.dx, pos.dy);
+    canvas.rotate(math.pi / 7.2); // Góc nghiêng thanh nhã ~25°
+
+    // Vành đai ngoài (Vành A)
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset.zero, width: saturnRadius * 4.2, height: saturnRadius * 1.5),
+      Paint()
+        ..color = const Color(0xFFFDE68A).withValues(alpha: 0.76)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.8,
+    );
+
+    // Vành đai trong (Vành B)
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset.zero, width: saturnRadius * 2.9, height: saturnRadius * 1.0),
+      Paint()
+        ..color = const Color(0xFFCA8A04).withValues(alpha: 0.55)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.8,
+    );
+
+    canvas.restore();
+  }
+
+  /// Sao Hỏa: Chỏm băng trắng ở cực Bắc
+  void _drawMarsPolarCap(Canvas canvas, Offset pos, double marsRadius) {
+    canvas.drawCircle(
+      Offset(pos.dx, pos.dy - marsRadius * 0.65),
+      1.6,
+      Paint()..color = Colors.white.withValues(alpha: 0.92),
+    );
+  }
+
+  /// Sao Thiên Vương: Vành đai băng giá đứng nghiêng
+  void _drawUranusRing(Canvas canvas, Offset pos, double uranusRadius) {
+    canvas.save();
+    canvas.translate(pos.dx, pos.dy);
+    canvas.rotate(math.pi / 2.3);
+
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset.zero, width: uranusRadius * 3.0, height: uranusRadius * 0.9),
+      Paint()
+        ..color = const Color(0xFFA5F3FC).withValues(alpha: 0.45)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.4,
+    );
+
+    canvas.restore();
+  }
+
+  /// Nhãn tên Cyber HUD rõ ràng, sắc nét và nổi bật bên cạnh hành tinh
+  void _drawPlanetLabel(Canvas canvas, Offset pos, _PlanetSpec planet) {
+    final textSpan = TextSpan(
+      text: planet.nameVi,
+      style: TextStyle(
+        color: Colors.white.withValues(alpha: 0.92),
+        fontSize: 11.5,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0.4,
+        shadows: [
+          const Shadow(
+            color: Colors.black,
+            blurRadius: 4.0,
+            offset: Offset(0, 1),
+          ),
+          Shadow(
+            color: planet.glowColor.withValues(alpha: 0.75),
+            blurRadius: 6.0,
+          ),
+        ],
+      ),
+    );
+
+    final textPainter = TextPainter(
+      text: textSpan,
+      textDirection: TextDirection.ltr,
+    );
+    textPainter.layout();
+
+    final labelOffset = Offset(
+      pos.dx + planet.radius + 6.0,
+      pos.dy - (textPainter.height / 2),
+    );
+
+    textPainter.paint(canvas, labelOffset);
   }
 
   @override
