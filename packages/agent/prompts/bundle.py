@@ -25,6 +25,8 @@ class PromptBundle(BaseModel):
     platform_policy: str = PLATFORM_POLICY
     agent_instructions: str = ""
     skill_instructions: list[str] = Field(default_factory=list)
+    # Ngữ cảnh phiên đã được nền tảng verify (workspace/project) để model không phải hỏi lại.
+    session_context: dict[str, str] = Field(default_factory=dict)
     locale: str = DEFAULT_LOCALE
 
     def render(self) -> str:
@@ -33,5 +35,12 @@ class PromptBundle(BaseModel):
             sections.append(self.agent_instructions)
         for skill_text in self.skill_instructions:
             sections.append(skill_text)
+        if self.session_context:
+            lines = [f"- {k}: {v}" for k, v in self.session_context.items() if v]
+            sections.append(
+                "Session context (verified by the platform):\n"
+                + "\n".join(lines)
+                + "\nDo not ask the user for these values; use them when calling tools."
+            )
         sections.append(render_locale_policy(self.locale))
         return "\n\n".join(sections)

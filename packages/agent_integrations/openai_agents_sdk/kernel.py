@@ -33,7 +33,10 @@ from agents import Agent, FunctionTool, RunHooks, Runner, RunState
 from pydantic import ValidationError
 
 from agent_integrations.openai_agents_sdk.model_guard import ModelInputGuard
-from agent_integrations.openai_agents_sdk.tool_args import tool_input_error_result
+from agent_integrations.openai_agents_sdk.tool_args import (
+    apply_run_scope,
+    tool_input_error_result,
+)
 
 __all__ = ["RealOpenAIAgentsSDKKernel"]
 
@@ -185,6 +188,7 @@ class RealOpenAIAgentsSDKKernel:
                 run_id, "tool.started", {"tool_call_id": call_id, "tool": cap_spec.id}
             )
             try:
+                args = apply_run_scope(args, cap_spec.input_schema, context or {})
                 result = await self._execute_tool(
                     cap_spec.id,
                     args,
@@ -424,6 +428,10 @@ class RealOpenAIAgentsSDKKernel:
         system_prompt = PromptBundle(
             agent_instructions=spec.instructions,
             skill_instructions=skill_texts,
+            session_context={
+                "workspace_id": str(request.workspace_id or ""),
+                "project_id": str((request.metadata or {}).get("project_id") or ""),
+            },
             locale=request.locale,
         ).render()
 

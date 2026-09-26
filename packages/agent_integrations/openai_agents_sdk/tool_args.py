@@ -9,7 +9,7 @@ from typing import Any
 
 from agent.contracts.errors import AgentRuntimeError
 
-__all__ = ["tool_input_error_result"]
+__all__ = ["apply_run_scope", "tool_input_error_result"]
 
 
 def tool_input_error_result(exc: Exception) -> dict[str, Any] | None:
@@ -23,3 +23,21 @@ def tool_input_error_result(exc: Exception) -> dict[str, Any] | None:
             "hint": "Fix the arguments and call the tool again.",
         }
     return None
+
+
+def apply_run_scope(
+    args: dict[str, Any], input_schema: dict[str, Any] | None, context: dict[str, Any]
+) -> dict[str, Any]:
+    """Tự điền `project_id` từ scope của run (đã verify ở backend) để model
+    không phải chép/bịa ID; ID khác project của run bị chặn (không đọc chéo
+    project)."""
+    scoped = context.get("project_id")
+    props = (input_schema or {}).get("properties") or {}
+    if not scoped or "project_id" not in props:
+        return args
+    given = args.get("project_id")
+    if given in (None, ""):
+        return {**args, "project_id": scoped}
+    if str(given) != str(scoped):
+        raise ValueError("project_id không khớp project của phiên hiện tại")
+    return args

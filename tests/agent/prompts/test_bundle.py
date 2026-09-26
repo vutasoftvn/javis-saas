@@ -25,3 +25,16 @@ def test_prompt_bundle_defaults_to_vi_vn_locale():
 def test_render_locale_policy_falls_back_to_default_on_empty_string():
     assert "vi-VN" in render_locale_policy("")
     assert "vi-VN" in render_locale_policy(None)  # type: ignore[arg-type]
+
+
+def test_session_context_rendered_with_no_ask_rule() -> None:
+    text = PromptBundle(
+        agent_instructions="A",
+        session_context={"workspace_id": "w1", "project_id": "p9"},
+    ).render()
+    assert "workspace_id: w1" in text and "project_id: p9" in text
+    assert "Do not ask the user" in text
+
+
+def test_no_session_context_renders_like_before() -> None:
+    assert "Session context" not in PromptBundle(agent_instructions="A").render()

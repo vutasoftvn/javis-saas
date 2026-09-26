@@ -444,6 +444,10 @@ async def _execute_run_task_inner(
         extra_md["company_workforce_member_id"] = str(company_workforce_member_id)
     if assignment_id:
         extra_md["assignment_id"] = str(assignment_id)
+    # project_id do conversation_routes đặt từ project đã verify, không lấy từ client.
+    run_project_id = payload.get("project_id")
+    if run_project_id:
+        extra_md["project_id"] = str(run_project_id)
     direct_message_data_access = payload.get("direct_message_data_access")
     if direct_message_data_access is not None:
         extra_md["direct_message_data_access"] = direct_message_data_access
@@ -940,12 +944,17 @@ async def execute_resume_task(
     else:
         record_run_outcome("failed", duration_sec=_resume_duration)
         err_msg = res.errors[0] if res.errors else "Run failed"
+        classified = classify_run_error(err_msg, payload.get("locale") or "vi-VN")
+        logger.warning(
+            "agent resume failed",
+            extra={"run_id": run_id, "error_code": classified.code, "error_raw": err_msg},
+        )
         if conversation_id != "unknown":
             await _append_message(
                 plane,
                 conversation_id=conversation_id,
                 role="assistant",
-                content=f"Error: {err_msg}",
+                content=classified.user_message,
                 run_id=run_id,
                 status_="failed",
                 project_id=project_id,
@@ -955,7 +964,11 @@ async def execute_resume_task(
             run_id=run_id,
             conversation_id=conversation_id,
             event_type="run.failed",
-            payload={"error": err_msg},
+            payload={
+                "error": err_msg,
+                "error_code": classified.code,
+                "user_message": classified.user_message,
+            },
             activity_service=getattr(plane, "project_activity_service", None),
             workspace_id=workspace_id,
             project_id=project_id,
