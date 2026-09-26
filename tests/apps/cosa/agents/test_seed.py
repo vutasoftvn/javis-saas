@@ -180,3 +180,49 @@ async def test_seed_cosa_runtime_specs_fails_closed_when_deployed_entry_missing(
                     "not found in registry after seeding"
                 )
 
+
+
+def test_every_seeded_agent_capability_ref_is_registered():
+    """Mọi `capability_refs` của AgentSpec phải có trong capability registry thật.
+
+    Kernel bỏ qua âm thầm capability chưa đăng ký khi dựng tool, nên 1 id gõ sai
+    (vd `campaign.asset.write` thay vì `commercial.campaign_asset.write`) làm agent
+    mất tool mà không ai biết.
+    """
+    from apps.cosa.agents.catalog import seeded_entries
+
+    registered = {spec.id for spec in _test_capability_registry().list_specs()}
+    unregistered = {
+        entry.profile_key: sorted(set(entry.agent_spec.capability_refs) - registered)
+        for entry in seeded_entries()
+        if set(entry.agent_spec.capability_refs) - registered
+    }
+    assert unregistered == {}
+
+
+@pytest.mark.asyncio
+async def test_seed_cosa_runtime_specs_fails_closed_on_unregistered_capability_ref(monkeypatch):
+    from apps.cosa.agents import catalog, seed
+    from apps.cosa.agents.catalog import RuntimeAgentCatalogEntry
+
+    entries = catalog.seeded_entries()
+    victim = entries[0]
+    broken_spec = victim.agent_spec.model_copy(
+        update={"capability_refs": [*victim.agent_spec.capability_refs, "typo.not.registered"]}
+    ).with_hash()
+    broken = RuntimeAgentCatalogEntry(
+        profile_key=victim.profile_key,
+        agent_spec=broken_spec,
+        prompt_spec=victim.prompt_spec,
+        availability=victim.availability,
+        deployment_kind=victim.deployment_kind,
+    )
+    patched = (broken, *entries[1:])
+    monkeypatch.setattr(seed, "seeded_entries", lambda: patched)
+    monkeypatch.setattr(seed, "deployed_entries", lambda: patched)
+
+    with pytest.raises(RuntimeError, match=r"typo\.not\.registered"):
+        await seed.seed_cosa_runtime_specs(
+            spec_registry=InMemorySpecRegistryRepository(),
+            capability_registry=_test_capability_registry(),
+        )

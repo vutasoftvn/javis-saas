@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import asyncio
+import inspect
 import json
 import uuid
 from collections.abc import AsyncIterator, Callable
@@ -902,54 +902,53 @@ class ManualToolLoopKernel:
         )
 
         if self._capability_executor:
-            try:
-                if asyncio.iscoroutinefunction(self._capability_executor):
-                    return await self._capability_executor(tool_name, args, inv_ctx)
-                return self._capability_executor(tool_name, args, inv_ctx)
-            except TypeError:
-                pass
+            executor = self._capability_executor
+            # Chọn chữ ký theo signature, KHÔNG thử-sai bằng `except TypeError`: một
+            # TypeError phát sinh bên trong capability sẽ bị hiểu nhầm là lệch chữ ký
+            # và capability bị gọi lại lần 2 (side effect lặp).
+            arity = _positional_arity(executor)
+            if arity >= 3:
+                res = executor(tool_name, args, inv_ctx)
+                return await res if inspect.isawaitable(res) else res
+            if arity == 2:
+                res = executor(tool_name, args)
+                return await res if inspect.isawaitable(res) else res
 
-            try:
-                if asyncio.iscoroutinefunction(self._capability_executor):
-                    return await self._capability_executor(tool_name, args)
-                return self._capability_executor(tool_name, args)
-            except TypeError:
-                from agent.capabilities.gateway import GatewayExecutionRequest
+            from agent.capabilities.gateway import GatewayExecutionRequest
 
-                req = GatewayExecutionRequest(
-                    run_id=run_id,
-                    capability_id=tool_name,
-                    input_payload=args,
-                    principal=princ,
-                    checkpoint_ref=ckpt,
-                    tool_call_id=tool_call_id,
-                    execution_mode=exec_mode
-                    if isinstance(exec_mode, ExecutionMode)
-                    else ExecutionMode.AGENT,
-                    workspace_id=ws_id,
-                    context=inv_ctx,
+            req = GatewayExecutionRequest(
+                run_id=run_id,
+                capability_id=tool_name,
+                input_payload=args,
+                principal=princ,
+                checkpoint_ref=ckpt,
+                tool_call_id=tool_call_id,
+                execution_mode=exec_mode
+                if isinstance(exec_mode, ExecutionMode)
+                else ExecutionMode.AGENT,
+                workspace_id=ws_id,
+                context=inv_ctx,
+            )
+            res = executor(req)
+            if inspect.isawaitable(res):
+                res = await res
+            res_status = getattr(res, "status", "completed")
+            if res_status != "completed":
+                # Bug 1.1 fix: gateway đã chặn/hoãn (waiting_approval) hoặc
+                # từ chối/thất bại (denied/failed) — KHÔNG được trả
+                # output_payload=None như thể tool đã chạy thành công.
+                code = (
+                    RuntimeErrorCode.APPROVAL_REQUIRED
+                    if res_status == "waiting_approval"
+                    else RuntimeErrorCode.CAPABILITY_DENIED
                 )
-                if asyncio.iscoroutinefunction(self._capability_executor):
-                    res = await self._capability_executor(req)
-                else:
-                    res = self._capability_executor(req)
-                res_status = getattr(res, "status", "completed")
-                if res_status != "completed":
-                    # Bug 1.1 fix: gateway đã chặn/hoãn (waiting_approval) hoặc
-                    # từ chối/thất bại (denied/failed) — KHÔNG được trả
-                    # output_payload=None như thể tool đã chạy thành công.
-                    code = (
-                        RuntimeErrorCode.APPROVAL_REQUIRED
-                        if res_status == "waiting_approval"
-                        else RuntimeErrorCode.CAPABILITY_DENIED
-                    )
-                    raise AgentRuntimeError(
-                        code,
-                        f"Capability '{tool_name}' did not complete "
-                        f"(status={res_status}): {getattr(res, 'error_message', '') or ''}",
-                        details={"status": res_status, "tool_call_id": tool_call_id},
-                    ) from None
-                return res.output_payload if hasattr(res, "output_payload") else res
+                raise AgentRuntimeError(
+                    code,
+                    f"Capability '{tool_name}' did not complete "
+                    f"(status={res_status}): {getattr(res, 'error_message', '') or ''}",
+                    details={"status": res_status, "tool_call_id": tool_call_id},
+                ) from None
+            return res.output_payload if hasattr(res, "output_payload") else res
 
         # Production KHÔNG được silently trả "success" giả khi thiếu
         # capability_executor — cùng nguyên tắc chống-mock đã áp dụng cho
@@ -966,3 +965,17 @@ class ManualToolLoopKernel:
             "in production.",
             retryable=False,
         )
+
+
+def _positional_arity(fn: Callable[..., Any]) -> int:
+    """Số tham số positional tối đa mà `fn` nhận (dùng để chọn chữ ký executor)."""
+    try:
+        params = inspect.signature(fn).parameters.values()
+    except (TypeError, ValueError):
+        return 3
+    if any(p.kind is inspect.Parameter.VAR_POSITIONAL for p in params):
+        return 3
+    return sum(
+        p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+        for p in params
+    )

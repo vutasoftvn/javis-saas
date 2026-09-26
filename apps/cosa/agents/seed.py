@@ -83,8 +83,24 @@ async def seed_cosa_runtime_specs(
         await resolver.resolve(entry.agent_spec.pinned_skills)
 
     capability_ids = {spec.id for spec in capability_registry.list_specs()}
+    _verify_agent_capability_refs_registered(capability_ids)
     await _verify_skill_capability_closure(spec_registry, capability_ids)
     await _verify_advisor_overlays(spec_registry, capability_ids)
+
+
+def _verify_agent_capability_refs_registered(capability_ids: set[str]) -> None:
+    """Fail-closed: mọi `capability_refs` của AgentSpec phải có trong capability registry.
+
+    Kernel bỏ qua âm thầm capability chưa đăng ký khi dựng tool — id gõ sai sẽ làm
+    agent mất tool mà không có lỗi nào; chặn ngay lúc khởi động thay vì lúc chạy.
+    """
+    unregistered = {
+        entry.agent_spec.id: sorted(set(entry.agent_spec.capability_refs) - capability_ids)
+        for entry in seeded_entries()
+        if set(entry.agent_spec.capability_refs) - capability_ids
+    }
+    if unregistered:
+        raise RuntimeError(f"Agent specs reference unregistered capabilities: {unregistered}")
 
 
 async def _skill_manifests(
