@@ -6,7 +6,7 @@ import 'package:frontend/modules/auth/services/core_auth_client.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
-/// Server giả lập backend/core: /auth/login -> /oauth/authorize (PKCE) -> /oauth/token.
+/// Server giả lập backend/core: /auth/signin -> /oauth/authorize (PKCE) -> /oauth/token.
 class _FakeCore {
   final requests = <http.Request>[];
   String? challenge;
@@ -17,7 +17,19 @@ class _FakeCore {
   MockClient get client => MockClient((request) async {
         requests.add(request);
         final path = request.url.path;
-        if (path == '/auth/login' || path == '/auth/signup/complete') {
+        if (path == '/auth/signin') {
+          if (loginStatus != 200) return http.Response('{}', loginStatus);
+          return http.Response(
+            jsonEncode({
+              'sessionId': '1',
+              'userId': '42',
+              'steps': <String>[],
+              'tokens': {'accessToken': 'session-jwt', 'refreshToken': 'session-refresh', 'expiresIn': 3600},
+            }),
+            200,
+          );
+        }
+        if (path == '/auth/signup/complete') {
           if (loginStatus != 200) return http.Response('{}', loginStatus);
           return http.Response(
             jsonEncode({
@@ -81,17 +93,17 @@ void main() {
       auth = CoreAuthClient(client: core.client, baseUrl: 'http://core.test');
     });
 
-    test('login: /auth/login rồi đổi phiên lấy access token OIDC của vn.mivacorp.cosa bằng PKCE', () async {
+    test('login: /auth/signin rồi đổi phiên lấy access token OIDC của vn.mivacorp.cosa bằng PKCE', () async {
       final session = await auth.login('a@b.vn', 'secret-pw');
 
       expect(session.accessToken, 'opaque-access');
       expect(session.refreshToken, 'oidc-refresh');
       expect(session.user['id'], '42');
 
-      final login = core.requests.firstWhere((r) => r.url.path == '/auth/login');
+      final login = core.requests.firstWhere((r) => r.url.path == '/auth/signin');
       expect(login.headers['X-Client-ID'], 'vn.mivacorp.cosa');
       final loginBody = jsonDecode(login.body) as Map<String, dynamic>;
-      expect(loginBody['emailOrPhone'], 'a@b.vn');
+      expect(loginBody['email'], 'a@b.vn');
       expect(loginBody['password'], 'secret-pw');
       expect(loginBody['clientId'], 'vn.mivacorp.cosa');
 

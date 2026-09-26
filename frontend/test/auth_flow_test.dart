@@ -80,13 +80,13 @@ void main() {
       AuthService.setCachedToken(null);
     });
 
-    /// Backend/core giả lập cho luồng đăng nhập first-party: /auth/login -> /oauth/authorize -> /oauth/token.
+    /// Backend/core giả lập cho luồng đăng nhập first-party: /auth/signin -> /oauth/authorize -> /oauth/token.
     Future<http.Response> coreHandler(http.Request request, int loginStatus, int signupCompleteStatus) async {
       switch (request.url.path) {
-        case '/auth/login':
+        case '/auth/signin':
           if (loginStatus != 200) return http.Response('{}', loginStatus);
           return http.Response(
-            '{"user":{"id":"42","email":"founder@cosa.dev"},"accessToken":"session-jwt","refreshToken":"r0","expiresIn":3600}',
+            '{"sessionId":"1","userId":"42","steps":[],"tokens":{"accessToken":"session-jwt","refreshToken":"r0","expiresIn":3600}}',
             200,
           );
         case '/auth/signup':

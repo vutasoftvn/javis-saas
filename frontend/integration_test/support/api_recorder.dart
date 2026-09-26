@@ -34,7 +34,7 @@ class RecordedRequest {
 /// đăng nhập hợp lệ luôn phải xảy ra trước đó.
 const _bootstrapPaths = <String>{
   // Đăng nhập first-party với backend/core (Authorization Code + PKCE).
-  '/auth/login',
+  '/auth/signin',
   '/oauth/authorize',
   '/oauth/token',
   '/identity/sync-from-platform',

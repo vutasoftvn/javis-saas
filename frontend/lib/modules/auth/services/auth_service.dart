@@ -142,6 +142,9 @@ class AuthService {
           errorMessage: 'Email/Số điện thoại hoặc mật khẩu không chính xác',
         );
       }
+      if (e.statusCode == 412) {
+        return AuthResult(success: false, errorMessage: e.message);
+      }
       return AuthResult(
         success: false,
         errorMessage: 'Đăng nhập không thành công (mã lỗi ${e.statusCode})',
