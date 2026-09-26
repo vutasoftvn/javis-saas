@@ -33,6 +33,7 @@ from apps.cosa.worker.autopilot_run import (
     run_customer_support_autopilot,
 )
 from apps.cosa.worker.copilot_run import run_customer_support_copilot
+from apps.cosa.worker.provider_errors import classify_run_error
 from apps.cosa.worker.run_core import (
     RunCoreError,
     prepare_request,
@@ -654,11 +655,16 @@ async def _execute_run_task_inner(
         else:
             record_run_outcome("failed", duration_sec=_run_duration)
             err_msg = run_result.errors[0] if run_result.errors else "Run failed"
+            classified = classify_run_error(err_msg, locale)
+            logger.warning(
+                "agent run failed",
+                extra={"run_id": run_id, "error_code": classified.code, "error_raw": err_msg},
+            )
             await _append_message(
                 plane,
                 conversation_id=conversation_id,
                 role="assistant",
-                content=f"Error: {err_msg}",
+                content=classified.user_message,
                 run_id=run_id,
                 status_="failed",
                 project_id=project_id,
@@ -678,7 +684,11 @@ async def _execute_run_task_inner(
                 run_id=run_id,
                 conversation_id=conversation_id,
                 event_type="run.failed",
-                payload={"error": err_msg},
+                payload={
+                    "error": err_msg,
+                    "error_code": classified.code,
+                    "user_message": classified.user_message,
+                },
                 activity_service=getattr(plane, "project_activity_service", None),
                 workspace_id=workspace_id,
                 project_id=project_id,
