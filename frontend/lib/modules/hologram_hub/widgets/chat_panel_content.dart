@@ -502,12 +502,26 @@ class _ChatPanelContentState extends State<ChatPanelContent> {
                     icon: const Icon(Icons.add, color: AppTheme.primary, size: 20),
                     splashRadius: 20,
                   ),
-                  suffixIcon: IconButton(
-                    key: const Key('hub_chat_send_button'),
-                    tooltip: isEn ? 'Send' : 'Gửi',
-                    onPressed: () => controller.sendChatMessage(controller.chatInputController.text),
-                    icon: const Icon(Icons.send, color: AppTheme.primary, size: 20),
-                    splashRadius: 20,
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // WGA G10 — kích hoạt lập kế hoạch tường minh (không đoán
+                      // từ văn bản): nội dung ô nhập là mục tiêu cần phân rã.
+                      IconButton(
+                        key: const Key('hub_chat_plan_button'),
+                        tooltip: isEn ? 'Plan & assign to agents' : 'Lập kế hoạch & giao việc',
+                        onPressed: controller.planFromChatInput,
+                        icon: const Icon(Icons.account_tree_outlined, color: AppTheme.primary, size: 20),
+                        splashRadius: 20,
+                      ),
+                      IconButton(
+                        key: const Key('hub_chat_send_button'),
+                        tooltip: isEn ? 'Send' : 'Gửi',
+                        onPressed: () => controller.sendChatMessage(controller.chatInputController.text),
+                        icon: const Icon(Icons.send, color: AppTheme.primary, size: 20),
+                        splashRadius: 20,
+                      ),
+                    ],
                   ),
                 ),
                 onSubmitted: (text) => controller.sendChatMessage(text),

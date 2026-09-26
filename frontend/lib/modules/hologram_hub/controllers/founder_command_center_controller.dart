@@ -869,6 +869,19 @@ class FounderCommandCenterController extends GetxController {
     }
   }
 
+  /// WGA G10 — founder bấm "Lập kế hoạch & giao việc" trong chat: nội dung ô
+  /// nhập là mục tiêu, gửi thẳng tới luồng phân rã (origin=chat, conversation
+  /// hiện tại) thay vì chờ bộ đoán ý định `goal_confirm`.
+  Future<void> planFromChatInput() async {
+    final text = chatInputController.text.trim();
+    if (text.isEmpty) {
+      AppToast.warning('Nhập mục tiêu cần lập kế hoạch vào ô chat trước.');
+      return;
+    }
+    chatInputController.clear();
+    await requestDecomposition(text, origin: 'chat');
+  }
+
   /// Founder đặt/sửa mục tiêu tuần và nhờ agent lập kế hoạch triển khai.
   Future<void> requestDecomposition(
     String focus, {
