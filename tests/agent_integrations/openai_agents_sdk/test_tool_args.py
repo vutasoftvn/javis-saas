@@ -1,9 +1,18 @@
+import json
+
 import pytest
 from agent.contracts.errors import AgentRuntimeError, RuntimeErrorCode
 from agent_integrations.openai_agents_sdk.tool_args import (
+    ToolInputError,
     apply_run_scope,
     tool_input_error_result,
 )
+
+
+class _Http(Exception):
+    def __init__(self, status_code: int, detail: str = "bad") -> None:
+        self.status_code = status_code
+        self.detail = detail
 
 
 class _Http422(Exception):
@@ -20,9 +29,29 @@ def test_4xx_becomes_error_result() -> None:
     assert r is not None and "unknown variables" in r["error"] and "hint" in r
 
 
-def test_value_error_becomes_error_result() -> None:
-    r = tool_input_error_result(ValueError("variables phải là object"))
+@pytest.mark.parametrize("status", [400, 404, 409, 422])
+def test_input_statuses_become_error_result(status: int) -> None:
+    assert tool_input_error_result(_Http(status)) is not None
+
+
+@pytest.mark.parametrize("status", [401, 403, 429, 500])
+def test_auth_and_other_statuses_are_not_swallowed(status: int) -> None:
+    assert tool_input_error_result(_Http(status)) is None
+
+
+def test_tool_input_error_becomes_error_result() -> None:
+    r = tool_input_error_result(ToolInputError("variables phải là object"))
     assert r is not None and "variables" in r["error"]
+
+
+def test_json_decode_error_becomes_error_result() -> None:
+    with pytest.raises(json.JSONDecodeError) as ei:
+        json.loads("{not json")
+    assert tool_input_error_result(ei.value) is not None
+
+
+def test_bare_value_error_is_not_swallowed() -> None:
+    assert tool_input_error_result(ValueError("lỗi nội bộ")) is None
 
 
 def test_5xx_and_runtime_errors_are_not_swallowed() -> None:
@@ -46,7 +75,7 @@ def test_keeps_matching_project_id() -> None:
 
 
 def test_rejects_other_project() -> None:
-    with pytest.raises(ValueError, match="project_id"):
+    with pytest.raises(ToolInputError, match="project_id"):
         apply_run_scope({"project_id": "p2"}, SCOPE_SCHEMA, {"project_id": "p1"})
 
 

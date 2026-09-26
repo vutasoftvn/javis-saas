@@ -34,9 +34,20 @@ from pydantic import ValidationError
 
 from agent_integrations.openai_agents_sdk.model_guard import ModelInputGuard
 from agent_integrations.openai_agents_sdk.tool_args import (
+    ToolInputError,
     apply_run_scope,
+    input_error_payload,
     tool_input_error_result,
 )
+
+
+def _gateway_input_error(res: Any) -> dict[str, Any] | None:
+    """Kết quả `failed` của gateway do đầu vào sai (schema validation hoặc
+    handler ném lỗi đầu vào) -> payload lỗi cho model; còn lại -> None."""
+    if getattr(res, "validation_errors", None):
+        return input_error_payload(str(getattr(res, "error_message", "") or ""))
+    return tool_input_error_result(getattr(res, "failure", None))
+
 
 __all__ = ["RealOpenAIAgentsSDKKernel"]
 
@@ -182,12 +193,13 @@ class RealOpenAIAgentsSDKKernel:
         self, cap_spec: CapabilitySpec, run_id: str, context: dict[str, Any]
     ) -> FunctionTool:
         async def _on_invoke(tool_context: Any, args_json: str) -> Any:
-            args = json.loads(args_json) if args_json else {}
             call_id = getattr(tool_context, "tool_call_id", None) or f"call_{uuid.uuid4().hex[:8]}"
             await self._emit_event(
                 run_id, "tool.started", {"tool_call_id": call_id, "tool": cap_spec.id}
             )
             try:
+                # JSON args hỏng (JSONDecodeError) là lỗi đầu vào -> trả về model.
+                args = json.loads(args_json) if args_json else {}
                 args = apply_run_scope(args, cap_spec.input_schema, context or {})
                 result = await self._execute_tool(
                     cap_spec.id,
@@ -220,6 +232,12 @@ class RealOpenAIAgentsSDKKernel:
             return result
 
         async def _needs_approval(run_context: Any, args: dict[str, Any], call_id: str) -> bool:
+            try:
+                args = apply_run_scope(args, cap_spec.input_schema, context or {})
+            except ToolInputError:
+                # project_id lệch scope: không tạo approval cho lệnh gọi sẽ bị
+                # chặn — `_on_invoke` từ chối và trả lỗi cho model.
+                return False
             decision = self._evaluate_policy(cap_spec.id, args, context)
             self._pending_decisions[call_id] = decision
             return decision == "REQUIRE_APPROVAL"
@@ -338,7 +356,13 @@ class RealOpenAIAgentsSDKKernel:
                         else:
                             res = self._capability_executor(req)
                         res_status = getattr(res, "status", "completed")
-                        if res_status != "completed":
+                        input_error = _gateway_input_error(res) if res_status == "failed" else None
+                        if input_error is not None:
+                            # Gateway báo lỗi đầu vào (schema hoặc handler 4xx) —
+                            # trả về model để tự sửa; denied/waiting_approval và
+                            # lỗi nội bộ vẫn ném như dưới.
+                            result = input_error
+                        elif res_status != "completed":
                             # Bug 1.1 fix: gateway đã chặn/hoãn (waiting_approval)
                             # hoặc từ chối (denied/failed) hành động này — KHÔNG
                             # được fabricate thành công giả cho model/RunResult.
@@ -353,7 +377,8 @@ class RealOpenAIAgentsSDKKernel:
                                 f"(status={res_status}): {getattr(res, 'error_message', '') or ''}",
                                 details={"status": res_status, "tool_call_id": tool_call_id},
                             ) from None
-                        result = res.output_payload if hasattr(res, "output_payload") else res
+                        else:
+                            result = res.output_payload if hasattr(res, "output_payload") else res
         finally:
             reset_outbound_headers(headers_token)
 

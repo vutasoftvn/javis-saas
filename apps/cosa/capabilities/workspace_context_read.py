@@ -47,12 +47,16 @@ WORKSPACE_CONTEXT_READ_SPEC = CapabilitySpec(
                 "description": (
                     "workspaceContext -> {question: string}; "
                     "enterpriseKnowledgeSearch -> {query: string, limit?: integer}. "
-                    "Không dùng biến của operation này cho operation kia."
+                    "Không dùng biến của operation này cho operation kia; "
+                    "biến không dùng đặt null."
                 ),
+                # Nullable: strict mode của Agents SDK biến mọi property thành
+                # required -> model đặt null cho biến không thuộc operation,
+                # handler bỏ các biến null trước khi gọi persisted operation.
                 "properties": {
-                    "question": {"type": "string"},
-                    "query": {"type": "string"},
-                    "limit": {"type": "integer"},
+                    "question": {"type": ["string", "null"]},
+                    "query": {"type": ["string", "null"]},
+                    "limit": {"type": ["integer", "null"]},
                 },
                 "additionalProperties": False,
             },
@@ -126,6 +130,7 @@ def create_workspace_context_read_handler(
         variables = args.get("variables") or {}
         if not isinstance(variables, dict):
             raise ValueError("workspace.context.read: 'variables' phải là object")
+        variables = {k: v for k, v in variables.items() if v is not None}
 
         return await execute_persisted_operation(operation_id, variables, identity, plane)
 

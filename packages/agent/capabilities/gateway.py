@@ -733,8 +733,11 @@ class CapabilityGateway:
                 )
             )
 
+            # `failure` giữ exception gốc để caller (kernel) phân biệt lỗi đầu
+            # vào (vd. HTTP 422 từ handler) với lỗi nội bộ; status không đổi.
             return GatewayExecutionResult(
                 tool_call_id=req.tool_call_id,
                 status="failed",
                 error_message=str(exc),
+                failure=exc,
             )
