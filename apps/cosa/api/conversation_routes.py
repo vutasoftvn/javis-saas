@@ -9,6 +9,7 @@ from agent.conversations.models import ConversationRecord, MessageAttachmentReco
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import ValidationError
 
+from apps.cosa.agents.startup_team_profiles_generated import STARTUP_TEAM_PROFILE_KEYS
 from apps.cosa.api.event_stream import (
     UX_EVENT_TYPES,
     get_cosa_event_stream_manager,
@@ -124,6 +125,24 @@ async def _conv_to_response(
     )
 
 
+# Chỉ profile của startup team có authority chat trong Project (Company
+# ProjectAgentRunAuthority); executive/overlay chạy qua deliberation, system
+# profile có route riêng — không cho client tự chọn qua conversation.
+CHAT_ELIGIBLE_PROFILES = frozenset(STARTUP_TEAM_PROFILE_KEYS)
+AGENT_PROFILE_NOT_CHAT_ELIGIBLE = "AGENT_PROFILE_NOT_CHAT_ELIGIBLE"
+
+
+def _require_chat_eligible_profile(profile: str | None) -> None:
+    if profile is not None and profile not in CHAT_ELIGIBLE_PROFILES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "code": AGENT_PROFILE_NOT_CHAT_ELIGIBLE,
+                "message": f"Agent profile '{profile}' is not available for chat",
+            },
+        )
+
+
 # 1. POST /agent/conversations
 @router.post(
     "/conversations", response_model=ConversationResponse, status_code=status.HTTP_201_CREATED
@@ -135,6 +154,7 @@ async def create_conversation(
 ):
     plane = get_cosa_plane(request)
     active_profile = req.agent_profile_id or req.active_agent_profile or "operations"
+    _require_chat_eligible_profile(active_profile)
 
     # Project-scoped Founder Hub — mọi conversation mới BẮT BUỘC gắn 1 Project
     # đã được Company xác nhận thuộc đúng workspace. Không auto-select/
@@ -210,6 +230,8 @@ async def update_conversation(
     project_id: str | None = Query(None),
 ):
     plane = get_cosa_plane(request)
+    requested_profile = req.agent_profile_id or req.active_agent_profile
+    _require_chat_eligible_profile(requested_profile)
     verified_project = await verify_project_context(plane, identity, project_id)
 
     existing = await plane.conversation_repository.get_scoped_conversation(
@@ -223,7 +245,7 @@ async def update_conversation(
     conv = await plane.conversation_repository.update_conversation(
         conversation_id,
         title=req.title,
-        active_agent_profile=req.agent_profile_id or req.active_agent_profile,
+        active_agent_profile=requested_profile,
         archived=req.archived,
     )
     if conv is None:

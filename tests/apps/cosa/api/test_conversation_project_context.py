@@ -323,3 +323,46 @@ async def test_get_run_events_rejects_mismatched_project_id(test_app) -> None:
 
         no_project = await ac.get(f"/agent/runs/{run_id}/events")
         assert no_project.status_code == 200
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("profile", ["cto", "ceo", "chief_of_staff", "kickoff_suggestion", "xyz"])
+async def test_create_conversation_rejects_profile_without_chat_authority(test_app, profile) -> None:
+    """Chỉ profile của startup team mới chat được; executive/overlay/system không
+    có authority Project cho chat — 422 trước mọi side effect."""
+    app, plane, _ = test_app
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        response = await ac.post(
+            "/agent/conversations",
+            json={"title": "t", "project_id": "proj_a", "active_agent_profile": profile},
+        )
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "AGENT_PROFILE_NOT_CHAT_ELIGIBLE"
+    conversations, total = await plane.conversation_repository.list_conversations(
+        workspace_id=WORKSPACE_A, project_id="proj_a"
+    )
+    assert (conversations, total) == ([], 0)
+
+
+@pytest.mark.asyncio
+async def test_update_conversation_rejects_profile_without_chat_authority(test_app) -> None:
+    app, plane, _ = test_app
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        created = await ac.post(
+            "/agent/conversations",
+            json={"title": "t", "project_id": "proj_a", "active_agent_profile": "founder_assistant"},
+        )
+        assert created.status_code in (200, 201)
+        conv_id = created.json()["id"]
+        response = await ac.patch(
+            f"/agent/conversations/{conv_id}?project_id=proj_a",
+            json={"active_agent_profile": "cto"},
+        )
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "AGENT_PROFILE_NOT_CHAT_ELIGIBLE"
+    stored = await plane.conversation_repository.get_conversation(conv_id)
+    assert stored.active_agent_profile == "founder_assistant"

@@ -720,3 +720,77 @@ async def test_resume_kernel_error_emits_run_failed_without_leaking_detail():
         plane, run_id=payload["run_id"], conversation_id=payload["conversation_id"]
     )
     assert secret_detail not in visible_text
+
+
+async def _run_failed_errors(plane, run_id: str = "run_handler_test_1") -> list[str]:
+    events = await plane.stream_event_repository.list_since(run_id)
+    return [e.payload.get("error") for e in events if e.event_type == "run.failed"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("agent_profile", ["cto", "cro", "ceo", "chief_of_staff", "kickoff_suggestion"])
+async def test_execute_run_task_rejects_profiles_outside_run_eligible_set(agent_profile: str):
+    """Executive/overlay/system profile không có Project deployment authority cho chat —
+    chỉ chạy qua đường riêng (deliberation, kickoff). Worker phải fail-closed trước kernel."""
+    plane = _plane()
+    await seed_cosa_runtime_specs(
+        spec_registry=plane.spec_registry,
+        capability_registry=plane.capability_registry,
+    )
+
+    result = await execute_run_task(
+        plane, CosaEventStreamManager(), _payload(agent_profile=agent_profile)
+    )
+
+    assert result.status == "failed"
+    assert result.error == "agent_profile_not_run_eligible"
+    assert await plane.run_repository.get_run("run_handler_test_1") is None
+    assert "agent_profile_not_run_eligible" in await _run_failed_errors(plane)
+
+
+@pytest.mark.asyncio
+async def test_founder_assistant_run_requires_project_context():
+    plane = _plane()
+    await seed_cosa_runtime_specs(
+        spec_registry=plane.spec_registry,
+        capability_registry=plane.capability_registry,
+    )
+
+    result = await execute_run_task(
+        plane,
+        CosaEventStreamManager(),
+        _payload(agent_profile="founder_assistant", project_id=None),
+    )
+
+    assert result.error == "project_context_required"
+    assert await plane.run_repository.get_run("run_handler_test_1") is None
+
+
+@pytest.mark.asyncio
+async def test_founder_assistant_run_rejects_conversation_project_mismatch():
+    from agent.conversations.models import ConversationRecord
+
+    plane = _plane()
+    await seed_cosa_runtime_specs(
+        spec_registry=plane.spec_registry,
+        capability_registry=plane.capability_registry,
+    )
+    await plane.conversation_repository.create_conversation(
+        ConversationRecord(
+            conversation_id="conv_1",
+            workspace_id="ws_1",
+            project_id="proj_A",
+            scope_state="PROJECT_SCOPED",
+            created_by_principal="user_1",
+            active_agent_profile="founder_assistant",
+        )
+    )
+
+    result = await execute_run_task(
+        plane,
+        CosaEventStreamManager(),
+        _payload(agent_profile="founder_assistant", project_id="proj_B"),
+    )
+
+    assert result.error == "project_context_mismatch"
+    assert await plane.run_repository.get_run("run_handler_test_1") is None
