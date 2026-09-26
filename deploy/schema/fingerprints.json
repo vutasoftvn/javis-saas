@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-09-25T14:36:05.701Z",
+  "generated_at": "2026-09-26T07:58:08.067Z",
   "groups": {
     "agent": {
       "fingerprint": "a9eac3da0e8443571f984a49c02b3f12ad157a752ee42a9b25a3eb6d3be3dc7e",
@@ -14293,7 +14293,7 @@
       }
     },
     "workspace": {
-      "fingerprint": "52e6eaee045f9724fd425ec8e6542a6dbda6c3938c2db08e5683be4471dfa0e7",
+      "fingerprint": "a6062db690a9da0649b3ac2577cfe3e81801a6e24cdf414eb106c7a714bddd7a",
       "schemas": [
         "commercial",
         "core",
@@ -19421,6 +19421,16 @@
             },
             {
               "name": "revoked_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "session_not_before",
               "type": "timestamp with time zone",
               "udt": "timestamptz",
               "nullable": true,

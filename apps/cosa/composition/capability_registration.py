@@ -137,6 +137,30 @@ from apps.cosa.capabilities.security_posture_read import (
     SECURITY_POSTURE_READ_SPEC,
     create_security_posture_read_handler,
 )
+from apps.cosa.capabilities.startup_os_goals import (
+    STARTUP_OS_GOAL_ADVISORY_SPEC,
+    STARTUP_OS_GOAL_TREE_READ_SPEC,
+    STARTUP_OS_GOALS_NEEDING_REVIEW_SPEC,
+    create_startup_os_goal_advisory_handler,
+    create_startup_os_goal_tree_read_handler,
+    create_startup_os_goals_needing_review_handler,
+)
+from apps.cosa.capabilities.startup_os_onboard import (
+    STARTUP_OS_ONBOARD_CADENCE_ADVISORY_SPEC,
+    STARTUP_OS_ONBOARD_CADENCE_STATUS_SPEC,
+    STARTUP_OS_ONBOARD_CONTEXT_READ_SPEC,
+    STARTUP_OS_ONBOARD_DIMENSION_UPDATE_SPEC,
+    STARTUP_OS_ONBOARD_INTERVIEW_PLAN_SPEC,
+    STARTUP_OS_ONBOARD_SESSION_START_SPEC,
+    STARTUP_OS_ONBOARD_SNAPSHOT_CREATE_SPEC,
+    create_startup_os_cadence_advisory_handler,
+    create_startup_os_cadence_status_handler,
+    create_startup_os_context_read_handler,
+    create_startup_os_dimension_update_handler,
+    create_startup_os_interview_plan_handler,
+    create_startup_os_session_start_handler,
+    create_startup_os_snapshot_create_handler,
+)
 from apps.cosa.capabilities.venture_profile import (
     VENTURE_PROFILE_PROPOSE_UPDATE_SPEC,
     VENTURE_PROFILE_READ_SPEC,
@@ -265,6 +289,43 @@ def register_cosa_capabilities(
     cap_registry.register(VENTURE_PROFILE_READ_SPEC, create_venture_profile_read_handler(client))
     cap_registry.register(
         VENTURE_PROFILE_PROPOSE_UPDATE_SPEC, create_venture_profile_propose_update_handler(client)
+    )
+
+    # Startup OS (plan 2026-09-18 Phase 3): onboarding hội thoại /cs:setup, /cs:update
+    # và tư vấn Goal. goal.create / project.triage cố ý KHÔNG đăng ký — Founder quyết
+    # định trên UI; Company cũng không mở delegation cho hai endpoint đó.
+    cap_registry.register(
+        STARTUP_OS_ONBOARD_INTERVIEW_PLAN_SPEC, create_startup_os_interview_plan_handler()
+    )
+    cap_registry.register(
+        STARTUP_OS_ONBOARD_CONTEXT_READ_SPEC, create_startup_os_context_read_handler(client)
+    )
+    cap_registry.register(
+        STARTUP_OS_ONBOARD_CADENCE_STATUS_SPEC, create_startup_os_cadence_status_handler(client)
+    )
+    cap_registry.register(
+        STARTUP_OS_ONBOARD_CADENCE_ADVISORY_SPEC,
+        create_startup_os_cadence_advisory_handler(client),
+    )
+    cap_registry.register(
+        STARTUP_OS_ONBOARD_SESSION_START_SPEC, create_startup_os_session_start_handler(client)
+    )
+    cap_registry.register(
+        STARTUP_OS_ONBOARD_DIMENSION_UPDATE_SPEC,
+        create_startup_os_dimension_update_handler(client),
+    )
+    cap_registry.register(
+        STARTUP_OS_ONBOARD_SNAPSHOT_CREATE_SPEC, create_startup_os_snapshot_create_handler(client)
+    )
+    cap_registry.register(
+        STARTUP_OS_GOAL_TREE_READ_SPEC, create_startup_os_goal_tree_read_handler(client)
+    )
+    cap_registry.register(
+        STARTUP_OS_GOALS_NEEDING_REVIEW_SPEC,
+        create_startup_os_goals_needing_review_handler(client),
+    )
+    cap_registry.register(
+        STARTUP_OS_GOAL_ADVISORY_SPEC, create_startup_os_goal_advisory_handler(client)
     )
 
     # Strategy

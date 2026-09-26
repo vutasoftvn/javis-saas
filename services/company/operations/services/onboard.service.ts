@@ -2,6 +2,9 @@ import { APIError } from "encore.dev/api";
 import { eq, and, sql } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
+import { OnboardDimension, validateOnboardDimensionData } from "./onboard-dimension-fields";
+
+export type { OnboardDimension } from "./onboard-dimension-fields";
 
 const {
   onboardSessions,
@@ -19,15 +22,6 @@ const {
   onboardReviewCadence,
 } = schema;
 
-export type OnboardDimension =
-  | "identity"
-  | "stage_scale"
-  | "founder"
-  | "team_culture"
-  | "market"
-  | "challenges"
-  | "goals_ambition";
-
 export interface CadenceSeedConfig {
   dimension: OnboardDimension;
   cadence: "slow" | "medium" | "fast" | "event";
@@ -44,10 +38,11 @@ export const DEFAULT_CADENCES: CadenceSeedConfig[] = [
   { dimension: "goals_ambition", cadence: "medium", intervalDays: 90 },
 ];
 
+// Seed chỉ tạo lịch rà soát — CHƯA có dữ liệu chiều nào được ghi nhận, nên
+// lastReviewedAt/nextDueAt để null (trước đây gán `now` khiến mọi chiều báo "tươi"
+// dù Founder chưa trả lời gì).
 export async function seedReviewCadenceService(workspaceId: bigint): Promise<void> {
-  const now = new Date();
   for (const config of DEFAULT_CADENCES) {
-    const nextDue = new Date(now.getTime() + config.intervalDays * 86400000);
     await db
       .insert(onboardReviewCadence)
       .values({
@@ -56,11 +51,19 @@ export async function seedReviewCadenceService(workspaceId: bigint): Promise<voi
         dimension: config.dimension,
         cadence: config.cadence,
         intervalDays: config.intervalDays,
-        lastReviewedAt: now,
-        nextDueAt: nextDue,
+        lastReviewedAt: null,
+        nextDueAt: null,
       })
       .onConflictDoNothing();
   }
+}
+
+function defaultCadenceFor(dimension: OnboardDimension): CadenceSeedConfig {
+  const config = DEFAULT_CADENCES.find((c) => c.dimension === dimension);
+  if (!config) {
+    throw APIError.internal(`missing default cadence for onboard dimension '${dimension}'`);
+  }
+  return config;
 }
 
 export async function startOnboardSessionService(params: {
@@ -124,9 +127,11 @@ export async function recordConversationTurnService(params: {
 export async function updateDimensionService(params: {
   workspaceId: string;
   sessionId: string;
-  dimension: OnboardDimension;
+  dimension: string;
   data: any;
 }): Promise<{ success: boolean; dimension: string; recordId: string }> {
+  // Kiểm payload trước mọi side effect: field lạ/sai kiểu bị từ chối thay vì ghi null.
+  const { dimension } = validateOnboardDimensionData(params.dimension, params.data);
   const wsId = BigInt(params.workspaceId);
   const sId = BigInt(params.sessionId);
   await assertOnboardSessionInWorkspace(wsId, sId);
@@ -134,7 +139,7 @@ export async function updateDimensionService(params: {
   const now = new Date();
 
   // 1. Cập nhật bản ghi chiều (Append-only với is_current = true)
-  switch (params.dimension) {
+  switch (dimension) {
     case "identity": {
       await db.insert(onboardIdentity).values({
         id: recordId,
@@ -291,12 +296,13 @@ export async function updateDimensionService(params: {
     .where(
       and(
         eq(onboardReviewCadence.workspaceId, wsId),
-        eq(onboardReviewCadence.dimension, params.dimension)
+        eq(onboardReviewCadence.dimension, dimension)
       )
     )
     .limit(1);
 
-  const intervalDays = cadenceRows[0]?.intervalDays ?? 14;
+  const defaults = defaultCadenceFor(dimension);
+  const intervalDays = cadenceRows[0]?.intervalDays ?? defaults.intervalDays;
   const nextDue = new Date(now.getTime() + intervalDays * 86400000);
 
   if (cadenceRows.length > 0) {
@@ -311,15 +317,15 @@ export async function updateDimensionService(params: {
     await db.insert(onboardReviewCadence).values({
       id: generateSnowflake(),
       workspaceId: wsId,
-      dimension: params.dimension,
-      cadence: "fast",
+      dimension,
+      cadence: defaults.cadence,
       intervalDays,
       lastReviewedAt: now,
       nextDueAt: nextDue,
     });
   }
 
-  return { success: true, dimension: params.dimension, recordId: recordId.toString() };
+  return { success: true, dimension, recordId: recordId.toString() };
 }
 
 export async function createSnapshotService(params: {
@@ -407,7 +413,7 @@ export async function assembleCurrentCompanyContext(workspaceId: bigint): Promis
     .where(and(eq(onboardGoalsAmbition.workspaceId, workspaceId), eq(onboardGoalsAmbition.isCurrent, true)))
     .limit(1);
 
-  return {
+  return toJsonSafe({
     identity: identity ? { ...identity, values } : null,
     stage_scale: stageScale || null,
     founders,
@@ -415,52 +421,109 @@ export async function assembleCurrentCompanyContext(workspaceId: bigint): Promis
     market: market ? { ...market, competitors } : null,
     challenges: challenges || null,
     goals_ambition: goalsAmbition || null,
-  };
+  });
 }
 
-export async function getCadenceStatusService(workspaceId: string): Promise<{
-  cadences: Array<{
-    dimension: string;
-    cadence: string;
-    intervalDays: number | null;
-    lastReviewedAt: string | null;
-    nextDueAt: string | null;
-    daysSinceLastReview: number;
-    urgency: "critical" | "recommended" | "optional" | "ok";
-  }>;
-}> {
+type JsonSafe = string | number | boolean | null | JsonSafe[] | { [key: string]: JsonSafe };
+
+// Row Drizzle chứa id bigint và Date: JSON.stringify ném "Do not know how to serialize
+// a BigInt" — làm hỏng cả response context/current lẫn cột jsonb full_context của
+// snapshot. Chuẩn hoá: bigint → chuỗi (id Snowflake vượt Number.MAX_SAFE_INTEGER),
+// Date → ISO string.
+export function toJsonSafe(value: unknown): { [key: string]: JsonSafe } {
+  const converted = convertJsonSafe(value);
+  if (converted === null || typeof converted !== "object" || Array.isArray(converted)) {
+    throw APIError.internal("company context must be an object");
+  }
+  return converted;
+}
+
+function convertJsonSafe(value: unknown): JsonSafe {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "bigint") return value.toString();
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return value;
+  if (Array.isArray(value)) return value.map(convertJsonSafe);
+  if (typeof value === "object") {
+    const out: { [key: string]: JsonSafe } = {};
+    for (const [key, v] of Object.entries(value)) {
+      out[key] = convertJsonSafe(v);
+    }
+    return out;
+  }
+  return null;
+}
+
+export type CadenceUrgency = "critical" | "recommended" | "optional" | "ok";
+
+// Kiểu trên wire phải là kiểu đơn giản: Encore dựng schema response lúc biên dịch và
+// không hiểu `keyof typeof` của bảng field, khiến response HTTP bị rỗng (E2E đã bắt).
+export interface DimensionCadenceStatus {
+  dimension: string;
+  cadence: string;
+  intervalDays: number;
+  lastReviewedAt: string | null;
+  nextDueAt: string | null;
+  // null khi chiều chưa từng được ghi nhận — không dùng số giả (trước đây 999).
+  daysSinceLastReview: number | null;
+  neverReviewed: boolean;
+  urgency: CadenceUrgency;
+}
+
+/**
+ * Trạng thái độ tươi của đủ 7 chiều (theo DEFAULT_CADENCES), kể cả khi workspace
+ * chưa seed cadence. Chiều chưa từng ghi nhận là `critical` — không coi là "ok".
+ */
+export async function getCadenceStatusService(
+  workspaceId: string,
+  nowMs: number = Date.now()
+): Promise<{ cadences: DimensionCadenceStatus[] }> {
   const wsId = BigInt(workspaceId);
   const rows = await db
     .select()
     .from(onboardReviewCadence)
     .where(eq(onboardReviewCadence.workspaceId, wsId));
+  const rowByDimension = new Map(rows.map((r) => [r.dimension, r]));
 
-  const now = new Date().getTime();
+  const cadences = DEFAULT_CADENCES.map((config): DimensionCadenceStatus => {
+    const r = rowByDimension.get(config.dimension);
+    const intervalDays = r?.intervalDays ?? config.intervalDays;
+    const lastReviewedAt = r?.lastReviewedAt ?? null;
+    const nextDueAt = r?.nextDueAt ?? null;
 
-  const cadences = rows.map((r) => {
-    const lastRev = r.lastReviewedAt ? new Date(r.lastReviewedAt).getTime() : 0;
-    const nextDue = r.nextDueAt ? new Date(r.nextDueAt).getTime() : 0;
-    const daysSince = lastRev > 0 ? Math.floor((now - lastRev) / 86400000) : 999;
+    if (!lastReviewedAt) {
+      return {
+        dimension: config.dimension,
+        cadence: r?.cadence ?? config.cadence,
+        intervalDays,
+        lastReviewedAt: null,
+        nextDueAt: nextDueAt ? nextDueAt.toISOString() : null,
+        daysSinceLastReview: null,
+        neverReviewed: true,
+        urgency: "critical",
+      };
+    }
 
-    let urgency: "critical" | "recommended" | "optional" | "ok" = "ok";
-    if (nextDue > 0) {
-      const overdueDays = (now - nextDue) / 86400000;
-      if (overdueDays > 14) {
-        urgency = "critical";
-      } else if (overdueDays >= 0) {
-        urgency = "recommended";
-      } else if (overdueDays >= -7) {
-        urgency = "optional";
-      }
+    const daysSince = Math.floor((nowMs - lastReviewedAt.getTime()) / 86400000);
+    const dueMs = nextDueAt ? nextDueAt.getTime() : lastReviewedAt.getTime() + intervalDays * 86400000;
+    const overdueDays = (nowMs - dueMs) / 86400000;
+    let urgency: CadenceUrgency = "ok";
+    if (overdueDays > 14) {
+      urgency = "critical";
+    } else if (overdueDays >= 0) {
+      urgency = "recommended";
+    } else if (overdueDays >= -7) {
+      urgency = "optional";
     }
 
     return {
-      dimension: r.dimension,
-      cadence: r.cadence,
-      intervalDays: r.intervalDays,
-      lastReviewedAt: r.lastReviewedAt ? r.lastReviewedAt.toISOString() : null,
-      nextDueAt: r.nextDueAt ? r.nextDueAt.toISOString() : null,
+      dimension: config.dimension,
+      cadence: r?.cadence ?? config.cadence,
+      intervalDays,
+      lastReviewedAt: lastReviewedAt.toISOString(),
+      nextDueAt: new Date(dueMs).toISOString(),
       daysSinceLastReview: daysSince,
+      neverReviewed: false,
       urgency,
     };
   });

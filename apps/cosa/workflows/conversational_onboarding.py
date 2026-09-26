@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
 from apps.cosa.capabilities.client import CompanyServiceClient
+from apps.cosa.workflows.onboarding_dimensions import validate_dimension_data
 
 
 class OnboardingSessionType(enum.StrEnum):
@@ -41,6 +42,17 @@ class OnboardingStep:
     guiding_questions: list[str]
     expected_schema_keys: list[str]
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "step_index": self.step_index,
+            "dimension": self.dimension,
+            "cadence": self.cadence.value,
+            "title": self.title,
+            "prompt_vi": self.prompt_vi,
+            "guiding_questions": list(self.guiding_questions),
+            "expected_schema_keys": list(self.expected_schema_keys),
+        }
+
 
 @dataclass(frozen=True)
 class EventTriggerResult:
@@ -52,6 +64,11 @@ class EventTriggerResult:
 
 
 # --- 7-Dimension Interview Catalog configured for 12WY & Bookended Voice ---
+#
+# `expected_schema_keys` PHẢI là field Company lưu thật (onboarding_dimensions.py,
+# đối chiếu với services/company qua contract test). Trước đây catalog dùng key tự
+# đặt (`arr`, `burn_rate_weekly`, `runway_weeks`…) nên agent làm theo kịch bản thì
+# Company bỏ âm thầm mọi giá trị và lưu bản ghi rỗng.
 
 FULL_ONBOARD_STEPS: list[OnboardingStep] = [
     # 1. Fast: stage_scale
@@ -61,22 +78,24 @@ FULL_ONBOARD_STEPS: list[OnboardingStep] = [
         cadence=CadenceCategory.FAST,
         title="Giai đoạn & Quy mô (Stage & Scale)",
         prompt_vi=(
-            "Hãy chia sẻ về hiện trạng tài chính và quy mô hiện tại của startup. "
-            "Toàn bộ con số sẽ được tính toán theo nhịp tuần (12WY)."
+            "Hãy chia sẻ hiện trạng quy mô và tài chính của startup. "
+            "Con số chỉ cần ước lượng — Founder có thể bỏ qua câu chưa rõ."
         ),
         guiding_questions=[
-            "Doanh thu hiện tại (ARR/MRR) là bao nhiêu?",
-            "Lượng tiền mặt khả dụng (Cash in bank) và mức burn/tuần hiện tại?",
-            "Số tuần Runway sinh tồn còn lại ước tính là bao nhiêu tuần?",
-            "Tổng số lượng nhân sự toàn thời gian và bán thời gian?",
+            "Doanh thu năm quy đổi (ARR) hiện tại là bao nhiêu, theo đơn vị tiền tệ nào?",
+            "Runway còn khoảng bao nhiêu tháng?",
+            "Bao nhiêu nhân sự toàn thời gian và bao nhiêu cộng tác viên/hợp đồng?",
+            "Startup đang ở giai đoạn nào: chưa đạt PMF, đang scale, hay tối ưu vận hành?",
+            "Điều gì đã 'vỡ' hoặc trục trặc trong 90 ngày qua?",
         ],
         expected_schema_keys=[
-            "arr",
-            "mrr",
-            "cash_in_bank",
-            "burn_rate_weekly",
-            "runway_weeks",
-            "headcount",
+            "revenueArr",
+            "revenueCurrency",
+            "runwayMonths",
+            "headcountFt",
+            "headcountContractor",
+            "stage",
+            "whatBrokeLast90d",
         ],
     ),
     # 2. Fast: challenges
@@ -85,92 +104,128 @@ FULL_ONBOARD_STEPS: list[OnboardingStep] = [
         dimension="challenges",
         cadence=CadenceCategory.FAST,
         title="Thách thức & Quyết định khó khăn (Challenges & Hard Decisions)",
-        prompt_vi=(
-            "Đâu là nút thắt nhức nhối nhất mà startup đang đối mặt trong chu kỳ 12 tuần này?"
-        ),
+        prompt_vi=("Đâu là nút thắt đang ưu tiên nhất trong chu kỳ 12 tuần này?"),
         guiding_questions=[
-            "Vấn đề cấp bách nhất đe dọa trực tiếp đến mục tiêu chu kỳ 12 tuần?",
-            "Quyết định khó khăn nào mà Founder đang cảm thấy phải trì hoãn hoặc né tránh?",
-            "Điểm nghẽn vận hành hoặc kỹ thuật lớn nhất cần tháo gỡ ngay?",
+            "Chấm mức ưu tiên từ 1 đến 5 cho: Sản phẩm, Tăng trưởng, Con người, Tiền, Vận hành.",
+            "Quyết định khó nào Founder đang trì hoãn hoặc né tránh?",
+            "Nếu có thêm một ngày mỗi tuần, Founder sẽ dành nó cho việc gì?",
         ],
-        expected_schema_keys=["primary_bottleneck", "avoided_hard_decision", "operational_risk"],
+        expected_schema_keys=[
+            "priorityProduct",
+            "priorityGrowth",
+            "priorityPeople",
+            "priorityMoney",
+            "priorityOperations",
+            "avoidedDecision",
+            "extraDayAnswer",
+        ],
     ),
     # 3. Medium: goals_ambition
     OnboardingStep(
         step_index=3,
         dimension="goals_ambition",
         cadence=CadenceCategory.MEDIUM,
-        title="Mục tiêu chu kỳ 12 tuần (12WY Cycle Goals & Ambition)",
-        prompt_vi=(
-            "Xác định mục tiêu dứt khoát cho chu kỳ 12 tuần hiện tại. "
-            "Điều gì định nghĩa chiến thắng ở Tuần thứ 12?"
-        ),
+        title="Mục tiêu & Tham vọng (Goals & Ambition)",
+        prompt_vi=("Chiến thắng trông như thế nào sau 12 tháng và sau 36 tháng?"),
         guiding_questions=[
-            "Mục tiêu kết quả cốt lõi (Lag Indicator) ở Tuần 12 là gì?",
-            "Các chỉ số hành động tiên phong (Lead Indicators) được đo lường hàng tuần?",
-            "Kế hoạch tuần đệm (Week 13 buffer) dùng để tổng kết hay triển khai?",
+            "Mục tiêu dứt khoát trong 12 tháng tới là gì?",
+            "Hình dung công ty sau 36 tháng?",
+            "Định hướng dài hạn: hướng tới exit, xây dựng lâu dài, hay chưa quyết định?",
+            "Với cá nhân Founder, thành công nghĩa là gì?",
         ],
-        expected_schema_keys=["cycle_lag_goal", "weekly_lead_indicators", "week_13_plan"],
+        expected_schema_keys=[
+            "goal12MonthsText",
+            "goal36MonthsText",
+            "exitOrientation",
+            "personalSuccessDefinition",
+        ],
     ),
     # 4. Medium: market
     OnboardingStep(
         step_index=4,
         dimension="market",
         cadence=CadenceCategory.MEDIUM,
-        title="Thị trường & Khách hàng mục tiêu (Market & ICP)",
-        prompt_vi=(
-            "Ai là khách hàng lý tưởng (ICP) và động thái cạnh tranh trên thị trường hiện nay ra sao?"
-        ),
+        title="Thị trường & Cạnh tranh (Market & Competition)",
+        prompt_vi=("Startup đang chơi ở thị trường nào và ai đang cạnh tranh trực tiếp?"),
         guiding_questions=[
-            "Chân dung khách hàng lý tưởng (ICP) sẵn sàng trả tiền ngay?",
-            "Động thái đáng chú ý gần nhất của 2 đối thủ cạnh tranh chính?",
-            "Lợi thế khác biệt cốt lõi (Moat) mà đối thủ khó sao chép trong 144 tuần tới?",
+            "Mô tả ngắn thị trường và khách hàng mục tiêu?",
+            "Lợi thế không công bằng (unfair advantage) mà đối thủ khó sao chép?",
+            "Mối đe doạ cạnh tranh lớn nhất hiện nay là gì?",
+            "Kể tên các đối thủ chính, vì sao họ đang thắng và mức đe doạ (thấp/vừa/cao)?",
         ],
-        expected_schema_keys=["icp_profile", "key_competitors", "competitive_moat"],
+        expected_schema_keys=[
+            "marketDescription",
+            "unfairAdvantage",
+            "competitiveThreat",
+            "hasRealCompetition",
+            "competitors",
+        ],
     ),
     # 5. Medium: team_culture
     OnboardingStep(
         step_index=5,
         dimension="team_culture",
         cadence=CadenceCategory.MEDIUM,
-        title="Đội ngũ & Văn hoá thực thi (Team & Execution Culture)",
-        prompt_vi=("Cấu trúc đội ngũ hiện tại và văn hoá giao hàng của công ty như thế nào?"),
+        title="Đội ngũ & Văn hoá (Team & Culture)",
+        prompt_vi=("Văn hoá đội ngũ thật sự vận hành thế nào khi có áp lực?"),
         guiding_questions=[
-            "Bộ máy lãnh đạo chủ chốt (Tech, Product, Growth)?",
-            "Tốc độ onboarding nhân sự kỹ thuật mới (mất bao nhiêu tuần để có PR đầu tiên)?",
-            "Xung đột hoặc khoảng trống năng lực lớn nhất trong đội ngũ hiện tại?",
+            "Ba từ mô tả đúng nhất văn hoá đội hiện tại?",
+            "Xung đột thật gần nhất là gì và đã được giải quyết ra sao?",
+            "Ai là người dẫn dắt mạnh nhất và vị trí lãnh đạo nào đang yếu nhất?",
         ],
-        expected_schema_keys=["leadership_team", "onboarding_velocity_weeks", "team_gap"],
+        expected_schema_keys=[
+            "threeWords",
+            "lastRealConflict",
+            "conflictResolution",
+            "hasRealConflict",
+            "strongestLeader",
+            "weakestLeader",
+        ],
     ),
     # 6. Slow: identity
     OnboardingStep(
         step_index=6,
         dimension="identity",
         cadence=CadenceCategory.SLOW,
-        title="Căn tính & Giá trị bất biến (Core Identity & Fireable Values)",
-        prompt_vi=("Sứ mệnh cốt lõi và những nguyên tắc bất di bất dịch của tổ chức là gì?"),
+        title="Căn tính & Giá trị (Identity & Values)",
+        prompt_vi=("Startup làm gì, cho ai, vì sao tồn tại và giữ những giá trị nào?"),
         guiding_questions=[
-            "Sứ mệnh tồn tại dài hạn (North Star Vision) trong 144 tuần tới?",
-            "Các giá trị cốt lõi mà nếu nhân viên vi phạm sẽ bị sa thải ngay lập tức (Fireable Values)?",
-            "Lĩnh vực hoặc nguyên tắc đạo đức mà startup quyết định không bao giờ tham gia?",
+            "Startup làm gì và phục vụ ai?",
+            "Vì sao Founder bắt đầu công ty này?",
+            "Pitch trong một câu?",
+            "Những giá trị cốt lõi nào đủ quan trọng để sa thải người vi phạm (fire-worthy)?",
         ],
-        expected_schema_keys=["mission_144_weeks", "fireable_values", "non_negotiables"],
+        expected_schema_keys=[
+            "whatTheyDo",
+            "whoTheyServe",
+            "foundingWhy",
+            "oneSentencePitch",
+            "values",
+        ],
     ),
     # 7. Slow: founder
     OnboardingStep(
         step_index=7,
         dimension="founder",
         cadence=CadenceCategory.SLOW,
-        title="Hồ sơ & Điểm mù của Founder (Founder Profile & Blindspots)",
-        prompt_vi=(
-            "Thế mạnh vượt trội và điểm mù lớn nhất của Founder là gì để Hội đồng C-Suite phản biện hiệu quả?"
-        ),
+        title="Hồ sơ Founder & Điểm mù (Founder Profile & Blind Spots)",
+        prompt_vi=("Thế mạnh và điểm mù của Founder là gì để Hội đồng C-Suite phản biện đúng chỗ?"),
         guiding_questions=[
-            "Thế mạnh chuyên môn nổi bật nhất của Founder (Engineering, Sales, Product)?",
-            "Điểm mù hoặc thiên kiến nhận thức mà Founder tự nhận thấy mình hay mắc phải?",
-            "Kỳ vọng cụ thể đối với phản biện từ AI C-Suite (muốn thẳng thắn hay ôn hoà)?",
+            "Tên và vai trò hiện tại của Founder?",
+            "Thế mạnh vượt trội nhất (superpower)?",
+            "Điểm mù hoặc thiên kiến Founder tự nhận thấy?",
+            "Kiểu Founder: sản phẩm, bán hàng, kỹ thuật, vận hành hay lai?",
+            "Điều gì khiến Founder mất ngủ, và co-founder hay phê bình Founder điều gì?",
         ],
-        expected_schema_keys=["founder_superpower", "known_blindspots", "c_suite_candor_level"],
+        expected_schema_keys=[
+            "founderName",
+            "role",
+            "superpower",
+            "blindSpots",
+            "archetype",
+            "whatKeepsUp",
+            "cofounderCritique",
+        ],
     ),
 ]
 
@@ -178,6 +233,18 @@ MICRO_INTAKE_STEPS: list[OnboardingStep] = [
     FULL_ONBOARD_STEPS[0],  # stage_scale
     FULL_ONBOARD_STEPS[1],  # challenges
 ]
+
+
+def steps_for_session(session_type: OnboardingSessionType | str) -> list[OnboardingStep]:
+    """Kịch bản cho /cs:setup (initial, 7 chiều) hoặc /cs:update (partial_update, 2 chiều Fast)."""
+    kind = (
+        session_type
+        if isinstance(session_type, OnboardingSessionType)
+        else OnboardingSessionType(session_type)
+    )
+    if kind == OnboardingSessionType.PARTIAL_UPDATE:
+        return list(MICRO_INTAKE_STEPS)
+    return list(FULL_ONBOARD_STEPS)
 
 
 class EventTriggerDetector:
@@ -261,9 +328,7 @@ class ConversationalOnboardingWorkflow:
         self.active_session_id: str | None = None
 
     def get_steps(self) -> list[OnboardingStep]:
-        if self.session_type == OnboardingSessionType.PARTIAL_UPDATE:
-            return list(MICRO_INTAKE_STEPS)
-        return list(FULL_ONBOARD_STEPS)
+        return steps_for_session(self.session_type)
 
     async def start_session(self, summary: str | None = None) -> dict[str, Any]:
         default_summary = (
@@ -291,6 +356,7 @@ class ConversationalOnboardingWorkflow:
         target_session = session_id or self.active_session_id
         if not target_session:
             raise ValueError("Cần khởi tạo phiên (start_session) hoặc truyền session_id hợp lệ")
+        validate_dimension_data(dimension, data)
 
         payload = {
             "workspaceId": self.workspace_id,

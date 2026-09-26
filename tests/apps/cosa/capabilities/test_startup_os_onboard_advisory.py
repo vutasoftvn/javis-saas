@@ -38,7 +38,10 @@ def _make_mock_client(handler_fn) -> CompanyServiceClient:
 def test_cadence_advisory_spec_metadata():
     assert STARTUP_OS_ONBOARD_CADENCE_ADVISORY_SPEC.id == "startup_os.onboard.cadence_advisory"
     assert STARTUP_OS_ONBOARD_CADENCE_ADVISORY_SPEC.risk.value == "low"
-    assert "workspace_id" in STARTUP_OS_ONBOARD_CADENCE_ADVISORY_SPEC.input_schema["required"]
+    # Scope lấy từ InvocationContext, model không được tự khai workspace_id.
+    assert "workspace_id" not in STARTUP_OS_ONBOARD_CADENCE_ADVISORY_SPEC.input_schema.get(
+        "properties", {}
+    )
 
 
 @pytest.mark.asyncio
@@ -51,9 +54,27 @@ async def test_cadence_advisory_all_fresh():
             200,
             json={
                 "cadences": [
-                    {"dimension": "stage_scale", "daysSinceLastReview": 3, "intervalDays": 14, "urgency": "fresh", "cadence": "fast"},
-                    {"dimension": "challenges", "daysSinceLastReview": 5, "intervalDays": 14, "urgency": "fresh", "cadence": "fast"},
-                    {"dimension": "market", "daysSinceLastReview": 20, "intervalDays": 60, "urgency": "fresh", "cadence": "medium"},
+                    {
+                        "dimension": "stage_scale",
+                        "daysSinceLastReview": 3,
+                        "intervalDays": 14,
+                        "urgency": "fresh",
+                        "cadence": "fast",
+                    },
+                    {
+                        "dimension": "challenges",
+                        "daysSinceLastReview": 5,
+                        "intervalDays": 14,
+                        "urgency": "fresh",
+                        "cadence": "fast",
+                    },
+                    {
+                        "dimension": "market",
+                        "daysSinceLastReview": 20,
+                        "intervalDays": 60,
+                        "urgency": "fresh",
+                        "cadence": "medium",
+                    },
                 ]
             },
         )
@@ -61,7 +82,7 @@ async def test_cadence_advisory_all_fresh():
     client = _make_mock_client(mock_service)
     handler = create_startup_os_cadence_advisory_handler(client)
 
-    result = await handler({"workspace_id": "ws-test-1"})
+    result = await handler({}, {"workspace_id": "ws-test-1"})
 
     assert result["workspace_id"] == "ws-test-1"
     assert result["freshness_score"] == 100.0
@@ -105,7 +126,7 @@ async def test_cadence_advisory_with_stale_dimensions_and_nudges():
     client = _make_mock_client(mock_service)
     handler = create_startup_os_cadence_advisory_handler(client)
 
-    result = await handler({"workspace_id": "ws-test-2"})
+    result = await handler({}, {"workspace_id": "ws-test-2"})
 
     assert result["workspace_id"] == "ws-test-2"
     assert result["freshness_score"] < 100.0

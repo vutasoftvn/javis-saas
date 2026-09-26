@@ -173,7 +173,9 @@ COSA_OPERATIONS_PROMPT = PromptSpec(
 
 COSA_COFOUNDER_ASSISTANT_PROMPT = PromptSpec(
     id="cosa.agents.founder_assistant.prompt",
-    version="1.0.0",
+    # 1.1.0 (plan Startup OS 2026-09-18 Phase 3): thêm luồng /cs:setup, /cs:update
+    # và tư vấn Goal qua capability startup_os.*.
+    version="1.1.0",
     text=(
         "Trợ lý Đồng sáng lập AI (AI Co-Founder & Thinking Partner) của Founder. "
         "Bảo vệ thời gian và sự tập trung của Founder như tài nguyên quý giá nhất: kỷ luật 1 mục tiêu duy nhất mỗi tuần (1 goal/week), "
@@ -181,7 +183,12 @@ COSA_COFOUNDER_ASSISTANT_PROMPT = PromptSpec(
         "Phản biện sắc sảo chống phình phạm vi (anti-scope creep), hỏi thẳng 'Tính năng này ai đã yêu cầu?' trước khi cho phép lập trình. "
         "Thúc đẩy MVP kiểm chứng trong 2 tuần, nói chuyện với 10 người dùng thay vì viết 10 tính năng mới. "
         "Cảnh báo số tuần runway sinh tồn và bảo toàn năng lượng, chống kiệt sức cho Founder. "
-        "Hoạt động nghiêm ngặt ở mức trần tự trị L0_OBSERVE (gợi ý, phân tích và đồng hành hội thoại; không tự ý thực thi các tác vụ nền có rủi ro)."
+        "Hoạt động nghiêm ngặt ở mức trần tự trị L0_OBSERVE (gợi ý, phân tích và đồng hành hội thoại; không tự ý thực thi các tác vụ nền có rủi ro). "
+        "Khi Founder gõ /cs:setup (hồ sơ đủ 7 chiều) hoặc /cs:update (cập nhật nhanh 2 chiều Fast): "
+        "lấy kịch bản bằng startup_os.onboard.interview_plan, mở phiên bằng startup_os.onboard.session_start, "
+        "hỏi từng chiều bằng lời tự nhiên, chỉ ghi đúng điều Founder vừa trả lời bằng startup_os.onboard.dimension_update "
+        "(field Founder bỏ qua đưa vào notCaptured, không tự bịa số liệu), rồi chốt bằng startup_os.onboard.snapshot_create khi Founder xác nhận. "
+        "Khi Founder muốn đặt mục tiêu, gọi startup_os.goal.advisory và trình bày cảnh báo; Founder tự tạo Goal trên màn Cây mục tiêu."
     ),
 ).with_hash()
 
@@ -261,7 +268,9 @@ COSA_OPERATIONS_AGENT_SPEC = AgentSpec(
 
 COSA_COFOUNDER_ASSISTANT_AGENT_SPEC = AgentSpec(
     id="cosa.agents.founder_assistant",
-    version="1.0.0",
+    # 1.1.0 (plan Startup OS 2026-09-18 Phase 3): capability onboarding hội thoại và
+    # tư vấn Goal. Không có startup_os.goal.create / project.triage — Founder quyết định.
+    version="1.1.0",
     autonomy_level=AutonomyLevel.L0_OBSERVE,
     instructions=COSA_COFOUNDER_ASSISTANT_PROMPT.text,
     capability_refs=[
@@ -274,6 +283,16 @@ COSA_COFOUNDER_ASSISTANT_AGENT_SPEC = AgentSpec(
         "analytics.metric_contract.get",
         "knowledge.profile.read",
         "workspace.context.read",
+        "startup_os.onboard.interview_plan",
+        "startup_os.onboard.context_read",
+        "startup_os.onboard.cadence_status",
+        "startup_os.onboard.cadence_advisory",
+        "startup_os.onboard.session_start",
+        "startup_os.onboard.dimension_update",
+        "startup_os.onboard.snapshot_create",
+        "startup_os.goal.tree_read",
+        "startup_os.goal.needing_review",
+        "startup_os.goal.advisory",
     ],
     model_input_capability_ref="model.input.direct-user-message",
     pinned_skills=[

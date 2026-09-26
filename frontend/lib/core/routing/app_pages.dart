@@ -131,6 +131,7 @@ class AppPages {
           projectId: projectId,
           projectTitle: title,
           initialStage: stage,
+          showP0CoreSetupBanner: Get.parameters['p0CoreIncomplete'] == '1',
         );
       },
       middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],

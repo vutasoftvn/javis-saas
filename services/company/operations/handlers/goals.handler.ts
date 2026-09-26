@@ -16,6 +16,7 @@ import {
   ProjectTriageAction,
 } from "../services/discovery-project.service";
 import { requireWorkspaceAccess, requireWorkspaceWrite } from "../../shared/auth/workspace-access";
+import { AGENT_CAP } from "../../shared/auth/agent-capabilities";
 
 type WithAuth<T> = Omit<T, "authorization"> & { authorization?: Header<"Authorization"> };
 
@@ -85,7 +86,9 @@ export const createGoal = api(
 export const getGoalTree = api(
   { method: "GET", path: "/operations/goals/tree", expose: true },
   async (params: WithAuth<{ workspaceId: Query<string> }>) => {
-    await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    await requireWorkspaceAccess(params.authorization, params.workspaceId, {
+      agentCapabilities: [AGENT_CAP.STARTUP_OS_GOAL_TREE_READ, AGENT_CAP.STARTUP_OS_GOAL_ADVISORY],
+    });
     return getGoalTreeService(params.workspaceId);
   }
 );
@@ -93,7 +96,9 @@ export const getGoalTree = api(
 export const getGoalsNeedingReview = api(
   { method: "GET", path: "/operations/goals/needing-review", expose: true },
   async (params: WithAuth<{ workspaceId: Query<string> }>) => {
-    await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    await requireWorkspaceAccess(params.authorization, params.workspaceId, {
+      agentCapabilities: [AGENT_CAP.STARTUP_OS_GOALS_NEEDING_REVIEW, AGENT_CAP.STARTUP_OS_GOAL_ADVISORY],
+    });
     return getGoalsNeedingReviewService(params.workspaceId);
   }
 );

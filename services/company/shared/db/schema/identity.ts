@@ -81,6 +81,8 @@ export const identityWorkspaceMemberships = coreSchema.table("workspace_membersh
   membershipState: text("membership_state").default("active").notNull(),
   sourceMembershipVersion: bigint("source_membership_version", { mode: "number" }).default(1).notNull(),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  // Local session có auth_time trước mốc này không dùng được cho membership (migration 006).
+  sessionNotBefore: timestamp("session_not_before", { withTimezone: true }),
   platformMembershipId: text("platform_membership_id"),
   sourceUpdatedAt: timestamp("source_updated_at", { withTimezone: true }),
   syncedAt: timestamp("synced_at", { withTimezone: true }),

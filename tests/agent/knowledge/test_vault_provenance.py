@@ -74,3 +74,40 @@ async def test_published_knowledge_with_vault_version_persists_provenance(postgr
     # phải xác thực được, không chỉ là 1 UUID bất kỳ".
     with pytest.raises(Exception, match=r"fk_knowledge_sources_vault_version|foreign key"):
         await postgres_knowledge_store.save_document(doc)
+
+
+@pytest.mark.asyncio
+async def test_get_document_returns_vault_provenance(postgres_knowledge_store):
+    """get_document phải trả đúng vault_document_id/vault_version_id đã lưu —
+    route search knowledge dùng các trường này làm documentId/versionId của
+    citation; thiếu thì citation trả nhầm id knowledge source (khác InMemory)."""
+    from agent.vault.repository import PostgresVaultRepository
+
+    workspace_id = f"ws-{uuid.uuid4().hex[:8]}"
+    vault = PostgresVaultRepository(postgres_knowledge_store._session_factory)
+    vault_doc = await vault.create_draft(workspace_id, "Provenance", created_by="founder")
+    version = await vault.append_version(
+        workspace_id,
+        vault_doc.document_id,
+        object_ref={"path": "provenance.md"},
+        checksum_sha256="0" * 64,
+        size_bytes=1,
+        source_uri=f"vault://{vault_doc.document_id}",
+        created_by="founder",
+    )
+    doc = KnowledgeDocument(
+        id=f"doc_{uuid.uuid4().hex[:12]}",
+        workspace_id=workspace_id,
+        title="Published with provenance",
+        ingest_status="published",
+        vault_document_id=str(vault_doc.document_id),
+        vault_version_id=str(version.version_id),
+        access_policy_version=2,
+    )
+    await postgres_knowledge_store.save_document(doc)
+
+    fetched = await postgres_knowledge_store.get_document(doc.id, workspace_id)
+    assert fetched is not None
+    assert fetched.vault_document_id == str(vault_doc.document_id)
+    assert fetched.vault_version_id == str(version.version_id)
+    assert fetched.access_policy_version == 2
