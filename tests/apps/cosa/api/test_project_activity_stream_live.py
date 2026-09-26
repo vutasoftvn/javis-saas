@@ -64,3 +64,29 @@ async def test_stream_emits_events_written_after_replay(monkeypatch):
     await gen.aclose()
     # poll tiếp từ sequence cuối, không phát lại event 1
     assert repo.calls[0] is None and 1 in repo.calls
+
+
+@pytest.mark.asyncio
+async def test_runtime_event_without_actor_serializes_in_list_and_stream():
+    """Runtime event từ event_stream.emit không có actor -> actor_kind/actor_id
+    NULL. DTO bắt buộc str làm GET /activity 500 và stream phát event: error."""
+    rec = _record(1, kind="run.completed")
+    rec.actor_kind = None
+    rec.actor_id = None
+
+    dto = routes._event_record_to_dto(rec)
+    assert dto.actor_kind is None and dto.actor_id is None
+
+    class _OneRepo(_Repo):
+        def __init__(self) -> None:
+            super().__init__()
+            self.rows = [rec]
+
+    gen = routes._stream_project_activity(
+        SimpleNamespace(project_activity_repository=_OneRepo()),
+        SimpleNamespace(workspace_id="ws1"),
+        "p1",
+        None,
+    )
+    assert await gen.__anext__() == "id: 1\n"
+    await gen.aclose()

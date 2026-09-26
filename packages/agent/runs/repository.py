@@ -926,13 +926,15 @@ class PostgresRunRepository(BasePostgresRepository):
                 session,
                 text(
                     """
-                    SELECT run_id, conversation_id, agent_spec_id, agent_spec_version,
-                           definition_hash, input_payload, current_checkpoint_ref, status,
-                           attempt_count, error_details, final_output, metadata, workspace_id,
-                           created_at, updated_at, completed_at
+                    SELECT run_id, workspace_id, project_id, conversation_id, session_ref,
+                           principal, root_executable_id, root_executable_kind, root_executable_version,
+                           root_definition_hash, status, execution_mode, correlation_id, idempotency_key,
+                           input_payload, model_policy, final_output, usage, error_details, created_at, updated_at, completed_at,
+                           wf_agent_instance_id, wf_assignment_id, wf_work_package_id, wf_work_attempt_id
                     FROM agent.runs
                     WHERE workspace_id = :workspace_id
-                    ORDER BY created_at DESC
+                    -- run_id phá hoà khi nhiều run cùng created_at (cùng transaction/giây).
+                    ORDER BY created_at DESC, run_id DESC
                     LIMIT :limit
                     """
                 ),
