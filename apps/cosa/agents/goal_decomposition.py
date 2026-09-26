@@ -226,14 +226,14 @@ def validate_plan_capabilities(
     Hàm thuần, không mutate input.
     """
     owners: dict[str, str] = {}
-    for profile, caps in catalog.items():
-        for cap in caps:
-            owners.setdefault(cap, profile)
+    for profile, profile_caps in catalog.items():
+        for owned_cap in profile_caps:
+            owners.setdefault(owned_cap, profile)
 
     out: list[PlanItemDraft] = []
     for it in items:
-        cap = it.expected_capability
-        domain = it.suggested_domain
+        cap: str | None = it.expected_capability
+        domain: str | None = it.suggested_domain
         if cap is not None and cap not in owners:
             cap = None
         elif cap is not None and cap not in (catalog.get(domain or "") or []):
