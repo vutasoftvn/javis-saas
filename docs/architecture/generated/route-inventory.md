@@ -216,6 +216,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/finance-legal/transactions` | company | ✓ |  | services/company/finance-legal/handlers/financial-transaction.handler.ts |
 | GET | `/finance-legal/transactions/:id` | company | ✓ |  | services/company/finance-legal/handlers/financial-transaction.handler.ts |
 | POST | `/finance-legal/transactions/:id/approve` | company | ✓ |  | services/company/finance-legal/handlers/financial-transaction.handler.ts |
+| GET | `/finance-legal/workspaces/:workspaceId/exceptions` | company | ✓ |  | services/company/finance-legal/handlers/finance-exception.handler.ts |
 | GET | `/finance-legal/workspaces/:workspaceId/fiscal-profiles` | company | ✓ |  | services/company/finance-legal/handlers/accounting-regime.handler.ts |
 | GET | `/finance/accounting-documents` | company | ✓ |  | services/company/finance-legal/handlers/finance-tt58.handler.ts |
 | POST | `/finance/accounting-documents` | company | ✓ |  | services/company/finance-legal/handlers/finance-tt58.handler.ts |
@@ -589,10 +590,10 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /execution/twelve-week-cycles` | ✗ GHOST |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:189 |
 | `GET /execution/weekly-commitments` | ✗ GHOST |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:129 |
 | `GET /execution/weekly-plans` | ✗ GHOST |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:72 |
-| `GET /finance-legal/accounting-profiles/by-workspace` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:105 |
+| `GET /finance-legal/accounting-profiles/by-workspace` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:123 |
 | `GET /finance-legal/snapshots/latest` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:52 |
 | `GET /finance-legal/transactions` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:68 |
-| `GET /finance-legal/workspaces` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:174 |
+| `GET /finance-legal/workspaces` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:212 |
 | `GET /identity/me` | ✓ |  | frontend/lib/modules/auth/services/auth_service.dart:126, frontend/lib/modules/auth/services/auth_service.dart:551 |
 | `GET /identity/workspaces` | ✓ |  | frontend/lib/modules/settings/services/workspace_orientation_service.dart:16, frontend/lib/modules/settings/views/settings_view.dart:117 |
 | `GET /operations/execution-settings` | ✓ |  | frontend/lib/modules/strategy/services/execution_plan_service.dart:60 |
@@ -625,7 +626,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /workspace/files` | ✗ GHOST |  | frontend/lib/core/services/workspace_service.dart:8 |
 | `GET /workspaces` | ✗ GHOST |  | frontend/lib/modules/dashboard/services/hub_service.dart:136 |
 | `POST /connectors/zalo/sessions` | ✗ GHOST |  | frontend/lib/modules/settings/services/connectors_service.dart:151 |
-| `POST /finance-legal/accounting-periods` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:157 |
+| `POST /finance-legal/accounting-periods` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:180 |
 | `POST /finance-legal/transactions` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:90 |
 | `POST /operations/execution-plans` | ✓ |  | frontend/lib/modules/strategy/services/execution_plan_service.dart:95, frontend/lib/modules/strategy/services/execution_plan_service.dart:102 |
 | `POST /operations/key-results` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:213 |

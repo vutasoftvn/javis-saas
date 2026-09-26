@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { createTestSession } from "../../identity/tests/helpers/test-session";
 import { recordFinancialTransaction } from "../handlers/financial-transaction.handler";
-import { raiseFinanceException, getFinanceException, resolveFinanceException } from "../handlers/finance-exception.handler";
+import {
+  raiseFinanceException,
+  getFinanceException,
+  resolveFinanceException,
+  listFinanceExceptions,
+} from "../handlers/finance-exception.handler";
 
 async function makeAuthedWorkspace(displayName: string) {
   const user = await createTestSession({
@@ -70,5 +75,25 @@ describe("getFinanceException/resolveFinanceException", () => {
   it("throws not found for a missing id", async () => {
     const { authorization } = await makeAuthedWorkspace("Missing Exception Test");
     await expect(getFinanceException({ id: "999999999", authorization })).rejects.toThrow();
+  });
+});
+
+describe("listFinanceExceptions", () => {
+  it("lists the workspace's exceptions, filters by status and rejects outsiders", async () => {
+    const { workspaceId, authorization } = await makeAuthedWorkspace("List Exception Inc");
+    const open = await raiseFinanceException({ workspaceId, exceptionType: "MISSING_INVOICE", authorization });
+    const resolved = await raiseFinanceException({ workspaceId, exceptionType: "DUPLICATE", authorization });
+    await resolveFinanceException({ id: resolved.id, authorization });
+
+    const all = await listFinanceExceptions({ workspaceId, authorization });
+    expect(all.exceptions.map((e) => e.id)).toEqual(expect.arrayContaining([open.id, resolved.id]));
+
+    const onlyOpen = await listFinanceExceptions({ workspaceId, status: "OPEN", authorization });
+    expect(onlyOpen.exceptions.map((e) => e.id)).toEqual([open.id]);
+
+    const outsider = await makeAuthedWorkspace("Outsider Exception Inc");
+    await expect(
+      listFinanceExceptions({ workspaceId, authorization: outsider.authorization })
+    ).rejects.toThrow();
   });
 });

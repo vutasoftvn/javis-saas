@@ -1,5 +1,5 @@
 import { APIError } from "encore.dev/api";
-import { eq } from "drizzle-orm";
+import { and, desc, eq, type SQL } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspaceRecord } from "../../identity/services/workspace.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
@@ -97,4 +97,24 @@ export async function resolveFinanceExceptionService(
 
   if (!row) throw APIError.notFound(`finance exception ${id} not found`);
   return toFinanceException(row);
+}
+
+// Dashboard Tài chính — danh sách ngoại lệ của workspace (mới nhất trước),
+// lọc tuỳ chọn theo status. Trước đây chỉ có get-by-id nên tab "Ngoại lệ"
+// không có nguồn dữ liệu thật.
+export async function listFinanceExceptionsService(
+  workspaceId: string,
+  authorization: string | undefined,
+  status?: string
+): Promise<FinanceException[]> {
+  await requireWorkspaceAccess(authorization, workspaceId);
+  const conditions: SQL[] = [eq(financeExceptions.workspaceId, BigInt(workspaceId))];
+  if (status) conditions.push(eq(financeExceptions.status, status));
+  const rows = await db
+    .select()
+    .from(financeExceptions)
+    .where(and(...conditions))
+    .orderBy(desc(financeExceptions.createdAt))
+    .limit(500);
+  return rows.map(toFinanceException);
 }
