@@ -1061,8 +1061,31 @@ class FounderCommandCenterController extends GetxController {
     }
   }
 
+  /// Bong bóng trả lời đang chờ SSE của run hiện tại — để khi stream bị huỷ
+  /// (gửi tin nhắn mới, đổi Project) hoặc kết thúc mà chưa có nội dung, nó
+  /// được chuyển thành lỗi rõ ràng thay vì nằm lại thành bong bóng rỗng.
+  Map<String, String>? _pendingAssistantMsg;
+
+  void _markAssistantFailed(Map<String, String> assistantMsg, String reason) {
+    if ((assistantMsg['content'] ?? '').isNotEmpty) return;
+    final idx = chatMessages.indexOf(assistantMsg);
+    if (idx == -1) return;
+    assistantMsg['role'] = 'error';
+    assistantMsg['content'] = reason;
+    chatMessages[idx] = assistantMsg;
+  }
+
   void _subscribeChatSse(String runId, Map<String, String> assistantMsg) {
     _chatSseSubscription?.cancel();
+    final previous = _pendingAssistantMsg;
+    if (previous != null && !identical(previous, assistantMsg)) {
+      _markAssistantFailed(
+        previous,
+        'Chưa nhận được phản hồi trước khi gửi yêu cầu mới — xem lại trong Hoạt động dự án.',
+      );
+    }
+    _pendingAssistantMsg = assistantMsg;
+    var terminal = false;
     _chatSseSubscription = _chatService
         .streamRunEvents(runId)
         .listen(
@@ -1080,22 +1103,28 @@ class FounderCommandCenterController extends GetxController {
                 }
                 break;
               case 'run.completed':
+                terminal = true;
                 if ((assistantMsg['content'] ?? '').isEmpty &&
                     payload['output'] != null) {
                   final idx = chatMessages.indexOf(assistantMsg);
                   assistantMsg['content'] = payload['output'].toString();
                   if (idx != -1) chatMessages[idx] = assistantMsg;
                 }
+                _markAssistantFailed(assistantMsg, 'COSA hoàn tất nhưng không có nội dung trả lời.');
                 isChatLoading.value = false;
                 break;
               case 'run.failed':
               case 'run.cancelled':
+                terminal = true;
                 final idx = chatMessages.indexOf(assistantMsg);
                 if (idx != -1) {
+                  final reason = payload['error']?.toString() ?? payload['reason']?.toString();
                   assistantMsg['role'] = 'error';
                   assistantMsg['content'] =
                       (assistantMsg['content'] ?? '').isEmpty
-                      ? 'Mission thất bại hoặc bị huỷ.'
+                      ? (reason == null || reason.isEmpty
+                          ? 'Mission thất bại hoặc bị huỷ.'
+                          : 'Mission thất bại: $reason')
                       : assistantMsg['content']!;
                   chatMessages[idx] = assistantMsg;
                 }
@@ -1103,8 +1132,19 @@ class FounderCommandCenterController extends GetxController {
                 break;
             }
           },
-          onError: (_) => isChatLoading.value = false,
-          onDone: () => isChatLoading.value = false,
+          onError: (Object e) {
+            _markAssistantFailed(assistantMsg, 'Mất kết nối luồng phản hồi của COSA runtime ($e).');
+            isChatLoading.value = false;
+          },
+          onDone: () {
+            if (!terminal) {
+              _markAssistantFailed(
+                assistantMsg,
+                'Luồng phản hồi đóng trước khi COSA trả lời — kiểm tra Worker và Model Provider trong Cài đặt.',
+              );
+            }
+            isChatLoading.value = false;
+          },
         );
   }
 }

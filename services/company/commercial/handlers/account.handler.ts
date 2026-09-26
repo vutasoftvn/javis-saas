@@ -1,5 +1,11 @@
 import { api, Header } from "encore.dev/api";
-import { Account, CreateAccountParams as BaseCreateAccountParams, createAccountService, getAccountService } from "../services/account.service";
+import {
+  Account,
+  CreateAccountParams as BaseCreateAccountParams,
+  createAccountService,
+  getAccountService,
+  listAccountsService,
+} from "../services/account.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 
 export { Account };
@@ -31,3 +37,14 @@ export const getAccount = api(
   }
 );
 
+// Dashboard CRM — danh sách account của workspace (tenant guard trong service).
+export const listAccounts = api(
+  { method: "GET", path: "/commercial/workspaces/:workspaceId/accounts", expose: true },
+  async (params: {
+    workspaceId: string;
+    authorization?: Header<"Authorization">;
+  }): Promise<{ accounts: Account[] }> => {
+    const accounts = await listAccountsService(params.workspaceId, params.authorization);
+    return { accounts };
+  }
+);

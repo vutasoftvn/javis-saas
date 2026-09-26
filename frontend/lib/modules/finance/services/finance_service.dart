@@ -91,12 +91,30 @@ class FinanceService extends WorkspaceService {
     return res.statusCode == 200;
   }
 
-  Future<List<dynamic>> getDocuments() async =>
-      _list('/finance-legal/documents', 'documents');
-  Future<List<dynamic>> getBooks() async =>
-      _list('/finance-legal/books/templates', 'templates');
-  Future<List<dynamic>> getReports() async =>
-      _list('/finance-legal/reports', 'reports');
+  /// Đợt 3 (plan 2026-09-26-dashboard-full-management) — chứng từ lấy từ
+  /// `/finance/accounting-documents` thật (route cũ `/finance-legal/documents`
+  /// không tồn tại). Thêm key snake_case mà `FinanceDocumentsTab` đọc.
+  Future<List<dynamic>> getDocuments() async {
+    final list = await _list('/finance/accounting-documents', 'documents');
+    return list.map((raw) {
+      final d = Map<String, dynamic>.from(raw as Map);
+      return {
+        ...d,
+        'document_no': d['number'],
+        'document_type': d['documentType'],
+        'document_date': d['documentDate'],
+      };
+    }).toList();
+  }
+
+  /// Mẫu biểu sổ sách theo chế độ kế toán chưa có API (route cũ
+  /// `/finance-legal/books/templates` không tồn tại) — trả rỗng, không gọi
+  /// route chết; tab Sổ sách hiện trạng thái trống có hướng dẫn.
+  Future<List<dynamic>> getBooks() async => const [];
+
+  /// Báo cáo B01/B02/B03/F01 đi qua `FinanceTT58Service` (cần pháp nhân + kỳ
+  /// kế toán); danh sách báo cáo rời ở đây không còn nơi nào đọc.
+  Future<List<dynamic>> getReports() async => const [];
 
   Future<Map<String, dynamic>?> getProfile() async {
     final wId = await stringWorkspaceId();
@@ -138,7 +156,12 @@ class FinanceService extends WorkspaceService {
 
   Future<List<dynamic>> getPeriods() async {
     final data = await getJson('/finance-legal/accounting-periods');
-    return data is Map && data['periods'] is List ? data['periods'] as List<dynamic> : const [];
+    final periods = data is Map && data['periods'] is List ? data['periods'] as List<dynamic> : const [];
+    // `FinancePeriodsTab` đọc key snake_case; backend trả camelCase.
+    return periods.map((raw) {
+      final p = Map<String, dynamic>.from(raw as Map);
+      return {...p, 'start_date': p['startDate'], 'end_date': p['endDate']};
+    }).toList();
   }
 
   Future<Map<String, dynamic>?> createPeriod(String startDate, String endDate) async {
@@ -158,9 +181,24 @@ class FinanceService extends WorkspaceService {
     return res.statusCode == 200 ? jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>? : null;
   }
 
+  /// Danh sách ngoại lệ — API liệt kê mới
+  /// `/finance-legal/workspaces/:workspaceId/exceptions` (trước chỉ có
+  /// get-by-id nên tab luôn trống). Map sang `title`/`description` tab đọc.
   Future<List<dynamic>> getExceptions() async {
-    final data = await getJson('/finance-legal/exceptions');
-    return data is Map && data['exceptions'] is List ? data['exceptions'] as List<dynamic> : const [];
+    final wId = await stringWorkspaceId();
+    if (wId == null || wId.isEmpty) return const [];
+    final list = await _list('/finance-legal/workspaces/$wId/exceptions', 'exceptions');
+    return list.map((raw) {
+      final e = Map<String, dynamic>.from(raw as Map);
+      final details = e['details'];
+      return {
+        ...e,
+        'title': '${e['exceptionType']} · ${e['severity']} · ${e['status']}',
+        'description': details is Map && details['message'] != null
+            ? details['message'].toString()
+            : (e['transactionId'] != null ? 'Giao dịch #${e['transactionId']}' : ''),
+      };
+    }).toList();
   }
 
   // ==========================================

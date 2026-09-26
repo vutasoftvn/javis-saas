@@ -1,10 +1,11 @@
 import { APIError } from "encore.dev/api";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc, type SQL } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspaceRecord } from "../../identity/services/workspace.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { TenantContext } from "../../shared/types/tenant_context";
+import { CRM_LIST_LIMIT } from "./account.service";
 import { linkContactToProject } from "./project-record-link.service";
 
 const { contacts } = schema;
@@ -100,3 +101,17 @@ export async function getContactService(id: string, ctx: TenantContext): Promise
   return toContact(row);
 }
 
+export async function listContactsService(
+  workspaceId: string, authorization: string | undefined, filters: { accountId?: string } = {}
+): Promise<Contact[]> {
+  await requireWorkspaceAccess(authorization, String(workspaceId));
+  const conditions: SQL[] = [eq(contacts.workspaceId, BigInt(workspaceId))];
+  if (filters.accountId) conditions.push(eq(contacts.accountId, BigInt(filters.accountId)));
+  const rows = await db
+    .select()
+    .from(contacts)
+    .where(and(...conditions))
+    .orderBy(desc(contacts.createdAt))
+    .limit(CRM_LIST_LIMIT);
+  return rows.map(toContact);
+}

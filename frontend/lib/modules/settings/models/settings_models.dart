@@ -88,13 +88,16 @@ class RuntimeNodeModel {
 
   factory RuntimeNodeModel.fromJson(Map<String, dynamic> json) {
     return RuntimeNodeModel(
-      id: json['id'] as String? ?? '',
+      // `RuntimeNodeView` (services/cosa) không có `id`/`status` riêng — id
+      // chính là nodeId, status suy từ `revokedAt`.
+      id: json['id'] as String? ?? json['nodeId'] as String? ?? json['node_id'] as String? ?? '',
       workspaceId: json['organizationId'] as String? ?? json['workspaceId'] as String? ?? json['workspace_id'] as String? ?? '',
       nodeId: json['nodeId'] as String? ?? json['node_id'] as String? ?? '',
       runtimeRole: json['runtimeRole'] as String? ?? json['runtime_role'] as String? ?? '',
       presence: json['presence'] as String? ?? 'OFFLINE',
       lastHeartbeatAt: json['lastHeartbeatAt'] != null ? DateTime.tryParse(json['lastHeartbeatAt'] as String) : (json['last_heartbeat_at'] != null ? DateTime.tryParse(json['last_heartbeat_at'] as String) : null),
-      status: json['status'] as String? ?? 'unknown',
+      status: json['status'] as String? ??
+          ((json['revokedAt'] ?? json['revoked_at']) != null ? 'revoked' : 'active'),
     );
   }
 }

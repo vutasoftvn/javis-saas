@@ -94,8 +94,12 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/commercial/projects/:projectId/crm/leads` | company | ✓ |  | services/company/commercial/handlers/project-crm.handler.ts |
 | GET | `/commercial/projects/:projectId/crm/schema` | company | ✓ |  | services/company/commercial/handlers/project-crm.handler.ts |
 | POST | `/commercial/subscriptions` | company | ✓ |  | services/company/commercial/handlers/billing.handler.ts |
+| GET | `/commercial/workspaces/:workspaceId/accounts` | company | ✓ |  | services/company/commercial/handlers/account.handler.ts |
 | GET | `/commercial/workspaces/:workspaceId/campaigns` | company | ✓ |  | services/company/commercial/handlers/marketing.handler.ts |
+| GET | `/commercial/workspaces/:workspaceId/contacts` | company | ✓ |  | services/company/commercial/handlers/contact.handler.ts |
+| GET | `/commercial/workspaces/:workspaceId/customers` | company | ✓ |  | services/company/commercial/handlers/customer.handler.ts |
 | GET | `/commercial/workspaces/:workspaceId/invoices` | company | ✓ |  | services/company/commercial/handlers/billing.handler.ts |
+| GET | `/commercial/workspaces/:workspaceId/opportunities` | company | ✓ |  | services/company/commercial/handlers/opportunity.handler.ts |
 | POST | `/control-plane/internal/automation-dispatches` | cosa | ✓ |  | services/cosa/handlers/control-plane.handler.ts |
 | GET | `/control-plane/internal/automation-dispatches/:invocationId` | cosa | ✓ |  | services/cosa/handlers/control-plane.handler.ts |
 | POST | `/control-plane/internal/automation-dispatches/:invocationId/complete` | cosa | ✓ |  | services/cosa/handlers/control-plane.handler.ts |
@@ -212,6 +216,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/finance-legal/transactions` | company | ✓ |  | services/company/finance-legal/handlers/financial-transaction.handler.ts |
 | GET | `/finance-legal/transactions/:id` | company | ✓ |  | services/company/finance-legal/handlers/financial-transaction.handler.ts |
 | POST | `/finance-legal/transactions/:id/approve` | company | ✓ |  | services/company/finance-legal/handlers/financial-transaction.handler.ts |
+| GET | `/finance-legal/workspaces/:workspaceId/exceptions` | company | ✓ |  | services/company/finance-legal/handlers/finance-exception.handler.ts |
 | GET | `/finance-legal/workspaces/:workspaceId/fiscal-profiles` | company | ✓ |  | services/company/finance-legal/handlers/accounting-regime.handler.ts |
 | GET | `/finance/accounting-documents` | company | ✓ |  | services/company/finance-legal/handlers/finance-tt58.handler.ts |
 | POST | `/finance/accounting-documents` | company | ✓ |  | services/company/finance-legal/handlers/finance-tt58.handler.ts |
@@ -232,6 +237,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/finance/cas/link-sessions` | company | ✓ |  | services/company/finance-legal/handlers/cas-link.handler.ts |
 | POST | `/finance/cas/link-sessions/:sessionId/exchange` | company | ✓ |  | services/company/finance-legal/handlers/cas-link.handler.ts |
 | GET | `/finance/reconciliation-proposals` | company | ✓ |  | services/company/finance-legal/handlers/finance-tt58.handler.ts |
+| POST | `/finance/reconciliation-proposals` | company | ✓ |  | services/company/finance-legal/handlers/finance-tt58.handler.ts |
 | POST | `/finance/reconciliation-proposals/:id/accept` | company | ✓ |  | services/company/finance-legal/handlers/finance-tt58.handler.ts |
 | GET | `/finance/regime-policy` | company | ✓ |  | services/company/finance-legal/handlers/finance-tt58.handler.ts |
 | GET | `/finance/reports` | company | ✓ |  | services/company/finance-legal/handlers/finance-tt58.handler.ts |
@@ -470,6 +476,8 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | GET | `/operations/strategy/projects/:projectId/ranked-assumptions` | company | ✓ |  | services/company/operations/strategy/handlers/assumption.handler.ts |
 | GET | `/operations/strategy/settings` | company | ✓ |  | services/company/operations/strategy/handlers/workspace-strategy-settings.handler.ts |
 | PUT | `/operations/strategy/settings` | company | ✓ |  | services/company/operations/strategy/handlers/workspace-strategy-settings.handler.ts |
+| GET | `/operations/strategy/venture-profile` | company | ✓ |  | services/company/operations/strategy/handlers/venture-profile.handler.ts |
+| PUT | `/operations/strategy/venture-profile` | company | ✓ |  | services/company/operations/strategy/handlers/venture-profile.handler.ts |
 | GET | `/operations/strategy/weekly-reviews` | company | ✓ |  | services/company/operations/strategy/handlers/weekly-review.handler.ts |
 | POST | `/operations/strategy/weekly-reviews` | company | ✓ |  | services/company/operations/strategy/handlers/weekly-review.handler.ts |
 | POST | `/operations/strategy/weekly-reviews/:id/complete` | company | ✓ |  | services/company/operations/strategy/handlers/weekly-review.handler.ts |
@@ -542,6 +550,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | GET | `/platform/organizations/:organizationId/session-context` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
 | GET | `/platform/organizations/:organizationId/skill-policies` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
 | PUT | `/platform/organizations/:organizationId/skill-policies/:skillKey` | cosa | ✓ |  | services/cosa/handlers/workspace-settings.handler.ts |
+| PATCH | `/platform/preferences/me` | cosa | ✓ | ✓ | services/cosa/handlers/auth.handler.ts |
 
 ### ⚠ `expose:true` không `auth` (rà M1)
 
@@ -565,14 +574,13 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `DELETE /execution/milestones` | ✗ GHOST |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:332 |
 | `DELETE /execution/stages` | ✗ GHOST |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:258 |
 | `DELETE /execution/weekly-commitments` | ✗ GHOST |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:175 |
-| `DELETE /operations/key-results` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:240 |
-| `DELETE /operations/objectives` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:162 |
+| `DELETE /operations/key-results` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:245 |
+| `DELETE /operations/objectives` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:167 |
 | `DELETE /operations/tasks` | ✓ |  | frontend/lib/modules/tasks/services/task_service.dart:160 |
 | `DELETE /workforce/agents` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:390 |
 | `GET /admin` | ✗ GHOST |  | frontend/lib/modules/dashboard/services/hub_service.dart:39, frontend/lib/modules/settings/services/admin_service.dart:14 |
 | `GET /channels` | ✗ GHOST |  | frontend/lib/modules/marketing/services/channels_service.dart:50 |
 | `GET /channels/list` | ✗ GHOST |  | frontend/lib/modules/marketing/services/channels_service.dart:167 |
-| `GET /commercial/leads` | ✓ |  | frontend/lib/modules/sales/services/sales_service.dart:69 |
 | `GET /connectors` | ✗ GHOST |  | frontend/lib/modules/settings/services/connectors_service.dart:14 |
 | `GET /connectors/zalo/sessions` | ✗ GHOST |  | frontend/lib/modules/settings/services/connectors_service.dart:141 |
 | `GET /devices` | ✗ GHOST |  | frontend/lib/modules/settings/services/developer_service.dart:14 |
@@ -582,14 +590,14 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /execution/twelve-week-cycles` | ✗ GHOST |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:189 |
 | `GET /execution/weekly-commitments` | ✗ GHOST |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:129 |
 | `GET /execution/weekly-plans` | ✗ GHOST |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:72 |
-| `GET /finance-legal/accounting-profiles/by-workspace` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:105 |
+| `GET /finance-legal/accounting-profiles/by-workspace` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:123 |
 | `GET /finance-legal/snapshots/latest` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:52 |
 | `GET /finance-legal/transactions` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:68 |
-| `GET /finance-legal/workspaces` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:174 |
-| `GET /identity/me` | ✓ |  | frontend/lib/modules/auth/services/auth_service.dart:110, frontend/lib/modules/auth/services/auth_service.dart:533 |
+| `GET /finance-legal/workspaces` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:212 |
+| `GET /identity/me` | ✓ |  | frontend/lib/modules/auth/services/auth_service.dart:126, frontend/lib/modules/auth/services/auth_service.dart:551 |
 | `GET /identity/workspaces` | ✓ |  | frontend/lib/modules/settings/services/workspace_orientation_service.dart:16, frontend/lib/modules/settings/views/settings_view.dart:117 |
 | `GET /operations/execution-settings` | ✓ |  | frontend/lib/modules/strategy/services/execution_plan_service.dart:60 |
-| `GET /operations/key-results` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:177 |
+| `GET /operations/key-results` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:182 |
 | `GET /operations/objectives` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:104 |
 | `GET /operations/okr-cycles` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:68 |
 | `GET /operations/strategy/assumptions` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:21, frontend/lib/modules/vault/services/evidence_service.dart:88 |
@@ -611,19 +619,18 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /workforce/heartbeats` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:320 |
 | `GET /workforce/prompts` | ✗ GHOST |  | frontend/lib/modules/skills/services/prompt_registry_service.dart:76, frontend/lib/modules/skills/services/prompt_registry_service.dart:85, frontend/lib/modules/skills/services/prompt_registry_service.dart:93 |
 | `GET /workforce/routines` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:347 |
-| `GET /workforce/runs` | ✗ GHOST |  | frontend/lib/modules/agents/services/agents_service.dart:174 |
-| `GET /workforce/runtimes` | ✗ GHOST |  | frontend/lib/modules/agents/services/agents_service.dart:122 |
+| `GET /workforce/runtimes` | ✗ GHOST |  | frontend/lib/modules/agents/services/agents_service.dart:125 |
 | `GET /workforce/skills/physical` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:459 |
 | `GET /workforce/tools` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:86, frontend/lib/modules/agents/services/agent_platform_service.dart:431 |
 | `GET /workspace/file` | ✗ GHOST |  | frontend/lib/core/services/workspace_service.dart:21 |
 | `GET /workspace/files` | ✗ GHOST |  | frontend/lib/core/services/workspace_service.dart:8 |
 | `GET /workspaces` | ✗ GHOST |  | frontend/lib/modules/dashboard/services/hub_service.dart:136 |
 | `POST /connectors/zalo/sessions` | ✗ GHOST |  | frontend/lib/modules/settings/services/connectors_service.dart:151 |
-| `POST /finance-legal/accounting-periods` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:157 |
+| `POST /finance-legal/accounting-periods` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:180 |
 | `POST /finance-legal/transactions` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:90 |
 | `POST /operations/execution-plans` | ✓ |  | frontend/lib/modules/strategy/services/execution_plan_service.dart:95, frontend/lib/modules/strategy/services/execution_plan_service.dart:102 |
-| `POST /operations/key-results` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:213 |
-| `POST /operations/objectives` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:130, frontend/lib/modules/strategy/services/okr_service.dart:141, frontend/lib/modules/strategy/services/okr_service.dart:196 |
+| `POST /operations/key-results` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:218 |
+| `POST /operations/objectives` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:134, frontend/lib/modules/strategy/services/okr_service.dart:146, frontend/lib/modules/strategy/services/okr_service.dart:201 |
 | `POST /operations/okr-cycles` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:82 |
 | `POST /operations/strategy/assumptions` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:36 |
 | `POST /operations/strategy/decision-records` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:132 |
@@ -636,8 +643,8 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `POST /workforce/routines` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:361 |
 | `POST /workforce/routing/test` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:99 |
 | `POST /workforce/tools/webhook` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:445 |
-| `PUT /operations/key-results` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:229 |
-| `PUT /operations/objectives` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:153 |
+| `PUT /operations/key-results` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:234 |
+| `PUT /operations/objectives` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:158 |
 
 ## 3. Known-broken allowlist (route ma đã biết — owned by M4/M7)
 

@@ -1,5 +1,5 @@
 import { APIError } from "encore.dev/api";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc, type SQL } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspaceRecord } from "../../identity/services/workspace.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
@@ -92,3 +92,21 @@ export async function getAccountService(id: string, ctx: TenantContext): Promise
   return toAccount(row);
 }
 
+// Danh sách CRM cho dashboard — giới hạn cứng để 1 workspace nhiều dữ liệu
+// không trả về không giới hạn (chưa có phân trang ở UI).
+export const CRM_LIST_LIMIT = 500;
+
+export async function listAccountsService(
+  workspaceId: string, authorization: string | undefined
+): Promise<Account[]> {
+  await requireWorkspaceAccess(authorization, String(workspaceId));
+  const conditions: SQL[] = [eq(accounts.workspaceId, BigInt(workspaceId))];
+
+  const rows = await db
+    .select()
+    .from(accounts)
+    .where(and(...conditions))
+    .orderBy(desc(accounts.createdAt))
+    .limit(CRM_LIST_LIMIT);
+  return rows.map(toAccount);
+}

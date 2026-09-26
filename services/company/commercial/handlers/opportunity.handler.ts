@@ -1,10 +1,11 @@
-import { api, Header } from "encore.dev/api";
+import { api, Header, Query } from "encore.dev/api";
 import {
   SalesOpportunity,
   CreateSalesOpportunityParams as BaseCreateSalesOpportunityParams,
   createSalesOpportunityService,
   getSalesOpportunityService,
   updateOpportunityStageService,
+  listSalesOpportunitiesService,
 } from "../services/opportunity.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 
@@ -55,3 +56,19 @@ export const updateOpportunityStage = api(
   }
 );
 
+// Dashboard CRM — pipeline cơ hội bán hàng, lọc tuỳ chọn theo stage/account.
+export const listSalesOpportunities = api(
+  { method: "GET", path: "/commercial/workspaces/:workspaceId/opportunities", expose: true },
+  async (params: {
+    workspaceId: string;
+    stage?: Query<string>;
+    accountId?: Query<string>;
+    authorization?: Header<"Authorization">;
+  }): Promise<{ opportunities: SalesOpportunity[] }> => {
+    const opportunities = await listSalesOpportunitiesService(params.workspaceId, params.authorization, {
+      stage: params.stage,
+      accountId: params.accountId,
+    });
+    return { opportunities };
+  }
+);

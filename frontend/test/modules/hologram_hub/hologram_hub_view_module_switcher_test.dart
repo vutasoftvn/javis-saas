@@ -50,6 +50,15 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('Chiến lược'), findsOneWidget);
+    // Danh sách module dài hơn chiều cao sheet (ListView chỉ dựng item đang
+    // hiện) — cuộn tới mục cuối thay vì giả định mọi mục đều vừa màn hình.
+    // "Cài đặt" xuất hiện 2 lần (tiêu đề nhóm + mục) — cuộn theo icon của mục.
+    await tester.dragUntilVisible(
+      find.byIcon(Icons.settings_outlined),
+      find.byType(ListView).last,
+      const Offset(0, -200),
+    );
     expect(find.text('Cài đặt'), findsWidgets);
+    expect(find.text('Đội ngũ AI Agent'), findsOneWidget);
   });
 }

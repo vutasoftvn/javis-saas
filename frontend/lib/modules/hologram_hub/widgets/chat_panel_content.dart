@@ -160,10 +160,21 @@ class ChatPanelContent extends StatelessWidget {
                         width: 1,
                       ),
                     ),
-                    child: Text(
-                      msg['content'] ?? '',
-                      style: const TextStyle(color: Colors.white, fontSize: 13),
-                    ),
+                    // Bong bóng trả lời chưa có nội dung = đang chờ SSE — hiện
+                    // chỉ báo thay vì 1 khung rỗng.
+                    child: content.isEmpty && !isUser && !isError
+                        ? Text(
+                            isEn ? 'COSA is thinking…' : 'COSA đang suy nghĩ…',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.5),
+                              fontSize: 13,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          )
+                        : Text(
+                            msg['content'] ?? '',
+                            style: const TextStyle(color: Colors.white, fontSize: 13),
+                          ),
                   ),
                 );
               },

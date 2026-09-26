@@ -35,15 +35,24 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 import logging
 import os
+import re
+import shutil
 import signal
+import tempfile
+import uuid
 from typing import Any
 
 from agents.items import ModelResponse as SdkModelResponse
 from agents.models.interface import Model as SdkModel
 from agents.usage import Usage
-from openai.types.responses import ResponseOutputMessage, ResponseOutputText
+from openai.types.responses import (
+    ResponseFunctionToolCall,
+    ResponseOutputMessage,
+    ResponseOutputText,
+)
 from pydantic import BaseModel, ConfigDict
 
 logger = logging.getLogger(__name__)
@@ -57,6 +66,7 @@ __all__ = [
     "ModelInvocation",
     "ModelProviderTimeout",
     "ModelResponse",
+    "cli_env_overrides_from_environment",
 ]
 
 
@@ -77,13 +87,12 @@ class CliBridgeExecutionError(Exception):
 
 
 class CliBridgeUnsupportedCapability(Exception):
-    """CLI bridge là text-in/text-out thuần — không nói được giao thức
-    function-calling/structured-output của OpenAI Agents SDK Responses API.
-    Raise rõ ràng thay vì âm thầm bỏ qua tool: 1 agent có tool rủi ro cao
-    (approval-gated) bị route sang CLI provider mà không gọi được tool đó
-    PHẢI báo lỗi, không được coi là "chạy xong, chỉ trả lời chữ" (rule 8,
-    CLAUDE.md — hành động rủi ro cao cần approval qua code, không qua prompt;
-    im lặng bỏ qua khả năng gọi tool tương đương né luôn cả gate đó)."""
+    """CLI bridge là text-in/text-out — handoffs/structured-output của OpenAI
+    Agents SDK không dịch được nên raise rõ ràng. Tool-calling thì CÓ hỗ trợ
+    qua giao thức JSON (`_render_tool_protocol`/`_parse_tool_call`): model chỉ
+    *yêu cầu* gọi tool, việc thực thi + policy/approval vẫn do `FunctionTool`
+    của kernel đảm nhiệm (rule 8, CLAUDE.md), không bao giờ bỏ qua tool âm
+    thầm."""
 
 
 class ModelInvocation(BaseModel):
@@ -117,7 +126,25 @@ _DEFAULT_ROLE_PATH: dict[str, str] = {
     "gemini": "/usr/local/bin/gemini",
 }
 _DEFAULT_ROLE_ARGV: dict[str, tuple[str, ...]] = {
-    "claude": ("--print", "--output-format", "text"),
+    # Claude Code chỉ được làm "bộ não" trả lời chữ: tắt mọi tool built-in
+    # (Bash/đọc-ghi file/web...) — tool nghiệp vụ đi qua giao thức JSON của
+    # `CliBridgeModel` để vẫn qua Capability Gateway + Governance của COSA.
+    "claude": (
+        "--print",
+        "--output-format",
+        "text",
+        "--disallowedTools",
+        "Bash",
+        "Edit",
+        "Write",
+        "Read",
+        "Glob",
+        "Grep",
+        "NotebookEdit",
+        "WebFetch",
+        "WebSearch",
+        "Task",
+    ),
     "codex": ("exec", "--skip-git-repo-check"),
     "gemini": ("--prompt", "-"),
 }
@@ -127,8 +154,30 @@ _ROLE_PATH_ENV: dict[str, str] = {
     "gemini": "COSA_CLI_GEMINI_PATH",
 }
 
+_BASE_PATH_ENTRIES = ("/usr/bin", "/bin", "/usr/local/bin", "/opt/homebrew/bin")
+
 _MAX_STDOUT_BYTES = 1_000_000  # 1 MiB — đủ cho 1 câu trả lời text, chặn tràn bộ nhớ.
 _READ_CHUNK_BYTES = 65536
+
+
+def cli_env_overrides_from_environment() -> dict[str, str]:
+    """Env tường minh cho CLI provider, do OPERATOR bật (không kế thừa ngầm).
+
+    CLI như Claude Code xác thực bằng phiên đăng nhập cục bộ nằm dưới `$HOME`
+    (`~/.claude`, hoặc Keychain trên macOS) — không có HOME thì `claude
+    --print` báo chưa đăng nhập. Chỉ khi `COSA_CLI_HOME` được đặt mới truyền
+    HOME (nên trỏ tới 1 home riêng chỉ chứa phiên đăng nhập CLI; dev máy cá
+    nhân có thể đặt = $HOME) + USER/LOGNAME (Keychain macOS cần). Không đặt
+    -> giữ nguyên env tối giản như trước."""
+    cli_home = os.environ.get("COSA_CLI_HOME", "").strip()
+    if not cli_home:
+        return {}
+    overrides = {"HOME": cli_home}
+    for key in ("USER", "LOGNAME"):
+        value = os.environ.get(key)
+        if value:
+            overrides[key] = value
+    return overrides
 
 
 class CliBridge:
@@ -155,10 +204,21 @@ class CliBridge:
 
     @staticmethod
     def _resolve_role_paths() -> dict[str, str]:
-        return {
-            role: os.environ.get(_ROLE_PATH_ENV[role], default_path)
-            for role, default_path in _DEFAULT_ROLE_PATH.items()
-        }
+        paths: dict[str, str] = {}
+        for role, default_path in _DEFAULT_ROLE_PATH.items():
+            configured = os.environ.get(_ROLE_PATH_ENV[role])
+            if configured:
+                paths[role] = configured
+                continue
+            # Default `/usr/local/bin/<cli>` thường không đúng trên macOS
+            # (Homebrew `/opt/homebrew/bin`, installer native `~/.local/bin`).
+            # Chỉ khi default không tồn tại mới dò `PATH` của tiến trình
+            # worker (do operator cấu hình, không phải input người dùng) và
+            # CHỐT thành path tuyệt đối — allowlist vẫn là path tuyệt đối cố
+            # định lúc dựng bridge.
+            discovered = None if os.path.exists(default_path) else shutil.which(role)
+            paths[role] = os.path.abspath(discovered) if discovered else default_path
+        return paths
 
     @classmethod
     def _default_allowlist(cls) -> dict[str, tuple[str, ...]]:
@@ -184,9 +244,13 @@ class CliBridge:
             self._semaphores[profile_id] = sem
         return sem
 
-    def _build_env(self) -> dict[str, str]:
+    def _build_env(self, executable: str) -> dict[str, str]:
         # KHÔNG bao giờ os.environ.copy() ở đây — xem module docstring.
-        env = {"PATH": "/usr/bin:/bin:/usr/local/bin"}
+        # Thêm thư mục chứa chính executable (đã qua allowlist) vào PATH: CLI
+        # cài qua npm/Homebrew là script `#!/usr/bin/env node`, cần tìm thấy
+        # `node` nằm cùng thư mục đó.
+        path_entries = [os.path.dirname(executable), *_BASE_PATH_ENTRIES]
+        env = {"PATH": ":".join(dict.fromkeys(p for p in path_entries if p))}
         env.update(self._env_overrides)
         return env
 
@@ -203,13 +267,27 @@ class CliBridge:
             return await self._run_subprocess(argv, request)
 
     async def _run_subprocess(self, argv: list[str], request: ModelInvocation) -> ModelResponse:
-        env = self._build_env()
+        env = self._build_env(argv[0])
+        # cwd là thư mục tạm rỗng: CLI agent (vd Claude Code) tự nạp
+        # `CLAUDE.md`/file dự án từ cwd — không được để nó thấy mã nguồn/cấu
+        # hình của worker rồi trộn vào câu trả lời cho founder.
+        with tempfile.TemporaryDirectory(prefix="cosa-cli-") as workdir:
+            return await self._spawn_and_collect(argv, request, env, workdir)
+
+    async def _spawn_and_collect(
+        self,
+        argv: list[str],
+        request: ModelInvocation,
+        env: dict[str, str],
+        workdir: str,
+    ) -> ModelResponse:
         process = await asyncio.create_subprocess_exec(
             *argv,
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             env=env,
+            cwd=workdir,
             start_new_session=True,  # tiến trình con + cháu nó vào 1 process group riêng
         )
         # `start_new_session=True` -> process.pid CHÍNH LÀ pgid của group mới.
@@ -309,21 +387,107 @@ def _extract_text(item: Any) -> str:
     return ""
 
 
-def _render_prompt(system_instructions: str | None, input_items: Any) -> str:
+def _item_field(item: Any, key: str) -> Any:
+    return item.get(key) if isinstance(item, dict) else getattr(item, key, None)
+
+
+def _render_prompt(system_instructions: str | None, input_items: Any, tools: Any = None) -> str:
     parts: list[str] = []
     if system_instructions:
         parts.append(f"[system]\n{system_instructions}")
+    if tools:
+        parts.append(_render_tool_protocol(tools))
     if isinstance(input_items, str):
         parts.append(input_items)
     else:
         for item in input_items or []:
-            role = (
-                item.get("role") if isinstance(item, dict) else getattr(item, "role", None)
-            ) or "user"
+            item_type = _item_field(item, "type")
+            if item_type == "function_call":
+                parts.append(
+                    "[assistant tool_call]\n"
+                    + json.dumps(
+                        {
+                            "tool_call": {
+                                "name": _item_field(item, "name"),
+                                "arguments": _safe_json(_item_field(item, "arguments")),
+                            }
+                        },
+                        ensure_ascii=False,
+                    )
+                )
+                continue
+            if item_type == "function_call_output":
+                parts.append(f"[tool_result]\n{_item_field(item, 'output')}")
+                continue
+            role = _item_field(item, "role") or "user"
             text = _extract_text(item)
             if text:
                 parts.append(f"[{role}]\n{text}")
     return "\n\n".join(parts)
+
+
+def _safe_json(raw: Any) -> Any:
+    if isinstance(raw, str):
+        try:
+            return json.loads(raw)
+        except ValueError:
+            return raw
+    return raw
+
+
+def _render_tool_protocol(tools: Any) -> str:
+    """CLI là text-in/text-out — mô tả tool + giao thức JSON trong prompt để
+    model yêu cầu gọi tool. Tool KHÔNG chạy ở đây: `get_response` trả
+    `ResponseFunctionToolCall`, SDK gọi đúng `FunctionTool` (Capability
+    Gateway + policy/approval của kernel), rồi trả `[tool_result]` ở lượt sau."""
+    catalog = [
+        {
+            "name": getattr(tool, "name", ""),
+            "description": getattr(tool, "description", "") or "",
+            "parameters": getattr(tool, "params_json_schema", None) or {"type": "object"},
+        }
+        for tool in tools
+    ]
+    return (
+        "[tools]\n"
+        "You can call the following tools. To call one, reply with ONLY a JSON object "
+        'of the form {"tool_call": {"name": "<tool name>", "arguments": {...}}} and '
+        "nothing else. Call at most one tool per reply. After a [tool_result] you may "
+        "call another tool or give your final answer. If no tool is needed, reply with "
+        "the final answer as plain text (never claim an action happened unless a "
+        "[tool_result] confirms it).\n" + json.dumps(catalog, ensure_ascii=False)
+    )
+
+
+_CODE_FENCE_RE = re.compile(r"^```(?:json)?\s*(.*?)\s*```$", re.DOTALL)
+
+
+def _parse_tool_call(text: str, tool_names: set[str]) -> tuple[str, str] | None:
+    """Trả (name, arguments_json) nếu toàn bộ câu trả lời là 1 yêu cầu gọi
+    tool hợp lệ; None nếu là câu trả lời chữ. Chỉ chấp nhận tool có trong
+    danh sách của agent — tên lạ không bao giờ thành tool call."""
+    candidate = text.strip()
+    fence = _CODE_FENCE_RE.match(candidate)
+    if fence:
+        candidate = fence.group(1).strip()
+    if not (candidate.startswith("{") and candidate.endswith("}")):
+        return None
+    try:
+        payload = json.loads(candidate)
+    except ValueError:
+        return None
+    call = payload.get("tool_call") if isinstance(payload, dict) else None
+    if not isinstance(call, dict):
+        return None
+    name = call.get("name")
+    if not isinstance(name, str) or name not in tool_names:
+        return None
+    arguments = call.get("arguments") or {}
+    if isinstance(arguments, str):
+        arguments = _safe_json(arguments)
+    if not isinstance(arguments, dict):
+        return None
+    return name, json.dumps(arguments, ensure_ascii=False)
 
 
 class CliBridgeModel(SdkModel):
@@ -361,12 +525,6 @@ class CliBridgeModel(SdkModel):
         conversation_id: str | None = None,
         prompt: Any = None,
     ) -> Any:
-        if tools:
-            raise CliBridgeUnsupportedCapability(
-                f"CLI bridge model không hỗ trợ tool-calling — agent có "
-                f"{len(tools)} tool đã cấu hình nhưng route đã resolve sang CLI "
-                "provider (text-only). Không tự động bỏ qua tool."
-            )
         if handoffs:
             raise CliBridgeUnsupportedCapability(
                 "CLI bridge model không hỗ trợ handoffs giữa các agent."
@@ -376,7 +534,7 @@ class CliBridgeModel(SdkModel):
                 "CLI bridge model không hỗ trợ structured output_schema."
             )
 
-        rendered_prompt = _render_prompt(system_instructions, input)
+        rendered_prompt = _render_prompt(system_instructions, input, tools)
         response = await self._bridge.invoke(
             ModelInvocation(
                 executable=self._executable,
@@ -387,10 +545,25 @@ class CliBridgeModel(SdkModel):
             )
         )
 
-        return SdkModelResponse(
-            output=[
+        response_id = f"cli_bridge_resp_{uuid.uuid4().hex[:12]}"
+        tool_names = {getattr(tool, "name", "") for tool in tools or []}
+        tool_call = _parse_tool_call(response.text, tool_names) if tool_names else None
+        if tool_call is not None:
+            name, arguments = tool_call
+            output: list[Any] = [
+                ResponseFunctionToolCall(
+                    type="function_call",
+                    id=f"cli_bridge_fc_{uuid.uuid4().hex[:12]}",
+                    call_id=f"call_{uuid.uuid4().hex[:16]}",
+                    name=name,
+                    arguments=arguments,
+                    status="completed",
+                )
+            ]
+        else:
+            output = [
                 ResponseOutputMessage(
-                    id="cli_bridge_msg_1",
+                    id=f"cli_bridge_msg_{uuid.uuid4().hex[:12]}",
                     role="assistant",
                     status="completed",
                     type="message",
@@ -398,10 +571,9 @@ class CliBridgeModel(SdkModel):
                         ResponseOutputText(text=response.text, type="output_text", annotations=[])
                     ],
                 )
-            ],
-            usage=Usage(),
-            response_id="cli_bridge_resp_1",
-        )
+            ]
+
+        return SdkModelResponse(output=output, usage=Usage(), response_id=response_id)
 
     def stream_response(self, *args: Any, **kwargs: Any) -> Any:
         raise NotImplementedError("CliBridgeModel chưa hỗ trợ streaming — ngoài phạm vi Task 3.")

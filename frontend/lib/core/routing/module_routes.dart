@@ -16,8 +16,12 @@ import 'app_routes.dart';
 import 'auth_middleware.dart';
 import 'project_setup_guard_middleware.dart';
 
+import '../../modules/agents/bindings/agents_binding.dart';
+import '../../modules/agents/views/agents_view.dart';
 import '../../modules/finance/bindings/finance_binding.dart';
 import '../../modules/finance/views/finance_view.dart';
+import '../../modules/sales/bindings/sales_binding.dart';
+import '../../modules/sales/views/sales_view.dart';
 import '../../modules/settings/bindings/settings_binding.dart';
 import '../../modules/settings/views/settings_view.dart';
 import '../../modules/strategy/bindings/strategy_binding.dart';
@@ -203,6 +207,25 @@ final List<GetPage> moduleRoutes = [
       ManifestRouteGuardMiddleware(WorkspaceModule.finance),
     ],
   ),
+  // Đợt 1 (plan 2026-09-26-dashboard-full-management) — Đội ngũ AI Agent nối
+  // `/agent/workforce/*` thật (roster, org-chart, runs, approvals).
+  GetPage(
+    name: WorkspaceModule.agents.path,
+    page: () => const AppShell(activeModule: WorkspaceModule.agents, child: AgentsView()),
+    binding: AgentsBinding(),
+    middlewares: [AuthMiddleware(), ProjectSetupGuardMiddleware()],
+  ),
+  // Đợt 2 — CRM (Bán hàng) nối `services/company/commercial` thật.
+  GetPage(
+    name: WorkspaceModule.sales.path,
+    page: () => const AppShell(activeModule: WorkspaceModule.sales, child: SalesView()),
+    binding: SalesBinding(),
+    middlewares: [
+      AuthMiddleware(),
+      ProjectSetupGuardMiddleware(),
+      ManifestRouteGuardMiddleware(WorkspaceModule.sales),
+    ],
+  ),
   GetPage(
     name: WorkspaceModule.settings.path,
     page: () => const AppShell(activeModule: WorkspaceModule.settings, child: SettingsView()),
@@ -216,9 +239,7 @@ final List<GetPage> moduleRoutes = [
   _plannedRoute(WorkspaceModule.workflows),
   _plannedRoute(WorkspaceModule.automation),
   _plannedRoute(WorkspaceModule.approvals),
-  _plannedRoute(WorkspaceModule.agents),
   _plannedRoute(WorkspaceModule.vault),
-  _plannedRoute(WorkspaceModule.sales),
   _plannedRoute(WorkspaceModule.marketing),
   _plannedRoute(WorkspaceModule.legal),
   _plannedRoute(WorkspaceModule.organization),

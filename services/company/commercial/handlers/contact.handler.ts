@@ -1,5 +1,11 @@
-import { api, Header } from "encore.dev/api";
-import { Contact, CreateContactParams as BaseCreateContactParams, createContactService, getContactService } from "../services/contact.service";
+import { api, Header, Query } from "encore.dev/api";
+import {
+  Contact,
+  CreateContactParams as BaseCreateContactParams,
+  createContactService,
+  getContactService,
+  listContactsService,
+} from "../services/contact.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 
 export { Contact };
@@ -31,3 +37,17 @@ export const getContact = api(
   }
 );
 
+// Dashboard CRM — danh sách contact, lọc tuỳ chọn theo account.
+export const listContacts = api(
+  { method: "GET", path: "/commercial/workspaces/:workspaceId/contacts", expose: true },
+  async (params: {
+    workspaceId: string;
+    accountId?: Query<string>;
+    authorization?: Header<"Authorization">;
+  }): Promise<{ contacts: Contact[] }> => {
+    const contacts = await listContactsService(params.workspaceId, params.authorization, {
+      accountId: params.accountId,
+    });
+    return { contacts };
+  }
+);

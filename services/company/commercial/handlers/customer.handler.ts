@@ -1,5 +1,11 @@
 import { api, Header } from "encore.dev/api";
-import { Customer, CreateCustomerParams as BaseCreateCustomerParams, createCustomerService, getCustomerService } from "../services/customer.service";
+import {
+  Customer,
+  CreateCustomerParams as BaseCreateCustomerParams,
+  createCustomerService,
+  getCustomerService,
+  listCustomersService,
+} from "../services/customer.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 
 export { Customer };
@@ -31,3 +37,14 @@ export const getCustomer = api(
   }
 );
 
+// Dashboard CRM — danh sách khách hàng đã chuyển đổi của workspace.
+export const listCustomers = api(
+  { method: "GET", path: "/commercial/workspaces/:workspaceId/customers", expose: true },
+  async (params: {
+    workspaceId: string;
+    authorization?: Header<"Authorization">;
+  }): Promise<{ customers: Customer[] }> => {
+    const customers = await listCustomersService(params.workspaceId, params.authorization);
+    return { customers };
+  }
+);

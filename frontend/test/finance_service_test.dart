@@ -28,19 +28,16 @@ void main() {
 
   tearDown(() => ApiClient.client = realClient);
 
-  test('getBooks calls the finance books templates endpoint', () async {
+  // `/finance-legal/books/templates` không tồn tại ở backend — getBooks giờ
+  // không gọi route chết (xem test/modules/finance/finance_service_test.dart).
+  test('getBooks does not call the non-existent books templates endpoint', () async {
     final client = _Client();
     ApiClient.client = client;
 
     final books = await FinanceService().getBooks();
 
-    expect(books, [
-      {'code': 'S1-DNSN'},
-    ]);
-    expect(
-      client.requestedUri,
-      contains('/finance-legal/books/templates?workspace_id=workspace-1'),
-    );
+    expect(books, isEmpty);
+    expect(client.requestedUri, isNull);
   });
 
   test('createProfile posts the selected accounting mode', () async {

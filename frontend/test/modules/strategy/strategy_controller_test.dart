@@ -28,6 +28,16 @@ void main() {
     test('calls GET /operations/objectives and parses into MvpObjective list', () async {
       ApiClient.client = MockClient((request) async {
         expect(request.method, 'GET');
+        if (request.url.path == '/operations/key-results') {
+          return http.Response(
+            jsonEncode({
+              'key_results': [
+                {'id': 'kr-1', 'objectiveId': 'obj-1', 'title': 'MRR 100tr', 'targetValue': 100},
+              ],
+            }),
+            200,
+          );
+        }
         expect(request.url.path, '/operations/objectives');
         return http.Response(
           jsonEncode({
@@ -55,6 +65,7 @@ void main() {
       expect(controller.objectives.length, 1);
       expect(controller.objectives.single.id, 'obj-1');
       expect(controller.objectives.single.status, 'draft');
+      expect(controller.keyResultsByObjective['obj-1']?.single['id'], 'kr-1');
     });
 
     test('sets errorMessage when the request fails', () async {
@@ -102,6 +113,39 @@ void main() {
       final controller = StrategyController();
 
       expect(() => controller.publish('obj-1'), throwsA(anything));
+    });
+  });
+
+  group('createObjective', () {
+    test('gửi workspaceId + projectId của Project đang chọn rồi tải lại', () async {
+      Map<String, dynamic>? createdBody;
+      ApiClient.client = MockClient((request) async {
+        if (request.method == 'POST' && request.url.path == '/operations/objectives') {
+          createdBody = jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response(jsonEncode({'id': 'obj-9'}), 201);
+        }
+        return http.Response(jsonEncode({'objectives': [], 'key_results': []}), 200);
+      });
+
+      final controller = StrategyController(activeProjectResolver: () async => 'proj-7');
+      await controller.createObjective(title: 'Có 10 khách trả tiền', why: '  ');
+
+      expect(createdBody?['projectId'], 'proj-7');
+      expect(createdBody?['title'], 'Có 10 khách trả tiền');
+      expect(createdBody?.containsKey('why'), isFalse);
+    });
+
+    test('không có Project đang chọn -> báo lỗi, không gọi API', () async {
+      var called = false;
+      ApiClient.client = MockClient((request) async {
+        called = true;
+        return http.Response('{}', 200);
+      });
+
+      final controller = StrategyController(activeProjectResolver: () async => null);
+
+      await expectLater(controller.createObjective(title: 'X'), throwsStateError);
+      expect(called, isFalse);
     });
   });
 }

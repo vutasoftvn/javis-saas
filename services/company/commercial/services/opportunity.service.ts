@@ -1,10 +1,11 @@
 import { APIError } from "encore.dev/api";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc, type SQL } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspaceRecord } from "../../identity/services/workspace.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { TenantContext } from "../../shared/types/tenant_context";
+import { CRM_LIST_LIMIT } from "./account.service";
 
 const { salesOpportunities } = schema;
 
@@ -115,3 +116,18 @@ export async function updateOpportunityStageService(
   return toOpportunity(row);
 }
 
+export async function listSalesOpportunitiesService(
+  workspaceId: string, authorization: string | undefined, filters: { stage?: string; accountId?: string } = {}
+): Promise<SalesOpportunity[]> {
+  await requireWorkspaceAccess(authorization, String(workspaceId));
+  const conditions: SQL[] = [eq(salesOpportunities.workspaceId, BigInt(workspaceId))];
+  if (filters.stage) conditions.push(eq(salesOpportunities.stage, filters.stage));
+  if (filters.accountId) conditions.push(eq(salesOpportunities.accountId, BigInt(filters.accountId)));
+  const rows = await db
+    .select()
+    .from(salesOpportunities)
+    .where(and(...conditions))
+    .orderBy(desc(salesOpportunities.createdAt))
+    .limit(CRM_LIST_LIMIT);
+  return rows.map(toOpportunity);
+}

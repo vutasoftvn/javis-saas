@@ -95,6 +95,10 @@ def redact_ux_event_payload(event_type: str, payload: dict[str, Any]) -> dict[st
 # COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md §7.3.
 HEARTBEAT_INTERVAL_SEC = 15.0
 
+# Chu kỳ poll durable store để nhận event do tiến trình KHÁC (worker) ghi —
+# xem `stream_events`.
+POLL_INTERVAL_SEC = 1.0
+
 
 class CosaEventStreamManager:
     """Canonical SSE Event Stream Manager cho COSA API.
@@ -241,10 +245,12 @@ class CosaEventStreamManager:
         try:
             # 1. Replay từ durable store — sống sót qua API process restart,
             # không phụ thuộc client có kết nối liên tục hay không.
+            last_sequence = since_sequence
             past_events = await repository.list_since(run_id, after_sequence=since_sequence)
             has_terminal = False
             for ev in past_events:
                 yield _format_sse(ev)
+                last_sequence = ev.sequence
                 if ev.event_type in TERMINAL_EVENT_TYPES:
                     has_terminal = True
 
@@ -255,14 +261,43 @@ class CosaEventStreamManager:
             # ngắn hạn, chỉ đóng khi gặp terminal event hoặc client disconnect
             # (client disconnect tự ngắt generator qua GeneratorExit của FastAPI
             # StreamingResponse).
+            #
+            # Queue RAM chỉ nhận event `emit()` trong CÙNG process. Worker
+            # (`apps.cosa.worker.main`) chạy tiến trình riêng: event của nó chỉ
+            # đi vào durable store, nên phải poll `list_since()` định kỳ —
+            # thiếu bước này SSE chỉ phát heartbeat mãi, chat hiện bong bóng
+            # trả lời rỗng dù run đã xong. `last_sequence` chống phát trùng
+            # khi cùng 1 event tới từ cả queue lẫn poll.
+            loop = asyncio.get_running_loop()
+            last_output_at = loop.time()
             while True:
                 try:
-                    envelope = await asyncio.wait_for(q.get(), timeout=HEARTBEAT_INTERVAL_SEC)
+                    envelope = await asyncio.wait_for(q.get(), timeout=POLL_INTERVAL_SEC)
+                    if last_sequence is not None and envelope.sequence <= last_sequence:
+                        continue
                     yield _format_sse_envelope(envelope)
+                    last_sequence = envelope.sequence
+                    last_output_at = loop.time()
                     if envelope.event_type in TERMINAL_EVENT_TYPES:
                         break
+                    continue
                 except TimeoutError:
+                    pass
+
+                terminal = False
+                for ev in await repository.list_since(run_id, after_sequence=last_sequence):
+                    yield _format_sse(ev)
+                    last_sequence = ev.sequence
+                    last_output_at = loop.time()
+                    if ev.event_type in TERMINAL_EVENT_TYPES:
+                        terminal = True
+                        break
+                if terminal:
+                    break
+
+                if loop.time() - last_output_at >= HEARTBEAT_INTERVAL_SEC:
                     yield ": heartbeat\n\n"
+                    last_output_at = loop.time()
         finally:
             queue_list = self._queues.get(run_id)
             if queue_list and q in queue_list:

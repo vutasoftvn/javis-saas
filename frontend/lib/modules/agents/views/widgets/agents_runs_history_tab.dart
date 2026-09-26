@@ -92,7 +92,7 @@ class AgentsRunsHistoryTab extends StatelessWidget {
                   tooltip: 'Xem chi tiết Trace & Steps',
                   icon: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
                   onPressed: () async {
-                    final detail = await controller.getRunDetail(run['id']);
+                    final detail = await controller.getRunDetail(run['run_id'] ?? run['id']);
                     if (detail != null && context.mounted) {
                       showDialog(
                         context: context,
