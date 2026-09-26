@@ -56,6 +56,28 @@ class CoreSession {
   final Map<String, dynamic> user;
 }
 
+/// Core yêu cầu thêm 1 bước xác thực mà web làm được (OTP email/SMS hoặc TOTP). Các bước
+/// `pin_local`/`otp_*`/`passkey_2fa` là nhóm lựa chọn HOẶC: hoàn tất một bước là core bỏ các bước còn lại.
+class CoreSecondFactorRequired extends CoreAuthException {
+  CoreSecondFactorRequired({
+    required this.sessionId,
+    required this.step,
+    required this.availableSteps,
+    required this.deviceId,
+    this.userId,
+  }) : super(412, 'Tài khoản yêu cầu thêm bước xác thực: ${availableSteps.join(', ')}');
+
+  final String sessionId;
+
+  /// Bước web sẽ dùng để xác minh (một trong [CoreAuthClient.webSupportedSteps]).
+  final String step;
+  final List<String> availableSteps;
+  final String deviceId;
+  final Object? userId;
+
+  bool get needsOtpRequest => step == 'otp_email' || step == 'otp_phone';
+}
+
 /// Đăng nhập/đăng ký trực tiếp với backend/core rồi đổi lấy access token OIDC của
 /// client `vn.mivacorp.cosa` (Authorization Code + PKCE). COSA không còn giữ mật khẩu.
 ///
@@ -73,6 +95,9 @@ class CoreAuthClient {
   late final String _deviceId = 'javis-web-${_randomUrlSafe(12)}';
 
   static const Duration _timeout = Duration(seconds: 15);
+
+  /// Các bước 2FA web xác minh được, theo thứ tự ưu tiên (TOTP an toàn hơn OTP gửi qua kênh khác).
+  static const List<String> webSupportedSteps = ['totp_code', 'otp_email', 'otp_phone'];
 
   Map<String, String> get _jsonHeaders => {
         'Content-Type': 'application/json',
@@ -99,14 +124,66 @@ class CoreAuthClient {
     final body = _decode(response);
     final steps = (body['steps'] as List?) ?? const [];
     final tokens = (body['tokens'] as Map?)?.cast<String, dynamic>();
-    // Client COSA có thể yêu cầu thêm bước (PIN/OTP/TOTP) tuỳ mức xác thực của tài khoản: web chưa
-    // hỗ trợ các bước đó nên báo rõ thay vì coi như đăng nhập thất bại vì sai mật khẩu.
+    // Client COSA có thể yêu cầu thêm bước tuỳ mức xác thực của tài khoản. Web chỉ làm được
+    // TOTP/OTP; các bước còn lại (PIN cục bộ, passkey) cần thiết bị nên báo rõ thay vì coi là sai mật khẩu.
     if (steps.isNotEmpty || tokens == null) {
-      throw CoreAuthException(412, 'Tài khoản yêu cầu thêm bước xác thực: ${steps.join(', ')}');
+      final available = steps.map((e) => e.toString()).toList();
+      final sessionId = body['sessionId']?.toString();
+      final step = webSupportedSteps.where(available.contains).firstOrNull;
+      if (sessionId != null && sessionId.isNotEmpty && step != null) {
+        throw CoreSecondFactorRequired(
+          sessionId: sessionId,
+          step: step,
+          availableSteps: available,
+          deviceId: deviceId ?? _deviceId,
+          userId: body['userId'],
+        );
+      }
+      throw CoreAuthException(412, 'Tài khoản yêu cầu thêm bước xác thực: ${available.join(', ')}');
     }
     return _exchangeSession({
       'accessToken': tokens['accessToken'],
       'user': {'id': body['userId']},
+    });
+  }
+
+  /// Yêu cầu core gửi OTP cho bước của [challenge] (otp_email/otp_phone). Client bỏ qua trường
+  /// `code` nếu core có trả về: mã chỉ đến người dùng qua kênh của họ.
+  Future<void> requestSigninOtp(CoreSecondFactorRequired challenge) async {
+    final response = await _client
+        .get(
+          _uri('/auth/signin/${Uri.encodeComponent(challenge.sessionId)}/otp', {'step': challenge.step}),
+          headers: _jsonHeaders,
+        )
+        .timeout(_timeout);
+    _decode(response);
+  }
+
+  /// Xác minh bước 2FA rồi đổi phiên lấy access token OIDC. Ném [CoreAuthException] nếu mã sai
+  /// hoặc core còn đòi thêm bước khác.
+  Future<CoreSession> verifySigninStep(CoreSecondFactorRequired challenge, String code) async {
+    final response = await _client
+        .post(
+          _uri('/auth/signin/step'),
+          headers: _jsonHeaders,
+          body: jsonEncode({
+            'sessionId': challenge.sessionId,
+            'step': challenge.step,
+            'code': code,
+            'deviceId': challenge.deviceId,
+          }),
+        )
+        .timeout(_timeout);
+    final body = _decode(response);
+    final accessToken = body['accessToken'] as String?;
+    if (body['done'] != true || accessToken == null || accessToken.isEmpty) {
+      final remaining = ((body['remaining'] as List?) ?? const []).join(', ');
+      final error = body['errorMessage'] as String?;
+      throw CoreAuthException(error != null ? 401 : 412, error ?? 'Còn bước xác thực chưa hoàn tất: $remaining');
+    }
+    return _exchangeSession({
+      'accessToken': accessToken,
+      'user': {'id': challenge.userId},
     });
   }
 

@@ -14,6 +14,10 @@ class _FakeCore {
   int loginStatus = 200;
   int tokenStatus = 200;
 
+  /// Bước 2FA core đòi sau mật khẩu; rỗng = đăng nhập xong ngay bằng mật khẩu.
+  List<String> signinSteps = const [];
+  String? verifiedCode = '123456';
+
   MockClient get client => MockClient((request) async {
         requests.add(request);
         final path = request.url.path;
@@ -23,8 +27,33 @@ class _FakeCore {
             jsonEncode({
               'sessionId': '1',
               'userId': '42',
-              'steps': <String>[],
-              'tokens': {'accessToken': 'session-jwt', 'refreshToken': 'session-refresh', 'expiresIn': 3600},
+              'steps': signinSteps,
+              if (signinSteps.isEmpty)
+                'tokens': {'accessToken': 'session-jwt', 'refreshToken': 'session-refresh', 'expiresIn': 3600},
+            }),
+            200,
+          );
+        }
+        if (path == '/auth/signin/1/otp') {
+          return http.Response(jsonEncode({'code': '', 'sessionId': '1', 'step': 'otp_email'}), 200);
+        }
+        if (path == '/auth/signin/step') {
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          if (body['code'] != verifiedCode) {
+            return http.Response(
+              jsonEncode({'message': 'Mã OTP không đúng'}),
+              401,
+              headers: {'content-type': 'application/json; charset=utf-8'},
+            );
+          }
+          return http.Response(
+            jsonEncode({
+              'completed': [body['step']],
+              'remaining': <String>[],
+              'done': true,
+              'accessToken': 'session-jwt',
+              'refreshToken': 'session-refresh',
+              'expiresIn': 3600,
             }),
             200,
           );
@@ -118,6 +147,76 @@ void main() {
       expect(tokenBody['redirect_uri'], authorize.url.queryParameters['redirect_uri']);
       // Client public: không bao giờ gửi client_secret.
       expect(tokenBody.containsKey('client_secret'), isFalse);
+    });
+
+    test('login: core đòi pin_local|otp_email|passkey_2fa -> chọn otp_email, không phải lỗi 412 cứng', () async {
+      core.signinSteps = ['pin_local', 'otp_email', 'passkey_2fa'];
+
+      final challenge = await auth
+          .login('a@b.vn', 'pw')
+          .then<CoreSecondFactorRequired?>((_) => null)
+          .onError<CoreSecondFactorRequired>((e, _) => e);
+
+      expect(challenge, isNotNull);
+      expect(challenge!.step, 'otp_email');
+      expect(challenge.sessionId, '1');
+      expect(challenge.needsOtpRequest, isTrue);
+      // Chưa đổi phiên OIDC khi 2FA còn dang dở.
+      expect(core.requests.any((r) => r.url.path == '/oauth/token'), isFalse);
+    });
+
+    test('login: chỉ có bước web không làm được (pin_local) -> CoreAuthException(412)', () async {
+      core.signinSteps = ['pin_local', 'passkey_2fa'];
+      await expectLater(
+        auth.login('a@b.vn', 'pw'),
+        throwsA(
+          isA<CoreAuthException>()
+              .having((e) => e, 'không phải CoreSecondFactorRequired', isNot(isA<CoreSecondFactorRequired>()))
+              .having((e) => e.statusCode, 'statusCode', 412),
+        ),
+      );
+    });
+
+    test('2FA otp_email: yêu cầu OTP, xác minh bước rồi đổi lấy access token OIDC', () async {
+      core.signinSteps = ['pin_local', 'otp_email', 'passkey_2fa'];
+      late CoreSecondFactorRequired challenge;
+      try {
+        await auth.login('a@b.vn', 'pw');
+        fail('phải đòi 2FA');
+      } on CoreSecondFactorRequired catch (e) {
+        challenge = e;
+      }
+
+      await auth.requestSigninOtp(challenge);
+      final otpReq = core.requests.firstWhere((r) => r.url.path == '/auth/signin/1/otp');
+      expect(otpReq.url.queryParameters['step'], 'otp_email');
+
+      final session = await auth.verifySigninStep(challenge, '123456');
+      expect(session.accessToken, 'opaque-access');
+      expect(session.user['id'], '42');
+
+      final stepReq = core.requests.firstWhere((r) => r.url.path == '/auth/signin/step');
+      final body = jsonDecode(stepReq.body) as Map<String, dynamic>;
+      expect(body['sessionId'], '1');
+      expect(body['step'], 'otp_email');
+      expect(body['code'], '123456');
+      // deviceId phải trùng với deviceId lúc initiate.
+      final loginBody = jsonDecode(core.requests.firstWhere((r) => r.url.path == '/auth/signin').body) as Map;
+      expect(body['deviceId'], loginBody['deviceId']);
+    });
+
+    test('2FA: mã sai -> CoreAuthException(401) mang thông báo của core', () async {
+      core.signinSteps = ['otp_email'];
+      late CoreSecondFactorRequired challenge;
+      try {
+        await auth.login('a@b.vn', 'pw');
+      } on CoreSecondFactorRequired catch (e) {
+        challenge = e;
+      }
+      await expectLater(
+        auth.verifySigninStep(challenge, '000000'),
+        throwsA(isA<CoreAuthException>().having((e) => e.statusCode, 'statusCode', 401)),
+      );
     });
 
     test('login: 401 từ core -> CoreAuthException(401)', () async {

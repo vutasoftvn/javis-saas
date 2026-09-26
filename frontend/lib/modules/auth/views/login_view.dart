@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/auth_controller.dart';
+import '../services/core_auth_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../../core/localization/app_translations.dart';
@@ -9,6 +10,73 @@ import 'widgets/auth_language_switcher.dart';
 
 class LoginView extends GetView<AuthController> {
   const LoginView({super.key});
+
+  /// Ô nhập mã 2FA (OTP email/SMS hoặc TOTP) hiện sau khi mật khẩu đúng.
+  Widget _buildOtpStage(CoreSecondFactorRequired challenge) {
+    final hint = switch (challenge.step) {
+      'otp_email' => 'Nhập mã xác thực đã gửi tới email của bạn',
+      'otp_phone' => 'Nhập mã xác thực đã gửi tới số điện thoại của bạn',
+      _ => 'Nhập mã từ ứng dụng xác thực (TOTP)',
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          hint,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: controller.loginOtpController,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.white, fontSize: 20, letterSpacing: 6),
+          onSubmitted: (_) => controller.submitLoginOtp(),
+          decoration: InputDecoration(
+            labelText: 'Mã xác thực',
+            labelStyle: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
+            filled: true,
+            fillColor: AppTheme.backgroundDark.withValues(alpha: 0.8),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppTheme.borderDark),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppTheme.borderDark),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppTheme.primary, width: 1.5),
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        ElevatedButton(
+          onPressed: controller.isLoading.value ? null : controller.submitLoginOtp,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primary,
+            foregroundColor: AppTheme.backgroundDarker,
+            minimumSize: const Size(double.infinity, 50),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+          ),
+          child: controller.isLoading.value
+              ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.backgroundDarker),
+                )
+              : const Text('Xác nhận', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+        ),
+        TextButton(
+          onPressed: controller.cancelLoginOtp,
+          child: const Text('Quay lại', style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13)),
+        ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -128,6 +196,10 @@ class LoginView extends GetView<AuthController> {
                                 )
                               : const SizedBox.shrink()),
 
+                          // Bước 2FA (OTP/TOTP) khi core yêu cầu; ngược lại là form mật khẩu.
+                          if (controller.loginChallenge.value != null)
+                            _buildOtpStage(controller.loginChallenge.value!)
+                          else ...[
                           // Identifier input
                           TextField(
                             controller: controller.identifierController,
@@ -255,6 +327,7 @@ class LoginView extends GetView<AuthController> {
                                         ),
                                       ),
                               )),
+                          ],
                           const SizedBox(height: 20),
 
                           // Register Link

@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../core/localization/supported_locale.dart';
 import '../../../modules/auth/services/auth_service.dart';
+import '../../../modules/auth/services/core_auth_client.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../../core/session/session_controller.dart';
 
@@ -31,6 +32,10 @@ class AuthController extends GetxController {
 
   final identifierController = TextEditingController();
   final passwordController = TextEditingController();
+
+  /// Khác null khi core đòi thêm bước 2FA (OTP email/SMS hoặc TOTP) sau khi mật khẩu đúng.
+  final loginChallenge = Rxn<CoreSecondFactorRequired>();
+  final loginOtpController = TextEditingController();
 
   // Register State
   final isRegisterLoading = false.obs;
@@ -88,6 +93,7 @@ class AuthController extends GetxController {
   void onClose() {
     identifierController.dispose();
     passwordController.dispose();
+    loginOtpController.dispose();
     regDisplayNameController.dispose();
     regEmailController.dispose();
     regPasswordController.dispose();
@@ -129,6 +135,42 @@ class AuthController extends GetxController {
     errorMessage.value = '';
 
     final loginResult = await _authService.loginPlatform(identifier, password);
+    if (loginResult.challenge != null) {
+      // Core đòi thêm bước 2FA (OTP/TOTP): chuyển sang ô nhập mã, chưa đăng nhập xong.
+      loginChallenge.value = loginResult.challenge;
+      loginOtpController.clear();
+      isLoading.value = false;
+      return;
+    }
+    await _finishLogin(loginResult, identifier);
+  }
+
+  /// Bước 2 đăng nhập: gửi mã 2FA người dùng nhập lên core rồi hoàn tất đăng nhập.
+  Future<void> submitLoginOtp() async {
+    final challenge = loginChallenge.value;
+    final code = loginOtpController.text.trim();
+    if (challenge == null) return;
+    if (code.isEmpty) {
+      errorMessage.value = 'Vui lòng nhập mã xác thực';
+      return;
+    }
+
+    isLoading.value = true;
+    errorMessage.value = '';
+    final result = await _authService.verifyLoginStep(challenge, code);
+    if (result.success) loginChallenge.value = null;
+    await _finishLogin(result, identifierController.text.trim());
+  }
+
+  /// Quay lại form mật khẩu (bỏ phiên 2FA đang chờ).
+  void cancelLoginOtp() {
+    loginChallenge.value = null;
+    loginOtpController.clear();
+    errorMessage.value = '';
+  }
+
+  /// Phần chung sau khi core xác thực xong: đồng bộ workspace rồi vào hub/workspace picker.
+  Future<void> _finishLogin(AuthResult loginResult, String identifier) async {
     if (!loginResult.success || loginResult.token == null) {
       errorMessage.value = loginResult.errorMessage ?? 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.';
       isLoading.value = false;

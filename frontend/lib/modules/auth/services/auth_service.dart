@@ -59,6 +59,10 @@ class AuthResult {
   final Map<String, dynamic>? user;
   final List<Map<String, dynamic>>? rawWorkspaces;
 
+  /// Khác null khi core đòi thêm bước 2FA mà web làm được: UI hiện ô nhập mã rồi gọi
+  /// [AuthService.verifyLoginStep] với challenge này.
+  final CoreSecondFactorRequired? challenge;
+
   const AuthResult({
     required this.success,
     this.errorMessage,
@@ -67,6 +71,7 @@ class AuthResult {
     this.workspaces,
     this.user,
     this.rawWorkspaces,
+    this.challenge,
   });
 }
 
@@ -150,8 +155,48 @@ class AuthService {
         token: session.accessToken,
         user: session.user,
       );
-    } on CoreAuthException catch (e) {
-      debugPrint('loginPlatform core error: $e');
+    } on CoreSecondFactorRequired catch (e) {
+      // Gửi OTP ngay để người dùng có mã khi ô nhập mã hiện ra (TOTP không cần gửi).
+      if (e.needsOtpRequest) {
+        try {
+          await _coreAuth.requestSigninOtp(e);
+        } catch (otpError) {
+          debugPrint('loginPlatform requestSigninOtp error: $otpError');
+          return AuthResult(
+            success: false,
+            errorMessage: otpError is CoreAuthException
+                ? otpError.message
+                : 'Không gửi được mã xác thực. Vui lòng thử lại.',
+          );
+        }
+      }
+      return AuthResult(success: false, challenge: e);
+    } catch (e) {
+      debugPrint('loginPlatform error: $e');
+      return _loginFailure(e);
+    }
+  }
+
+  /// Bước 2 đăng nhập: xác minh mã 2FA của [challenge] (do [loginPlatform] trả về).
+  Future<AuthResult> verifyLoginStep(CoreSecondFactorRequired challenge, String code) async {
+    try {
+      final session = await _coreAuth.verifySigninStep(challenge, code.trim());
+      await PlatformTokenProvider.saveSession(session);
+      return AuthResult(success: true, token: session.accessToken, user: session.user);
+    } catch (e) {
+      debugPrint('verifyLoginStep error: $e');
+      if (e is CoreAuthException && (e.statusCode == 400 || e.statusCode == 401)) {
+        return AuthResult(
+          success: false,
+          errorMessage: e.message.startsWith('HTTP ') ? 'Mã xác thực không đúng hoặc đã hết hạn' : e.message,
+        );
+      }
+      return _loginFailure(e);
+    }
+  }
+
+  AuthResult _loginFailure(Object e) {
+    if (e is CoreAuthException) {
       if (e.statusCode == 401 || e.statusCode == 403) {
         return const AuthResult(
           success: false,
@@ -165,18 +210,16 @@ class AuthService {
         success: false,
         errorMessage: 'Đăng nhập không thành công (mã lỗi ${e.statusCode})',
       );
-    } catch (e) {
-      debugPrint('loginPlatform error: $e');
-      final isNetwork = e.toString().contains('SocketException') ||
-          e.toString().contains('ClientException') ||
-          e.toString().contains('TimeoutException');
-      return AuthResult(
-        success: false,
-        errorMessage: isNetwork
-            ? 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.'
-            : 'Đăng nhập thất bại: $e',
-      );
     }
+    final isNetwork = e.toString().contains('SocketException') ||
+        e.toString().contains('ClientException') ||
+        e.toString().contains('TimeoutException');
+    return AuthResult(
+      success: false,
+      errorMessage: isNetwork
+          ? 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.'
+          : 'Đăng nhập thất bại: $e',
+    );
   }
 
   /// Đăng ký trên control_plane bằng email + password + workspaceName (hoặc companyName).
