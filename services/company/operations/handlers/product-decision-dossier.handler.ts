@@ -1,5 +1,6 @@
 import { api, Header } from "encore.dev/api";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { AGENT_CAP } from "../../shared/auth/agent-capabilities";
 import {
   EvidenceRef,
   ProductDecisionSnapshot,
@@ -50,7 +51,7 @@ export const readProductDecisionSnapshotEndpoint = api(
     workspaceId: Header<"X-Workspace-Id">;
     authorization?: Header<"Authorization">;
   }): Promise<ProductDecisionSnapshot> => {
-    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId, { agentCapabilities: [AGENT_CAP.PRODUCT_DECISION_READ] });
     return readProductDecisionSnapshot(ctx, params.projectId);
   }
 );

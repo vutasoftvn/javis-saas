@@ -1,5 +1,6 @@
 import { api, Header } from "encore.dev/api";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { AGENT_CAP } from "../../shared/auth/agent-capabilities";
 import {
   getCrmSchemaService,
   createFieldDefinitionService,
@@ -83,7 +84,7 @@ export const getProjectCrmSchema = api(
     workspaceId: Header<"X-Workspace-Id">;
     authorization?: Header<"Authorization">;
   }): Promise<CrmSchemaView> => {
-    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId, { agentCapabilities: [AGENT_CAP.PROJECT_CRM_READ] });
     return getCrmSchemaService(ctx, projectId);
   }
 );
@@ -169,7 +170,7 @@ export const listProjectLeads = api(
     limit?: number;
     offset?: number;
   }): Promise<{ leads: ProjectLeadView[] }> => {
-    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId, { agentCapabilities: [AGENT_CAP.PROJECT_CRM_READ] });
     const leads = await listProjectLeadsService(ctx, projectId, { limit, offset });
     return { leads };
   }

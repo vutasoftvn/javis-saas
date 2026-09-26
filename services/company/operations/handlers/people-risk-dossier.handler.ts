@@ -1,5 +1,6 @@
 import { api, Header } from "encore.dev/api";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { AGENT_CAP } from "../../shared/auth/agent-capabilities";
 import { EvidenceRef } from "../services/product-decision-dossier.service";
 import {
   CapacityBand,
@@ -71,7 +72,7 @@ export const readPeopleRiskSnapshotEndpoint = api(
     workspaceId: Header<"X-Workspace-Id">;
     authorization?: Header<"Authorization">;
   }): Promise<PeopleRiskSnapshot> => {
-    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId, { agentCapabilities: [AGENT_CAP.PEOPLE_RISK_READ] });
     return readPeopleRiskSnapshot(ctx, params.projectId);
   }
 );

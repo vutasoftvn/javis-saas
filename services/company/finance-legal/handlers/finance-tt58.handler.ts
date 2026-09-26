@@ -1,5 +1,6 @@
 import { api, Header, Query } from "encore.dev/api";
 import { requireWorkspaceAccess, requireFounderCommand } from "../../shared/auth/workspace-access";
+import { AGENT_CAP } from "../../shared/auth/agent-capabilities";
 import {
   getAccountingRegimePolicyService,
   setAccountingRegimePolicyService,
@@ -70,7 +71,7 @@ export interface ListBankConnectionsParams {
 export const getBankConnections = api(
   { method: "GET", path: "/finance/bank-connections", expose: true },
   async (params: ListBankConnectionsParams): Promise<{ connections: BankConnectionView[] }> => {
-    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId, { agentCapabilities: [AGENT_CAP.FINANCE_CONNECTION_READ] });
     const connections = await listBankConnectionsService(BigInt(ctx.workspaceId));
     return { connections };
   }
@@ -107,7 +108,7 @@ export interface ListBankTransactionsParams {
 export const getBankTransactions = api(
   { method: "GET", path: "/finance/bank-transactions", expose: true },
   async (params: ListBankTransactionsParams): Promise<{ transactions: BankTransactionView[] }> => {
-    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId, { agentCapabilities: [AGENT_CAP.FINANCE_TRANSACTION_READ] });
     const transactions = await listBankTransactionsService(BigInt(ctx.workspaceId), params.status);
     return { transactions };
   }
@@ -144,7 +145,7 @@ export interface CreateAccountingDocumentParams {
 export const postAccountingDocument = api(
   { method: "POST", path: "/finance/accounting-documents", expose: true },
   async (params: CreateAccountingDocumentParams): Promise<AccountingDocumentView> => {
-    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId, { agentCapabilities: [AGENT_CAP.FINANCE_ACCOUNTING_DOCUMENT_CREATE_DRAFT] });
     return createDraftDocumentService({
       workspaceId: BigInt(ctx.workspaceId),
       documentType: params.documentType,

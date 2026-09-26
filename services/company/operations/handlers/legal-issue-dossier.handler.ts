@@ -1,5 +1,6 @@
 import { api, Header } from "encore.dev/api";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { AGENT_CAP } from "../../shared/auth/agent-capabilities";
 import {
   LegalApplicabilityStatus,
   LegalIssueCategory,
@@ -79,7 +80,7 @@ export const readLegalIssueSnapshotEndpoint = api(
     workspaceId: Header<"X-Workspace-Id">;
     authorization?: Header<"Authorization">;
   }): Promise<LegalIssueSnapshot> => {
-    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId, { agentCapabilities: [AGENT_CAP.LEGAL_ISSUE_READ] });
     return readLegalIssueSnapshot(ctx, params.projectId);
   }
 );

@@ -1,5 +1,6 @@
 import { api, Header } from "encore.dev/api";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { AGENT_CAP } from "../../shared/auth/agent-capabilities";
 import {
   MarketingContextDTO,
   UpdateProductMarketingParams,
@@ -58,7 +59,7 @@ export interface ApproveContextRequest extends ApproveContextParams {
 export const getMarketingContext = api(
   { expose: true, method: "GET", path: "/commercial/marketing-context" },
   async ({ workspaceId, authorization }: GetMarketingContextRequest): Promise<MarketingContextDTO> => {
-    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId, { agentCapabilities: [AGENT_CAP.MARKETING_CONTEXT_READ] });
     return getMarketingContextService(ctx);
   }
 );

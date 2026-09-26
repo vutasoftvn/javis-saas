@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 112 | 22 |
 | VALID_KEEP (giữ nguyên) | 132 | 37 |
-| REVIEW (chưa phân loại) | 1213 | 274 |
+| REVIEW (chưa phân loại) | 1215 | 275 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -209,6 +209,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/events/outbox-relay.service.ts | 2 |
 | services/company/finance-legal/services/cas-link.service.ts | 2 |
 | services/company/identity/migrations/001_cosa_startup_core_baseline.up.sql | 2 |
+| services/company/identity/services/tenant-context.service.ts | 2 |
 | services/company/identity/tests/helpers/test-session.ts | 2 |
 | services/company/operations/application/runtime/runtime-signal-projector.ts | 2 |
 | services/company/operations/migrations/028_startup_os_core_schema.up.sql | 2 |
@@ -275,7 +276,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/identity/handlers/workforce.handler.ts | 1 |
 | services/company/identity/services/e2e-session.service.ts | 1 |
 | services/company/identity/services/health.service.ts | 1 |
-| services/company/identity/services/tenant-context.service.ts | 1 |
 | services/company/identity/services/workforce.service.ts | 1 |
 | services/company/operations/domain/runtime-observation.ts | 1 |
 | services/company/operations/handlers/execution-plan.handler.ts | 1 |
@@ -300,6 +300,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/operations/strategy/handlers/experiment.handler.ts | 1 |
 | services/company/operations/tests/_helpers.ts | 1 |
 | services/company/package.json | 1 |
+| services/company/shared/auth/agent-capabilities.ts | 1 |
 | services/company/shared/auth/workspace-access.ts | 1 |
 | services/company/shared/events/customer-engagement-events.ts | 1 |
 | services/company/shared/events/event-types.ts | 1 |

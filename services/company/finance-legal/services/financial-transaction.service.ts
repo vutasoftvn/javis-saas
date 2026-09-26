@@ -3,6 +3,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspaceRecord } from "../../identity/services/workspace.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { AGENT_CAP } from "../../shared/auth/agent-capabilities";
 import { requireCommandAuthority } from "../../identity/services/command-authority.service";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { TenantContext } from "../../shared/types/tenant_context";
@@ -113,7 +114,9 @@ export async function requireFinancialTransactionWrite(
   authorization: string | undefined,
   workspaceId: string
 ): Promise<TenantContext> {
-  const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+  const ctx = await requireWorkspaceAccess(authorization, workspaceId, {
+    agentCapabilities: [AGENT_CAP.FINANCE_TRANSACTION_RECORD],
+  });
   await requireCommandAuthority(ctx, "finance.transaction.record", { workspaceId });
   return ctx;
 }
