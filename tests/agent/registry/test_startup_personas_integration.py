@@ -31,7 +31,8 @@ def test_cofounder_assistant_spec_properties():
     """Verify COSA_COFOUNDER_ASSISTANT_AGENT_SPEC is configured with Solo Founder DNA."""
     spec = COSA_COFOUNDER_ASSISTANT_AGENT_SPEC
     assert spec.id == "cosa.agents.founder_assistant"
-    assert spec.version == "1.0.0"
+    # 1.1.0: thêm capability startup_os.* (onboarding /cs:setup, /cs:update, tư vấn Goal).
+    assert spec.version == "1.1.0"
     assert spec.autonomy_level == AutonomyLevel.L0_OBSERVE
     assert "1 goal/week" in spec.instructions
     assert "Ship every Friday" in spec.instructions
