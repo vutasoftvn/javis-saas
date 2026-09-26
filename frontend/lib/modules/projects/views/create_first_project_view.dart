@@ -9,6 +9,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../auth/views/widgets/auth_language_switcher.dart';
 import '../../hologram_hub/controllers/founder_command_center_controller.dart';
 import '../../strategy/services/strategy_service.dart';
+import '../widgets/p0_core_setup_banner.dart';
 
 /// Màn tạo project đầu tiên khi workspace chưa có project nào.
 /// Thay cho luồng kickoff/stage-gate framework cũ — chỉ nhận title + mô tả;
@@ -72,8 +73,10 @@ class _CreateFirstProjectViewState extends State<CreateFirstProjectView> {
       final createdTitle = project['title']?.toString() ?? title;
 
       if (createdId.isNotEmpty) {
+        // Project đã tạo nhưng P0 Core chưa hội tụ ⇒ màn phân tích hiện banner sửa.
+        final p0Flag = isP0CoreBootstrapIncomplete(project) ? '&p0CoreIncomplete=1' : '';
         Get.offAllNamed(
-          '${AppRoutes.projectAnalysisFor(createdId)}?title=${Uri.encodeComponent(createdTitle)}',
+          '${AppRoutes.projectAnalysisFor(createdId)}?title=${Uri.encodeComponent(createdTitle)}$p0Flag',
         );
       } else {
         Get.offAllNamed(AppRoutes.hub);
