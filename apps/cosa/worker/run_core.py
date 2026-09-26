@@ -14,6 +14,7 @@ chèn được 3 UI emit ĐÚNG vị trí cũ (sau resolve spec, trước compli
 
 from __future__ import annotations
 
+import functools
 import logging
 import time
 from dataclasses import dataclass
@@ -260,6 +261,23 @@ async def _build_routed_kernel(plane: CosaAgentPlane, route: ResolvedModelRoute)
         model_client = await factory.create(route)
     except ModelProviderMisconfigured as exc:
         raise RunCoreError("model_provider_misconfigured") from exc
+
+    # Fallback lúc chạy (spec reliability hạng mục 2): lỗi provider khi gọi
+    # model chuyển sang profile kế tiếp trong allowlist của policy.
+    resolver = getattr(plane, "model_route_resolver", None)
+    resolve_fallbacks = getattr(resolver, "resolve_fallback_routes", None)
+    if resolve_fallbacks is not None and route.fallback_profile_ids:
+        fallback_routes = await resolve_fallbacks(route)
+        if fallback_routes:
+            from apps.cosa.models.fallback_model import FallbackModel
+
+            model_client = FallbackModel(
+                model_client,
+                primary_profile_id=route.profile_id,
+                fallbacks=[
+                    (r.profile_id, functools.partial(factory.create, r)) for r in fallback_routes
+                ],
+            )
 
     from apps.cosa.composition.kernel_factory import build_execution_kernel
 

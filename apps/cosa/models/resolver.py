@@ -83,6 +83,39 @@ class ModelRouteResolver:
         )
         return await self._validate(workspace_id, agent_spec_id, policy)
 
+    async def resolve_fallback_routes(self, route: ResolvedModelRoute) -> list[ResolvedModelRoute]:
+        """Các route fallback dùng lúc chạy khi profile của `route` lỗi provider.
+
+        Chỉ lấy profile ĐỨNG SAU profile đang dùng trong allowlist
+        `fallback_profile_ids` của policy (primary đã rơi xuống fallback lúc
+        resolve thì không quay lại profile trước đó), bỏ profile không ACTIVE.
+        System default không có fallback."""
+        if route.is_system_default or not route.fallback_profile_ids:
+            return []
+        ids = list(route.fallback_profile_ids)
+        remaining = ids[ids.index(route.profile_id) + 1 :] if route.profile_id in ids else ids
+        routes: list[ResolvedModelRoute] = []
+        for candidate_id in remaining:
+            if candidate_id == route.profile_id:
+                continue
+            profile = await self._repo.get_profile(route.workspace_id, candidate_id)
+            if profile is None or profile.status != ProfileStatus.ACTIVE:
+                continue
+            routes.append(
+                ResolvedModelRoute(
+                    workspace_id=route.workspace_id,
+                    agent_spec_id=route.agent_spec_id,
+                    profile_id=profile.profile_id,
+                    provider_type=profile.provider_type,
+                    model_id=profile.model_id,
+                    credential_ref=profile.credential_ref,
+                    base_url=profile.base_url,
+                    allowed_models=profile.allowed_models,
+                    fallback_profile_ids=route.fallback_profile_ids,
+                )
+            )
+        return routes
+
     async def _validate(
         self,
         workspace_id: str,
