@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import json
 import logging
 import os
 import re
@@ -162,8 +163,9 @@ async def finalize_wga_task_completion(
     evidence_refs: list[str] | None = None,
     summary: str | None = None,
     note: str = "completion_pending",
-) -> None:
+) -> bool:
     """Finalizer chung cho task WGA khi run hoàn tất (cả initial lẫn resumed).
+    Trả True nếu task đã được đóng 'done'.
 
     Có evidence -> advance('done') kèm evidenceRefs (company kiểm tra lại).
     Không có evidence hoặc company từ chối -> giữ 'in_progress' + completion_pending
@@ -181,7 +183,7 @@ async def finalize_wga_task_completion(
             evidence_refs=evidence_refs,
         )
         if done:
-            return
+            return True
         note = "completion_rejected"
 
     await _advance_task(
@@ -193,6 +195,7 @@ async def finalize_wga_task_completion(
         token=token,
         note=note or "completion_pending",
     )
+    return False
 
 
 async def advance_wga_task_after_resume(
@@ -482,6 +485,221 @@ def _task_execution_prompt(t: dict[str, Any]) -> str:
     )
 
 
+class _SweepProgress:
+    """G9 — gom kết quả task theo plan trong 1 lượt sweep rồi báo 1 message có
+    cấu trúc `{"kind": "plan_progress", ...}` vào conversation gốc của plan
+    (origin=chat). FE render thẻ theo `kind`, không parse văn bản (quy tắc 7)."""
+
+    _BUCKETS = ("done", "pending_review", "waiting_approval", "blocked")
+
+    def __init__(self) -> None:
+        self._plans: dict[str, dict[str, Any]] = {}
+
+    def record(self, t: dict[str, Any], outcome: str) -> None:
+        if outcome not in self._BUCKETS:
+            return
+        if t.get("planOrigin") != "chat" or not t.get("planOriginRef"):
+            return
+        plan_id = str(t.get("planId") or "")
+        if not plan_id:
+            return
+        entry = self._plans.setdefault(
+            plan_id,
+            {
+                "conversation_id": str(t["planOriginRef"]),
+                "project_id": str(t.get("projectId") or ""),
+                **{b: [] for b in self._BUCKETS},
+            },
+        )
+        entry[outcome].append(str(t.get("title") or t.get("taskId")))
+
+    async def post_to_origin_chats(self, plane: CosaAgentPlane) -> None:
+        for plan_id, entry in self._plans.items():
+            content = json.dumps(
+                {
+                    "kind": "plan_progress",
+                    "plan_id": plan_id,
+                    **{b: entry[b] for b in self._BUCKETS},
+                },
+                ensure_ascii=False,
+            )
+            await _post_chat_message(
+                plane,
+                conversation_id=entry["conversation_id"],
+                project_id=entry["project_id"],
+                run_id=f"wga_progress_{plan_id}",
+                content=content,
+            )
+
+
+async def _execute_claimed_task(
+    plane: CosaAgentPlane,
+    t: dict[str, Any],
+    *,
+    workspace_id: str,
+    sub: str,
+    sweep_project_id: str | None,
+) -> str:
+    """Chạy 1 task claimable; trả kết quả: done | pending_review |
+    waiting_approval | blocked | skipped (không claim được)."""
+    task_id = str(t["taskId"])
+    owner_profile = t.get("ownerAgentProfile") or "operations"
+    spec = _SPEC_BY_PROFILE.get(owner_profile)
+    # run_id mã hoá task_id để execute_resume_task khôi phục được task nào
+    # cần advance(done) sau khi founder duyệt checkpoint (WGA #1).
+    task_run_id = f"wga_task_{task_id}_{uuid.uuid4().hex[:8]}"
+
+    caps = [_CAP_TASK_ADVANCE, _CAP_TASK_LIST]
+    if t.get("expectedCapability"):
+        caps.append(t["expectedCapability"])
+    adv_token = mint_company_delegation(
+        sub=sub, workspace_id=workspace_id, run_id=task_run_id, capability_ids=caps
+    )
+
+    if spec is None:
+        # Fail-closed: không có spec tường minh cho profile này thì KHÔNG
+        # được âm thầm chạy bằng Operations spec (đúng bug lịch sử đã sửa ở
+        # handlers.py::_AGENT_PROFILE_SPECS — wga_run.py trước đây chưa áp
+        # dụng cùng nguyên tắc).
+        logger.error(
+            "unsupported ownerAgentProfile %r for task=%s ws=%s, failing closed",
+            owner_profile,
+            task_id,
+            workspace_id,
+        )
+        await _advance_task(
+            plane,
+            workspace_id=workspace_id,
+            task_id=task_id,
+            to_status="blocked",
+            run_id=task_run_id,
+            token=adv_token,
+            note=f"unsupported_owner_agent_profile_{owner_profile}",
+        )
+        return "blocked"
+
+    # G5 — agent được giao phải thật sự có capability của item; không thì
+    # run chắc chắn thất bại hoặc agent tự làm việc khác. Fail closed.
+    expected_cap = t.get("expectedCapability")
+    if expected_cap and expected_cap not in spec.capability_refs:
+        await _advance_task(
+            plane,
+            workspace_id=workspace_id,
+            task_id=task_id,
+            to_status="blocked",
+            run_id=task_run_id,
+            token=adv_token,
+            note=f"capability_not_in_profile:{expected_cap}",
+        )
+        return "blocked"
+
+    # Quy tắc 14 — run business phải có Project; task lệch Project của
+    # sweep (hoặc thiếu Project) fail closed trước khi claim.
+    task_project_id = str(t.get("projectId") or "") or None
+    if not task_project_id or (sweep_project_id and task_project_id != sweep_project_id):
+        await _advance_task(
+            plane,
+            workspace_id=workspace_id,
+            task_id=task_id,
+            to_status="blocked",
+            run_id=task_run_id,
+            token=adv_token,
+            note="missing_project_scope" if not task_project_id else "project_scope_mismatch",
+        )
+        return "blocked"
+
+    try:
+        await plane.company_client.post(
+            f"/operations/tasks/{task_id}/advance",
+            json={"toStatus": "in_progress", "runId": task_run_id},
+            headers={
+                "X-Workspace-Id": workspace_id,
+                "Authorization": f"Bearer {adv_token}",
+            },
+        )
+    except CompanyServiceError as exc:
+        logger.warning("sweep could not claim task=%s: %s", task_id, exc)
+        return "skipped"
+
+    needs_approval = t.get("autonomyClass") == "NEEDS_APPROVAL"
+    extra_metadata: dict[str, Any] = {"execution_plan_item_id": t.get("planItemId")}
+    if needs_approval and expected_cap:
+        extra_metadata[REQUIRE_APPROVAL_CAPABILITIES_KEY] = [expected_cap]
+
+    try:
+        prep = await prepare_run(
+            plane,
+            run_id=task_run_id,
+            local_spec=spec,
+            prompt=_task_execution_prompt(t),
+            principal=f"system:wga:{workspace_id}",
+            workspace_id=workspace_id,
+            conversation_id=f"wga_task_{task_run_id}",
+            policy_snapshot=None,
+            extra_metadata=extra_metadata,
+            project_id=task_project_id,
+        )
+    except RunCoreError as exc:
+        await _advance_task(
+            plane,
+            workspace_id=workspace_id,
+            task_id=task_id,
+            to_status="blocked",
+            run_id=task_run_id,
+            token=adv_token,
+            note=f"prep_failed:{exc.reason_code}",
+        )
+        return "blocked"
+
+    run_result, _ = await run_kernel(plane, prep, workspace_id=workspace_id, run_id=task_run_id)
+
+    if run_result.status == RunStatus.COMPLETED:
+        output_text = _extract_text(run_result)
+        evidence = await record_wga_task_evidence(
+            plane, workspace_id=workspace_id, run_id=task_run_id, output_text=output_text
+        )
+        # NEEDS_APPROVAL mà run xong không qua checkpoint duyệt (agent không
+        # gọi capability cần duyệt) -> không tự đóng; founder xác nhận.
+        done = await finalize_wga_task_completion(
+            plane,
+            workspace_id=workspace_id,
+            task_id=task_id,
+            run_id=task_run_id,
+            token=adv_token,
+            evidence_refs=None if needs_approval else evidence,
+            summary=output_text.strip()[:500] or None,
+            note="completion_pending_founder_review" if needs_approval else "completion_pending",
+        )
+        return "done" if done else "pending_review"
+    if run_result.status == RunStatus.WAITING_APPROVAL:
+        # Kernel đã tạo bản ghi approval (hiện ở WaitingForYouWidget). Đặt
+        # task 'waiting_approval'; founder duyệt -> decide_approval schedule
+        # 1 task resume -> execute_resume_task advance(done) (WGA #1).
+        await _advance_task(
+            plane,
+            workspace_id=workspace_id,
+            task_id=task_id,
+            to_status="waiting_approval",
+            run_id=task_run_id,
+            token=adv_token,
+            note="chờ founder duyệt checkpoint",
+        )
+        return "waiting_approval"
+    # Không gửi chuỗi lỗi thô (litellm/SDK) vào note hiển thị cho founder — chỉ mã.
+    raw = run_result.errors[0] if run_result.errors else "run_failed"
+    logger.warning("wga task=%s run=%s failed: %s", task_id, task_run_id, raw)
+    await _advance_task(
+        plane,
+        workspace_id=workspace_id,
+        task_id=task_id,
+        to_status="blocked",
+        run_id=task_run_id,
+        token=adv_token,
+        note=f"run_failed:{classify_run_error(raw).code}",
+    )
+    return "blocked"
+
+
 async def execute_workspace_task_sweep_task(
     plane: CosaAgentPlane,
     stream_mgr: Any,
@@ -527,161 +745,13 @@ async def execute_workspace_task_sweep_task(
     if not claimable:
         return
 
+    progress = _SweepProgress()
     for t in claimable:
-        task_id = str(t["taskId"])
-        owner_profile = t.get("ownerAgentProfile") or "operations"
-        spec = _SPEC_BY_PROFILE.get(owner_profile)
-        # run_id mã hoá task_id để execute_resume_task khôi phục được task nào
-        # cần advance(done) sau khi founder duyệt checkpoint (WGA #1).
-        task_run_id = f"wga_task_{task_id}_{uuid.uuid4().hex[:8]}"
-
-        caps = [_CAP_TASK_ADVANCE, _CAP_TASK_LIST]
-        if t.get("expectedCapability"):
-            caps.append(t["expectedCapability"])
-        adv_token = mint_company_delegation(
-            sub=sub, workspace_id=workspace_id, run_id=task_run_id, capability_ids=caps
+        outcome = await _execute_claimed_task(
+            plane, t, workspace_id=workspace_id, sub=sub, sweep_project_id=sweep_project_id
         )
-
-        if spec is None:
-            # Fail-closed: không có spec tường minh cho profile này thì KHÔNG
-            # được âm thầm chạy bằng Operations spec (đúng bug lịch sử đã sửa ở
-            # handlers.py::_AGENT_PROFILE_SPECS — wga_run.py trước đây chưa áp
-            # dụng cùng nguyên tắc).
-            logger.error(
-                "unsupported ownerAgentProfile %r for task=%s ws=%s, failing closed",
-                owner_profile,
-                task_id,
-                workspace_id,
-            )
-            await _advance_task(
-                plane,
-                workspace_id=workspace_id,
-                task_id=task_id,
-                to_status="blocked",
-                run_id=task_run_id,
-                token=adv_token,
-                note=f"unsupported_owner_agent_profile_{owner_profile}",
-            )
-            continue
-
-        # G5 — agent được giao phải thật sự có capability của item; không thì
-        # run chắc chắn thất bại hoặc agent tự làm việc khác. Fail closed.
-        expected_cap = t.get("expectedCapability")
-        if expected_cap and expected_cap not in spec.capability_refs:
-            await _advance_task(
-                plane,
-                workspace_id=workspace_id,
-                task_id=task_id,
-                to_status="blocked",
-                run_id=task_run_id,
-                token=adv_token,
-                note=f"capability_not_in_profile:{expected_cap}",
-            )
-            continue
-
-        # Quy tắc 14 — run business phải có Project; task lệch Project của
-        # sweep (hoặc thiếu Project) fail closed trước khi claim.
-        task_project_id = str(t.get("projectId") or "") or None
-        if not task_project_id or (sweep_project_id and task_project_id != sweep_project_id):
-            await _advance_task(
-                plane,
-                workspace_id=workspace_id,
-                task_id=task_id,
-                to_status="blocked",
-                run_id=task_run_id,
-                token=adv_token,
-                note="missing_project_scope" if not task_project_id else "project_scope_mismatch",
-            )
-            continue
-
-        try:
-            await plane.company_client.post(
-                f"/operations/tasks/{task_id}/advance",
-                json={"toStatus": "in_progress", "runId": task_run_id},
-                headers={
-                    "X-Workspace-Id": workspace_id,
-                    "Authorization": f"Bearer {adv_token}",
-                },
-            )
-        except CompanyServiceError as exc:
-            logger.warning("sweep could not claim task=%s: %s", task_id, exc)
-            continue
-
-        needs_approval = t.get("autonomyClass") == "NEEDS_APPROVAL"
-        extra_metadata: dict[str, Any] = {"execution_plan_item_id": t.get("planItemId")}
-        if needs_approval and expected_cap:
-            extra_metadata[REQUIRE_APPROVAL_CAPABILITIES_KEY] = [expected_cap]
-
-        try:
-            prep = await prepare_run(
-                plane,
-                run_id=task_run_id,
-                local_spec=spec,
-                prompt=_task_execution_prompt(t),
-                principal=f"system:wga:{workspace_id}",
-                workspace_id=workspace_id,
-                conversation_id=f"wga_task_{task_run_id}",
-                policy_snapshot=None,
-                extra_metadata=extra_metadata,
-                project_id=task_project_id,
-            )
-        except RunCoreError as exc:
-            await _advance_task(
-                plane,
-                workspace_id=workspace_id,
-                task_id=task_id,
-                to_status="blocked",
-                run_id=task_run_id,
-                token=adv_token,
-                note=f"prep_failed:{exc.reason_code}",
-            )
-            continue
-
-        run_result, _ = await run_kernel(plane, prep, workspace_id=workspace_id, run_id=task_run_id)
-
-        if run_result.status == RunStatus.COMPLETED:
-            output_text = _extract_text(run_result)
-            evidence = await record_wga_task_evidence(
-                plane, workspace_id=workspace_id, run_id=task_run_id, output_text=output_text
-            )
-            # NEEDS_APPROVAL mà run xong không qua checkpoint duyệt (agent không
-            # gọi capability cần duyệt) -> không tự đóng; founder xác nhận.
-            await finalize_wga_task_completion(
-                plane,
-                workspace_id=workspace_id,
-                task_id=task_id,
-                run_id=task_run_id,
-                token=adv_token,
-                evidence_refs=None if needs_approval else evidence,
-                summary=output_text.strip()[:500] or None,
-                note="completion_pending_founder_review"
-                if needs_approval
-                else "completion_pending",
-            )
-        elif run_result.status == RunStatus.WAITING_APPROVAL:
-            # Kernel đã tạo bản ghi approval (hiện ở WaitingForYouWidget). Đặt
-            # task 'waiting_approval'; founder duyệt -> decide_approval schedule
-            # 1 task resume -> execute_resume_task advance(done) (WGA #1).
-            await _advance_task(
-                plane,
-                workspace_id=workspace_id,
-                task_id=task_id,
-                to_status="waiting_approval",
-                run_id=task_run_id,
-                token=adv_token,
-                note="chờ founder duyệt checkpoint",
-            )
-        else:
-            note = run_result.errors[0] if run_result.errors else "run_failed"
-            await _advance_task(
-                plane,
-                workspace_id=workspace_id,
-                task_id=task_id,
-                to_status="blocked",
-                run_id=task_run_id,
-                token=adv_token,
-                note=note,
-            )
+        progress.record(t, outcome)
+    await progress.post_to_origin_chats(plane)
 
     # Còn task chưa xử (batch đầy hoặc dependency mở khoá sau) → re-schedule.
     if len(claimable) >= batch:

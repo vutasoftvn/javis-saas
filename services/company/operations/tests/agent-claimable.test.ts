@@ -73,6 +73,7 @@ describe("listAgentClaimableTasksService", () => {
     expect(claimable.every((t) => t.ownerAgentProfile === "operations")).toBe(true);
     expect(claimable[0]!.planItemId).toBeTruthy();
     expect(claimable.every((t) => t.projectId === s.projectId)).toBe(true);
+    expect(claimable.every((t) => t.planOrigin === "command_center" && t.planOriginRef === null)).toBe(true);
   });
 
   it("filters by projectId so a sweep never crosses Projects", async () => {

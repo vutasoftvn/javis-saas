@@ -249,4 +249,22 @@ void main() {
       '5',
     );
   });
+
+  test('requestDecomposition from chat carries the conversation as originRef', () async {
+    final calls = <Map<String, dynamic>>[];
+    ApiClient.client = MockClient((req) async {
+      if (req.method == 'POST' &&
+          req.url.path == '/operations/strategy/projects/proj-1/weekly-goal') {
+        calls.add(jsonDecode(req.body) as Map<String, dynamic>);
+        return _ok({'weeklyPlanId': 'wp-1', 'focus': 'x', 'decompositionRequested': true});
+      }
+      return http.Response('{}', 404);
+    });
+    final c = FounderCommandCenterController();
+    c.activeProjectId.value = 'proj-1';
+    c.seedConversationIdForTest('conv_42');
+    await c.requestDecomposition('Chốt 3 phỏng vấn khách hàng', origin: 'chat');
+    expect(calls.single['origin'], 'chat');
+    expect(calls.single['originRef'], 'conv_42');
+  });
 }

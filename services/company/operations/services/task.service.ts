@@ -622,6 +622,9 @@ export interface AgentClaimableTask {
   planId: string;
   /** Project của execution plan — run của agent bắt buộc mang scope này. */
   projectId: string;
+  /** Nguồn plan ('chat' | 'command_center') + conversation gốc để báo tiến độ (G9). */
+  planOrigin: string;
+  planOriginRef: string | null;
 }
 
 /**
@@ -681,6 +684,8 @@ export async function listAgentClaimableTasksService(
       planItemId: executionPlanItems.id,
       planId: executionPlanItems.planId,
       projectId: executionPlans.projectId,
+      planOrigin: executionPlans.origin,
+      planOriginRef: executionPlans.originRef,
       sortKey: executionPlanItems.sortKey,
     })
     .from(tasks)
@@ -724,6 +729,8 @@ export async function listAgentClaimableTasksService(
     planItemId: r.planItemId.toString(),
     planId: r.planId.toString(),
     projectId: r.projectId.toString(),
+    planOrigin: r.planOrigin,
+    planOriginRef: r.planOriginRef,
   }));
 }
 

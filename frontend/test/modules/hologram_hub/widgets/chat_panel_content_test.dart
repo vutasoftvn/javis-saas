@@ -160,4 +160,34 @@ void main() {
     expect(find.byIcon(Icons.smart_toy_outlined), findsOneWidget);
     expect(find.byType(AppMarkdownBody), findsOneWidget);
   });
+
+  testWidgets('renders a plan_progress JSON message as a progress card', (tester) async {
+    final controller = Get.put(FounderCommandCenterController());
+    controller.chatMessages.add({
+      'role': 'assistant',
+      'content':
+          '{"kind":"plan_progress","plan_id":"pl1","done":["Liệt kê task"],"pending_review":[],"waiting_approval":["Gửi email"],"blocked":[]}',
+    });
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        home: Scaffold(
+          body: ChatPanelContent(controller: controller, onClose: () {}),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Cập nhật tiến độ kế hoạch'), findsOneWidget);
+    expect(find.text('Đã xong: Liệt kê task'), findsOneWidget);
+    expect(find.text('Chờ bạn duyệt: Gửi email'), findsOneWidget);
+    expect(find.textContaining('Bị chặn'), findsNothing);
+    expect(find.textContaining('"kind"'), findsNothing);
+  });
+
+  test('PlanProgress.tryParse ignores non-progress content', () {
+    expect(PlanProgress.tryParse('xin chào'), isNull);
+    expect(PlanProgress.tryParse('{"kind":"goal_confirm"}'), isNull);
+    expect(PlanProgress.tryParse('{"kind":"plan_progress"'), isNull);
+  });
 }

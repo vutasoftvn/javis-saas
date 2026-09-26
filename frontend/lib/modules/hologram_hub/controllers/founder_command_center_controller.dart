@@ -885,13 +885,17 @@ class FounderCommandCenterController extends GetxController {
       return;
     }
     isDecomposing.value = true;
+    // Mục tiêu xác nhận từ chat phải mang conversation gốc — backend dùng nó để
+    // báo kết quả lập kế hoạch và tiến độ task về đúng cuộc chat (WGA G9).
+    final effectiveOriginRef =
+        originRef ?? (origin == 'chat' ? _cofounderConversationId : null);
     try {
       final weeklyPlanId = await _executionPlanService.setWeeklyGoal(
         pid,
         focus.trim(),
         triggerDecomposition: true,
         origin: origin,
-        originRef: originRef,
+        originRef: effectiveOriginRef,
       );
       if (weeklyPlanId != null) {
         latestDecomposition.value =

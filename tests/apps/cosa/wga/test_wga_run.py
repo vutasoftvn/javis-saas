@@ -688,3 +688,75 @@ async def test_goal_decomposition_reports_failure_when_plan_post_fails():
         "/operations/weekly-plans/77/decomposition-failure",
     ]
     assert company.post.await_args_list[1].kwargs["json"]["errorCode"] == "plan_create_failed"
+
+
+@pytest.mark.asyncio
+async def test_sweep_posts_one_plan_progress_message_to_origin_chat():
+    done_task = dict(_AUTO_TASK, planId="pl1", planOrigin="chat", planOriginRef="conv_9")
+    blocked_task = dict(
+        _AUTO_TASK,
+        taskId="t2",
+        title="Gửi báo cáo",
+        planId="pl1",
+        planOrigin="chat",
+        planOriginRef="conv_9",
+        expectedCapability="finance.transaction.record",  # không thuộc operations -> blocked
+    )
+    company = AsyncMock()
+    company.get.return_value = {"tasks": [done_task, blocked_task]}
+    company.post.return_value = {"status": "ok"}
+    plane = _plane(company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": "ok"}))
+
+    await wga_run.execute_workspace_task_sweep_task(
+        plane, None, {"run_id": "s", "workspace_id": "ws1", "actor_id": "42"}
+    )
+
+    [call] = plane.conversation_repository.add_message.await_args_list
+    msg = call.args[0]
+    assert msg.conversation_id == "conv_9"
+    assert msg.project_id == "proj1"
+    body = json.loads(msg.content)
+    assert body == {
+        "kind": "plan_progress",
+        "plan_id": "pl1",
+        "done": ["List stale tasks"],
+        "pending_review": [],
+        "waiting_approval": [],
+        "blocked": ["Gửi báo cáo"],
+    }
+
+
+@pytest.mark.asyncio
+async def test_sweep_does_not_post_progress_for_command_center_plans():
+    task = dict(_AUTO_TASK, planId="pl1", planOrigin="command_center", planOriginRef=None)
+    company = AsyncMock()
+    company.get.return_value = {"tasks": [task]}
+    company.post.return_value = {"status": "ok"}
+    plane = _plane(company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": "ok"}))
+
+    await wga_run.execute_workspace_task_sweep_task(
+        plane, None, {"run_id": "s", "workspace_id": "ws1", "actor_id": "42"}
+    )
+
+    plane.conversation_repository.add_message.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_sweep_blocked_note_carries_error_code_not_raw_provider_error():
+    company = AsyncMock()
+    company.get.return_value = {"tasks": [dict(_AUTO_TASK)]}
+    company.post.return_value = {"status": "ok"}
+    plane = _plane(
+        company,
+        kernel_result=_run_result(
+            RunStatus.FAILED, errors=["litellm.RateLimitError: 429 Too Many Requests"]
+        ),
+    )
+
+    await wga_run.execute_workspace_task_sweep_task(
+        plane, None, {"run_id": "s", "workspace_id": "ws1", "actor_id": "42"}
+    )
+
+    last = [c for c in company.post.await_args_list if "advance" in c.args[0]][-1]
+    assert last.kwargs["json"]["toStatus"] == "blocked"
+    assert last.kwargs["json"]["note"] == "run_failed:provider_rate_limited"
