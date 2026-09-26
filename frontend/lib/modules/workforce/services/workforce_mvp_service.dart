@@ -1,7 +1,3 @@
-// Founder Trial R1 — legacy surface removed from the MVP contract. Every
-// request here now returns MvpRequestClient.unavailable(); the retained
-// class shell keeps callers compiling until the module is deleted.
-// ignore_for_file: unused_field, unused_import, unused_element
 import 'package:http/http.dart' as http;
 
 import '../../../core/network/api_result.dart';
@@ -30,16 +26,33 @@ class WorkforceMvpService {
     return const [];
   }
 
+  Map<String, dynamic> _asMap(Object? json) {
+    if (json is Map<String, dynamic>) return json;
+    throw const FormatException('Expected JSON object in workforce response');
+  }
+
   Future<ApiResult<List<WorkforceRun>>> listRuns({int limit = 50}) async {
-    return MvpRequestClient.unavailable<List<WorkforceRun>>('workforceRunList was removed from the Founder Trial R1 contract');
+    return _client.request<List<WorkforceRun>>(
+      MvpEndpoint.workforceRunsList,
+      query: {'limit': '$limit'},
+      decode: (raw) => _asList(raw).map(WorkforceRun.fromJson).toList(),
+    );
   }
 
   Future<ApiResult<List<WorkforceRunEvent>>> listRunEvents(String runId) async {
-    return MvpRequestClient.unavailable<List<WorkforceRunEvent>>('workforceRunEvents was removed from the Founder Trial R1 contract');
+    return _client.request<List<WorkforceRunEvent>>(
+      MvpEndpoint.workforceRunEvents,
+      pathParams: {'runId': runId},
+      decode: (raw) => _asList(raw).map(WorkforceRunEvent.fromJson).toList(),
+    );
   }
 
   Future<ApiResult<List<WorkforceApproval>>> listApprovals({String? status}) async {
-    return MvpRequestClient.unavailable<List<WorkforceApproval>>('workforceApprovalList was removed from the Founder Trial R1 contract');
+    return _client.request<List<WorkforceApproval>>(
+      MvpEndpoint.workforceApprovalsList,
+      query: {'status': ?status},
+      decode: (raw) => _asList(raw).map(WorkforceApproval.fromJson).toList(),
+    );
   }
 
   Future<ApiResult<WorkforceApprovalDecision>> decideApproval(
@@ -47,11 +60,19 @@ class WorkforceMvpService {
     required bool approved,
     String? reason,
   }) async {
-    return MvpRequestClient.unavailable<WorkforceApprovalDecision>('workforceApprovalDecision was removed from the Founder Trial R1 contract');
+    return _client.request<WorkforceApprovalDecision>(
+      MvpEndpoint.workforceApprovalDecide,
+      pathParams: {'approvalId': approvalId},
+      body: {'approved': approved, 'reason': ?reason},
+      decode: (raw) => WorkforceApprovalDecision.fromJson(_asMap(raw)),
+    );
   }
 
   Future<ApiResult<List<WorkforceCompositionEntry>>> getComposition() async {
-    return MvpRequestClient.unavailable<List<WorkforceCompositionEntry>>('workforceCompositionGet was removed from the Founder Trial R1 contract');
+    return _client.request<List<WorkforceCompositionEntry>>(
+      MvpEndpoint.workforceCompositionRead,
+      decode: (raw) => _asList(raw).map(WorkforceCompositionEntry.fromJson).toList(),
+    );
   }
 
   // Task 7 — org-chart chưa có typed model riêng (backend trả cây phân cấp
@@ -61,26 +82,45 @@ class WorkforceMvpService {
   // ApiFailure thật giống mọi endpoint workforce khác — không tự ghép URL
   // `/workforce/org-chart` (thiếu prefix `/agent`, luôn 404 lên sai host).
   Future<ApiResult<Map<String, dynamic>>> getOrgChart() async {
-    return MvpRequestClient.unavailable<Map<String, dynamic>>('workforceOrgChartGet was removed from the Founder Trial R1 contract');
+    return _client.request<Map<String, dynamic>>(
+      MvpEndpoint.workforceOrgChartRead,
+      decode: _asMap,
+    );
   }
 
   Future<ApiResult<List<WorkforceRosterEntry>>> listRoster() async {
-    return MvpRequestClient.unavailable<List<WorkforceRosterEntry>>('workforceRosterList was removed from the Founder Trial R1 contract');
+    return _client.request<List<WorkforceRosterEntry>>(
+      MvpEndpoint.workforceRosterList,
+      decode: (raw) => _asList(raw).map(WorkforceRosterEntry.fromJson).toList(),
+    );
   }
 
   Future<ApiResult<List<WorkforceWorkProduct>>> listWorkProducts() async {
-    return MvpRequestClient.unavailable<List<WorkforceWorkProduct>>('workforceWorkProductList was removed from the Founder Trial R1 contract');
+    return _client.request<List<WorkforceWorkProduct>>(
+      MvpEndpoint.workforceWorkProductsList,
+      decode: (raw) => _asList(raw).map(WorkforceWorkProduct.fromJson).toList(),
+    );
   }
 
   Future<ApiResult<WorkforceExceptionSummary>> listExceptions() async {
-    return MvpRequestClient.unavailable<WorkforceExceptionSummary>('workforceExceptionList was removed from the Founder Trial R1 contract');
+    return _client.request<WorkforceExceptionSummary>(
+      MvpEndpoint.workforceExceptionsList,
+      decode: (raw) => WorkforceExceptionSummary.fromJson(_asMap(raw)),
+    );
   }
 
   Future<ApiResult<WorkforceStageRoster>> getStageRoster(String stageCode) async {
-    return MvpRequestClient.unavailable<WorkforceStageRoster>('workforceStageRosterGet was removed from the Founder Trial R1 contract');
+    return _client.request<WorkforceStageRoster>(
+      MvpEndpoint.workforceStageRosterRead,
+      pathParams: {'stageCode': stageCode},
+      decode: (raw) => WorkforceStageRoster.fromJson(_asMap(raw)),
+    );
   }
 
   Future<ApiResult<WorkforceDashboardSummary>> getDashboardSummary() async {
-    return MvpRequestClient.unavailable<WorkforceDashboardSummary>('workforceDashboardSummaryGet was removed from the Founder Trial R1 contract');
+    return _client.request<WorkforceDashboardSummary>(
+      MvpEndpoint.workforceDashboardSummaryRead,
+      decode: (raw) => WorkforceDashboardSummary.fromJson(_asMap(raw)),
+    );
   }
 }

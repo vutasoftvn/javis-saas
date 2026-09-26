@@ -1,7 +1,3 @@
-// Founder Trial R1 — legacy surface removed from the MVP contract. Every
-// request here now returns MvpRequestClient.unavailable(); the retained
-// class shell keeps callers compiling until the module is deleted.
-// ignore_for_file: unused_field, unused_import, unused_element
 import 'package:http/http.dart' as http;
 
 import '../../../core/network/api_result.dart';
@@ -28,39 +24,66 @@ class SettingsMvpService {
 
   // 1. Members
   Future<ApiResult<List<WorkspaceMemberModel>>> listMembers() async {
-    return MvpRequestClient.unavailable<List<WorkspaceMemberModel>>('settingsMemberList was removed from the Founder Trial R1 contract');
+    return _client.request<List<WorkspaceMemberModel>>(
+      MvpEndpoint.settingsMembersList,
+      decode: (raw) => _asList(raw).map(WorkspaceMemberModel.fromJson).toList(),
+    );
   }
 
   // 2. Connectors
   Future<ApiResult<List<ConnectorStatusModel>>> listConnectors() async {
-    return MvpRequestClient.unavailable<List<ConnectorStatusModel>>('settingsConnectorList was removed from the Founder Trial R1 contract');
+    return _client.request<List<ConnectorStatusModel>>(
+      MvpEndpoint.settingsConnectorsList,
+      decode: (raw) => _asList(raw).map(ConnectorStatusModel.fromJson).toList(),
+    );
   }
 
   Future<ApiResult<ConnectorStatusModel>> installConnector(String connectorKey) async {
-    return MvpRequestClient.unavailable<ConnectorStatusModel>('settingsConnectorInstall was removed from the Founder Trial R1 contract');
+    return _client.request<ConnectorStatusModel>(
+      MvpEndpoint.settingsConnectorInstall,
+      pathParams: {'connectorKey': connectorKey},
+      decode: (raw) => ConnectorStatusModel.fromJson(_asMap(raw)),
+    );
   }
 
   Future<ApiResult<ConnectorStatusModel>> revokeConnector(String connectorKey) async {
-    return MvpRequestClient.unavailable<ConnectorStatusModel>('settingsConnectorRevoke was removed from the Founder Trial R1 contract');
+    return _client.request<ConnectorStatusModel>(
+      MvpEndpoint.settingsConnectorRevoke,
+      pathParams: {'connectorKey': connectorKey},
+      decode: (raw) => ConnectorStatusModel.fromJson(_asMap(raw)),
+    );
   }
 
   // 3. Runtime Nodes
   Future<ApiResult<List<RuntimeNodeModel>>> listRuntimeNodes() async {
-    return MvpRequestClient.unavailable<List<RuntimeNodeModel>>('settingsRuntimeNodeList was removed from the Founder Trial R1 contract');
+    return _client.request<List<RuntimeNodeModel>>(
+      MvpEndpoint.settingsRuntimeNodesList,
+      decode: (raw) => _asList(raw).map(RuntimeNodeModel.fromJson).toList(),
+    );
   }
 
   Future<ApiResult<Map<String, dynamic>>> revokeRuntimeNode(String nodeId) async {
-    return MvpRequestClient.unavailable<Map<String, dynamic>>('settingsRuntimeNodeRevoke was removed from the Founder Trial R1 contract');
+    return _client.request<Map<String, dynamic>>(
+      MvpEndpoint.settingsRuntimeNodeRevoke,
+      pathParams: {'nodeId': nodeId},
+      decode: _asMap,
+    );
   }
 
   // 4. Audit Events
   Future<ApiResult<List<WorkspaceAuditEventModel>>> listAuditEvents() async {
-    return MvpRequestClient.unavailable<List<WorkspaceAuditEventModel>>('settingsAuditEventList was removed from the Founder Trial R1 contract');
+    return _client.request<List<WorkspaceAuditEventModel>>(
+      MvpEndpoint.settingsAuditEventsList,
+      decode: (raw) => _asList(raw).map(WorkspaceAuditEventModel.fromJson).toList(),
+    );
   }
 
   // 5. Skills
   Future<ApiResult<List<SkillSettingModel>>> listSkills() async {
-    final result = await MvpRequestClient.unavailable<List<SkillSettingModel>>('settingsSkillList was removed from the Founder Trial R1 contract');
+    final result = await _client.request<List<SkillSettingModel>>(
+      MvpEndpoint.settingsSkillsList,
+      decode: (raw) => _asList(raw).map(SkillSettingModel.fromJson).toList(),
+    );
 
     // GET là nguồn đọc đầy đủ nhất từ control plane tại thời điểm gọi — luôn
     // dùng để refresh cache theo revision guard (không áp thẳng vô điều
@@ -79,7 +102,12 @@ class SettingsMvpService {
     bool? enabled,
     Map<String, dynamic>? config,
   }) async {
-    final result = await MvpRequestClient.unavailable<SkillSettingModel>('settingsSkillUpdate was removed from the Founder Trial R1 contract');
+    final result = await _client.request<SkillSettingModel>(
+      MvpEndpoint.settingsSkillUpdate,
+      pathParams: {'skillKey': skillKey},
+      body: {'enabled': ?enabled, 'config': ?config},
+      decode: (raw) => SkillSettingModel.fromJson(_asMap(raw)),
+    );
 
     // Task 4 — chỉ áp state cục bộ sau `ApiSuccess` có `revision` LỚN HƠN
     // revision hiện tại đã biết cho đúng skillKey này. `ApiResult` trả về
@@ -96,5 +124,13 @@ class SettingsMvpService {
     if (current == null || incoming.revision > current.revision) {
       _cachedSkillsByKey[incoming.skillKey] = incoming;
     }
+  }
+
+  static List<Map<String, dynamic>> _asList(Object? json) =>
+      json is List ? json.whereType<Map<String, dynamic>>().toList() : const [];
+
+  static Map<String, dynamic> _asMap(Object? json) {
+    if (json is Map<String, dynamic>) return json;
+    throw const FormatException('Expected JSON object in settings response');
   }
 }

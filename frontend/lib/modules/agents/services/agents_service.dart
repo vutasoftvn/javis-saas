@@ -4,6 +4,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/api_result.dart';
 import '../../../data/models/agent_model.dart';
 import '../../workforce/services/workforce_mvp_service.dart';
+import 'workforce_service.dart';
 
 class AgentsService {
   // Task 7 — `getOrgChart`/`getRuns` từng gọi `/workforce/org-chart` và
@@ -16,9 +17,11 @@ class AgentsService {
   // `null`/`[]`. Trả thẳng `ApiResult<T>` để `agents_controller.dart` biết
   // chắc chắn "request lỗi" khác "backend trả rỗng thật".
   final WorkforceMvpService _workforceMvpService;
+  final WorkforceService _workforceService;
 
-  AgentsService({WorkforceMvpService? workforceMvpService})
-      : _workforceMvpService = workforceMvpService ?? WorkforceMvpService();
+  AgentsService({WorkforceMvpService? workforceMvpService, WorkforceService? workforceService})
+      : _workforceMvpService = workforceMvpService ?? WorkforceMvpService(),
+        _workforceService = workforceService ?? WorkforceService();
 
   Future<String?> _getWorkspaceId() async {
     return SecureStorageService.read('workspace_id');
@@ -169,13 +172,40 @@ class AgentsService {
     };
   }
 
-  /// Xem chi tiết phiên chạy và các bước AgentStep
+  /// Xem chi tiết phiên chạy — canonical `/agent/workforce/runs/:runId` +
+  /// `/events` (trước đây gọi `/workforce/runs/:id` không tồn tại nên luôn
+  /// null). Map sang đúng key `AgentRunDetailDialog` đọc; field backend
+  /// không có (model, chi phí) để trống thay vì bịa giá trị.
   Future<Map<String, dynamic>?> getRunDetail(dynamic runId) async {
-    final response = await ApiClient.get('/workforce/runs/$runId');
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body) as Map<String, dynamic>;
-    }
-    return null;
+    final id = runId?.toString() ?? '';
+    if (id.isEmpty) return null;
+    final detailResult = await _workforceService.getRun(id);
+    final detail = detailResult.dataOrNull;
+    if (detail == null) return null;
+    final events = (await _workforceService.getRunEvents(id)).dataOrNull ?? const [];
+    final input = detail.inputPayload;
+    return {
+      'run': {
+        'trace_id': detail.runId,
+        'agent_key': detail.agentSpecId,
+        'runtime_provider': 'COSA Agent Platform',
+        'model_name': '—',
+        'status': detail.status,
+        'duration_ms': detail.completedAt?.difference(detail.createdAt).inMilliseconds ?? 0,
+        'prompt_snapshot': input['user_prompt']?.toString() ?? jsonEncode(input),
+        'output_payload': detail.outputPayload == null
+            ? (detail.errorMessage ?? '')
+            : jsonEncode(detail.outputPayload),
+      },
+      'steps': [
+        for (final e in events)
+          {
+            'name': e.eventType,
+            'step_type': 'event #${e.sequence}',
+            'status': e.eventType.endsWith('failed') ? 'FAILED' : 'SUCCESS',
+          },
+      ],
+    };
   }
 
   Future<Map<String, dynamic>?> createAgent(Map<String, dynamic> agentData) async {

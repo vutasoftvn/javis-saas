@@ -197,10 +197,6 @@
       "resolved": false,
       "owner": null
     },
-    "GET /workforce/runs": {
-      "resolved": false,
-      "owner": null
-    },
     "GET /workforce/runtimes": {
       "resolved": false,
       "owner": null

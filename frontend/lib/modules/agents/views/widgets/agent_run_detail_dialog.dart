@@ -12,8 +12,8 @@ class AgentRunDetailDialog extends StatelessWidget {
 
     final traceId = run['trace_id'] ?? 'N/A';
     final agentKey = run['agent_key'] ?? 'Unknown';
-    final runtime = run['runtime_provider'] ?? 'Claude';
-    final modelName = run['model_name'] ?? 'claude-3-5-sonnet';
+    final runtime = run['runtime_provider'] ?? '—';
+    final modelName = run['model_name'] ?? '—';
     final status = run['status'] ?? 'completed';
     final durationMs = run['duration_ms'] ?? 0;
     final inputTokens = run['input_tokens'] ?? 0;

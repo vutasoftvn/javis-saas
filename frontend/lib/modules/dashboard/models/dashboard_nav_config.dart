@@ -97,6 +97,12 @@ class DashboardNavConfig {
       groupIcon: Icons.groups_outlined,
       items: [
         DashboardNavItem(
+          icon: Icons.smart_toy_outlined,
+          selectedIcon: Icons.smart_toy,
+          label: 'Đội ngũ AI Agent',
+          index: 7,
+        ),
+        DashboardNavItem(
           icon: Icons.campaign_outlined,
           selectedIcon: Icons.campaign,
           label: 'Marketing & Lead Gen',

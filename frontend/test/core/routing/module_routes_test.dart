@@ -66,13 +66,15 @@ void main() {
     expect(resolveLegacyDashboardTarget(0), '/hub');
   });
 
-  test('chỉ 4 module có màn hình thật; mọi module còn lại là PLANNED không binding/CTA', () {
+  test('chỉ các module có màn hình thật (kèm API) mới live; mọi module còn lại là PLANNED không binding/CTA', () {
     // Route PLANNED render `SurfaceStateView(planned)` — roadmap card không action — và
     // không có binding controller nào; route live luôn có binding. Đổi tập này phải
     // có màn hình thật kèm test, không mở CTA cho module chưa có API.
     const live = {
       WorkspaceModule.tasks,
       WorkspaceModule.strategy,
+      // Đợt 1 dashboard-full-management — nối `/agent/workforce/*` thật.
+      WorkspaceModule.agents,
       WorkspaceModule.finance,
       WorkspaceModule.settings,
     };
