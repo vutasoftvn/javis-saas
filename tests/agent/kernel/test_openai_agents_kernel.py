@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 from agent.capabilities.gateway import CapabilityGateway
 from agent.capabilities.registry import CapabilityRegistry
@@ -832,3 +834,57 @@ async def test_kernel_output_schema_with_markdown_code_block():
     assert result.status == RunStatus.COMPLETED
     assert isinstance(result.final_output, dict)
     assert result.final_output["status"] == "ok"
+
+
+@pytest.mark.asyncio
+async def test_execute_tool_does_not_reinvoke_capability_on_internal_type_error():
+    """TypeError phát sinh BÊN TRONG capability không được hiểu nhầm là lệch chữ ký
+    rồi gọi lại capability với chữ ký khác — side effect có thể bị thực thi 2 lần."""
+    calls: list[tuple] = []
+
+    async def capability_executor(tool_name, args, ctx):
+        calls.append((tool_name, args))
+        raise TypeError("bug inside capability")
+
+    kernel = ManualToolLoopKernel(
+        repository=InMemoryRunRepository(),
+        capability_executor=capability_executor,
+        model_client=MockToolLoopModelClient(),
+    )
+
+    with pytest.raises(TypeError, match="bug inside capability"):
+        await kernel._execute_tool("ops.write", {"x": 1}, run_id="run_1", tool_call_id="tc_1")
+    assert len(calls) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("arity", [1, 2, 3])
+async def test_execute_tool_dispatches_by_executor_signature(arity):
+    seen: list[int] = []
+
+    if arity == 3:
+
+        async def executor(tool_name, args, ctx):
+            seen.append(3)
+            return {"ok": ctx.run_id}
+
+    elif arity == 2:
+
+        async def executor(tool_name, args):
+            seen.append(2)
+            return {"ok": "2"}
+
+    else:
+
+        async def executor(request):
+            seen.append(1)
+            return SimpleNamespace(status="completed", output_payload={"ok": request.run_id})
+
+    kernel = ManualToolLoopKernel(
+        repository=InMemoryRunRepository(),
+        capability_executor=executor,
+        model_client=MockToolLoopModelClient(),
+    )
+    result = await kernel._execute_tool("ops.read", {}, run_id="run_1", tool_call_id="tc_1")
+    assert seen == [arity]
+    assert "ok" in result
