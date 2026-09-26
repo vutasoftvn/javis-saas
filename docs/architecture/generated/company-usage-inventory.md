@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 112 | 22 |
 | VALID_KEEP (giữ nguyên) | 132 | 37 |
-| REVIEW (chưa phân loại) | 1232 | 277 |
+| REVIEW (chưa phân loại) | 1259 | 283 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -40,7 +40,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 
 | File | Hits |
 |---|---|
-| frontend/lib/core/network/mvp_endpoints.g.dart | 71 |
+| frontend/lib/core/network/mvp_endpoints.g.dart | 82 |
 | apps/cosa/auth/jwt.py | 39 |
 | apps/cosa/policies/company_policy_client.py | 27 |
 | services/company/shared/auth/cosa-delegation.service.ts | 24 |
@@ -135,6 +135,8 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/graphql/resolvers.py | 4 |
 | apps/cosa/knowledge_ingestion/event_sink.py | 4 |
 | frontend/lib/modules/hologram_hub/controllers/mixins/hub_evidence_mixin.dart | 4 |
+| frontend/lib/modules/startup_os/controllers/startup_os_controller.dart | 4 |
+| frontend/lib/modules/startup_os/widgets/onboard_wizard_dialog.dart | 4 |
 | services/company/shared/events/envelope.ts | 4 |
 | services/cosa/handlers/agent-policy.handler.ts | 4 |
 | services/cosa/services/ai-governance-snapshot.service.ts | 4 |
@@ -162,6 +164,8 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | frontend/lib/modules/hologram_hub/controllers/direct_agent_chat_controller.dart | 3 |
 | frontend/lib/modules/hologram_hub/views/widgets/company_pulse_bar.dart | 3 |
 | frontend/lib/modules/hologram_hub/widgets/evidence/decision_log_modal.dart | 3 |
+| frontend/lib/modules/startup_os/models/onboard_dimension_fields.dart | 3 |
+| frontend/lib/modules/startup_os/services/startup_os_service.dart | 3 |
 | packages/agent/capabilities/outbound_headers.py | 3 |
 | packages/agent/executive_board/models.py | 3 |
 | packages/agent/migrations/003_add_workforce_member_reference.sql | 3 |
@@ -251,6 +255,8 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | frontend/lib/modules/organization/models/organization_api_models.dart | 1 |
 | frontend/lib/modules/projects/models/project_operating_loop.dart | 1 |
 | frontend/lib/modules/settings/services/workspace_orientation_service.dart | 1 |
+| frontend/lib/modules/startup_os/models/startup_os_models.dart | 1 |
+| frontend/lib/modules/startup_os/widgets/project_triage_dialog.dart | 1 |
 | frontend/lib/shared/widgets/presenters/crm_lead_card.dart | 1 |
 | packages/agent/capabilities/grants.py | 1 |
 | packages/agent/contracts/context.py | 1 |
