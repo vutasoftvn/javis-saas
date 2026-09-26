@@ -31,7 +31,10 @@ async def execute_persisted_operation(
     if unknown:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"unknown variables: {sorted(unknown)}",
+            detail=(
+                f"unknown variables: {sorted(unknown)}; "
+                f"allowed for '{operation_id}': {sorted(operation.allowed_variables)}"
+            ),
         )
 
     for key, value in variables.items():

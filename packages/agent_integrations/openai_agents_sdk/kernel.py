@@ -33,6 +33,7 @@ from agents import Agent, FunctionTool, RunHooks, Runner, RunState
 from pydantic import ValidationError
 
 from agent_integrations.openai_agents_sdk.model_guard import ModelInputGuard
+from agent_integrations.openai_agents_sdk.tool_args import tool_input_error_result
 
 __all__ = ["RealOpenAIAgentsSDKKernel"]
 
@@ -183,14 +184,20 @@ class RealOpenAIAgentsSDKKernel:
             await self._emit_event(
                 run_id, "tool.started", {"tool_call_id": call_id, "tool": cap_spec.id}
             )
-            result = await self._execute_tool(
-                cap_spec.id,
-                args,
-                run_id=run_id,
-                tool_call_id=call_id,
-                context=context,
-                cap_spec=cap_spec,
-            )
+            try:
+                result = await self._execute_tool(
+                    cap_spec.id,
+                    args,
+                    run_id=run_id,
+                    tool_call_id=call_id,
+                    context=context,
+                    cap_spec=cap_spec,
+                )
+            except Exception as exc:
+                recoverable = tool_input_error_result(exc)
+                if recoverable is None:
+                    raise
+                result = recoverable
             # Audit event `tool.completed` chỉ lưu HASH của result, không lưu nội
             # dung thô — cùng nguyên tắc đã áp dụng cho CapabilityGateway
             # (packages/agent/capabilities/gateway.py, Task 9), vì cùng ghi vào
