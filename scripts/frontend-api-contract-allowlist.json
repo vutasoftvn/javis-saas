@@ -583,13 +583,6 @@
       "expires_on": "2026-12-31"
     },
     {
-      "path": "/commercial/leads",
-      "method": "GET",
-      "owner": "company-commercial",
-      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface -- tracked as debt for a future manifest-extension or migration task, not new drift. Surfaced by the Task 7 fix-round-1 checker correction (query-strip-before-dynamism + path-segment templating), which now sees dynamic/$-interpolated call sites that the original (buggy) checker silently skipped.",
-      "expires_on": "2026-12-31"
-    },
-    {
       "path": "/connectors/",
       "method": "GET",
       "owner": "agent-platform",

@@ -1,187 +1,262 @@
-import 'dart:convert';
-import '../../../core/network/api_client.dart';
-import '../../../core/network/workspace_scoped_service.dart';
+import 'package:http/http.dart' as http;
+
+import '../../../core/network/api_auth_resolver.dart';
+import '../../../core/network/api_result.dart';
+import '../../../core/network/mvp_endpoints.g.dart';
+import '../../../core/network/mvp_request_client.dart';
 import '../../../data/models/commercial_models.dart';
 
-class SalesService extends WorkspaceService {
-  Future<List<AccountModel>> getTypedAccounts() async {
-    final list = await getAccounts();
-    return list.map((e) => AccountModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+/// Đợt 2 (plan 2026-09-26-dashboard-full-management) — client CRM duy nhất,
+/// gọi `services/company/commercial` qua `MvpRequestClient` + contract
+/// `commercial.*`. Trước đây service này tự ghép URL tới
+/// `/commercial/workspaces/:id/*` (chưa từng có backend) và nuốt mọi lỗi
+/// thành danh sách rỗng — CRM trên dashboard luôn trống.
+///
+/// Method `list*`/`create*`/`update*` trả `ApiResult` thật. Các getter
+/// `get*` trả `List<dynamic>` giữ lại cho controller cũ (`SalesToday`,
+/// `Funnel`) — rỗng khi lỗi, nhưng controller mới dùng bản `ApiResult`.
+class SalesService {
+  SalesService({
+    MvpRequestClient? client,
+    http.Client? httpClient,
+    ApiAuthResolver? authResolver,
+  })  : _client = client ?? MvpRequestClient(httpClient: httpClient),
+        _authResolver = authResolver ?? const DefaultApiAuthResolver();
+
+  final MvpRequestClient _client;
+  final ApiAuthResolver _authResolver;
+
+  static List<Map<String, dynamic>> _listUnder(Object? raw, String key) {
+    final list = raw is Map<String, dynamic> ? raw[key] : raw;
+    return list is List ? list.whereType<Map<String, dynamic>>().toList() : const [];
   }
 
-  Future<List<LeadModel>> getTypedLeads() async {
-    final list = await getLeads();
-    return list.map((e) => LeadModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+  static Map<String, dynamic> _asMap(Object? raw) {
+    if (raw is Map<String, dynamic>) return raw;
+    throw const FormatException('Expected JSON object in CRM response');
   }
 
-  Future<List<OpportunityModel>> getTypedOpportunities({String? stage, String? accountId}) async {
-    final list = await getOpportunities(stage: stage, accountId: accountId);
-    return list.map((e) => OpportunityModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+  /// Body tạo bản ghi CRM bắt buộc `workspaceId` (service Company kiểm tra
+  /// membership theo đúng id này) — lấy từ workspace đang chọn, không nhận
+  /// từ caller để tránh ghi nhầm tenant.
+  Future<String?> _workspaceId() => _authResolver.workspaceId();
+
+  // ─── Accounts ───
+
+  Future<ApiResult<List<Map<String, dynamic>>>> listAccounts() {
+    return _client.request<List<Map<String, dynamic>>>(
+      MvpEndpoint.commercialAccountsList,
+      decode: (raw) => _listUnder(raw, 'accounts'),
+    );
   }
 
-  Future<List<CustomerModel>> getTypedCustomers() async {
-    final list = await getCustomers();
-    return list.map((e) => CustomerModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+  Future<ApiResult<Map<String, dynamic>>> createAccount({
+    required String name,
+    String? domain,
+    String? industry,
+    String? sizeSegment,
+    String? source,
+    List<String>? tags,
+  }) async {
+    return _client.request<Map<String, dynamic>>(
+      MvpEndpoint.commercialAccountCreate,
+      body: {
+        'workspaceId': await _workspaceId(),
+        'name': name,
+        'domain': ?_nonEmpty(domain),
+        'industry': ?_nonEmpty(industry),
+        'sizeSegment': ?_nonEmpty(sizeSegment),
+        'source': ?_nonEmpty(source),
+        if (tags != null && tags.isNotEmpty) 'tags': tags,
+      },
+      decode: _asMap,
+    );
   }
 
-  // Accounts
-  Future<List<dynamic>> getAccounts() async {
-    final wId = await stringWorkspaceId() ?? '1';
-    final data = await getJson('/commercial/workspaces/$wId/accounts');
-    return data is Map && data['accounts'] is List ? data['accounts'] as List<dynamic> : const [];
+  // ─── Contacts ───
+
+  Future<ApiResult<List<Map<String, dynamic>>>> listContacts({String? accountId}) {
+    return _client.request<List<Map<String, dynamic>>>(
+      MvpEndpoint.commercialContactsList,
+      query: {'accountId': ?accountId},
+      decode: (raw) => _listUnder(raw, 'contacts'),
+    );
   }
 
-  Future<Map<String, dynamic>?> createAccount(Map<String, dynamic> payload) async {
-    final wId = await stringWorkspaceId() ?? '1';
-    final body = Map<String, dynamic>.from(payload);
-    body['workspaceId'] = body['workspaceId']?.toString() ?? wId;
-    final res = await postJson('/commercial/accounts', body);
-    return res is Map<String, dynamic> ? res : null;
+  Future<ApiResult<Map<String, dynamic>>> createContact({
+    required String name,
+    String? accountId,
+    String? phone,
+    String? email,
+    String? title,
+    String? projectId,
+  }) async {
+    return _client.request<Map<String, dynamic>>(
+      MvpEndpoint.commercialContactCreate,
+      body: {
+        'workspaceId': await _workspaceId(),
+        'name': name,
+        'accountId': ?accountId,
+        'phone': ?_nonEmpty(phone),
+        'email': ?_nonEmpty(email),
+        'title': ?_nonEmpty(title),
+        'projectId': ?projectId,
+      },
+      decode: _asMap,
+    );
   }
 
-  // Contacts
-  Future<List<dynamic>> getContacts({String? accountId, String? projectId}) async {
-    final wId = await stringWorkspaceId() ?? '1';
-    final params = <String>[];
-    if (accountId != null) params.add('accountId=$accountId');
-    if (projectId != null) params.add('projectId=$projectId');
-    final queryStr = params.isNotEmpty ? '?${params.join('&')}' : '';
-    final data = await getJson('/commercial/workspaces/$wId/contacts$queryStr');
-    return data is Map && data['contacts'] is List ? data['contacts'] as List<dynamic> : const [];
+  // ─── Leads ───
+
+  Future<ApiResult<List<Map<String, dynamic>>>> listLeads() async {
+    // `GET /commercial/leads` nhận workspaceId qua query (handler Company).
+    final workspaceId = await _workspaceId();
+    return _client.request<List<Map<String, dynamic>>>(
+      MvpEndpoint.commercialLeadsList,
+      query: {'workspaceId': ?workspaceId},
+      decode: (raw) => _listUnder(raw, 'leads'),
+    );
   }
 
-  Future<Map<String, dynamic>?> createContact(Map<String, dynamic> payload, {String? projectId}) async {
-    final wId = await stringWorkspaceId() ?? '1';
-    final body = Map<String, dynamic>.from(payload);
-    body['workspaceId'] = body['workspaceId']?.toString() ?? wId;
-    if (projectId != null && !body.containsKey('projectId')) {
-      body['projectId'] = projectId;
-    }
-    final res = await postJson('/commercial/contacts', body);
-    return res is Map<String, dynamic> ? res : null;
+  Future<ApiResult<Map<String, dynamic>>> createLead({
+    required String name,
+    String? company,
+    double? value,
+    String? source,
+    String? accountId,
+    String? projectId,
+  }) async {
+    return _client.request<Map<String, dynamic>>(
+      MvpEndpoint.commercialLeadCreate,
+      body: {
+        'workspaceId': await _workspaceId(),
+        'name': name,
+        'company': ?_nonEmpty(company),
+        'value': ?value,
+        'source': ?_nonEmpty(source),
+        'accountId': ?accountId,
+        'projectId': ?projectId,
+      },
+      decode: _asMap,
+    );
   }
 
-  // Leads
-  Future<List<dynamic>> getLeads({String? projectId}) async {
-    final wId = await stringWorkspaceId() ?? '1';
-    try {
-      final pQuery = projectId != null ? '&projectId=$projectId' : '';
-      final response = await ApiClient.get('/commercial/leads?workspaceId=$wId$pQuery');
-      if (response.statusCode == 200) {
-        final data = jsonDecode(utf8.decode(response.bodyBytes));
-        return data is Map && data['leads'] is List ? data['leads'] as List<dynamic> : const [];
-      }
-    } catch (_) {}
-    return const [];
+  Future<ApiResult<Map<String, dynamic>>> updateLeadStage(String leadId, String stage) {
+    return _client.request<Map<String, dynamic>>(
+      MvpEndpoint.commercialLeadStageUpdate,
+      pathParams: {'id': leadId},
+      body: {'stage': stage},
+      decode: _asMap,
+    );
   }
 
-  Future<Map<String, dynamic>?> createLead(Map<String, dynamic> payload, {String? projectId}) async {
-    final wId = await stringWorkspaceId() ?? '1';
-    final body = Map<String, dynamic>.from(payload);
-    body['workspaceId'] = body['workspaceId']?.toString() ?? wId;
-    if (projectId != null && !body.containsKey('projectId')) {
-      body['projectId'] = projectId;
-    }
-    final res = await postJson('/commercial/leads', body);
-    return res is Map<String, dynamic> ? res : null;
+  // ─── Opportunities ───
+
+  Future<ApiResult<List<Map<String, dynamic>>>> listOpportunities({String? stage, String? accountId}) {
+    return _client.request<List<Map<String, dynamic>>>(
+      MvpEndpoint.commercialOpportunitiesList,
+      query: {'stage': ?stage, 'accountId': ?accountId},
+      decode: (raw) => _listUnder(raw, 'opportunities'),
+    );
   }
 
-  Future<Map<String, dynamic>?> qualifyLead(String leadId, Map<String, dynamic> payload) async {
-    final res = await postJson('/commercial/leads/$leadId/stage', {'stage': 'QUALIFIED', ...payload});
-    return res is Map<String, dynamic> ? res : null;
+  Future<ApiResult<Map<String, dynamic>>> createOpportunity({
+    required String accountId,
+    String? product,
+    double? estimatedValue,
+    String? sourceLeadId,
+    String? primaryContactId,
+  }) async {
+    return _client.request<Map<String, dynamic>>(
+      MvpEndpoint.commercialOpportunityCreate,
+      body: {
+        'workspaceId': await _workspaceId(),
+        'accountId': accountId,
+        'product': ?_nonEmpty(product),
+        'estimatedValue': ?estimatedValue,
+        'sourceLeadId': ?sourceLeadId,
+        'primaryContactId': ?primaryContactId,
+      },
+      decode: _asMap,
+    );
   }
 
-  Future<Map<String, dynamic>?> convertLead(String leadId, Map<String, dynamic> payload) async {
-    final res = await postJson('/commercial/leads/$leadId/stage', {'stage': 'CONVERTED', ...payload});
-    return res is Map<String, dynamic> ? res : null;
+  Future<ApiResult<Map<String, dynamic>>> updateOpportunityStage(String opportunityId, String stage) {
+    return _client.request<Map<String, dynamic>>(
+      MvpEndpoint.commercialOpportunityStageUpdate,
+      pathParams: {'id': opportunityId},
+      body: {'stage': stage},
+      decode: _asMap,
+    );
   }
 
-  Future<Map<String, dynamic>?> intakeFromHandoff(String handoffId) async {
-    final res = await postJson('/commercial/leads/from-handoff/$handoffId', {});
-    return res is Map<String, dynamic> ? res : null;
+  // ─── Customers ───
+
+  Future<ApiResult<List<Map<String, dynamic>>>> listCustomers() {
+    return _client.request<List<Map<String, dynamic>>>(
+      MvpEndpoint.commercialCustomersList,
+      decode: (raw) => _listUnder(raw, 'customers'),
+    );
   }
 
-  // Opportunities
-  Future<List<dynamic>> getOpportunities({String? stage, String? accountId, String? projectId}) async {
-    final wId = await stringWorkspaceId() ?? '1';
-    final params = <String>[];
-    if (stage != null) params.add('stage=$stage');
-    if (accountId != null) params.add('accountId=$accountId');
-    if (projectId != null) params.add('projectId=$projectId');
-    final queryStr = params.isNotEmpty ? '?${params.join('&')}' : '';
-    final data = await getJson('/commercial/workspaces/$wId/opportunities$queryStr');
-    return data is Map && data['opportunities'] is List ? data['opportunities'] as List<dynamic> : const [];
+  Future<ApiResult<Map<String, dynamic>>> createCustomer({
+    required String accountId,
+    String? acquiredFromOpportunityId,
+  }) async {
+    return _client.request<Map<String, dynamic>>(
+      MvpEndpoint.commercialCustomerCreate,
+      body: {
+        'workspaceId': await _workspaceId(),
+        'accountId': accountId,
+        'acquiredFromOpportunityId': ?acquiredFromOpportunityId,
+      },
+      decode: _asMap,
+    );
   }
 
-  Future<Map<String, dynamic>?> createOpportunity(Map<String, dynamic> payload, {String? projectId}) async {
-    final wId = await stringWorkspaceId() ?? '1';
-    final body = Map<String, dynamic>.from(payload);
-    body['workspaceId'] = body['workspaceId']?.toString() ?? wId;
-    if (projectId != null && !body.containsKey('projectId')) {
-      body['projectId'] = projectId;
-    }
-    final res = await postJson('/commercial/opportunities', body);
-    return res is Map<String, dynamic> ? res : null;
-  }
+  // ─── Getter giữ tương thích cho controller cũ ───
 
-  Future<Map<String, dynamic>?> changeOpportunityStage(String oppId, String targetStage) async {
-    final res = await postJson('/commercial/opportunities/$oppId/stage', {'stage': targetStage});
-    return res is Map<String, dynamic> ? res : null;
-  }
+  Future<List<AccountModel>> getTypedAccounts() async =>
+      (await getAccounts()).map((e) => AccountModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
 
-  Future<Map<String, dynamic>?> winOpportunity(String oppId, String wonReason, String? evidence) async {
-    final res = await postJson('/commercial/opportunities/$oppId/stage', {
-      'stage': 'WON',
-      'wonReason': wonReason,
-      'evidence': evidence,
-    });
-    return res is Map<String, dynamic> ? res : null;
-  }
+  Future<List<LeadModel>> getTypedLeads() async =>
+      (await getLeads()).map((e) => LeadModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
 
-  Future<Map<String, dynamic>?> loseOpportunity(String oppId, String lostReason, String? detail) async {
-    final res = await postJson('/commercial/opportunities/$oppId/stage', {
-      'stage': 'LOST',
-      'lostReason': lostReason,
-      'lostReasonDetail': detail,
-    });
-    return res is Map<String, dynamic> ? res : null;
-  }
+  Future<List<OpportunityModel>> getTypedOpportunities({String? stage, String? accountId}) async =>
+      (await getOpportunities(stage: stage, accountId: accountId))
+          .map((e) => OpportunityModel.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
 
-  // Customers
-  Future<List<dynamic>> getCustomers() async {
-    final wId = await stringWorkspaceId() ?? '1';
-    final data = await getJson('/commercial/workspaces/$wId/customers');
-    return data is Map && data['customers'] is List ? data['customers'] as List<dynamic> : const [];
-  }
+  Future<List<CustomerModel>> getTypedCustomers() async =>
+      (await getCustomers()).map((e) => CustomerModel.fromJson(Map<String, dynamic>.from(e as Map))).toList();
 
-  Future<Map<String, dynamic>?> updateCustomerHealth(String customerId, String healthStatus, {String? lifecycleStatus}) async {
-    final res = await postJson('/commercial/customers/$customerId/health', {
-      'healthStatus': healthStatus,
-      'lifecycleStatus': lifecycleStatus,
-    });
-    return res is Map<String, dynamic> ? res : null;
-  }
+  Future<List<dynamic>> getAccounts() async => (await listAccounts()).dataOrNull ?? const [];
 
-  // Activities
-  Future<List<dynamic>> getActivities({String? entityType, String? entityId}) async {
-    final wId = await intWorkspaceId() ?? 1;
-    final params = <String>[];
-    if (entityType != null) params.add('entityType=$entityType');
-    if (entityId != null) params.add('entityId=$entityId');
-    final queryStr = params.isNotEmpty ? '?${params.join('&')}' : '';
-    final data = await getJson('/commercial/workspaces/$wId/activities$queryStr');
-    return data is Map && data['activities'] is List ? data['activities'] as List<dynamic> : const [];
-  }
+  Future<List<dynamic>> getContacts({String? accountId}) async =>
+      (await listContacts(accountId: accountId)).dataOrNull ?? const [];
 
-  Future<Map<String, dynamic>?> createActivity(Map<String, dynamic> payload) async {
-    final res = await postJson('/commercial/activities', payload);
-    return res is Map<String, dynamic> ? res : null;
-  }
+  Future<List<dynamic>> getLeads() async => (await listLeads()).dataOrNull ?? const [];
 
-  // Funnel
+  Future<List<dynamic>> getOpportunities({String? stage, String? accountId}) async =>
+      (await listOpportunities(stage: stage, accountId: accountId)).dataOrNull ?? const [];
+
+  Future<List<dynamic>> getCustomers() async => (await listCustomers()).dataOrNull ?? const [];
+
+  Future<Map<String, dynamic>?> changeOpportunityStage(String oppId, String targetStage) async =>
+      (await updateOpportunityStage(oppId, targetStage)).dataOrNull;
+
+  /// Chưa có endpoint funnel tổng hợp ở backend — dựng từ dữ liệu thật
+  /// (opportunity đang mở) thay vì gọi route không tồn tại.
   Future<Map<String, dynamic>?> getFunnelMetrics() async {
-    final wId = await intWorkspaceId() ?? 1;
-    final data = await getJson('/commercial/workspaces/$wId/funnel');
-    return data is Map<String, dynamic> ? data : null;
+    final result = await listOpportunities();
+    final opportunities = result.dataOrNull;
+    if (opportunities == null) return null;
+    final open = opportunities.where((o) => !const {'WON', 'LOST'}.contains(o['stage'])).toList();
+    return {'open_opportunities': open, 'total_opportunities': opportunities.length};
+  }
+
+  static String? _nonEmpty(String? value) {
+    final trimmed = value?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
   }
 }

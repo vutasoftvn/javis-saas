@@ -41,10 +41,6 @@
       "resolved": false,
       "owner": null
     },
-    "GET /commercial/leads": {
-      "resolved": true,
-      "owner": null
-    },
     "GET /connectors": {
       "resolved": false,
       "owner": null

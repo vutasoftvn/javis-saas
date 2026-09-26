@@ -94,8 +94,12 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | POST | `/commercial/projects/:projectId/crm/leads` | company | ✓ |  | services/company/commercial/handlers/project-crm.handler.ts |
 | GET | `/commercial/projects/:projectId/crm/schema` | company | ✓ |  | services/company/commercial/handlers/project-crm.handler.ts |
 | POST | `/commercial/subscriptions` | company | ✓ |  | services/company/commercial/handlers/billing.handler.ts |
+| GET | `/commercial/workspaces/:workspaceId/accounts` | company | ✓ |  | services/company/commercial/handlers/account.handler.ts |
 | GET | `/commercial/workspaces/:workspaceId/campaigns` | company | ✓ |  | services/company/commercial/handlers/marketing.handler.ts |
+| GET | `/commercial/workspaces/:workspaceId/contacts` | company | ✓ |  | services/company/commercial/handlers/contact.handler.ts |
+| GET | `/commercial/workspaces/:workspaceId/customers` | company | ✓ |  | services/company/commercial/handlers/customer.handler.ts |
 | GET | `/commercial/workspaces/:workspaceId/invoices` | company | ✓ |  | services/company/commercial/handlers/billing.handler.ts |
+| GET | `/commercial/workspaces/:workspaceId/opportunities` | company | ✓ |  | services/company/commercial/handlers/opportunity.handler.ts |
 | POST | `/control-plane/internal/automation-dispatches` | cosa | ✓ |  | services/cosa/handlers/control-plane.handler.ts |
 | GET | `/control-plane/internal/automation-dispatches/:invocationId` | cosa | ✓ |  | services/cosa/handlers/control-plane.handler.ts |
 | POST | `/control-plane/internal/automation-dispatches/:invocationId/complete` | cosa | ✓ |  | services/cosa/handlers/control-plane.handler.ts |
@@ -576,7 +580,6 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /admin` | ✗ GHOST |  | frontend/lib/modules/dashboard/services/hub_service.dart:39, frontend/lib/modules/settings/services/admin_service.dart:14 |
 | `GET /channels` | ✗ GHOST |  | frontend/lib/modules/marketing/services/channels_service.dart:50 |
 | `GET /channels/list` | ✗ GHOST |  | frontend/lib/modules/marketing/services/channels_service.dart:167 |
-| `GET /commercial/leads` | ✓ |  | frontend/lib/modules/sales/services/sales_service.dart:69 |
 | `GET /connectors` | ✗ GHOST |  | frontend/lib/modules/settings/services/connectors_service.dart:14 |
 | `GET /connectors/zalo/sessions` | ✗ GHOST |  | frontend/lib/modules/settings/services/connectors_service.dart:141 |
 | `GET /devices` | ✗ GHOST |  | frontend/lib/modules/settings/services/developer_service.dart:14 |

@@ -75,6 +75,8 @@ void main() {
       WorkspaceModule.strategy,
       // Đợt 1 dashboard-full-management — nối `/agent/workforce/*` thật.
       WorkspaceModule.agents,
+      // Đợt 2 — CRM nối `/commercial/*` thật.
+      WorkspaceModule.sales,
       WorkspaceModule.finance,
       WorkspaceModule.settings,
     };
