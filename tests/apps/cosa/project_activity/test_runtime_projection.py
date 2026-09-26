@@ -41,7 +41,7 @@ async def test_safe_kind_is_recorded_as_is(service):
 @pytest.mark.asyncio
 async def test_all_vocabulary_kinds_are_recognized_safe():
     """Vocabulary trong brief (Step 4) phải khớp CHÍNH XÁC với
-    SAFE_ACTIVITY_KINDS — không thiếu, không thừa so với 13 kind đã liệt kê."""
+    SAFE_ACTIVITY_KINDS — không thiếu, không thừa so với 14 kind đã liệt kê."""
     expected = {
         "chat.accepted",
         "run.queued",
@@ -56,6 +56,7 @@ async def test_all_vocabulary_kinds_are_recognized_safe():
         "run.completed",
         "run.failed",
         "run.cancelled",
+        "agent.chat_message",
     }
     assert expected == SAFE_ACTIVITY_KINDS
 

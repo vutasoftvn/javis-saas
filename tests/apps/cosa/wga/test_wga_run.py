@@ -762,3 +762,28 @@ async def test_sweep_blocked_note_carries_error_code_not_raw_provider_error():
     last = [c for c in company.post.await_args_list if "advance" in c.args[0]][-1]
     assert last.kwargs["json"]["toStatus"] == "blocked"
     assert last.kwargs["json"]["note"] == "run_failed:provider_rate_limited"
+
+
+@pytest.mark.asyncio
+async def test_progress_message_is_announced_on_project_activity_after_persist():
+    task = dict(_AUTO_TASK, planId="pl1", planOrigin="chat", planOriginRef="conv_9")
+    company = AsyncMock()
+    company.get.return_value = {"tasks": [task]}
+    company.post.return_value = {"status": "ok"}
+    plane = _plane(company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": "ok"}))
+    plane.conversation_repository.add_message.return_value = SimpleNamespace(
+        message_id="msg_1", sequence_no=4
+    )
+    plane.project_activity_service = AsyncMock()
+
+    await wga_run.execute_workspace_task_sweep_task(
+        plane, None, {"run_id": "s", "workspace_id": "ws1", "actor_id": "42"}
+    )
+
+    call = plane.project_activity_service.record_runtime_event.await_args
+    assert call.kwargs["kind"] == "agent.chat_message"
+    assert call.kwargs["source_type"] == "message"
+    assert call.kwargs["source_id"] == "msg_1"
+    assert call.kwargs["project_id"] == "proj1"
+    assert call.kwargs["raw_context"]["conversation_id"] == "conv_9"
+    assert call.kwargs["raw_context"]["message_kind"] == "plan_progress"

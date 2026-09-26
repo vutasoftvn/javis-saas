@@ -56,6 +56,7 @@ __all__ = [
     "execute_goal_decomposition_task",
     "execute_workspace_task_sweep_task",
     "finalize_wga_task_completion",
+    "record_agent_chat_message_activity",
     "record_wga_task_evidence",
 ]
 
@@ -388,9 +389,11 @@ async def execute_goal_decomposition_task(
     if origin == "chat" and origin_ref:
         await _post_chat_message(
             plane,
+            workspace_id=workspace_id,
             conversation_id=origin_ref,
             project_id=str(project_id),
             run_id=attempt_run_id,
+            message_kind="plan_created",
             content=(
                 "Đã lập kế hoạch triển khai từ mục tiêu tuần. "
                 "Mở Command Center để xem và duyệt cả lô."
@@ -415,10 +418,20 @@ def _schema_retry_prompt(prompt: str, error: str) -> str:
 
 
 async def _post_chat_message(
-    plane: CosaAgentPlane, *, conversation_id: str, project_id: str, run_id: str, content: str
+    plane: CosaAgentPlane,
+    *,
+    workspace_id: str,
+    conversation_id: str,
+    project_id: str,
+    run_id: str,
+    content: str,
+    message_kind: str,
 ) -> None:
+    """Chèn 1 assistant message vào conversation gốc, rồi (SAU khi message đã
+    persist) ghi Project Activity `agent.chat_message` để chat đang mở nhận qua
+    SSE `/agent/projects/{id}/activity/stream` mà không cần tải lại."""
     try:
-        await plane.conversation_repository.add_message(
+        stored = await plane.conversation_repository.add_message(
             MessageRecord(
                 conversation_id=conversation_id,
                 project_id=project_id,
@@ -429,7 +442,53 @@ async def _post_chat_message(
             )
         )
     except Exception as exc:
-        logger.warning("goal_decomposition chat message failed conv=%s: %s", conversation_id, exc)
+        logger.warning("wga chat message failed conv=%s: %s", conversation_id, exc)
+        return
+    await record_agent_chat_message_activity(
+        plane,
+        workspace_id=workspace_id,
+        project_id=project_id,
+        conversation_id=conversation_id,
+        message=stored,
+        run_id=run_id,
+        message_kind=message_kind,
+    )
+
+
+async def record_agent_chat_message_activity(
+    plane: Any,
+    *,
+    workspace_id: str,
+    project_id: str | None,
+    conversation_id: str,
+    message: Any,
+    run_id: str,
+    message_kind: str,
+) -> None:
+    activity = getattr(plane, "project_activity_service", None)
+    message_id = getattr(message, "message_id", None)
+    if activity is None or not project_id or not isinstance(message_id, str):
+        return
+    try:
+        await activity.record_runtime_event(
+            workspace_id=workspace_id,
+            project_id=project_id,
+            kind="agent.chat_message",
+            source_type="message",
+            source_id=message_id,
+            source_version=str(getattr(message, "sequence_no", None) or 0),
+            actor_kind="agent",
+            actor_id=run_id,
+            correlation_id=run_id,
+            raw_context={
+                "message_id": message_id,
+                "conversation_id": conversation_id,
+                "message_kind": message_kind,
+                "run_id": run_id,
+            },
+        )
+    except Exception as exc:
+        logger.warning("record agent.chat_message activity failed msg=%s: %s", message_id, exc)
 
 
 async def _report_decomposition_failure(
@@ -468,10 +527,12 @@ async def _report_decomposition_failure(
     if origin == "chat" and origin_ref:
         await _post_chat_message(
             plane,
+            workspace_id=workspace_id,
             conversation_id=origin_ref,
             project_id=project_id,
             run_id=run_id,
             content=user_message or _DECOMPOSITION_FAILED_MESSAGE_VI,
+            message_kind="plan_failed",
         )
 
 
@@ -493,7 +554,8 @@ class _SweepProgress:
 
     _BUCKETS = ("done", "pending_review", "waiting_approval", "blocked")
 
-    def __init__(self) -> None:
+    def __init__(self, workspace_id: str) -> None:
+        self._workspace_id = workspace_id
         self._plans: dict[str, dict[str, Any]] = {}
 
     def record(self, t: dict[str, Any], outcome: str) -> None:
@@ -509,6 +571,7 @@ class _SweepProgress:
             {
                 "conversation_id": str(t["planOriginRef"]),
                 "project_id": str(t.get("projectId") or ""),
+                "workspace_id": str(t.get("workspaceId") or self._workspace_id),
                 **{b: [] for b in self._BUCKETS},
             },
         )
@@ -526,10 +589,12 @@ class _SweepProgress:
             )
             await _post_chat_message(
                 plane,
+                workspace_id=entry["workspace_id"],
                 conversation_id=entry["conversation_id"],
                 project_id=entry["project_id"],
                 run_id=f"wga_progress_{plan_id}",
                 content=content,
+                message_kind="plan_progress",
             )
 
 
@@ -746,7 +811,7 @@ async def execute_workspace_task_sweep_task(
     if not claimable:
         return
 
-    progress = _SweepProgress()
+    progress = _SweepProgress(workspace_id)
     for t in claimable:
         outcome = await _execute_claimed_task(
             plane, t, workspace_id=workspace_id, sub=sub, sweep_project_id=sweep_project_id

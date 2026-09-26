@@ -40,7 +40,10 @@ from apps.cosa.worker.run_core import (
     resolve_spec,
     run_kernel,
 )
-from apps.cosa.worker.wga_run import advance_wga_task_after_resume
+from apps.cosa.worker.wga_run import (
+    advance_wga_task_after_resume,
+    record_agent_chat_message_activity,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -583,7 +586,7 @@ async def _execute_run_task_inner(
                 with contextlib.suppress(Exception):
                     suggestion = await _weekly_goal_suggestion(plane, user_prompt)
                     if suggestion.should_suggest:
-                        await _append_message(
+                        confirm_msg = await _append_message(
                             plane,
                             conversation_id=conversation_id,
                             role="assistant",
@@ -597,6 +600,17 @@ async def _execute_run_task_inner(
                             run_id=run_id,
                             status_="completed",
                             project_id=project_id,
+                        )
+                        # Chèn SAU run.completed nên client không thấy qua run
+                        # stream — báo qua Project Activity stream (WGA G9).
+                        await record_agent_chat_message_activity(
+                            plane,
+                            workspace_id=workspace_id,
+                            project_id=project_id,
+                            conversation_id=conversation_id,
+                            message=confirm_msg,
+                            run_id=run_id,
+                            message_kind="goal_confirm",
                         )
 
         elif run_result.status == RunStatus.WAITING_APPROVAL:

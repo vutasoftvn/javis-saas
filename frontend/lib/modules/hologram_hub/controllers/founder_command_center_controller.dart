@@ -25,6 +25,8 @@ import '../../../modules/workforce/models/workforce_mvp_models.dart';
 import '../../../modules/workforce/services/workforce_mvp_service.dart';
 import '../models/project_startup_team.dart';
 import '../services/project_startup_team_service.dart';
+import '../services/project_activity_service.dart';
+import '../models/project_activity_models.dart';
 import '../../projects/widgets/p0_core_setup_banner.dart';
 
 /// Fix-review (2026-09-01, Task 3) — trạng thái tải Workforce Packs cần phân
@@ -52,8 +54,21 @@ class FounderCommandCenterController extends GetxController {
   FounderCommandCenterController({
     WorkforceMvpService? workforceMvpService,
     ProjectStartupTeamService? startupTeamService,
+    ProjectActivityService? projectActivityService,
   })  : _workforceMvpService = workforceMvpService ?? WorkforceMvpService(),
-        _startupTeamService = startupTeamService ?? ProjectStartupTeamService();
+        _startupTeamService = startupTeamService ?? ProjectStartupTeamService(),
+        _projectActivityService = projectActivityService ?? ProjectActivityService();
+
+  final ProjectActivityService _projectActivityService;
+
+  // WGA G9 — message do agent/run nền chèn vào conversation (goal_confirm,
+  // kết quả lập kế hoạch, plan_progress) không đi qua run stream của chat;
+  // controller nghe Project Activity SSE và đồng bộ chúng từ session view.
+  StreamSubscription<ProjectActivityEvent>? _agentMessageWatch;
+  String? _agentMessageWatchKey;
+  final Set<String> _syncedAgentMessageIds = <String>{};
+  bool _agentMessageSyncRunning = false;
+  bool _agentMessageSyncPending = false;
 
   // Task 5 (`/agent/conversations/{id}/messages`) đòi hỏi phân loại
   // `data_access` không rỗng cho mọi tin nhắn — chat sheet này là kênh trao
@@ -333,6 +348,7 @@ class FounderCommandCenterController extends GetxController {
   @override
   void onClose() {
     _chatSseSubscription?.cancel();
+    _stopAgentMessageWatch();
     chatInputController.dispose();
     super.onClose();
   }
@@ -414,6 +430,7 @@ class FounderCommandCenterController extends GetxController {
     // conversation MỚI thay vì nối vào conversation của tenant trước.
     _chatSseSubscription?.cancel();
     _chatSseSubscription = null;
+    _stopAgentMessageWatch(clearSynced: true);
     _cofounderConversationId = null;
     chatMessages.clear();
     chatInputController.clear();
@@ -436,6 +453,7 @@ class FounderCommandCenterController extends GetxController {
     // Hủy SSE subscription của Project cũ
     _chatSseSubscription?.cancel();
     _chatSseSubscription = null;
+    _stopAgentMessageWatch(clearSynced: true);
 
     // Increment generation để discard stale response từ Project cũ
     _projectGeneration++;
@@ -869,6 +887,78 @@ class FounderCommandCenterController extends GetxController {
     }
   }
 
+  /// Mở (một lần cho mỗi cặp Project + conversation) SSE Project Activity; mỗi
+  /// event `agent.chat_message` kích hoạt đồng bộ message của agent.
+  void _ensureAgentMessageWatch() {
+    final pid = activeProjectId.value;
+    final conv = _cofounderConversationId;
+    if (pid == null || pid.isEmpty || conv == null) return;
+    final key = '$pid|$conv';
+    if (_agentMessageWatchKey == key && _agentMessageWatch != null) return;
+    _stopAgentMessageWatch();
+    _agentMessageWatchKey = key;
+    _agentMessageWatch = _projectActivityService.stream(pid).listen(
+      (event) {
+        if (event.kind == 'agent.chat_message') unawaited(syncAgentChatMessages());
+      },
+      onError: (Object e) => debugPrint('[FounderCommandCenter] activity SSE error: $e'),
+      onDone: () {
+        // Server đóng stream (restart/timeout): nối lại nếu vẫn cùng phiên.
+        _agentMessageWatch = null;
+        if (Get.testMode || _agentMessageWatchKey != key) return;
+        Future<void>.delayed(const Duration(seconds: 5), () {
+          if (_agentMessageWatchKey == key) {
+            _agentMessageWatchKey = null;
+            _ensureAgentMessageWatch();
+          }
+        });
+      },
+    );
+  }
+
+  /// `clearSynced` chỉ khi chat bị xoá (đổi workspace/Project) — nối lại
+  /// stream cùng phiên không được làm mất dedupe (tránh chèn trùng).
+  void _stopAgentMessageWatch({bool clearSynced = false}) {
+    _agentMessageWatch?.cancel();
+    _agentMessageWatch = null;
+    _agentMessageWatchKey = null;
+    if (clearSynced) _syncedAgentMessageIds.clear();
+  }
+
+  /// Chèn vào chat các assistant message do agent/run nền ghi vào conversation
+  /// hiện tại mà UI chưa có: message có cấu trúc (`{"kind": ...}`) hoặc thuộc
+  /// run WGA (`run_id` bắt đầu `wga_`). Trả lời thường của chat đã tới qua run
+  /// stream nên không chèn lại. Dedupe theo message id.
+  Future<void> syncAgentChatMessages() async {
+    final conv = _cofounderConversationId;
+    if (conv == null) return;
+    if (_agentMessageSyncRunning) {
+      _agentMessageSyncPending = true;
+      return;
+    }
+    _agentMessageSyncRunning = true;
+    try {
+      do {
+        _agentMessageSyncPending = false;
+        final session = await _chatService.getSessionView(conv);
+        if (_cofounderConversationId != conv) return;
+        for (final m in session.messages) {
+          if (m.role != 'assistant' || _syncedAgentMessageIds.contains(m.id)) continue;
+          final content = m.content.trim();
+          final structured = content.startsWith('{') && content.contains('"kind"');
+          final fromBackgroundRun = (m.runId ?? '').startsWith('wga_');
+          if (!structured && !fromBackgroundRun) continue;
+          _syncedAgentMessageIds.add(m.id);
+          chatMessages.add({'role': 'assistant', 'content': content});
+        }
+      } while (_agentMessageSyncPending);
+    } catch (e) {
+      debugPrint('[FounderCommandCenter] syncAgentChatMessages error: $e');
+    } finally {
+      _agentMessageSyncRunning = false;
+    }
+  }
+
   /// WGA G10 — founder bấm "Lập kế hoạch & giao việc" trong chat: nội dung ô
   /// nhập là mục tiêu, gửi thẳng tới luồng phân rã (origin=chat, conversation
   /// hiện tại) thay vì chờ bộ đoán ý định `goal_confirm`.
@@ -914,6 +1004,7 @@ class FounderCommandCenterController extends GetxController {
         latestDecomposition.value =
             DecompositionState(weeklyPlanId: weeklyPlanId, status: 'pending');
       }
+      if (effectiveOriginRef != null) _ensureAgentMessageWatch();
       AppToast.info(
         'Đã ghi mục tiêu tuần. AI đang lập kế hoạch triển khai — kế hoạch sẽ hiện ở đây trong giây lát.',
       );
@@ -999,6 +1090,7 @@ class FounderCommandCenterController extends GetxController {
   void startNewChat() {
     _chatSseSubscription?.cancel();
     _chatSseSubscription = null;
+    _stopAgentMessageWatch(clearSynced: true);
     _cofounderConversationId = null;
     chatMessages.clear();
     chatInputController.clear();
@@ -1061,6 +1153,7 @@ class FounderCommandCenterController extends GetxController {
       if (conversationId == null) {
         throw Exception('Không tạo được conversation với COSA runtime.');
       }
+      _ensureAgentMessageWatch();
 
       final response = await _chatService.sendMessage(
         conversationId,
@@ -1147,6 +1240,7 @@ class FounderCommandCenterController extends GetxController {
                 }
                 _markAssistantFailed(assistantMsg, 'COSA hoàn tất nhưng không có nội dung trả lời.');
                 isChatLoading.value = false;
+                unawaited(syncAgentChatMessages());
                 break;
               case 'run.failed':
               case 'run.cancelled':
