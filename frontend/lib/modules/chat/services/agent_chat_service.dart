@@ -235,18 +235,33 @@ class AgentChatService {
     }
   }
 
+  /// [conversationId] cho phép backend xác minh quyền sở hữu khi worker
+  /// chưa nhận run (chưa có `RunRecord`) — thiếu nó, SSE mở ngay sau khi gửi
+  /// tin nhắn sẽ bị 404.
   Stream<Map<String, dynamic>> streamRunEvents(
     String runId, {
     int? sinceSequence,
+    String? conversationId,
   }) async* {
     final extraHeaders = <String, String>{
       if (sinceSequence != null) 'Last-Event-ID': sinceSequence.toString(),
     };
     final url = _endpoint('/agent/runs/$runId/events', {
       'since_sequence': ?sinceSequence,
+      'conversation_id': ?conversationId,
     });
 
     final streamedResponse = await ApiClient.openSse(url, extraHeaders: extraHeaders);
+    if (streamedResponse.statusCode < 200 || streamedResponse.statusCode >= 300) {
+      // Không parse body lỗi như SSE (không có dòng `data:` nào -> stream
+      // kết thúc im lặng, UI chỉ biết "luồng đóng"). Báo đúng mã lỗi.
+      final body = await streamedResponse.stream.bytesToString();
+      throw AgentChatApiException(
+        'Không mở được luồng phản hồi của run $runId',
+        statusCode: streamedResponse.statusCode,
+        details: body,
+      );
+    }
 
     String? currentEvent;
     int? currentId;

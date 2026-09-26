@@ -106,7 +106,7 @@ company-boundary-check:
 	node scripts/check_company_boundaries.mjs
 
 encore-handler-boundary-check:
-	PYTHONPATH=$(CURDIR) $(PYTEST) tests/quality/test_encore_handler_boundaries.py -q
+	PYTHONPATH=$(CURDIR) $(PYTEST) tests/quality/test_encore_handler_boundaries.py tests/quality/test_encore_handler_return_types.py -q
 	node scripts/check_encore_handler_boundaries.mjs --root . --baseline scripts/encore-handler-boundary-baseline.json
 
 ts-suppression-check:

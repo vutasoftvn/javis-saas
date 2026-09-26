@@ -366,3 +366,60 @@ async def test_update_conversation_rejects_profile_without_chat_authority(test_a
     assert response.json()["detail"]["code"] == "AGENT_PROFILE_NOT_CHAT_ELIGIBLE"
     stored = await plane.conversation_repository.get_conversation(conv_id)
     assert stored.active_agent_profile == "founder_assistant"
+
+
+@pytest.mark.asyncio
+async def test_get_run_events_for_run_not_yet_picked_up_by_worker(test_app) -> None:
+    """RunRecord chỉ có khi worker bắt đầu chạy; client mở SSE ngay sau POST
+    message. Trước fix route trả 404 -> chat báo "Luồng phản hồi đóng trước khi
+    COSA trả lời". Giờ chứng minh sở hữu qua conversation + message có run_id."""
+    from agent.runs.stream_events import RunStreamEventRecord
+
+    app, plane, _ = test_app
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        conv_id = (
+            await ac.post(
+                "/agent/conversations",
+                json={"title": "Hub", "active_agent_profile": "operations", "project_id": "proj_a"},
+            )
+        ).json()["id"]
+        run_id = (
+            await ac.post(
+                f"/agent/conversations/{conv_id}/messages",
+                json={
+                    "content": "hi",
+                    "project_id": "proj_a",
+                    "data_access": {"categories": ["NON_PERSONAL"]},
+                },
+            )
+        ).json()["run_id"]
+        assert await plane.repository.get_scoped_run(run_id=run_id, workspace_id=WORKSPACE_A) is None
+
+        # Worker (tiến trình khác) sau đó ghi event terminal vào durable store.
+        await plane.stream_event_repository.append(
+            RunStreamEventRecord(
+                run_id=run_id,
+                event_type="run.completed",
+                payload={"output": "xin chào"},
+                conversation_id=conv_id,
+                workspace_id=WORKSPACE_A,
+                project_id="proj_a",
+            )
+        )
+
+        ok = await ac.get(f"/agent/runs/{run_id}/events", params={"conversation_id": conv_id})
+        assert ok.status_code == 200
+        assert "event: run.completed" in ok.text
+
+        # Thiếu conversation_id, hoặc conversation không chứa run này -> 404.
+        assert (await ac.get(f"/agent/runs/{run_id}/events")).status_code == 404
+        other_conv = (
+            await ac.post(
+                "/agent/conversations",
+                json={"title": "Other", "active_agent_profile": "operations", "project_id": "proj_a"},
+            )
+        ).json()["id"]
+        wrong = await ac.get(f"/agent/runs/{run_id}/events", params={"conversation_id": other_conv})
+        assert wrong.status_code == 404

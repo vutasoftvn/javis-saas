@@ -5,6 +5,7 @@ import {
   revokeAgentCapability,
   getAuthorizationOverview,
   evaluateAgentCapabilityAuthority,
+  AuthorizationOverview,
 } from "../services/agent-authorization.service";
 import { ResourceScope, RuleDecision } from "../services/business-authorization.service";
 
@@ -42,7 +43,7 @@ export interface SimulateAgentAuthorizationApiRequest {
 
 export const getAuthorizationOverviewEndpoint = api(
   { method: "GET", path: "/identity/authorization/overview", expose: true },
-  async (req: GetAuthorizationOverviewApiRequest) => {
+  async (req: GetAuthorizationOverviewApiRequest): Promise<AuthorizationOverview> => {
     const ctx = await requireWorkspaceAccess(req.authorization, req.workspaceId);
     return getAuthorizationOverview(ctx);
   }

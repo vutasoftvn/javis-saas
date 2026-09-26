@@ -126,25 +126,33 @@ async def get_run_events(
     project_id: str | None = Query(None),
     since_sequence: int | None = Query(None),
     last_event_id: int | None = Header(None, alias="Last-Event-ID"),
+    conversation_id: str | None = Query(None),
 ):
     plane = get_cosa_plane(request)
     owned_run = await plane.repository.get_scoped_run(
         run_id=run_id,
         workspace_id=identity.workspace_id,
     )
-    if owned_run is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
+    if owned_run is not None:
+        run_project_id = owned_run.project_id
+    else:
+        # `RunRecord` chỉ được tạo khi worker BẮT ĐẦU chạy run; client mở SSE
+        # ngay sau POST message nên thường tới trước worker. Trước fix này route
+        # trả 404 và chat hiện "Luồng phản hồi đóng trước khi COSA trả lời".
+        # Chứng minh quyền sở hữu qua conversation của workspace này + message
+        # đã lưu mang đúng run_id (create_message ghi message TRƯỚC khi schedule).
+        run_project_id = await _project_of_pending_run(plane, identity, run_id, conversation_id)
 
     # Project-scoped Founder Hub — resolve Project từ run đã lưu rồi verify
     # qua Company (cùng lý do với cancel_run ở trên). Nếu caller khai
     # project_id tường minh, enforce khớp với Project thật của run (Review
     # Finding 1).
-    if owned_run.project_id:
-        await verify_project_context(plane, identity, owned_run.project_id)
+    if run_project_id:
+        await verify_project_context(plane, identity, run_project_id)
         if project_id is not None:
             require_project_context_match(
                 request_project_id=project_id,
-                persisted_project_id=owned_run.project_id,
+                persisted_project_id=run_project_id,
             )
 
     stream_mgr = get_cosa_event_stream_manager()
@@ -161,6 +169,28 @@ async def get_run_events(
             "X-Accel-Buffering": "no",
         },
     )
+
+
+async def _project_of_pending_run(
+    plane: CosaAgentPlane,
+    identity: AuthenticatedIdentity,
+    run_id: str,
+    conversation_id: str | None,
+) -> str | None:
+    """Run chưa có `RunRecord` (worker chưa nhận) — chỉ chấp nhận khi
+    `conversation_id` thuộc workspace của caller VÀ có message mang đúng
+    `run_id`. Không thoả -> 404 như run không tồn tại (không lộ run của
+    tenant khác). Trả project_id đã lưu trên conversation."""
+    not_found = HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
+    if not conversation_id:
+        raise not_found
+    conversation = await plane.conversation_repository.get_conversation(conversation_id)
+    if conversation is None or conversation.workspace_id != identity.workspace_id:
+        raise not_found
+    messages = await plane.conversation_repository.list_messages(conversation_id)
+    if not any(m.run_id == run_id for m in messages):
+        raise not_found
+    return conversation.project_id
 
 
 def create_cosa_router() -> APIRouter:

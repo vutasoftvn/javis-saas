@@ -308,7 +308,11 @@ class ChatController extends GetxController {
     reconnecting.value = false;
 
     _sseSubscription = _service
-        .streamRunEvents(runId, sinceSequence: sinceSeq ?? lastSequence.value)
+        .streamRunEvents(
+          runId,
+          sinceSequence: sinceSeq ?? lastSequence.value,
+          conversationId: assistantMsg.conversationId,
+        )
         .listen(
       (event) {
         final seq = (event['sequence'] as num?)?.toInt() ?? 0;
