@@ -673,7 +673,9 @@ class ProjectAnalysisFlowView extends StatelessWidget {
           const SizedBox(height: 20),
           const Divider(color: Color(0xFF334155), height: 1),
           const SizedBox(height: 20),
-          child,
+          // Material trong suốt: ListTile/CheckboxListTile bên trong cần Material ancestor riêng,
+          // nếu không màu nền của Container này che ink và Flutter ném assertion (debug).
+          Material(type: MaterialType.transparency, child: child),
         ],
       ),
     );

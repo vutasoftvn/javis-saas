@@ -7,6 +7,7 @@ import '../../../core/routing/app_routes.dart';
 import '../../../core/localization/app_translations.dart';
 import '../../../core/localization/locale_controller.dart';
 import 'widgets/auth_language_switcher.dart';
+import 'widgets/otp_code_field.dart';
 
 class LoginView extends GetView<AuthController> {
   const LoginView({super.key});
@@ -27,31 +28,10 @@ class LoginView extends GetView<AuthController> {
           style: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
         ),
         const SizedBox(height: 16),
-        TextField(
+        OtpCodeField(
           controller: controller.loginOtpController,
           autofocus: true,
-          keyboardType: TextInputType.number,
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.white, fontSize: 20, letterSpacing: 6),
-          onSubmitted: (_) => controller.submitLoginOtp(),
-          decoration: InputDecoration(
-            labelText: 'Mã xác thực',
-            labelStyle: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
-            filled: true,
-            fillColor: AppTheme.backgroundDark.withValues(alpha: 0.8),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: AppTheme.borderDark),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: AppTheme.borderDark),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: AppTheme.primary, width: 1.5),
-            ),
-          ),
+          onSubmitted: controller.submitLoginOtp,
         ),
         const SizedBox(height: 24),
         ElevatedButton(

@@ -184,7 +184,7 @@ class CoreAuthClient {
     return _exchangeSession({
       'accessToken': accessToken,
       'user': {'id': challenge.userId},
-    });
+    }, totpCode: challenge.step == 'totp_code' ? code : null);
   }
 
   /// Bước 1 đăng ký: core gửi OTP tới email.
@@ -243,7 +243,7 @@ class CoreAuthClient {
     return _tokenResponseToSession(_decode(response), const <String, dynamic>{});
   }
 
-  Future<CoreSession> _exchangeSession(Map<String, dynamic> sessionBody) async {
+  Future<CoreSession> _exchangeSession(Map<String, dynamic> sessionBody, {String? totpCode}) async {
     final sessionJwt = sessionBody['accessToken'] as String?;
     if (sessionJwt == null || sessionJwt.isEmpty) {
       throw CoreAuthException(502, 'Phản hồi đăng nhập không có phiên');
@@ -266,7 +266,8 @@ class CoreAuthClient {
       headers: {'Authorization': 'Bearer $sessionJwt'},
     ).timeout(_timeout);
 
-    final redirectUrl = _decode(authorize)['redirectUrl'] as String?;
+    final authorizeBody = await _resolveAuthorize(authorize, sessionJwt, totpCode);
+    final redirectUrl = authorizeBody['redirectUrl'] as String?;
     final redirect = redirectUrl == null ? null : Uri.tryParse(redirectUrl);
     final code = redirect?.queryParameters['code'];
     if (code == null || code.isEmpty || redirect?.queryParameters['state'] != state) {
@@ -287,6 +288,37 @@ class CoreAuthClient {
         )
         .timeout(_timeout);
     return _tokenResponseToSession(_decode(token), user);
+  }
+
+  /// Core có thể đòi xác nhận TOTP lần nữa ở `/oauth/authorize` (400 `requiresTotp` + `interactionId`)
+  /// dù người dùng vừa qua bước TOTP lúc đăng nhập. Nếu đã có mã TOTP đó thì xác nhận luôn,
+  /// tránh bắt nhập hai lần; không có mã (đăng nhập bằng OTP/PIN) thì báo lỗi rõ ràng.
+  Future<Map<String, dynamic>> _resolveAuthorize(
+    http.Response authorize,
+    String sessionJwt,
+    String? totpCode,
+  ) async {
+    if (authorize.statusCode != 400 && authorize.statusCode != 412) {
+      return _decode(authorize);
+    }
+    Object? details;
+    try {
+      final body = jsonDecode(authorize.body);
+      details = body is Map ? body['details'] : null;
+    } catch (_) {}
+    final interactionId = details is Map && details['requiresTotp'] == true ? details['interactionId'] : null;
+    if (interactionId is! String) return _decode(authorize);
+    if (totpCode == null || totpCode.isEmpty) {
+      throw CoreAuthException(412, 'Tài khoản yêu cầu xác nhận TOTP để cấp quyền truy cập');
+    }
+    final verified = await _client
+        .post(
+          _uri('/oauth/authorize/verify-totp'),
+          headers: {..._jsonHeaders, 'Authorization': 'Bearer $sessionJwt'},
+          body: jsonEncode({'interactionId': interactionId, 'code': totpCode}),
+        )
+        .timeout(_timeout);
+    return _decode(verified);
   }
 
   CoreSession _tokenResponseToSession(Map<String, dynamic> body, Map<String, dynamic> user) {

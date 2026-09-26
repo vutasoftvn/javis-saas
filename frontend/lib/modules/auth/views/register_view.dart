@@ -6,6 +6,7 @@ import '../../../core/routing/app_routes.dart';
 import '../../../core/localization/app_translations.dart';
 import '../../../core/localization/locale_controller.dart';
 import 'widgets/auth_language_switcher.dart';
+import 'widgets/otp_code_field.dart';
 
 class RegisterView extends GetView<AuthController> {
   const RegisterView({super.key});
@@ -326,31 +327,16 @@ class RegisterView extends GetView<AuthController> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    TextField(
+                    const Text(
+                      'Mã xác nhận (OTP) đã được gửi tới email của bạn',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
+                    ),
+                    const SizedBox(height: 12),
+                    OtpCodeField(
                       controller: controller.regOtpController,
-                      keyboardType: TextInputType.number,
-                      style: const TextStyle(color: Colors.white, fontSize: 14),
-                      decoration: InputDecoration(
-                        labelText: 'Mã xác nhận (OTP)',
-                        helperText: 'Mã đã được gửi tới email của bạn',
-                        helperStyle: const TextStyle(color: AppTheme.textMutedDark, fontSize: 12),
-                        labelStyle: const TextStyle(color: AppTheme.textMutedDark, fontSize: 13),
-                        prefixIcon: const Icon(Icons.verified_user_outlined, color: AppTheme.primary, size: 20),
-                        filled: true,
-                        fillColor: AppTheme.backgroundDark.withValues(alpha: 0.8),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: AppTheme.borderDark),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: AppTheme.borderDark),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: AppTheme.primary, width: 1.5),
-                        ),
-                      ),
+                      autofocus: true,
+                      onSubmitted: controller.submitAccountStep,
                     ),
                     Align(
                       alignment: Alignment.centerRight,

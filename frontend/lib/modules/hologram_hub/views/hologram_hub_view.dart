@@ -234,11 +234,16 @@ class _HologramHubViewState extends State<HologramHubView> {
                       // Project Context Bar (Bên phải)
                       if (!isCompact)
                         Expanded(
-                          child: ProjectContextBar(
-                            projects: controller.projectsList.toList(),
-                            selectedProjectId: controller.activeProjectId,
-                            onSelected: (projectId) =>
-                                controller.selectProject(projectId),
+                          // Obx: `projectsList` tải bất đồng bộ sau khi hub dựng (nhất là khi
+                          // khởi động lại app); đọc `.toList()` ngoài Obx sẽ giữ danh sách rỗng
+                          // và thanh mãi hiện "Select Project" dù project đã được chọn.
+                          child: Obx(
+                            () => ProjectContextBar(
+                              projects: controller.projectsList.toList(),
+                              selectedProjectId: controller.activeProjectId,
+                              onSelected: (projectId) =>
+                                  controller.selectProject(projectId),
+                            ),
                           ),
                         ),
 

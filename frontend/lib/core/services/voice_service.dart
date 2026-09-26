@@ -26,6 +26,11 @@ class VoiceService implements IVoiceService {
   AudioRecorder get _activeRecorder => _recorder ??= AudioRecorder();
   bool _isRecording = false;
 
+  /// Reactive notifiers for voice visualizers and UI components
+  final ValueNotifier<bool> isRecordingNotifier = ValueNotifier<bool>(false);
+  final ValueNotifier<double> audioLevelNotifier = ValueNotifier<double>(0.0);
+  StreamSubscription<Amplitude>? _amplitudeSub;
+
   @override
   bool get isRecording => _isRecording;
 
@@ -51,6 +56,17 @@ class VoiceService implements IVoiceService {
       final path = '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
       await _activeRecorder.start(const RecordConfig(encoder: AudioEncoder.aacLc), path: path);
       _isRecording = true;
+      isRecordingNotifier.value = true;
+      try {
+        _amplitudeSub?.cancel();
+        _amplitudeSub = _activeRecorder
+            .onAmplitudeChanged(const Duration(milliseconds: 60))
+            .listen((amp) {
+          final db = amp.current;
+          final normalized = ((db + 50.0) / 45.0).clamp(0.0, 1.0);
+          audioLevelNotifier.value = normalized;
+        });
+      } catch (_) {}
       debugPrint('[VoiceService] Started recording to $path');
       return true;
     } catch (e) {
@@ -63,6 +79,10 @@ class VoiceService implements IVoiceService {
   Future<String?> stopRecordingAndTranscribe({String? language}) async {
     if (!_isRecording) return null;
     _isRecording = false;
+    isRecordingNotifier.value = false;
+    _amplitudeSub?.cancel();
+    _amplitudeSub = null;
+    audioLevelNotifier.value = 0.0;
 
     final recorder = _recorder;
     if (recorder == null) return null;
