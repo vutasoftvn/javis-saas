@@ -1,6 +1,7 @@
 import { api, Header } from "encore.dev/api";
 import { requireWorkerServiceAuth } from "../../../shared/auth/worker-service-auth";
 import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
+import { AGENT_CAP } from "../../../shared/auth/agent-capabilities";
 import {
   getCopilotSettings,
   updateCopilotSettings,
@@ -110,7 +111,9 @@ export const disableCopilotApi = api(
 export const getThreadContextApi = api(
   { expose: true, method: "GET", path: "/commercial/engagement/threads/:id/context" },
   async ({ id, workspaceId, authorization }: GetThreadContextRequest): Promise<ThreadContextDTO> => {
-    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId, {
+      agentCapabilities: [AGENT_CAP.ENGAGEMENT_THREAD_READ],
+    });
     return getThreadContextForAgent(id, ctx);
   }
 );

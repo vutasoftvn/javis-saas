@@ -13,3 +13,4 @@ export * from "./metric-contract.handler";
 export * from "./metric-snapshot.handler";
 export * from "./weekly-goal.handler";
 export * from "./workspace-strategy-settings.handler";
+export * from "./venture-profile.handler";
