@@ -118,13 +118,17 @@ class FixtureServer {
     final path = request.uri.path;
     final method = request.method;
 
-    // Backend/core giả lập: /auth/login -> /oauth/authorize (PKCE) -> /oauth/token.
-    if (method == 'POST' && path == '/auth/login') {
+    // Backend/core giả lập: /auth/signin -> /oauth/authorize (PKCE) -> /oauth/token.
+    if (method == 'POST' && path == '/auth/signin') {
       return _respond(request, 200, {
-        'user': {'id': 'member-a', 'displayName': 'Member A'},
-        'accessToken': 'fixture-core-session',
-        'refreshToken': 'fixture-core-session-refresh',
-        'expiresIn': 3600,
+        'sessionId': '1',
+        'userId': 'member-a',
+        'steps': <String>[],
+        'tokens': {
+          'accessToken': 'fixture-core-session',
+          'refreshToken': 'fixture-core-session-refresh',
+          'expiresIn': 3600,
+        },
       });
     }
 

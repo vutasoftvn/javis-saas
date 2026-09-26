@@ -40,9 +40,9 @@ class ProjectOperatingWeekCard extends StatelessWidget {
         key: const Key('operating_week_loading'),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
+          color: const Color(0xFF0F172A).withValues(alpha: 0.38),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
+          border: Border.all(color: const Color(0x336366F1)),
         ),
         child: const Center(
           child: Padding(
@@ -69,11 +69,13 @@ class ProjectOperatingWeekCard extends StatelessWidget {
               children: [
                 Icon(Icons.error_outline, color: theme.colorScheme.error),
                 const SizedBox(width: 8),
-                Text(
-                  isEn ? 'Error loading operating cycle' : 'Lỗi tải chu kỳ hoạt động',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    color: theme.colorScheme.error,
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Text(
+                    isEn ? 'Error loading operating cycle' : 'Lỗi tải chu kỳ hoạt động',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: theme.colorScheme.error,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
@@ -105,9 +107,9 @@ class ProjectOperatingWeekCard extends StatelessWidget {
         key: const Key('operating_week_no_cycle'),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
+          color: const Color(0xFF0F172A).withValues(alpha: 0.38),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
+          border: Border.all(color: const Color(0x336366F1)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -117,10 +119,12 @@ class ProjectOperatingWeekCard extends StatelessWidget {
                 Icon(Icons.calendar_today_outlined,
                     size: 20, color: theme.colorScheme.primary),
                 const SizedBox(width: 8),
-                Text(
-                  isEn ? 'Project Operating Cycle' : 'Chu kỳ hoạt động dự án',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Text(
+                    isEn ? 'Project Operating Cycle' : 'Chu kỳ hoạt động dự án',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
@@ -152,9 +156,9 @@ class ProjectOperatingWeekCard extends StatelessWidget {
       key: const Key('operating_week_card'),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
+        color: const Color(0xFF0F172A).withValues(alpha: 0.38),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
+        border: Border.all(color: const Color(0x336366F1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -162,20 +166,25 @@ class ProjectOperatingWeekCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Icon(Icons.calendar_today,
-                      size: 20, color: theme.colorScheme.primary),
-                  const SizedBox(width: 8),
-                  Text(
-                    isEn
-                        ? 'Cycle: ${cycle.durationWeeks} weeks — Week $currentWeekNo'
-                        : 'Chu kỳ ${cycle.durationWeeks} tuần — Tuần $currentWeekNo',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+              Expanded(
+                child: Row(
+                  children: [
+                    Icon(Icons.calendar_today,
+                        size: 20, color: theme.colorScheme.primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        isEn
+                            ? 'Cycle: ${cycle.durationWeeks} weeks — Week $currentWeekNo'
+                            : 'Chu kỳ ${cycle.durationWeeks} tuần — Tuần $currentWeekNo',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

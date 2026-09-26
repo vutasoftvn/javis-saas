@@ -11,13 +11,15 @@ PID_DIR="$REPO_ROOT/tmp/pids"
 mkdir -p "$LOG_DIR" "$PID_DIR"
 
 # Clean up any stale port bindings / workers
-for port in 4000 4001 8000; do
+COMPANY_PORT="${COMPANY_SERVICE_PORT:-4002}"
+for port in "$COMPANY_PORT" 4001 8000; do
   lsof -ti :$port | xargs kill -9 2>/dev/null || true
 done
 pkill -f "apps.cosa.worker.main" 2>/dev/null || true
+pkill -f "javis-saas.*build/combined" 2>/dev/null || true
 
-echo "Starting Company Service (Encore, port 4000)..."
-(cd "$REPO_ROOT/services/company" && encore run --port=4000 > "$LOG_DIR/company.log" 2>&1) &
+echo "Starting Company Service (Encore, port $COMPANY_PORT)..."
+(cd "$REPO_ROOT/services/company" && encore run --port="$COMPANY_PORT" > "$LOG_DIR/company.log" 2>&1) &
 echo $! > "$PID_DIR/company.pid"
 
 echo "Starting COSA Control Plane (Encore, port 4001)..."
@@ -35,7 +37,7 @@ echo $! > "$PID_DIR/worker.pid"
 echo "Waiting for services to become healthy..."
 attempt=0
 while [ $attempt -lt 60 ]; do
-  if curl -fsS http://127.0.0.1:4000/healthz >/dev/null 2>&1 && \
+  if curl -fsS http://127.0.0.1:$COMPANY_PORT/healthz >/dev/null 2>&1 && \
      curl -fsS http://127.0.0.1:4001/healthz >/dev/null 2>&1 && \
      curl -fsS http://127.0.0.1:8000/healthz >/dev/null 2>&1; then
     echo "✓ All services healthy!"

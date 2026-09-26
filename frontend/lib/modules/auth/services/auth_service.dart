@@ -142,6 +142,9 @@ class AuthService {
           errorMessage: 'Email/Số điện thoại hoặc mật khẩu không chính xác',
         );
       }
+      if (e.statusCode == 412) {
+        return AuthResult(success: false, errorMessage: e.message);
+      }
       return AuthResult(
         success: false,
         errorMessage: 'Đăng nhập không thành công (mã lỗi ${e.statusCode})',
@@ -433,10 +436,16 @@ class AuthService {
           errorMessage: 'Bạn không phải thành viên của workspace nào',
         );
       }
+      var errorMsg = 'Đồng bộ dữ liệu không thành công (mã lỗi ${response.statusCode})';
+      try {
+        final errData = jsonDecode(response.body);
+        if (errData is Map && errData['message'] is String && (errData['message'] as String).isNotEmpty) {
+          errorMsg = errData['message'] as String;
+        }
+      } catch (_) {}
       return AuthResult(
         success: false,
-        errorMessage:
-            'Đồng bộ dữ liệu không thành công (mã lỗi ${response.statusCode})',
+        errorMessage: errorMsg,
       );
     } catch (e) {
       debugPrint('syncFromPlatform error: $e');

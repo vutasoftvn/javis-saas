@@ -144,7 +144,7 @@ COSA hỗ trợ người dùng đăng nhập bằng cả **Email** hoặc **Số
 
 > **Danh tính do `backend/core` quản lý.** COSA không còn giữ mật khẩu hay tự đăng nhập: app đăng nhập/đăng ký
 > trực tiếp với core rồi dùng access token OIDC của client `vn.mivacorp.cosa` (Authorization Code + PKCE).
-> Cấu hình app: `--dart-define=CORE_BASE_URL=http://127.0.0.1:4010`. Cấu hình `services/cosa`:
+> Cấu hình app: `--dart-define=CORE_BASE_URL=http://127.0.0.1:4000`. Cấu hình `services/cosa`:
 > `CORE_BASE_URL`, `CORE_INTROSPECT_CLIENT_ID`, `CORE_INTROSPECT_CLIENT_SECRET` (xem `.env.example`; cấp secret bằng
 > `node --env-file=.env scripts/provision-cosa-backend-client.mjs` trong `backend/core`).
 
