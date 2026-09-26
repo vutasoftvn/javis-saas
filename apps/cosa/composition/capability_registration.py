@@ -93,8 +93,10 @@ from apps.cosa.capabilities.marketing_write import (
     create_marketing_context_write_handler,
 )
 from apps.cosa.capabilities.operations_read import (
+    OPERATIONS_EXECUTION_PLAN_READ_SPEC,
     OPERATIONS_TASK_LIST_SPEC,
     OPERATIONS_TASK_READ_SPEC,
+    create_operations_execution_plan_read_handler,
     create_operations_task_list_handler,
     create_operations_task_read_handler,
 )
@@ -193,6 +195,9 @@ def register_cosa_capabilities(
     # Operations
     cap_registry.register(OPERATIONS_TASK_LIST_SPEC, create_operations_task_list_handler(client))
     cap_registry.register(OPERATIONS_TASK_READ_SPEC, create_operations_task_read_handler(client))
+    cap_registry.register(
+        OPERATIONS_EXECUTION_PLAN_READ_SPEC, create_operations_execution_plan_read_handler(client)
+    )
     cap_registry.register(
         OPERATIONS_TASK_CREATE_DRAFT_SPEC,
         create_operations_task_create_draft_handler(client),
