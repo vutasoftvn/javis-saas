@@ -248,7 +248,9 @@ describe("Security Posture Dossier Service", () => {
     ).rejects.toMatchObject({ code: "unauthenticated" });
   });
 
-  it("rejects a COSA-delegation-signed token on the read endpoint the same way", async () => {
+  // Endpoint đọc nhận delegation của agent chỉ khi đúng capability đọc; token có
+  // capability khác (ở đây là id sai) bị từ chối.
+  it("rejects a COSA delegation without the read capability on the read endpoint", async () => {
     const delegationToken = mintCompanyDelegation({
       sub: "cosa-worker-1",
       workspace_id: founderCtx.workspaceId,
@@ -262,7 +264,7 @@ describe("Security Posture Dossier Service", () => {
         authorization: `Bearer ${delegationToken}`,
         workspaceId: founderCtx.workspaceId,
       })
-    ).rejects.toMatchObject({ code: "unauthenticated" });
+    ).rejects.toMatchObject({ code: "permission_denied" });
   });
 
   // --- (e) one dossier per project ----------------------------------------
