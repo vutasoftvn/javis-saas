@@ -122,7 +122,10 @@ make deploy              # preflight → migrate-all → deploy-app (tuần tự
   `2026-08-31-maintainable-modular-truthful-mvp-design.md`).
 - **Founder-configurable Role/Agent/Skill/Workflow — design đã duyệt, chưa
   triển khai:**
-  `docs/superpowers/specs/2026-09-13-founder-configurable-agent-skill-workflow-design.md`.
+  `docs/superpowers/specs/2026-09-13-founder-configurable-agent-skill-workflow-design.md`
+  (**file KHÔNG còn trong cây** tính đến 2026-09-26 — nội dung còn hiệu lực được
+  tóm tắt ở mục "Founder-configurable assets" bên dưới và trong
+  `docs/superpowers/specs/2026-09-20-governed-advisor-overlay-and-truthful-hub-design.md`).
   Nguồn chuẩn cho Workspace assets + Project deployments, clone-only built-in
   assets, lifecycle evaluation/publish và Hướng 3 canvas mở có kiểm soát.
 - `docs/superpowers/plans/` — plan triển khai đã duyệt.
@@ -130,7 +133,10 @@ make deploy              # preflight → migrate-all → deploy-app (tuần tự
   `docs/superpowers/specs/2026-09-10-cosa-startup-core-clean-slate-design.md`
   + plan `docs/superpowers/plans/2026-09-10-cosa-startup-core-clean-slate.md`
   + nhật ký thực thi
-  `docs/superpowers/plans/2026-09-10-cosa-startup-core-clean-slate-EXECUTION-STATUS.md`.
+  `docs/superpowers/plans/2026-09-10-cosa-startup-core-clean-slate-EXECUTION-STATUS.md`
+  (**cả 3 file KHÔNG còn trong cây** tính đến 2026-09-26 — quyết định còn hiệu
+  lực được tóm tắt ngay bên dưới; spec/plan hiện có nằm trong
+  `docs/superpowers/specs/` và `docs/superpowers/plans/`).
   Baseline project-centric: framework BSC/PESTEL/SWOT/TOWS/Porter/maturity +
   stage-gate/scoreboard tự động đã gỡ khỏi cả 4 vùng; **lifecycle Workspace
   (W0_IDEA→W5_SCALE) và Project (P0_DISCOVERY→P6_SCALE_GOVERN) được GIỮ** —
