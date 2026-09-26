@@ -26,4 +26,16 @@ export const AGENT_CAP = Object.freeze({
   SECURITY_POSTURE_READ: "security.posture.read",
   DATA_GOVERNANCE_READ: "data.governance.read",
   AI_GOVERNANCE_READ: "ai.governance.read",
+  // Startup OS (plan 2026-09-18 Phase 3): onboarding hội thoại /cs:setup, /cs:update
+  // và tư vấn Goal. Agent chỉ ghi ngữ cảnh do chính Founder khai báo trong chat;
+  // tạo Goal và triage Project vẫn do Founder thao tác (không mở cho agent).
+  STARTUP_OS_CONTEXT_READ: "startup_os.onboard.context_read",
+  STARTUP_OS_CADENCE_STATUS: "startup_os.onboard.cadence_status",
+  STARTUP_OS_CADENCE_ADVISORY: "startup_os.onboard.cadence_advisory",
+  STARTUP_OS_SESSION_START: "startup_os.onboard.session_start",
+  STARTUP_OS_DIMENSION_UPDATE: "startup_os.onboard.dimension_update",
+  STARTUP_OS_SNAPSHOT_CREATE: "startup_os.onboard.snapshot_create",
+  STARTUP_OS_GOAL_TREE_READ: "startup_os.goal.tree_read",
+  STARTUP_OS_GOALS_NEEDING_REVIEW: "startup_os.goal.needing_review",
+  STARTUP_OS_GOAL_ADVISORY: "startup_os.goal.advisory",
 });

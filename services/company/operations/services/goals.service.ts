@@ -86,12 +86,17 @@ export async function createGoalService(params: {
   const cadenceStatus = await getCadenceStatusService(params.workspaceId);
   const cadenceWarnings: Array<{ dimension: string; urgency: string; message: string }> = [];
 
+  // Chỉ 2 chiều Fast quyết định ngữ cảnh khi đặt mục tiêu (plan Startup OS Task 2.2).
+  const fastDimensions = new Set(["stage_scale", "challenges"]);
   for (const c of cadenceStatus.cadences) {
+    if (!fastDimensions.has(c.dimension)) continue;
     if (c.urgency === "critical" || c.urgency === "recommended") {
       cadenceWarnings.push({
         dimension: c.dimension,
         urgency: c.urgency,
-        message: `Chiều ${c.dimension} đã ${c.daysSinceLastReview} ngày chưa cập nhật (mức độ: ${c.urgency}). Nên cập nhật trước khi tạo mục tiêu.`,
+        message: c.neverReviewed
+          ? `Chiều ${c.dimension} chưa từng được ghi nhận. Nên cập nhật trước khi tạo mục tiêu.`
+          : `Chiều ${c.dimension} đã ${c.daysSinceLastReview} ngày chưa cập nhật (mức độ: ${c.urgency}). Nên cập nhật trước khi tạo mục tiêu.`,
       });
     }
   }
