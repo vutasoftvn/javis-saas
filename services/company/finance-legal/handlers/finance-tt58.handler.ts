@@ -1,5 +1,9 @@
-import { api, Header, Query } from "encore.dev/api";
-import { requireWorkspaceAccess, requireFounderCommand } from "../../shared/auth/workspace-access";
+import { api, APIError, Header, Query } from "encore.dev/api";
+import {
+  requireWorkspaceAccess,
+  requireWorkspaceWrite,
+  requireFounderCommand,
+} from "../../shared/auth/workspace-access";
 import { AGENT_CAP } from "../../shared/auth/agent-capabilities";
 import {
   getAccountingRegimePolicyService,
@@ -190,6 +194,40 @@ export const getReconciliationProposals = api(
     const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
     const proposals = await listReconciliationProposalsService(BigInt(ctx.workspaceId), params.status);
     return { proposals };
+  }
+);
+
+// Id Snowflake đi qua JSON dạng chuỗi số; parse bằng BigInt để không mất độ chính xác.
+function parseIdParam(value: string | number, field: string): bigint {
+  const raw = String(value ?? "").trim();
+  if (!/^[0-9]+$/.test(raw)) {
+    throw APIError.invalidArgument(`${field} must be a numeric id`);
+  }
+  return BigInt(raw);
+}
+
+export interface ProposeReconciliationParams {
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
+  bankTransactionId: string | number;
+  accountingDocumentId: string | number;
+  confidence: number;
+}
+
+// Agent tài chính (finance.transaction.classify_propose) chỉ tạo đề xuất PENDING;
+// việc chấp nhận vẫn do người dùng bấm qua /accept.
+export const postReconciliationProposal = api(
+  { method: "POST", path: "/finance/reconciliation-proposals", expose: true },
+  async (params: ProposeReconciliationParams): Promise<ReconciliationProposalView> => {
+    const ctx = await requireWorkspaceWrite(params.authorization, params.workspaceId, {
+      agentCapabilities: [AGENT_CAP.FINANCE_TRANSACTION_CLASSIFY_PROPOSE],
+    });
+    return proposeReconciliationService({
+      workspaceId: BigInt(ctx.workspaceId),
+      bankTransactionId: parseIdParam(params.bankTransactionId, "bankTransactionId"),
+      accountingDocumentId: parseIdParam(params.accountingDocumentId, "accountingDocumentId"),
+      confidence: params.confidence,
+    });
   }
 );
 

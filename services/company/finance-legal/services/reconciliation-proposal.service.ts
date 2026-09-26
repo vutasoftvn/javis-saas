@@ -49,6 +49,36 @@ export async function proposeReconciliationService(p: {
   confidence: number;
   candidateMatch?: any;
 }): Promise<ReconciliationProposalView> {
+  if (!Number.isFinite(p.confidence) || p.confidence < 0 || p.confidence > 1) {
+    throw APIError.invalidArgument("confidence must be between 0 and 1");
+  }
+  // Giao dịch ngân hàng và chứng từ phải thuộc đúng workspace của caller —
+  // không cho đề xuất ghép chéo dữ liệu workspace khác.
+  const [bankTx] = await db
+    .select({ id: bankTransactions.id })
+    .from(bankTransactions)
+    .where(
+      and(
+        eq(bankTransactions.id, p.bankTransactionId),
+        eq(bankTransactions.workspaceId, p.workspaceId)
+      )
+    );
+  if (!bankTx) {
+    throw APIError.notFound(`Bank transaction '${p.bankTransactionId}' not found`);
+  }
+  const [doc] = await db
+    .select({ id: accountingDocuments.id })
+    .from(accountingDocuments)
+    .where(
+      and(
+        eq(accountingDocuments.id, p.accountingDocumentId),
+        eq(accountingDocuments.workspaceId, p.workspaceId)
+      )
+    );
+  if (!doc) {
+    throw APIError.notFound(`Accounting document '${p.accountingDocumentId}' not found`);
+  }
+
   const newId = generateSnowflake();
   const [created] = await db
     .insert(documentReconciliationProposals)
