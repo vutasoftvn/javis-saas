@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import '../../../core/localization/locale_controller.dart';
 import '../../../core/localization/supported_locale.dart';
 import '../../../core/ui/app_copy.dart';
+import '../../../core/theme/app_theme.dart';
 import '../controllers/founder_command_center_controller.dart';
 
 /// Nội dung chat thuần (không side effect ngoài [controller] được truyền
@@ -64,7 +65,7 @@ class ChatPanelContent extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.psychology, color: Color(0xFF8B5CF6), size: 24),
+              const Icon(Icons.psychology, color: AppTheme.primary, size: 24),
               const SizedBox(width: 10),
               // Expanded + ellipsis: panel nổi (`DraggableChatPanel`) hẹp hơn
               // nhiều so với bottom sheet cũ, tránh RenderFlex overflow khi tiêu
@@ -76,15 +77,25 @@ class ChatPanelContent extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+              IconButton(
+                key: const Key('hub_chat_new_chat_button'),
+                tooltip: AppCopy.hubChatNewChatTooltip,
+                onPressed: controller.startNewChat,
+                icon: const Icon(Icons.add, color: AppTheme.primary),
+                visualDensity: VisualDensity.compact,
+                splashRadius: 18,
+              ),
               if (showCloseButton && onClose != null)
                 IconButton(
                   onPressed: onClose,
                   icon: const Icon(Icons.close, color: Colors.white70),
+                  visualDensity: VisualDensity.compact,
+                  splashRadius: 18,
                 ),
             ],
           ),
           const SizedBox(height: 8),
-          const Divider(color: Color(0x336366F1), height: 1),
+          Divider(color: AppTheme.primary.withValues(alpha: 0.2), height: 1),
           const SizedBox(height: 8),
         Expanded(
           child: Obx(() {
@@ -139,10 +150,15 @@ class ChatPanelContent extends StatelessWidget {
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: isUser
-                          ? const Color(0xFF6366F1)
+                          ? AppTheme.primary.withValues(alpha: 0.2)
                           : (isError ? const Color(0x33EF4444) : const Color(0xFF1E293B)),
                       borderRadius: BorderRadius.circular(12),
-                      border: isError ? Border.all(color: const Color(0xFFEF4444), width: 1) : null,
+                      border: Border.all(
+                        color: isUser
+                            ? AppTheme.primary.withValues(alpha: 0.4)
+                            : (isError ? const Color(0xFFEF4444) : const Color(0xFF334155)),
+                        width: 1,
+                      ),
                     ),
                     child: Text(
                       msg['content'] ?? '',
@@ -155,35 +171,40 @@ class ChatPanelContent extends StatelessWidget {
           }),
         ),
         Obx(() => controller.isChatLoading.value
-            ? const Padding(
-                padding: EdgeInsets.all(8.0),
-                child: LinearProgressIndicator(color: Color(0xFF6366F1)),
+            ? Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: LinearProgressIndicator(color: AppTheme.primary, backgroundColor: AppTheme.primary.withValues(alpha: 0.15)),
               )
             : const SizedBox.shrink()),
         const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: controller.chatInputController,
-                style: const TextStyle(color: Colors.white, fontSize: 13),
-                decoration: InputDecoration(
-                  hintText: AppCopy.hubChatInputHint,
-                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
-                  filled: true,
-                  fillColor: const Color(0xFF1E293B),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                ),
-                onSubmitted: (text) => controller.sendChatMessage(text),
-              ),
+        TextField(
+          controller: controller.chatInputController,
+          style: const TextStyle(color: Colors.white, fontSize: 13),
+          decoration: InputDecoration(
+            hintText: AppCopy.hubChatInputHint,
+            hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
+            filled: true,
+            fillColor: const Color(0xFF1E293B),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(100),
+              borderSide: BorderSide.none,
             ),
-            const SizedBox(width: 8),
-            IconButton(
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(100),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(100),
+              borderSide: BorderSide(color: AppTheme.primary.withValues(alpha: 0.4), width: 1),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            suffixIcon: IconButton(
               onPressed: () => controller.sendChatMessage(controller.chatInputController.text),
-              icon: const Icon(Icons.send, color: Color(0xFF6366F1)),
+              icon: const Icon(Icons.send, color: AppTheme.primary, size: 20),
+              splashRadius: 20,
             ),
-          ],
+          ),
+          onSubmitted: (text) => controller.sendChatMessage(text),
         ),
       ],
     ),
@@ -222,7 +243,7 @@ class _GoalConfirmCardState extends State<_GoalConfirmCard> {
       decoration: BoxDecoration(
         color: const Color(0xFF1E293B),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF6366F1)),
+        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -249,8 +270,8 @@ class _GoalConfirmCardState extends State<_GoalConfirmCard> {
                   setState(() => _dismissed = true);
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6366F1),
-                  foregroundColor: Colors.white,
+                  backgroundColor: AppTheme.primary,
+                  foregroundColor: const Color(0xFF04070E),
                 ),
                 child: Text(isEn ? 'Set & Plan' : 'Đặt & lập kế hoạch'),
               ),

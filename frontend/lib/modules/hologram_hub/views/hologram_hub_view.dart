@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/runtime_app_chrome.dart';
 import '../../../core/services/secure_storage_service.dart';
@@ -87,7 +88,7 @@ class _HologramHubViewState extends State<HologramHubView> {
                             if (controller.isLoading.value) {
                               return const Center(
                                 child: CircularProgressIndicator(
-                                  color: Color(0xFF6366F1),
+                                  color: AppTheme.primary,
                                 ),
                               );
                             }
@@ -144,8 +145,8 @@ class _HologramHubViewState extends State<HologramHubView> {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       decoration: BoxDecoration(
         color: const Color(0xFF0F172A).withValues(alpha: 0.45),
-        border: const Border(
-          bottom: BorderSide(color: Color(0x336366F1), width: 1),
+        border: Border(
+          bottom: BorderSide(color: AppTheme.primary.withValues(alpha: 0.2), width: 1),
         ),
       ),
       child: LayoutBuilder(
@@ -162,14 +163,12 @@ class _HologramHubViewState extends State<HologramHubView> {
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                        colors: [AppTheme.primaryDark, AppTheme.primary],
                       ),
                       borderRadius: BorderRadius.circular(10),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(
-                            0xFF6366F1,
-                          ).withValues(alpha: 0.3),
+                          color: AppTheme.primary.withValues(alpha: 0.3),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -251,10 +250,10 @@ class _HologramHubViewState extends State<HologramHubView> {
                       Container(
                         margin: const EdgeInsets.only(right: 6),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF6366F1).withValues(alpha: 0.18),
+                          color: AppTheme.primary.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: const Color(0xFF6366F1).withValues(alpha: 0.45),
+                            color: AppTheme.primary.withValues(alpha: 0.4),
                           ),
                         ),
                         child: IconButton(
@@ -265,7 +264,7 @@ class _HologramHubViewState extends State<HologramHubView> {
                             children: const [
                               Icon(
                                 Icons.smart_toy_outlined,
-                                color: Color(0xFF818CF8),
+                                color: AppTheme.primary,
                                 size: 18,
                               ),
                               SizedBox(width: 4),
@@ -274,7 +273,7 @@ class _HologramHubViewState extends State<HologramHubView> {
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFFC7D2FE),
+                                  color: AppTheme.primaryLight,
                                 ),
                               ),
                             ],
@@ -291,10 +290,10 @@ class _HologramHubViewState extends State<HologramHubView> {
                       Container(
                         margin: const EdgeInsets.only(right: 6),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF8B5CF6).withValues(alpha: 0.18),
+                          color: AppTheme.primary.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: const Color(0xFF8B5CF6).withValues(alpha: 0.45),
+                            color: AppTheme.primary.withValues(alpha: 0.4),
                           ),
                         ),
                         child: IconButton(
@@ -313,7 +312,7 @@ class _HologramHubViewState extends State<HologramHubView> {
                           },
                           icon: const Icon(
                             Icons.shield_outlined,
-                            color: Color(0xFFA78BFA),
+                            color: AppTheme.primary,
                             size: 18,
                           ),
                           tooltip: Get.locale?.languageCode == 'vi'
@@ -530,10 +529,10 @@ class _HologramHubViewState extends State<HologramHubView> {
             decoration: BoxDecoration(
               color: const Color(0xFF0F172A).withValues(alpha: 0.38),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0x336366F1)),
+              border: Border.all(color: AppTheme.primary.withValues(alpha: 0.25)),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF6366F1).withValues(alpha: 0.05),
+                  color: AppTheme.primary.withValues(alpha: 0.05),
                   blurRadius: 16,
                   offset: const Offset(0, 4),
                 ),
@@ -639,7 +638,7 @@ class _HologramHubViewState extends State<HologramHubView> {
             decoration: BoxDecoration(
               color: const Color(0xFF0F172A).withValues(alpha: 0.95),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0x556366F1)),
+              border: Border.all(color: AppTheme.primary.withValues(alpha: 0.35)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.6),
@@ -653,8 +652,8 @@ class _HologramHubViewState extends State<HologramHubView> {
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                  decoration: const BoxDecoration(
-                    border: Border(bottom: BorderSide(color: Color(0x336366F1))),
+                  decoration: BoxDecoration(
+                    border: Border(bottom: BorderSide(color: AppTheme.primary.withValues(alpha: 0.2))),
                     color: Color(0xFF131D38),
                   ),
                   child: Row(
@@ -663,7 +662,7 @@ class _HologramHubViewState extends State<HologramHubView> {
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
-                            colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                            colors: [AppTheme.primaryDark, AppTheme.primary],
                           ),
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -781,7 +780,7 @@ class _HologramHubViewState extends State<HologramHubView> {
               ),
               title: Row(
                 children: [
-                  const Icon(Icons.rocket_launch, color: Color(0xFF6366F1), size: 22),
+                  const Icon(Icons.rocket_launch, color: AppTheme.primary, size: 22),
                   const SizedBox(width: 10),
                   Text(
                     L10nKey.hubCreateNewProject.tr,
@@ -889,7 +888,8 @@ class _HologramHubViewState extends State<HologramHubView> {
                     }
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF6366F1),
+                    backgroundColor: AppTheme.primary,
+                    foregroundColor: const Color(0xFF04070E),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),

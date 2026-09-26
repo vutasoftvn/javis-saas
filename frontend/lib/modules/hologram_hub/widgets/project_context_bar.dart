@@ -1,3 +1,4 @@
+import '../../../core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/localization/locale_controller.dart';
@@ -45,7 +46,7 @@ class _ProjectContextBarState extends State<ProjectContextBar> {
           color: const Color(0xFF0F172A).withValues(alpha: 0.95),
           border: Border(
             bottom: BorderSide(
-              color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+              color: AppTheme.primary.withValues(alpha: 0.2),
               width: 1,
             ),
           ),
@@ -91,7 +92,7 @@ class _ProjectContextBarState extends State<ProjectContextBar> {
         child: Text(
           'Select Project',
           style: TextStyle(
-            color: const Color(0xFF6366F1).withValues(alpha: 0.8),
+            color: AppTheme.primaryLight,
             fontSize: 13,
             fontWeight: FontWeight.w500,
           ),
@@ -125,13 +126,13 @@ class _ProjectContextBarState extends State<ProjectContextBar> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: const Color(0xFF6366F1).withValues(alpha: 0.2),
+            color: AppTheme.primary.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(4),
           ),
           child: Text(
             stageText,
             style: const TextStyle(
-              color: Color(0xFF6366F1),
+              color: AppTheme.primaryLight,
               fontSize: 11,
               fontWeight: FontWeight.w600,
             ),

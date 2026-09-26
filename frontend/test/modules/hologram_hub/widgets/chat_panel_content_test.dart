@@ -86,4 +86,54 @@ void main() {
 
     expect(controller.chatMessages.any((m) => m['content'] == 'Việc hôm nay có gì?'), isTrue);
   });
+
+  testWidgets('tapping send suffix icon sends message', (tester) async {
+    final controller = Get.put(FounderCommandCenterController());
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        home: Scaffold(
+          body: ChatPanelContent(controller: controller, onClose: () {}),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.enterText(find.byType(TextField), 'Tin nhắn qua nút gửi');
+    await tester.tap(find.byIcon(Icons.send));
+    await tester.pump();
+
+    expect(controller.chatMessages.any((m) => m['content'] == 'Tin nhắn qua nút gửi'), isTrue);
+  });
+
+  testWidgets('renders add icon on title and tapping it clears chat messages', (
+    tester,
+  ) async {
+    final controller = Get.put(FounderCommandCenterController());
+    controller.chatMessages.addAll([
+      {'role': 'user', 'content': 'Message 1'},
+      {'role': 'assistant', 'content': 'Response 1'},
+    ]);
+    controller.chatInputController.text = 'Draft input';
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        home: Scaffold(
+          body: ChatPanelContent(controller: controller, onClose: () {}),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byKey(const Key('hub_chat_new_chat_button')), findsOneWidget);
+    expect(find.byIcon(Icons.add), findsOneWidget);
+    expect(find.text('Message 1'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('hub_chat_new_chat_button')));
+    await tester.pump();
+
+    expect(controller.chatMessages.isEmpty, isTrue);
+    expect(controller.chatInputController.text.isEmpty, isTrue);
+    expect(find.text('Message 1'), findsNothing);
+  });
 }

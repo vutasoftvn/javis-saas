@@ -42,4 +42,8 @@ class AppCopy {
       Get.locale?.languageCode == 'en'
           ? 'Enter message for Co-Founder...'
           : 'Nhập tin nhắn trao đổi với Co-Founder...';
+  static String get hubChatNewChatTooltip =>
+      Get.locale?.languageCode == 'en'
+          ? 'New Chat'
+          : 'Tạo mới chat';
 }

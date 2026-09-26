@@ -42,7 +42,7 @@ class Top3FocusWidget extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF0F172A).withValues(alpha: 0.38),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0x336366F1)),
+        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -181,7 +181,7 @@ class Top3FocusWidget extends StatelessWidget {
               decoration: BoxDecoration(
                 color: const Color(0xFF0F172A),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0x336366F1)),
+                border: Border.all(color: AppTheme.borderDark),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -265,7 +265,7 @@ class Top3FocusWidget extends StatelessWidget {
         tagLabel = L10nKey.hubActionCategoryExperiment.tr;
         break;
       case 'MISSION':
-        tagColor = const Color(0xFF8B5CF6);
+        tagColor = AppTheme.secondary;
         tagLabel = 'Mission';
         break;
       default:

@@ -1,3 +1,4 @@
+import '../../../core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/localization/locale_controller.dart';
@@ -42,7 +43,7 @@ class ProjectOperatingWeekCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: const Color(0xFF0F172A).withValues(alpha: 0.38),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0x336366F1)),
+          border: Border.all(color: AppTheme.primary.withValues(alpha: 0.2)),
         ),
         child: const Center(
           child: Padding(
@@ -109,7 +110,7 @@ class ProjectOperatingWeekCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: const Color(0xFF0F172A).withValues(alpha: 0.38),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0x336366F1)),
+          border: Border.all(color: AppTheme.primary.withValues(alpha: 0.2)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -158,7 +159,7 @@ class ProjectOperatingWeekCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF0F172A).withValues(alpha: 0.38),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0x336366F1)),
+        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

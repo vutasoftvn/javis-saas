@@ -960,6 +960,16 @@ class FounderCommandCenterController extends GetxController {
     }
   }
 
+  /// Tạo mới phiên chat: huỷ SSE stream đang chạy, reset conversation ID và dọn dẹp tin nhắn.
+  void startNewChat() {
+    _chatSseSubscription?.cancel();
+    _chatSseSubscription = null;
+    _cofounderConversationId = null;
+    chatMessages.clear();
+    chatInputController.clear();
+    isChatLoading.value = false;
+  }
+
   /// Gửi tin nhắn trao đổi với COSA Co-Founder
   ///
   /// G2 P0.8 / G3 §10.4: khi request thất bại, trước đây hiện một câu trả
