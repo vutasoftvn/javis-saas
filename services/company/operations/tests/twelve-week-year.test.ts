@@ -20,7 +20,7 @@ describe("TwelveWeekYear Service", () => {
     expect(cycle.theme).toBe("Q3 Hyper-Growth");
     expect(cycle.status).toBe("ACTIVE");
 
-    const list = await listCycles({ workspaceId });
+    const list = await listCycles({ workspaceId, authorization: bearerToken });
     expect(list.cycles.some((c) => c.id === cycle.id)).toBe(true);
   });
 

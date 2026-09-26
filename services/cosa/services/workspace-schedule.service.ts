@@ -231,8 +231,20 @@ export async function runScheduleNow(input: {
   if (!def) {
     throw APIError.notFound("schedule definition not found in workspace");
   }
+  // Cùng điều kiện với dispatcher (findDueScheduleDefinitions): business run
+  // mới phải có project scope (CLAUDE.md quy tắc 14) và tôn trọng quota 24h.
+  if (def.isLegacyUnscoped || !def.projectId) {
+    throw APIError.failedPrecondition("schedule has no project scope; re-create it inside a project");
+  }
 
   const now = new Date();
+  const executions24h = await repo.countExecutionsIn24Hours(
+    def.organizationId,
+    new Date(now.getTime() - 24 * 3600000)
+  );
+  if (executions24h >= MAX_EXECUTIONS_24H) {
+    throw APIError.resourceExhausted("schedule execution quota for the last 24h reached");
+  }
   const execId = `sched_exec_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
 
   const execution = await repo.insertExecution({

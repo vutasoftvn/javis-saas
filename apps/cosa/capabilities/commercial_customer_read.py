@@ -54,7 +54,7 @@ def create_commercial_customer_360_read_handler(
         params = {"identityVerified": "true" if identity_verified else "false"}
 
         res = await company_client.get(
-            f"/commercial/engagement/customer360/{contact_id}",
+            f"/commercial/engagement/contacts/{contact_id}/360",
             params=params,
             headers=headers,
         )

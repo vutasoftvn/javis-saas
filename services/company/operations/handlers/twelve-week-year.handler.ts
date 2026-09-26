@@ -11,6 +11,7 @@ import {
   createWeeklyPlanService,
   createWeeklyCommitmentService,
 } from "../services/twelve-week-year.service";
+import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 
 export { TwelveWeekCycle, CreateTwelveWeekCycleRequest, WeeklyPlan, CreateWeeklyPlanRequest, WeeklyCommitment, CreateWeeklyCommitmentRequest };
 
@@ -29,7 +30,12 @@ export const createCycle = api(
 
 export const listCycles = api(
   { expose: true, method: "GET", path: "/operations/workspaces/:workspaceId/cycles" },
-  async (params: { workspaceId: string }): Promise<{ cycles: TwelveWeekCycle[] }> => {
+  async (params: {
+    workspaceId: string;
+    authorization?: Header<"Authorization">;
+  }): Promise<{ cycles: TwelveWeekCycle[] }> => {
+    // Trước đây endpoint này không xác thực: ai cũng đọc được cycle của workspace bất kỳ.
+    await requireWorkspaceAccess(params.authorization, params.workspaceId);
     const cycles = await listCyclesService(params.workspaceId);
     return { cycles };
   }

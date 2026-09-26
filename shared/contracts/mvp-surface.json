@@ -215,7 +215,7 @@
       "owner": "company-finance",
       "plane": "company",
       "method": "GET",
-      "path": "/finance/snapshots/latest",
+      "path": "/finance-legal/snapshots/latest",
       "schema": "finance.snapshot.latest.v1",
       "source_kind": "company_db",
       "requires_workspace": true,

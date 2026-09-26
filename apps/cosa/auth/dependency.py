@@ -85,6 +85,18 @@ class AuthenticatedIdentity(BaseModel):
             ttl_seconds=ttl_seconds,
         )
 
+    def control_plane_token_or_403(self) -> str:
+        """Token để gọi services/cosa thay cho `bearer_token`: bearer gốc là
+        local session (JWT_SECRET), services/cosa không verify được (lỗi cùng
+        loại B5). Thiếu platform identity thì trả 403 rõ ràng cho client."""
+        try:
+            return self.mint_control_plane_delegation()
+        except MissingPlatformIdentityError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Tài khoản chưa liên kết với platform identity — không thể gọi control plane",
+            ) from exc
+
     def mint_delegation(self, *, ttl_seconds: int = 600) -> str:
         """Delegation token ngắn hạn cùng shape với local session (JWT_SECRET, không audience) — để lệnh
         forward xuống services/company verify được."""

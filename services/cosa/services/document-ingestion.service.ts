@@ -280,6 +280,7 @@ export async function transitionDocumentIngestionForWorker(
 }
 
 export async function reviewDocumentIngestion(input: {
+  organizationId: string;
   ingestionId: string;
   reviewerId: string;
   decision: "PUBLISHED" | "REJECTED";
@@ -290,7 +291,14 @@ export async function reviewDocumentIngestion(input: {
     const rows = await tx
       .select()
       .from(documentIngestions)
-      .where(eq(documentIngestions.id, input.ingestionId))
+      // Lọc theo organization: handler chỉ xác thực membership của org trong
+      // URL, nên thiếu điều kiện này thì member org A duyệt được tài liệu org B.
+      .where(
+        and(
+          eq(documentIngestions.id, input.ingestionId),
+          eq(documentIngestions.organizationId, input.organizationId)
+        )
+      )
       .for("update");
 
     if (rows.length === 0) {

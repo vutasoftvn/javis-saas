@@ -22,6 +22,7 @@ import {
 } from "../storage/control-plane-schema";
 import { extractAuthContext } from "../middleware";
 import { listWorkspaceRuntimeNodes as listRegisteredRuntimeNodes } from "./runtime-node-registry.service";
+import { generateSnowflake } from "./snowflake.service";
 
 export interface MvpSourceRef {
   readonly kind: "company_db" | "agent_db" | "object_store" | "control_plane" | "external_connector";
@@ -185,7 +186,7 @@ export async function installWorkspaceConnectorService(
   connectorKey: string,
   authorization?: string
 ): Promise<MvpSuccess<ConnectorStatusView>> {
-  const actorId = await verifyWorkspaceMembership(authorization, organizationId);
+  const actorId = await requireWorkspaceOperator(authorization, organizationId);
 
   const id = `conn_${Date.now()}`;
   const now = new Date();
@@ -211,7 +212,7 @@ export async function installWorkspaceConnectorService(
 
   // Audit log
   await db.insert(workspaceSettingsAuditEvents).values({
-    eventId: BigInt(Date.now()),
+    eventId: generateSnowflake(),
     organizationId: BigInt(organizationId),
     actorId,
     eventType: "connector.installed",
@@ -237,7 +238,7 @@ export async function revokeWorkspaceConnectorService(
   connectorKey: string,
   authorization?: string
 ): Promise<MvpSuccess<ConnectorStatusView>> {
-  const actorId = await verifyWorkspaceMembership(authorization, organizationId);
+  const actorId = await requireWorkspaceOperator(authorization, organizationId);
   const now = new Date();
 
   await db
@@ -252,7 +253,7 @@ export async function revokeWorkspaceConnectorService(
 
   // Audit log
   await db.insert(workspaceSettingsAuditEvents).values({
-    eventId: BigInt(Date.now()),
+    eventId: generateSnowflake(),
     organizationId: BigInt(organizationId),
     actorId,
     eventType: "connector.revoked",
@@ -322,7 +323,7 @@ export async function revokeWorkspaceRuntimeNodeService(
   nodeId: string,
   authorization?: string
 ): Promise<MvpSuccess<{ revoked: boolean }>> {
-  const actorId = await verifyWorkspaceMembership(authorization, organizationId);
+  const actorId = await requireWorkspaceOperator(authorization, organizationId);
   const wsIdBigInt = BigInt(organizationId);
   const nodeIdBigInt = BigInt(nodeId);
 
@@ -332,7 +333,7 @@ export async function revokeWorkspaceRuntimeNodeService(
     .where(and(eq(workspaceRuntimeNodes.organizationId, wsIdBigInt), eq(workspaceRuntimeNodes.nodeId, nodeIdBigInt)));
 
   await db.insert(workspaceSettingsAuditEvents).values({
-    eventId: BigInt(Date.now()),
+    eventId: generateSnowflake(),
     organizationId: wsIdBigInt,
     actorId,
     eventType: "runtime_node.revoked",
@@ -608,7 +609,7 @@ export async function putWorkspaceSkillPolicyService(
       .returning();
 
     await tx.insert(workspaceSettingsAuditEvents).values({
-      eventId: BigInt(Date.now()) * 1000n + BigInt(Math.floor(Math.random() * 1000)),
+      eventId: generateSnowflake(),
       organizationId: wsIdBigInt,
       actorId,
       eventType: "skill_policy.updated",
@@ -727,7 +728,7 @@ export async function setWorkspaceModuleEnabledService(
     });
 
   await db.insert(workspaceSettingsAuditEvents).values({
-    eventId: BigInt(Date.now()) * 1000n + BigInt(Math.floor(Math.random() * 1000)),
+    eventId: generateSnowflake(),
     organizationId: wsIdBigInt,
     actorId,
     eventType: "module_visibility.workspace_changed",
@@ -927,7 +928,7 @@ export async function setWorkspaceSurfaceOverrideService(
     });
 
   await db.insert(workspaceSettingsAuditEvents).values({
-    eventId: BigInt(Date.now()) * 1000n + BigInt(Math.floor(Math.random() * 1000)),
+    eventId: generateSnowflake(),
     organizationId: wsIdBigInt,
     actorId,
     eventType: "capability_manifest.surface_override_set",

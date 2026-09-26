@@ -35,7 +35,7 @@ export async function getMe(authData: AuthData): Promise<MeResponse> {
 
 export const meEndpoint = api(
   { method: "GET", path: "/identity/me", expose: true, auth: true },
-  async (): Promise<MeResponse> => {
+  async ({ workspaceId }: { workspaceId?: Header<"X-Workspace-Id"> }): Promise<MeResponse> => {
     let authData: AuthData | null = null;
     try {
       const mod = await import("~encore/auth");
@@ -46,7 +46,7 @@ export const meEndpoint = api(
     if (!authData?.userID) {
       throw APIError.unauthenticated("missing auth data");
     }
-    return getMeProfile(authData.userID);
+    return getMeProfile(authData.userID, workspaceId);
   }
 );
 

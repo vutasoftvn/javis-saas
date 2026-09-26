@@ -1,8 +1,7 @@
 import { api, Header, APIError } from "encore.dev/api";
 import { requireWorkerServiceAuth } from "../services/token.service";
-import { resolveCallerIdentity } from "../services/core-access.service";
 import * as ingestionSvc from "../services/document-ingestion.service";
-import { verifyWorkspaceMembership } from "../services/workspace-connector.service";
+import { resolveCallerAuthorizedForWorkspace } from "../services/workspace-connector.service";
 
 export interface CreateDocumentIngestionParams {
   authorization?: Header<"Authorization">;
@@ -53,11 +52,14 @@ export const createDocumentIngestionEndpoint = api(
       throw APIError.unauthenticated("missing authorization header");
     }
 
-    const token = params.authorization.replace(/^Bearer\s+/i, "");
-    const claims = { sub: (await resolveCallerIdentity(token)).userId };
-
-    // Verify caller is a member of the workspace
-    await verifyWorkspaceMembership(params.organizationId, params.authorization);
+    // Nhận cả access token core (Flutter gọi thẳng) lẫn control-plane
+    // delegation do apps/cosa ký (knowledge_routes) — trước đây token có dấu
+    // chấm bị resolveCallerIdentity từ chối nên mọi upload/review qua
+    // apps/cosa đều 401.
+    const claims = await resolveCallerAuthorizedForWorkspace(
+      params.authorization,
+      params.organizationId
+    );
 
     const record = await ingestionSvc.createDocumentIngestion({
       organizationId: params.organizationId,
@@ -80,11 +82,7 @@ export const getDocumentIngestionEndpoint = api(
       throw APIError.unauthenticated("missing authorization header");
     }
 
-    const token = params.authorization.replace(/^Bearer\s+/i, "");
-    await resolveCallerIdentity(token);
-
-    // Verify caller is a member of the workspace
-    await verifyWorkspaceMembership(params.organizationId, params.authorization);
+    await resolveCallerAuthorizedForWorkspace(params.authorization, params.organizationId);
 
     const record = await ingestionSvc.getDocumentIngestion(params.ingestionId);
     if (!record) {
@@ -132,13 +130,17 @@ export const reviewDocumentIngestionEndpoint = api(
       throw APIError.unauthenticated("missing authorization header");
     }
 
-    const token = params.authorization.replace(/^Bearer\s+/i, "");
-    const claims = { sub: (await resolveCallerIdentity(token)).userId };
-
-    // Verify caller is a member of the workspace
-    await verifyWorkspaceMembership(params.organizationId, params.authorization);
+    // Nhận cả access token core (Flutter gọi thẳng) lẫn control-plane
+    // delegation do apps/cosa ký (knowledge_routes) — trước đây token có dấu
+    // chấm bị resolveCallerIdentity từ chối nên mọi upload/review qua
+    // apps/cosa đều 401.
+    const claims = await resolveCallerAuthorizedForWorkspace(
+      params.authorization,
+      params.organizationId
+    );
 
     const record = await ingestionSvc.reviewDocumentIngestion({
+      organizationId: params.organizationId,
       ingestionId: params.ingestionId,
       reviewerId: claims.sub,
       decision: params.decision,

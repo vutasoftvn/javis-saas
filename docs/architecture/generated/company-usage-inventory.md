@@ -6,8 +6,8 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | Lớp | Occurrences | Files |
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 112 | 22 |
-| VALID_KEEP (giữ nguyên) | 131 | 36 |
-| REVIEW (chưa phân loại) | 1211 | 273 |
+| VALID_KEEP (giữ nguyên) | 132 | 37 |
+| REVIEW (chưa phân loại) | 1213 | 274 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -53,9 +53,9 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/shared/auth/ai-governance-snapshot-verification.ts | 16 |
 | apps/cosa/api/project_context.py | 15 |
 | apps/cosa/composition/agent_plane.py | 15 |
+| apps/cosa/worker/handlers.py | 15 |
 | apps/cosa/capabilities/client.py | 14 |
 | apps/cosa/capabilities/startup_os_onboard.py | 14 |
-| apps/cosa/worker/handlers.py | 14 |
 | frontend/lib/modules/auth/controllers/auth_controller.dart | 14 |
 | frontend/lib/modules/auth/services/auth_service.dart | 14 |
 | apps/cosa/events/router.py | 13 |
@@ -280,6 +280,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/operations/domain/runtime-observation.ts | 1 |
 | services/company/operations/handlers/execution-plan.handler.ts | 1 |
 | services/company/operations/handlers/okr-weekly-generator.handler.ts | 1 |
+| services/company/operations/handlers/task-outcome-analysis.handler.ts | 1 |
 | services/company/operations/handlers/task.handler.ts | 1 |
 | services/company/operations/migrations/001_cosa_startup_core_baseline.up.sql | 1 |
 | services/company/operations/migrations/018_founder_configurable_assets.up.sql | 1 |
@@ -350,6 +351,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | landing/src/components/sections/EmailSubscribeForm.tsx | 1 |
 | landing/src/components/sections/FaqSection.tsx | 1 |
 | landing/src/lib/early-access.ts | 1 |
+| services/company/commercial/services/customer-engagement/connector-grant.client.ts | 1 |
 | services/company/commercial/services/customer-engagement/copilot-cosa-client.ts | 1 |
 | services/company/commercial/services/lead-field-definition.service.ts | 1 |
 | services/company/commercial/services/project-lead.service.ts | 1 |

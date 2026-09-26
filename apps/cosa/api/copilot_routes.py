@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hmac
 import uuid
 from typing import Any
 
@@ -51,7 +52,7 @@ def create_copilot_router() -> APIRouter:
         if not token and authorization and authorization.startswith("Bearer "):
             token = authorization[7:].strip()
 
-        if not token or token != expected_token:
+        if not token or not hmac.compare_digest(token.encode(), expected_token.encode()):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="invalid or missing service token",

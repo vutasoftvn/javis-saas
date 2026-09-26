@@ -141,7 +141,9 @@ async def test_goal_like_message_appends_goal_confirm_card():
     confirm = [
         m
         for m in messages
-        if m.role == "assistant" and m.content.strip().startswith("{") and '"goal_confirm"' in m.content
+        if m.role == "assistant"
+        and m.content.strip().startswith("{")
+        and '"goal_confirm"' in m.content
     ]
     assert len(confirm) == 1
     parsed = _json.loads(confirm[0].content)
@@ -158,7 +160,9 @@ async def test_non_goal_message_does_not_append_goal_confirm_card():
     )
     stream_mgr = CosaEventStreamManager()
 
-    await execute_run_task(plane, stream_mgr, _payload(user_prompt="Ai đang phụ trách task này vậy?"))
+    await execute_run_task(
+        plane, stream_mgr, _payload(user_prompt="Ai đang phụ trách task này vậy?")
+    )
 
     messages = await plane.conversation_repository.list_messages("conv_1")
     assert not any("goal_confirm" in m.content for m in messages)
@@ -379,7 +383,9 @@ async def test_resume_scopes_approval_to_tool_call_id_not_blanket():
         )
     )
     await plane.repository.save_checkpoint(
-        RunCheckpointRecord(checkpoint_ref=checkpoint_ref, run_id=run_id, sequence_no=1, serialized_state={})
+        RunCheckpointRecord(
+            checkpoint_ref=checkpoint_ref, run_id=run_id, sequence_no=1, serialized_state={}
+        )
     )
     await plane.repository.create_approval(
         RunApprovalRecord(
@@ -476,7 +482,9 @@ async def test_resume_blocked_when_tenant_suspended_via_verify_and_prepare_resum
         )
     )
     await plane.repository.save_checkpoint(
-        RunCheckpointRecord(checkpoint_ref=checkpoint_ref, run_id=run_id, sequence_no=1, serialized_state={})
+        RunCheckpointRecord(
+            checkpoint_ref=checkpoint_ref, run_id=run_id, sequence_no=1, serialized_state={}
+        )
     )
     approval = RunApprovalRecord(
         approval_id="appr_suspended_1",
@@ -602,3 +610,113 @@ async def test_worker_forwards_server_provenance():
     assert context["source_ref"] == "conversation_message:msg_123"
     assert context["source_hash"] != "plan next quarter"
     assert "content" not in context
+
+
+async def _seed_approved_resume(plane, *, run_id: str) -> dict:
+    """Seed Run/ToolCall/Checkpoint/Approval đã duyệt để verify_and_prepare_resume
+    cho phép resume — trả về payload resume tương ứng."""
+    from agent.runs.models import (
+        RunApprovalRecord,
+        RunCheckpointRecord,
+        RunRecord,
+        RunToolCallRecord,
+    )
+
+    await seed_cosa_runtime_specs(
+        spec_registry=plane.spec_registry,
+        capability_registry=plane.capability_registry,
+    )
+    checkpoint_ref = f"{run_id}_ckpt"
+    tool_call_id = f"{run_id}_tc"
+    await plane.repository.create_run(
+        RunRecord(
+            run_id=run_id,
+            workspace_id="ws_1",
+            principal="user_1",
+            root_executable_id="cosa.agents.operations",
+        )
+    )
+    await plane.repository.save_tool_call(
+        RunToolCallRecord(
+            tool_call_id=tool_call_id,
+            run_id=run_id,
+            checkpoint_ref=checkpoint_ref,
+            capability_id="finance.accounting_document.confirm",
+            payload_hash="hash1",
+        )
+    )
+    await plane.repository.save_checkpoint(
+        RunCheckpointRecord(
+            checkpoint_ref=checkpoint_ref, run_id=run_id, sequence_no=1, serialized_state={}
+        )
+    )
+    await plane.repository.create_approval(
+        RunApprovalRecord(
+            approval_id=f"{run_id}_appr",
+            run_id=run_id,
+            tool_call_id=tool_call_id,
+            checkpoint_ref=checkpoint_ref,
+            status="approved",
+            action="finance.accounting_document.confirm",
+        )
+    )
+    return {
+        "run_id": run_id,
+        "checkpoint_ref": checkpoint_ref,
+        "conversation_id": "conv_1",
+        "workspace_id": "ws_1",
+        "agent_profile": "operations",
+        "delegation_token": "fake-token",
+        "tool_call_id": tool_call_id,
+        "approval_id": f"{run_id}_appr",
+    }
+
+
+@pytest.mark.asyncio
+async def test_resume_that_hits_another_approval_emits_approval_required():
+    """Trước đây execute_resume_task chỉ xử lý COMPLETED: nếu bước sau cần duyệt
+    tiếp thì không phát event nào và UI kẹt."""
+    plane = _plane()
+    stream_mgr = CosaEventStreamManager()
+    payload = await _seed_approved_resume(plane, run_id="run_resume_wait_1")
+    plane.kernel.resume = AsyncMock(
+        return_value=SimpleNamespace(
+            run_id=payload["run_id"],
+            status=RunStatus.WAITING_APPROVAL,
+            final_output=None,
+            errors=[],
+            usage=None,
+            interruptions_waits=[
+                SimpleNamespace(
+                    related_ref="appr_next", checkpoint_ref="ckpt_next", reason="Need approval"
+                )
+            ],
+        )
+    )
+
+    await execute_resume_task(plane, stream_mgr, payload)
+
+    events = await plane.stream_event_repository.list_since(payload["run_id"])
+    required = [e for e in events if e.event_type == "approval.required"]
+    assert len(required) == 1
+    assert required[0].payload["approval_id"] == "appr_next"
+
+
+@pytest.mark.asyncio
+async def test_resume_kernel_error_emits_run_failed_without_leaking_detail():
+    plane = _plane()
+    stream_mgr = CosaEventStreamManager()
+    payload = await _seed_approved_resume(plane, run_id="run_resume_boom_1")
+    secret_detail = "postgres://internal-host:5432 exploded"
+    plane.kernel.resume = AsyncMock(side_effect=RuntimeError(secret_detail))
+
+    await execute_resume_task(plane, stream_mgr, payload)
+
+    events = await plane.stream_event_repository.list_since(payload["run_id"])
+    assert any(
+        e.event_type == "run.failed" and e.payload.get("error") == "internal_error" for e in events
+    )
+    visible_text = await _all_client_visible_text(
+        plane, run_id=payload["run_id"], conversation_id=payload["conversation_id"]
+    )
+    assert secret_detail not in visible_text

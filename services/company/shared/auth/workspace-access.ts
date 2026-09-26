@@ -1,3 +1,4 @@
+import { APIError } from "encore.dev/api";
 import { resolveTenantContext } from "../../identity/services/tenant-context.service";
 import { TenantContext } from "../types/tenant_context";
 
@@ -25,6 +26,21 @@ export async function requireWorkspaceAccess(
   workspaceId: string | number
 ): Promise<TenantContext> {
   return resolveTenantContext({ authorization, workspaceId });
+}
+
+/**
+ * Như `requireWorkspaceAccess` nhưng chặn role chỉ đọc (auditor và role lạ,
+ * xem `getRolePermissions`). Dùng cho endpoint ghi dữ liệu nghiệp vụ.
+ */
+export async function requireWorkspaceWrite(
+  authorization: string | undefined,
+  workspaceId: string | number
+): Promise<TenantContext> {
+  const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+  if (!ctx.permissions.includes("*") && !ctx.permissions.includes("write")) {
+    throw APIError.permissionDenied("role hiện tại chỉ có quyền đọc trong workspace này");
+  }
+  return ctx;
 }
 
 export { requireFounderCommand } from "../../identity/services/command-authority.service";

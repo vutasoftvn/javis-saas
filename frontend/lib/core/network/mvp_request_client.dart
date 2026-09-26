@@ -100,11 +100,17 @@ class MvpRequestClient {
       }
 
       var effectivePath = _buildPath(endpoint.path, pathParams);
-      if (effectivePath.contains(':workspaceId') && workspaceId != null) {
-        effectivePath = effectivePath.replaceAll(
-          ':workspaceId',
-          Uri.encodeComponent(workspaceId),
-        );
+      // Sau cutover sang backend/core, organization id chính là workspace id
+      // đang chọn. Endpoint đã đổi path sang `:organizationId` (vd.
+      // capability-manifest) mà caller không truyền pathParams thì trước đây
+      // gửi nguyên chuỗi ":organizationId" và luôn lỗi.
+      for (final placeholder in const [':workspaceId', ':organizationId']) {
+        if (effectivePath.contains(placeholder) && workspaceId != null) {
+          effectivePath = effectivePath.replaceAll(
+            placeholder,
+            Uri.encodeComponent(workspaceId),
+          );
+        }
       }
 
       // Task 2 — route qua đúng transport target chung của `ApiClient`

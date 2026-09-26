@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import {
   assertConnectorGrant,
   setCustomConnectorGrantRunner,
@@ -12,6 +12,33 @@ describe("Connector Grant Client & Channel Secret Tests", () => {
   beforeEach(() => {
     setCustomConnectorGrantRunner(null);
     setCustomChannelSecretResolver(null);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it("sends organizationId to the control plane assert endpoint", async () => {
+    vi.stubEnv("COSA_CONTROL_PLANE_URL", "http://cosa.test");
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ ok: true, secretRef: "sec_ref" }), { status: 200 })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await assertConnectorGrant({
+      workspaceId: "ws_123",
+      conversationId: "t_456",
+      connectorKey: "zalo_oa_main",
+      action: "send",
+    });
+
+    expect(res).toEqual({ ok: true, secretRef: "sec_ref" });
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("http://cosa.test/cosa/connectors/assert");
+    const body = JSON.parse(String(init.body));
+    expect(body.organizationId).toBe("ws_123");
+    expect(body.workspaceId).toBeUndefined();
   });
 
   it("should return ok:true and secretRef when control plane asserts grant successfully", async () => {

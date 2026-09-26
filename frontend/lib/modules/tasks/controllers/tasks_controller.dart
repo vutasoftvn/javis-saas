@@ -3,12 +3,14 @@ import '../../../core/widgets/app_toast.dart';
 import '../../../core/runtime/mutation_gate.dart';
 import '../../../data/models/task_kanban_model.dart';
 import '../../../modules/tasks/services/task_service.dart';
+import '../../hologram_hub/controllers/founder_command_center_controller.dart';
 
 class TasksController extends GetxController {
-  TasksController({MutationGate? mutationGate})
-      : _mutationGate = mutationGate ?? SessionMutationGate();
+  TasksController({MutationGate? mutationGate, TaskService? taskService})
+      : _mutationGate = mutationGate ?? SessionMutationGate(),
+        _taskService = taskService ?? TaskService();
 
-  final TaskService _taskService = TaskService();
+  final TaskService _taskService;
   // Task 5 — cùng nguyên tắc với ApprovalsController: gate DUY NHẤT trước
   // khi đổi trạng thái task (kéo-thả Kanban hoặc nút pause/resume/approve/
   // cancel), đọc `SessionController.active.runtime`.
@@ -44,13 +46,21 @@ class TasksController extends GetxController {
   }) async {
     if (title.trim().isEmpty) return;
 
+    // Backend bắt buộc projectId (PROJECT_CONTEXT_REQUIRED). Dialog "Thêm công
+    // việc" không truyền nên trước đây luôn lỗi — lấy project đang chọn ở Hub.
+    final effectiveProjectId = projectId ?? _activeProjectId();
+    if (effectiveProjectId == null || effectiveProjectId.isEmpty) {
+      AppToast.error('Hãy chọn một dự án trước khi thêm công việc');
+      return;
+    }
+
     final targetStatus = TaskKanbanStatus.fromString(statusStr);
     final tempTask = TaskKanbanModel(
       id: 'temp_${DateTime.now().millisecondsSinceEpoch}',
       title: title.trim(),
       status: targetStatus,
       createdAt: DateTime.now(),
-      projectId: projectId,
+      projectId: effectiveProjectId,
       weeklyCommitmentId: weeklyCommitmentId,
     );
 
@@ -58,12 +68,17 @@ class TasksController extends GetxController {
     tasks.insert(0, tempTask);
 
     try {
-      final result = await _taskService.createTypedTask(
+      var result = await _taskService.createTypedTask(
         title.trim(),
         status: targetStatus,
-        projectId: projectId,
+        projectId: effectiveProjectId,
         weeklyCommitmentId: weeklyCommitmentId,
       );
+      // POST /operations/tasks không nhận status — task luôn tạo ở `todo`.
+      // Thêm từ cột khác thì chuyển trạng thái ngay sau khi tạo.
+      if (result.status != targetStatus) {
+        result = await _taskService.updateTaskStatus(result.id, targetStatus.value);
+      }
       final index = tasks.indexWhere((t) => t.id == tempTask.id);
       if (index != -1) {
         tasks[index] = result;
@@ -124,5 +139,10 @@ class TasksController extends GetxController {
 
   Future<void> cancelTask(String taskId, {bool confirmed = false}) async {
     await moveTask(taskId, 'cancelled', confirmed: confirmed);
+  }
+
+  String? _activeProjectId() {
+    if (!Get.isRegistered<FounderCommandCenterController>()) return null;
+    return Get.find<FounderCommandCenterController>().activeProjectId.value;
   }
 }

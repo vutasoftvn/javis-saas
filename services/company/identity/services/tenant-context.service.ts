@@ -64,8 +64,20 @@ export async function resolveTenantContext(
     throw APIError.unauthenticated("invalid or expired token");
   }
 
-  const localUserId = BigInt(identitySub);
-  const targetWorkspaceId = BigInt(params.workspaceId);
+  // BigInt() ném SyntaxError trần với chuỗi không phải số — phải map thành
+  // lỗi 4xx thay vì để lọt ra client thành 500.
+  let localUserId: bigint;
+  let targetWorkspaceId: bigint;
+  try {
+    localUserId = BigInt(identitySub);
+  } catch {
+    throw APIError.unauthenticated("invalid token subject");
+  }
+  try {
+    targetWorkspaceId = BigInt(params.workspaceId);
+  } catch {
+    throw APIError.invalidArgument("workspaceId must be a numeric id");
+  }
 
   // Lấy thông tin user
   const [userRow] = await db

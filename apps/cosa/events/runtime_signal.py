@@ -7,7 +7,6 @@ import os
 from datetime import UTC, datetime, timedelta
 
 import httpx
-from apps.cosa.auth.jwt import mint_worker_service_jwt
 from agent.workforce.repository import WorkforceRepository
 
 from apps.cosa.auth.jwt import mint_worker_service_jwt

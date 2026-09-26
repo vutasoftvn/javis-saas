@@ -129,7 +129,7 @@ describe("Phase 2e: Execution & Planning Chain Integration Test", () => {
     expect(progress.objectiveId).toBe(objective.id);
     expect(progress.keyResults).toHaveLength(1);
 
-    const cycleList = await listCycles({ workspaceId });
+    const cycleList = await listCycles({ workspaceId, authorization });
     expect(cycleList.cycles.some((c) => c.id === twelveWeek.id)).toBe(true);
   });
 });
