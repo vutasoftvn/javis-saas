@@ -247,13 +247,6 @@
       "expires_on": "2026-12-31"
     },
     {
-      "path": "/operations/objectives",
-      "method": "POST",
-      "owner": "company-operations",
-      "reason": "Pre-existing legacy business route (predates the MVP capability manifest); not part of the current MVP surface — tracked as debt for a future manifest-extension or migration task, not new drift.",
-      "expires_on": "2026-12-31"
-    },
-    {
       "path": "/operations/strategy/pilots",
       "method": "POST",
       "owner": "company-operations",

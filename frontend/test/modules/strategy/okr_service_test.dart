@@ -91,10 +91,13 @@ void main() {
         final body = jsonDecode(request.body) as Map<String, dynamic>;
         expect(body['title'], 'Grow revenue');
         expect(body.containsKey('why'), isFalse);
+        // Backend bắt buộc workspaceId trong body; projectId luôn tường minh.
+        expect(body['workspaceId'], isNotNull);
+        expect(body['projectId'], 'proj-1');
         return http.Response(jsonEncode({'id': 'obj-1'}), 201);
       });
 
-      final result = await OkrService().createObjective(title: 'Grow revenue');
+      final result = await OkrService().createObjective(title: 'Grow revenue', projectId: 'proj-1');
 
       expect(result['id'], 'obj-1');
     });

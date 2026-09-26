@@ -574,8 +574,8 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `DELETE /execution/milestones` | ✗ GHOST |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:332 |
 | `DELETE /execution/stages` | ✗ GHOST |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:258 |
 | `DELETE /execution/weekly-commitments` | ✗ GHOST |  | frontend/lib/modules/strategy/services/twelve_week_service.dart:175 |
-| `DELETE /operations/key-results` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:240 |
-| `DELETE /operations/objectives` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:162 |
+| `DELETE /operations/key-results` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:245 |
+| `DELETE /operations/objectives` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:167 |
 | `DELETE /operations/tasks` | ✓ |  | frontend/lib/modules/tasks/services/task_service.dart:160 |
 | `DELETE /workforce/agents` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:390 |
 | `GET /admin` | ✗ GHOST |  | frontend/lib/modules/dashboard/services/hub_service.dart:39, frontend/lib/modules/settings/services/admin_service.dart:14 |
@@ -597,7 +597,7 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `GET /identity/me` | ✓ |  | frontend/lib/modules/auth/services/auth_service.dart:126, frontend/lib/modules/auth/services/auth_service.dart:551 |
 | `GET /identity/workspaces` | ✓ |  | frontend/lib/modules/settings/services/workspace_orientation_service.dart:16, frontend/lib/modules/settings/views/settings_view.dart:117 |
 | `GET /operations/execution-settings` | ✓ |  | frontend/lib/modules/strategy/services/execution_plan_service.dart:60 |
-| `GET /operations/key-results` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:177 |
+| `GET /operations/key-results` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:182 |
 | `GET /operations/objectives` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:104 |
 | `GET /operations/okr-cycles` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:68 |
 | `GET /operations/strategy/assumptions` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:21, frontend/lib/modules/vault/services/evidence_service.dart:88 |
@@ -629,8 +629,8 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `POST /finance-legal/accounting-periods` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:180 |
 | `POST /finance-legal/transactions` | ✓ |  | frontend/lib/modules/finance/services/finance_service.dart:90 |
 | `POST /operations/execution-plans` | ✓ |  | frontend/lib/modules/strategy/services/execution_plan_service.dart:95, frontend/lib/modules/strategy/services/execution_plan_service.dart:102 |
-| `POST /operations/key-results` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:213 |
-| `POST /operations/objectives` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:130, frontend/lib/modules/strategy/services/okr_service.dart:141, frontend/lib/modules/strategy/services/okr_service.dart:196 |
+| `POST /operations/key-results` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:218 |
+| `POST /operations/objectives` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:134, frontend/lib/modules/strategy/services/okr_service.dart:146, frontend/lib/modules/strategy/services/okr_service.dart:201 |
 | `POST /operations/okr-cycles` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:82 |
 | `POST /operations/strategy/assumptions` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:36 |
 | `POST /operations/strategy/decision-records` | ✓ |  | frontend/lib/modules/vault/services/evidence_service.dart:132 |
@@ -643,8 +643,8 @@ Không sửa tay. Chạy `make route-inventory` để cập nhật; `make route-
 | `POST /workforce/routines` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:361 |
 | `POST /workforce/routing/test` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:99 |
 | `POST /workforce/tools/webhook` | ✗ GHOST |  | frontend/lib/modules/agents/services/agent_platform_service.dart:445 |
-| `PUT /operations/key-results` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:229 |
-| `PUT /operations/objectives` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:153 |
+| `PUT /operations/key-results` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:234 |
+| `PUT /operations/objectives` | ✓ |  | frontend/lib/modules/strategy/services/okr_service.dart:158 |
 
 ## 3. Known-broken allowlist (route ma đã biết — owned by M4/M7)
 

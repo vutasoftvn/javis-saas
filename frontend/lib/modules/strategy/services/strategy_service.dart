@@ -49,12 +49,12 @@ class StrategyService extends StrategyServiceBase {
 
   Future<Map<String, dynamic>> createObjective({
     required String title,
+    required String projectId,
     String? cycleId,
-    String? status,
   }) => _okrService.createObjective(
     title: title,
+    projectId: projectId,
     cycleId: cycleId,
-    status: status,
   );
 
   Future<Map<String, dynamic>> updateObjective(

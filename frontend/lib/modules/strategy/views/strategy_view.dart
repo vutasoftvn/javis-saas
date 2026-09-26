@@ -54,6 +54,142 @@ class StrategyView extends GetView<StrategyController> {
     );
   }
 
+  Future<void> _openCreateObjectiveDialog(BuildContext context) async {
+    final titleCtrl = TextEditingController();
+    final whyCtrl = TextEditingController();
+    final submitted = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Tạo Objective mới'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              key: const Key('objective-title-field'),
+              controller: titleCtrl,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: 'Mục tiêu (Objective)'),
+            ),
+            TextField(
+              controller: whyCtrl,
+              decoration: const InputDecoration(labelText: 'Vì sao quan trọng? (tuỳ chọn)'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Huỷ')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Tạo')),
+        ],
+      ),
+    );
+    final title = titleCtrl.text.trim();
+    if (submitted != true || title.isEmpty) return;
+    try {
+      await controller.createObjective(title: title, why: whyCtrl.text);
+      AppToast.success('Đã tạo Objective "$title" (bản nháp).');
+    } catch (e) {
+      AppToast.error('Không tạo được Objective: $e');
+    }
+  }
+
+  Future<void> _openAddKeyResultDialog(BuildContext context, MvpObjective objective) async {
+    final titleCtrl = TextEditingController();
+    final targetCtrl = TextEditingController();
+    final baselineCtrl = TextEditingController();
+    final unitCtrl = TextEditingController();
+    final submitted = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Thêm Key Result cho "${objective.title}"'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'Kết quả then chốt')),
+            TextField(
+              controller: targetCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'Chỉ tiêu (target)'),
+            ),
+            TextField(
+              controller: baselineCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'Điểm xuất phát (tuỳ chọn)'),
+            ),
+            TextField(controller: unitCtrl, decoration: const InputDecoration(labelText: 'Đơn vị (tuỳ chọn)')),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Huỷ')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Thêm')),
+        ],
+      ),
+    );
+    if (submitted != true) return;
+    final title = titleCtrl.text.trim();
+    final target = double.tryParse(targetCtrl.text.replaceAll(',', '.'));
+    if (title.isEmpty || target == null) {
+      AppToast.error('Cần nhập tên Key Result và chỉ tiêu là số.');
+      return;
+    }
+    try {
+      await controller.addKeyResult(
+        objectiveId: objective.id,
+        title: title,
+        targetValue: target,
+        baselineValue: double.tryParse(baselineCtrl.text.replaceAll(',', '.')),
+        unit: unitCtrl.text,
+      );
+    } catch (e) {
+      AppToast.error('Không thêm được Key Result: $e');
+    }
+  }
+
+  Future<void> _openCheckinDialog(BuildContext context, Map<String, dynamic> kr) async {
+    final valueCtrl = TextEditingController(text: kr['currentValue']?.toString() ?? '');
+    final submitted = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Cập nhật tiến độ: ${kr['title'] ?? ''}'),
+        content: TextField(
+          controller: valueCtrl,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(labelText: 'Giá trị hiện tại'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Huỷ')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Lưu')),
+        ],
+      ),
+    );
+    final value = double.tryParse(valueCtrl.text.replaceAll(',', '.'));
+    if (submitted != true || value == null) return;
+    try {
+      await controller.checkinKeyResult(kr['id'].toString(), value);
+    } catch (e) {
+      AppToast.error('Không cập nhật được tiến độ: $e');
+    }
+  }
+
+  Future<void> _confirmDelete(BuildContext context, String label, Future<void> Function() action) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Xác nhận xoá'),
+        content: Text('Xoá $label? Hành động này không hoàn tác được.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Huỷ')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Xoá')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await action();
+    } catch (e) {
+      AppToast.error('Không xoá được: $e');
+    }
+  }
+
   Widget _buildObjectives(BuildContext context) {
     return Obx(() {
       if (controller.isLoading.value && controller.objectives.isEmpty) {
@@ -76,28 +212,118 @@ class StrategyView extends GetView<StrategyController> {
         );
       }
       final objectives = controller.objectives;
+      final createButton = ElevatedButton.icon(
+        key: const Key('create-objective-button'),
+        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
+        onPressed: () => _openCreateObjectiveDialog(context),
+        icon: const Icon(Icons.add),
+        label: const Text('Tạo Objective'),
+      );
       if (objectives.isEmpty) {
-        return const Center(child: Text('Chưa có Objective nào.'));
+        return Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Chưa có Objective nào.'),
+              const SizedBox(height: 6),
+              const Text(
+                'Đặt 1-3 mục tiêu cho Project đang chọn, rồi thêm Key Result đo được.',
+                style: TextStyle(fontSize: 12, color: Colors.white54),
+              ),
+              const SizedBox(height: 16),
+              createButton,
+            ],
+          ),
+        );
       }
       return RefreshIndicator(
         onRefresh: controller.loadObjectives,
         child: ListView.builder(
           padding: const EdgeInsets.all(16),
-          itemCount: objectives.length,
+          itemCount: objectives.length + 1,
           itemBuilder: (context, index) {
-            final objective = objectives[index];
+            if (index == 0) {
+              return Align(
+                alignment: Alignment.centerRight,
+                child: Padding(padding: const EdgeInsets.only(bottom: 12), child: createButton),
+              );
+            }
+            final objective = objectives[index - 1];
+            final keyResults = controller.keyResultsByObjective[objective.id] ?? const [];
             return Card(
               margin: const EdgeInsets.only(bottom: 12),
-              child: ListTile(
-                title: Text(objective.title),
-                subtitle: Text(objective.status),
-                trailing: _isDraft(objective)
-                    ? ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
-                        onPressed: () => _handlePublish(context, objective),
-                        child: const Text('Publish'),
-                      )
-                    : null,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ListTile(
+                      title: Text(objective.title),
+                      subtitle: Text(
+                        objective.why == null || objective.why!.isEmpty
+                            ? objective.status
+                            : '${objective.status} · ${objective.why}',
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_isDraft(objective))
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
+                              onPressed: () => _handlePublish(context, objective),
+                              child: const Text('Publish'),
+                            ),
+                          IconButton(
+                            tooltip: 'Xoá Objective',
+                            icon: const Icon(Icons.delete_outline),
+                            onPressed: () => _confirmDelete(
+                              context,
+                              'Objective "${objective.title}"',
+                              () => controller.deleteObjective(objective.id),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    for (final kr in keyResults)
+                      ListTile(
+                        dense: true,
+                        contentPadding: const EdgeInsets.only(left: 32, right: 8),
+                        leading: const Icon(Icons.trending_up, size: 18),
+                        title: Text(kr['title']?.toString() ?? 'Key Result'),
+                        subtitle: Text(
+                          '${kr['currentValue'] ?? kr['baselineValue'] ?? 0} / ${kr['targetValue'] ?? '?'} ${kr['unit'] ?? ''}',
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              tooltip: 'Cập nhật tiến độ',
+                              icon: const Icon(Icons.edit_note, size: 20),
+                              onPressed: () => _openCheckinDialog(context, kr),
+                            ),
+                            IconButton(
+                              tooltip: 'Xoá Key Result',
+                              icon: const Icon(Icons.close, size: 18),
+                              onPressed: () => _confirmDelete(
+                                context,
+                                'Key Result "${kr['title'] ?? ''}"',
+                                () => controller.deleteKeyResult(kr['id'].toString()),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 24, bottom: 4),
+                      child: TextButton.icon(
+                        onPressed: () => _openAddKeyResultDialog(context, objective),
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('Thêm Key Result'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           },

@@ -119,18 +119,23 @@ class OkrService extends StrategyServiceBase {
     }
   }
 
+  /// `CreateObjectiveParams` (Company) bắt buộc `workspaceId` trong body —
+  /// trước đây thiếu nên mọi lần tạo Objective đều bị từ chối. `projectId`
+  /// là bắt buộc ở phía client: backend còn fallback "project đầu tiên" khi
+  /// thiếu, client không được dựa vào suy diễn scope đó (CLAUDE.md quy tắc 14).
   Future<Map<String, dynamic>> createObjective({
     required String title,
+    required String projectId,
     String? cycleId,
-    String? status,
     String? why,
     String? ownerMemberId,
   }) async {
-    await requireWorkspaceId();
+    final workspaceId = await requireWorkspaceId();
     final response = await ApiClient.post('/operations/objectives', body: {
+      'workspaceId': workspaceId,
+      'projectId': projectId,
       'title': title,
       'cycleId': ?cycleId,
-      'status': ?status,
       'why': ?why,
       'ownerMemberId': ?ownerMemberId,
     });

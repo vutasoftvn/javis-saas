@@ -67,3 +67,21 @@ màn "Chưa có Objective nào" phải có CTA tạo objective/KR/task thật.
 `flutter analyze`, test Flutter của module, `make frontend-api-contract-check`,
 `node scripts/gen-mvp-contracts.mjs --check`, `scripts/mvp_surface_check.py
 --check`, `route_inventory.py --check`; test backend liên quan nếu sửa backend.
+
+## Trạng thái thực thi (2026-09-26)
+
+| Đợt | Trạng thái | Ghi chú |
+| --- | --- | --- |
+| 1. Thiết lập & Agent | WIRED | `/work/agents` live; workforce/settings service gọi endpoint thật |
+| 2. CRM | WIRED | thêm API liệt kê accounts/contacts/opportunities/customers; `/work/sales` live |
+| 3. Tài chính | WIRED | chứng từ/kỳ/ngoại lệ đọc dữ liệu thật; thêm API liệt kê ngoại lệ |
+| 4. Business | WIRED | tạo/xoá Objective, thêm/check-in/xoá Key Result theo Project đang chọn |
+
+Chưa VERIFIED bằng `encore test`/E2E (container phát triển không tải được
+Encore CLI). Còn tồn đọng:
+
+- `createObjectiveService` (Company) vẫn fallback "project đầu tiên" khi thiếu
+  `projectId`; frontend luôn gửi tường minh, nên đổi backend sang fail-closed
+  ở release riêng (nhiều test Encore đang dựa vào fallback).
+- Chấm điểm lead / soạn outreach AI, mẫu biểu sổ sách theo chế độ kế toán
+  chưa có backend — UI báo "chưa hỗ trợ"/trạng thái trống, không giả dữ liệu.
