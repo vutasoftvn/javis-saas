@@ -540,3 +540,108 @@ async def test_sweep_blocks_task_whose_capability_is_not_in_owner_profile():
     assert advance_calls[0].kwargs["json"]["note"] == (
         "capability_not_in_profile:finance.transaction.record"
     )
+
+
+def _decomp_payload(**over):
+    base = {
+        "run_id": "wga_decomp_x",
+        "workspace_id": "ws1",
+        "project_id": "proj1",
+        "weekly_plan_id": "77",
+        "goal_text": "Close 3 customer interviews",
+        "actor_id": "42",
+    }
+    base.update(over)
+    return base
+
+
+@pytest.mark.asyncio
+async def test_goal_decomposition_retries_once_with_schema_error_then_posts_plan():
+    company = AsyncMock()
+    company.post.return_value = {"id": "p"}
+    plane = _plane(company, kernel_result=None)
+    plane.kernel.run.side_effect = [
+        _run_result(RunStatus.COMPLETED, {"response": "not json"}),
+        _run_result(RunStatus.COMPLETED, {"response": _VALID_PLAN}),
+    ]
+
+    await wga_run.execute_goal_decomposition_task(plane, None, _decomp_payload())
+
+    assert plane.kernel.run.await_count == 2
+    retry_req = plane.kernel.run.await_args_list[1].args[0]
+    assert retry_req.run_id == "wga_decomp_x_retry1"
+    assert "YOUR PREVIOUS OUTPUT WAS REJECTED" in retry_req.input["prompt"]
+    [call] = company.post.await_args_list
+    assert call.args[0] == "/operations/execution-plans"
+    assert call.kwargs["json"]["runId"] == "wga_decomp_x_retry1"
+
+
+@pytest.mark.asyncio
+async def test_goal_decomposition_reports_failure_after_retries_exhausted():
+    company = AsyncMock()
+    company.post.return_value = {"status": "failed"}
+    plane = _plane(
+        company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": "not json"})
+    )
+
+    await wga_run.execute_goal_decomposition_task(
+        plane, None, _decomp_payload(origin="chat", origin_ref="conv_9")
+    )
+
+    assert plane.kernel.run.await_count == 2
+    [call] = company.post.await_args_list
+    assert call.args[0] == "/operations/weekly-plans/77/decomposition-failure"
+    assert call.kwargs["json"] == {
+        "runId": "wga_decomp_x_retry1",
+        "errorCode": "plan_schema_invalid",
+    }
+    msg = plane.conversation_repository.add_message.await_args.args[0]
+    assert msg.conversation_id == "conv_9"
+    assert "Chưa lập được kế hoạch" in msg.content
+
+
+@pytest.mark.asyncio
+async def test_goal_decomposition_kernel_failure_reports_classified_code_without_raw_error():
+    company = AsyncMock()
+    company.post.return_value = {"status": "failed"}
+    plane = _plane(
+        company,
+        kernel_result=_run_result(
+            RunStatus.FAILED, errors=["litellm.BadRequestError: Insufficient Balance"]
+        ),
+    )
+
+    await wga_run.execute_goal_decomposition_task(
+        plane, None, _decomp_payload(origin="chat", origin_ref="conv_9")
+    )
+
+    assert plane.kernel.run.await_count == 1  # lỗi provider không retry
+    [call] = company.post.await_args_list
+    assert call.kwargs["json"]["errorCode"] == "provider_insufficient_balance"
+    msg = plane.conversation_repository.add_message.await_args.args[0]
+    assert "litellm" not in msg.content
+    assert "hết hạn mức" in msg.content
+
+
+@pytest.mark.asyncio
+async def test_goal_decomposition_reports_failure_when_plan_post_fails():
+    company = AsyncMock()
+
+    async def mock_post(path, *args, **kwargs):
+        if path == "/operations/execution-plans":
+            raise CompanyServiceError("boom", status_code=500)
+        return {"status": "failed"}
+
+    company.post.side_effect = mock_post
+    plane = _plane(
+        company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": _VALID_PLAN})
+    )
+
+    await wga_run.execute_goal_decomposition_task(plane, None, _decomp_payload())
+
+    paths = [c.args[0] for c in company.post.await_args_list]
+    assert paths == [
+        "/operations/execution-plans",
+        "/operations/weekly-plans/77/decomposition-failure",
+    ]
+    assert company.post.await_args_list[1].kwargs["json"]["errorCode"] == "plan_create_failed"

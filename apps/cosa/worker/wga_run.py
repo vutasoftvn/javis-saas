@@ -44,6 +44,7 @@ from apps.cosa.agents.specs import COSA_OPERATIONS_AGENT_SPEC
 from apps.cosa.auth.jwt import mint_company_delegation
 from apps.cosa.capabilities.client import CompanyServiceError
 from apps.cosa.composition.agent_plane import CosaAgentPlane
+from apps.cosa.worker.provider_errors import classify_run_error
 from apps.cosa.worker.run_core import RunCoreError, prepare_run, run_kernel
 
 logger = logging.getLogger(__name__)
@@ -246,6 +247,20 @@ async def execute_goal_decomposition_task(
         logger.warning("goal_decomposition run=%s missing goal_text/project_id — skip", run_id)
         return
 
+    async def _fail(code: str, attempt_run_id: str, *, user_message: str | None = None) -> None:
+        await _report_decomposition_failure(
+            plane,
+            workspace_id=workspace_id,
+            project_id=str(project_id),
+            weekly_plan_id=weekly_plan_id,
+            run_id=attempt_run_id,
+            sub=sub,
+            code=code,
+            origin=origin,
+            origin_ref=origin_ref,
+            user_message=user_message,
+        )
+
     catalog = _capability_catalog()
     prompt = build_decomposition_prompt(
         goal_text,
@@ -256,37 +271,67 @@ async def execute_goal_decomposition_task(
         },
     )
 
-    try:
-        prep = await prepare_run(
-            plane,
-            run_id=run_id,
-            local_spec=COSA_OPERATIONS_AGENT_SPEC,
-            prompt=prompt,
-            principal=f"system:wga:{workspace_id}",
-            workspace_id=workspace_id,
-            conversation_id=f"wga_decomp_{run_id}",
-            policy_snapshot=None,
-            project_id=str(project_id),
+    items = None
+    attempt_run_id = run_id
+    last_schema_error: PlanSchemaError | None = None
+    for attempt in range(_DECOMPOSITION_MAX_ATTEMPTS):
+        attempt_run_id = run_id if attempt == 0 else f"{run_id}_retry{attempt}"
+        attempt_prompt = (
+            prompt
+            if last_schema_error is None
+            else _schema_retry_prompt(prompt, str(last_schema_error))
         )
-    except RunCoreError as exc:
-        logger.error("goal_decomposition prep failed run=%s reason=%s", run_id, exc.reason_code)
-        return
+        try:
+            prep = await prepare_run(
+                plane,
+                run_id=attempt_run_id,
+                local_spec=COSA_OPERATIONS_AGENT_SPEC,
+                prompt=attempt_prompt,
+                principal=f"system:wga:{workspace_id}",
+                workspace_id=workspace_id,
+                conversation_id=f"wga_decomp_{attempt_run_id}",
+                policy_snapshot=None,
+                project_id=str(project_id),
+            )
+        except RunCoreError as exc:
+            logger.error(
+                "goal_decomposition prep failed run=%s reason=%s", attempt_run_id, exc.reason_code
+            )
+            await _fail(f"prep_failed:{exc.reason_code}", attempt_run_id)
+            return
 
-    run_result, _ = await run_kernel(plane, prep, workspace_id=workspace_id, run_id=run_id)
-    if run_result.status != RunStatus.COMPLETED:
-        logger.error("goal_decomposition kernel run=%s status=%s", run_id, run_result.status)
-        return
+        run_result, _ = await run_kernel(
+            plane, prep, workspace_id=workspace_id, run_id=attempt_run_id
+        )
+        if run_result.status != RunStatus.COMPLETED:
+            raw = run_result.errors[0] if run_result.errors else str(run_result.status)
+            logger.error("goal_decomposition kernel run=%s failed: %s", attempt_run_id, raw)
+            classified = classify_run_error(raw)
+            await _fail(classified.code, attempt_run_id, user_message=classified.user_message)
+            return
 
-    try:
-        items = validate_plan_capabilities(parse_plan_output(_extract_text(run_result)), catalog)
-    except PlanSchemaError as exc:
-        logger.error("goal_decomposition plan_schema_invalid run=%s: %s", run_id, exc)
+        try:
+            items = validate_plan_capabilities(
+                parse_plan_output(_extract_text(run_result)), catalog
+            )
+            break
+        except PlanSchemaError as exc:
+            logger.warning(
+                "goal_decomposition plan_schema_invalid run=%s attempt=%d: %s",
+                attempt_run_id,
+                attempt + 1,
+                exc,
+            )
+            last_schema_error = exc
+
+    if items is None:
+        await _fail("plan_schema_invalid", attempt_run_id)
         return
 
     token = mint_company_delegation(
         sub=sub,
         workspace_id=workspace_id,
-        run_id=run_id,
+        run_id=attempt_run_id,
         capability_ids=[_CAP_EXECUTION_PLAN_CREATE, _CAP_TASK_LIST],
     )
     body = {
@@ -295,7 +340,7 @@ async def execute_goal_decomposition_task(
         "goalText": goal_text,
         "origin": origin,
         "originRef": origin_ref,
-        "runId": run_id,
+        "runId": attempt_run_id,
         "items": [
             {
                 "title": it.title,
@@ -322,30 +367,107 @@ async def execute_goal_decomposition_task(
             headers={"X-Workspace-Id": workspace_id, "Authorization": f"Bearer {token}"},
         )
     except CompanyServiceError as exc:
-        logger.error("goal_decomposition POST execution-plans failed run=%s: %s", run_id, exc)
+        logger.error(
+            "goal_decomposition POST execution-plans failed run=%s: %s", attempt_run_id, exc
+        )
+        await _fail("plan_create_failed", attempt_run_id)
         return
 
     logger.info(
         "goal_decomposition run=%s created plan with %d item(s) for ws=%s",
-        run_id,
+        attempt_run_id,
         len(items),
         workspace_id,
     )
 
     if origin == "chat" and origin_ref:
-        with contextlib.suppress(Exception):
-            await plane.conversation_repository.add_message(
-                MessageRecord(
-                    conversation_id=origin_ref,
-                    role="assistant",
-                    content=(
-                        "Đã lập kế hoạch triển khai từ mục tiêu tuần. "
-                        "Mở Command Center để xem và duyệt cả lô."
-                    ),
-                    run_id=run_id,
-                    status="completed",
-                )
+        await _post_chat_message(
+            plane,
+            conversation_id=origin_ref,
+            project_id=str(project_id),
+            run_id=attempt_run_id,
+            content=(
+                "Đã lập kế hoạch triển khai từ mục tiêu tuần. "
+                "Mở Command Center để xem và duyệt cả lô."
+            ),
+        )
+
+
+_DECOMPOSITION_MAX_ATTEMPTS = 2
+
+_DECOMPOSITION_FAILED_MESSAGE_VI = (
+    "Chưa lập được kế hoạch từ mục tiêu tuần (AI trả kết quả không hợp lệ). "
+    "Vui lòng thử lại hoặc diễn đạt mục tiêu cụ thể hơn."
+)
+
+
+def _schema_retry_prompt(prompt: str, error: str) -> str:
+    """Lượt thử lại duy nhất: đưa lỗi schema cụ thể cho model tự sửa."""
+    return (
+        f"{prompt}\n\nYOUR PREVIOUS OUTPUT WAS REJECTED: {error[:300]}\n"
+        "Fix it and return ONLY the JSON object, no prose, no markdown fences."
+    )
+
+
+async def _post_chat_message(
+    plane: CosaAgentPlane, *, conversation_id: str, project_id: str, run_id: str, content: str
+) -> None:
+    try:
+        await plane.conversation_repository.add_message(
+            MessageRecord(
+                conversation_id=conversation_id,
+                project_id=project_id,
+                role="assistant",
+                content=content,
+                run_id=run_id,
+                status="completed",
             )
+        )
+    except Exception as exc:
+        logger.warning("goal_decomposition chat message failed conv=%s: %s", conversation_id, exc)
+
+
+async def _report_decomposition_failure(
+    plane: CosaAgentPlane,
+    *,
+    workspace_id: str,
+    project_id: str,
+    weekly_plan_id: str | None,
+    run_id: str,
+    sub: str,
+    code: str,
+    origin: str,
+    origin_ref: str | None,
+    user_message: str | None = None,
+) -> None:
+    """G6 — lỗi phân rã phải nhìn thấy được: ghi trạng thái 'failed' có mã máy
+    vào weekly plan (Command Center dừng chờ và hiện lỗi) và, nếu mục tiêu đến
+    từ chat, nhắn lại vào đúng conversation. Chuỗi lỗi thô chỉ ở log."""
+    if weekly_plan_id:
+        token = mint_company_delegation(
+            sub=sub,
+            workspace_id=workspace_id,
+            run_id=run_id,
+            capability_ids=[_CAP_EXECUTION_PLAN_CREATE],
+        )
+        try:
+            await plane.company_client.post(
+                f"/operations/weekly-plans/{weekly_plan_id}/decomposition-failure",
+                json={"runId": run_id, "errorCode": code[:80]},
+                headers={"X-Workspace-Id": workspace_id, "Authorization": f"Bearer {token}"},
+            )
+        except CompanyServiceError as exc:
+            logger.error(
+                "goal_decomposition report failure wp=%s run=%s: %s", weekly_plan_id, run_id, exc
+            )
+    if origin == "chat" and origin_ref:
+        await _post_chat_message(
+            plane,
+            conversation_id=origin_ref,
+            project_id=project_id,
+            run_id=run_id,
+            content=user_message or _DECOMPOSITION_FAILED_MESSAGE_VI,
+        )
 
 
 def _task_execution_prompt(t: dict[str, Any]) -> str:

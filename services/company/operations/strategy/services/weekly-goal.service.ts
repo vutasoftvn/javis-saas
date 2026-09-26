@@ -203,6 +203,16 @@ export async function setWeeklyGoalService(
       );
     }
 
+    // G6 — yêu cầu phân rã mới đặt lại trạng thái về 'pending' (xoá lỗi cũ);
+    // không yêu cầu thì giữ nguyên trạng thái hiện có.
+    const decompositionState = params.triggerDecomposition
+      ? {
+          decompositionStatus: "pending",
+          decompositionErrorCode: null,
+          decompositionUpdatedAt: new Date(),
+        }
+      : {};
+
     const [plan] = await tx
       .insert(weeklyPlans)
       .values({
@@ -213,10 +223,11 @@ export async function setWeeklyGoalService(
         weekNo: targetWeekNo,
         focus,
         mission,
+        ...decompositionState,
       })
       .onConflictDoUpdate({
         target: [weeklyPlans.cycleId, weeklyPlans.weekNo],
-        set: { focus, mission, updatedAt: new Date() },
+        set: { focus, mission, updatedAt: new Date(), ...decompositionState },
       })
       .returning();
 

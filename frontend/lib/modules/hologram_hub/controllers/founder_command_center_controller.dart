@@ -281,6 +281,9 @@ class FounderCommandCenterController extends GetxController {
 
   /// WGA — kế hoạch triển khai (draft) agent đề xuất từ mục tiêu tuần.
   final RxList<ExecutionPlan> draftPlans = <ExecutionPlan>[].obs;
+
+  /// WGA G6 — trạng thái phân rã gần nhất; `failed` thì UI hiện banner lỗi.
+  final Rxn<DecompositionState> latestDecomposition = Rxn<DecompositionState>();
   final RxBool isDecomposing = false.obs;
   final ExecutionPlanService _executionPlanService = ExecutionPlanService();
 
@@ -845,8 +848,9 @@ class FounderCommandCenterController extends GetxController {
       return;
     }
     try {
-      final plans = await _executionPlanService.listDraftPlans(pid);
-      draftPlans.assignAll(plans);
+      final res = await _executionPlanService.listDraftPlansWithDecomposition(pid);
+      draftPlans.assignAll(res.plans);
+      latestDecomposition.value = res.decomposition;
     } catch (e) {
       debugPrint('[FounderCommandCenter] loadDraftPlans error: $e');
     }
@@ -882,13 +886,17 @@ class FounderCommandCenterController extends GetxController {
     }
     isDecomposing.value = true;
     try {
-      await _executionPlanService.setWeeklyGoal(
+      final weeklyPlanId = await _executionPlanService.setWeeklyGoal(
         pid,
         focus.trim(),
         triggerDecomposition: true,
         origin: origin,
         originRef: originRef,
       );
+      if (weeklyPlanId != null) {
+        latestDecomposition.value =
+            DecompositionState(weeklyPlanId: weeklyPlanId, status: 'pending');
+      }
       AppToast.info(
         'Đã ghi mục tiêu tuần. AI đang lập kế hoạch triển khai — kế hoạch sẽ hiện ở đây trong giây lát.',
       );
@@ -909,7 +917,17 @@ class FounderCommandCenterController extends GetxController {
       await Future<void>.delayed(Duration(seconds: s));
       if (draftPlans.isNotEmpty) return;
       await loadDraftPlans();
+      if (_surfaceDecompositionFailure()) return;
     }
+  }
+
+  /// G6 — phân rã thất bại thì dừng chờ và báo lỗi theo mã (không lỗi thô).
+  /// Trả true khi đã báo.
+  bool _surfaceDecompositionFailure() {
+    final st = latestDecomposition.value;
+    if (st == null || !st.isFailed) return false;
+    AppToast.error(st.userMessage);
+    return true;
   }
 
   Future<void> acceptPlan(String planId) async {

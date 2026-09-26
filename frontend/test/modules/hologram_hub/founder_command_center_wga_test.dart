@@ -201,4 +201,52 @@ void main() {
     expect(c.draftPlans, hasLength(1));
     expect(c.draftPlans.single.goalText, contains('phỏng vấn'));
   });
+
+  test('loadDraftPlans exposes a failed decomposition with a friendly message', () async {
+    ApiClient.client = MockClient((req) async {
+      if (req.method == 'GET' && req.url.path == '/operations/execution-plans') {
+        return _ok({
+          'plans': <dynamic>[],
+          'latestDecomposition': {
+            'weeklyPlanId': 'wp-1',
+            'status': 'failed',
+            'errorCode': 'provider_insufficient_balance',
+            'updatedAt': null,
+          },
+        });
+      }
+      return http.Response('{}', 404);
+    });
+    final c = FounderCommandCenterController();
+    c.activeProjectId.value = 'proj-1';
+    await c.loadDraftPlans();
+    final st = c.latestDecomposition.value!;
+    expect(st.isFailed, isTrue);
+    expect(st.userMessage, contains('hết hạn mức'));
+    expect(st.userMessage, isNot(contains('provider_')));
+  });
+
+  test('requestDecomposition marks the new weekly plan as pending', () async {
+    ApiClient.client = MockClient((req) async {
+      if (req.method == 'POST' &&
+          req.url.path == '/operations/strategy/projects/proj-1/weekly-goal') {
+        return _ok({'weeklyPlanId': 'wp-9', 'focus': 'x', 'decompositionRequested': true});
+      }
+      return http.Response('{}', 404);
+    });
+    final c = FounderCommandCenterController();
+    c.activeProjectId.value = 'proj-1';
+    await c.requestDecomposition('Chốt 3 phỏng vấn khách hàng');
+    expect(c.latestDecomposition.value?.weeklyPlanId, 'wp-9');
+    expect(c.latestDecomposition.value?.isPending, isTrue);
+  });
+
+  test('DecompositionState.tryParse tolerates missing/invalid payloads', () {
+    expect(DecompositionState.tryParse(null), isNull);
+    expect(DecompositionState.tryParse({'status': 'failed'}), isNull);
+    expect(
+      DecompositionState.tryParse({'weeklyPlanId': 5, 'status': 'done'})?.weeklyPlanId,
+      '5',
+    );
+  });
 }

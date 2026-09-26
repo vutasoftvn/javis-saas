@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { APIError } from "encore.dev/api";
 import { db } from "../models/db";
 import {
@@ -177,6 +177,20 @@ export async function createExecutionPlanService(
             isNull(executionPlans.deletedAt)
           )
         );
+      // G6 — phân rã đã ra kế hoạch: trạng thái 'done' (xoá mã lỗi cũ nếu có).
+      await tx
+        .update(weeklyPlans)
+        .set({
+          decompositionStatus: "done",
+          decompositionErrorCode: null,
+          decompositionUpdatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(weeklyPlans.id, BigInt(input.weeklyPlanId)),
+            eq(weeklyPlans.workspaceId, wsId)
+          )
+        );
     }
 
     const planId = generateSnowflake();
@@ -275,6 +289,96 @@ export async function createExecutionPlanService(
 
     return toPlanView(plan!, inserted);
   });
+}
+
+export interface DecompositionStateView {
+  weeklyPlanId: string;
+  status: "pending" | "done" | "failed";
+  errorCode: string | null;
+  updatedAt: string | null;
+}
+
+const DECOMPOSITION_ERROR_CODE_RE = /^[a-z0-9_.:-]{1,80}$/;
+
+/**
+ * G6 — worker báo phân rã thất bại (provider lỗi, JSON sai schema, POST lỗi).
+ * Chỉ chuyển 'pending' -> 'failed'; weekly plan đã 'done' (có plan) giữ nguyên
+ * để một lần retry lỗi muộn không ghi đè kết quả thật.
+ */
+export async function recordDecompositionFailureService(
+  p: { weeklyPlanId: string; errorCode: string },
+  ctx: TenantContext
+): Promise<DecompositionStateView> {
+  const code = p.errorCode?.trim();
+  if (!code || !DECOMPOSITION_ERROR_CODE_RE.test(code)) {
+    throw APIError.invalidArgument("errorCode phải là mã máy (a-z0-9_.:-, tối đa 80 ký tự)");
+  }
+  const wsId = BigInt(ctx.workspaceId);
+  const wpId = BigInt(p.weeklyPlanId);
+  const now = new Date();
+  await db
+    .update(weeklyPlans)
+    .set({ decompositionStatus: "failed", decompositionErrorCode: code, decompositionUpdatedAt: now })
+    .where(
+      and(
+        eq(weeklyPlans.id, wpId),
+        eq(weeklyPlans.workspaceId, wsId),
+        eq(weeklyPlans.decompositionStatus, "pending")
+      )
+    );
+  const [row] = await db
+    .select({
+      id: weeklyPlans.id,
+      status: weeklyPlans.decompositionStatus,
+      errorCode: weeklyPlans.decompositionErrorCode,
+      updatedAt: weeklyPlans.decompositionUpdatedAt,
+    })
+    .from(weeklyPlans)
+    .where(and(eq(weeklyPlans.id, wpId), eq(weeklyPlans.workspaceId, wsId)))
+    .limit(1);
+  if (!row || !row.status) throw APIError.notFound(`weekly plan ${p.weeklyPlanId} not found`);
+  return toDecompositionView(row);
+}
+
+function toDecompositionView(row: {
+  id: bigint;
+  status: string | null;
+  errorCode: string | null;
+  updatedAt: Date | null;
+}): DecompositionStateView {
+  return {
+    weeklyPlanId: row.id.toString(),
+    status: row.status as DecompositionStateView["status"],
+    errorCode: row.errorCode,
+    updatedAt: row.updatedAt ? row.updatedAt.toISOString() : null,
+  };
+}
+
+/** Trạng thái phân rã gần nhất của Project (null nếu chưa từng yêu cầu). */
+export async function latestDecompositionStateService(
+  p: { workspaceId: string; projectId: string },
+  authorization: string | undefined
+): Promise<DecompositionStateView | null> {
+  const ctx = await requireWorkspaceAccess(authorization, p.workspaceId);
+  const [row] = await db
+    .select({
+      id: weeklyPlans.id,
+      status: weeklyPlans.decompositionStatus,
+      errorCode: weeklyPlans.decompositionErrorCode,
+      updatedAt: weeklyPlans.decompositionUpdatedAt,
+    })
+    .from(weeklyPlans)
+    .where(
+      and(
+        eq(weeklyPlans.workspaceId, BigInt(ctx.workspaceId)),
+        eq(weeklyPlans.projectId, BigInt(p.projectId)),
+        isNull(weeklyPlans.deletedAt),
+        isNotNull(weeklyPlans.decompositionStatus)
+      )
+    )
+    .orderBy(desc(weeklyPlans.decompositionUpdatedAt))
+    .limit(1);
+  return row ? toDecompositionView(row) : null;
 }
 
 export async function listExecutionPlansService(

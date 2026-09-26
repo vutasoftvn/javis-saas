@@ -14,7 +14,8 @@ class ExecutionPlanService extends WorkspaceScopedService {
   }
 
   /// Đặt / cập nhật mục tiêu tuần. `triggerDecomposition=true` -> agent lập kế hoạch.
-  Future<void> setWeeklyGoal(
+  /// Trả `weeklyPlanId` để UI theo dõi đúng lần phân rã vừa yêu cầu.
+  Future<String?> setWeeklyGoal(
     String projectId,
     String focus, {
     String? mission,
@@ -34,24 +35,42 @@ class ExecutionPlanService extends WorkspaceScopedService {
         'originRef': ?originRef,
       },
     );
-    if (res.statusCode == 200) return;
+    if (res.statusCode == 200) {
+      try {
+        final data = jsonDecode(utf8.decode(res.bodyBytes));
+        if (data is Map<String, dynamic> && data['weeklyPlanId'] != null) {
+          return '${data['weeklyPlanId']}';
+        }
+      } on FormatException {
+        return null;
+      }
+      return null;
+    }
     throw StateError('Failed to set weekly goal: ${res.statusCode} ${res.body}');
   }
 
-  Future<List<ExecutionPlan>> listDraftPlans(String projectId) async {
+  Future<List<ExecutionPlan>> listDraftPlans(String projectId) async =>
+      (await listDraftPlansWithDecomposition(projectId)).plans;
+
+  /// Như [listDraftPlans] kèm trạng thái phân rã gần nhất của Project (G6).
+  Future<({List<ExecutionPlan> plans, DecompositionState? decomposition})>
+      listDraftPlansWithDecomposition(String projectId) async {
     await _requireWorkspaceId();
     final res = await ApiClient.get(
       '/operations/execution-plans?projectId=$projectId&status=draft',
     );
     if (res.statusCode != 200) {
-      if (res.statusCode == 404) return const [];
+      if (res.statusCode == 404) return (plans: <ExecutionPlan>[], decomposition: null);
       throw StateError('Failed to list execution plans: ${res.statusCode}');
     }
     final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
     final list = (data['plans'] as List<dynamic>?) ?? const [];
-    return list
-        .map((e) => ExecutionPlan.fromJson(e as Map<String, dynamic>))
-        .toList();
+    return (
+      plans: list
+          .map((e) => ExecutionPlan.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      decomposition: DecompositionState.tryParse(data['latestDecomposition']),
+    );
   }
 
   /// WGA #2 — kill-switch: đọc / đặt cho phép vòng thực thi tự động chạy.

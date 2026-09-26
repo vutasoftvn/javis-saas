@@ -158,3 +158,48 @@ class ExecutionPlan {
     );
   }
 }
+
+
+/// WGA G6 — trạng thái phân rã mục tiêu tuần gần nhất của Project (backend
+/// `latestDecomposition`). `failed` kèm `errorCode` máy để UI dừng chờ.
+class DecompositionState {
+  final String weeklyPlanId;
+  final String status; // pending | done | failed
+  final String? errorCode;
+
+  const DecompositionState({
+    required this.weeklyPlanId,
+    required this.status,
+    this.errorCode,
+  });
+
+  bool get isFailed => status == 'failed';
+  bool get isPending => status == 'pending';
+
+  static DecompositionState? tryParse(Object? j) {
+    if (j is! Map<String, dynamic>) return null;
+    final id = j['weeklyPlanId'];
+    final status = j['status'];
+    if (id == null || status is! String) return null;
+    return DecompositionState(
+      weeklyPlanId: '$id',
+      status: status,
+      errorCode: j['errorCode'] as String?,
+    );
+  }
+
+  /// Thông báo cho founder theo mã lỗi (không bao giờ hiện chuỗi lỗi thô).
+  String get userMessage {
+    final code = errorCode ?? '';
+    if (code.startsWith('provider_insufficient_balance')) {
+      return 'AI chưa lập được kế hoạch: nhà cung cấp model đã hết hạn mức. Vui lòng nạp thêm hoặc đổi model.';
+    }
+    if (code.startsWith('provider_')) {
+      return 'AI chưa lập được kế hoạch: nhà cung cấp model đang lỗi. Vui lòng thử lại sau.';
+    }
+    if (code == 'plan_schema_invalid') {
+      return 'AI chưa lập được kế hoạch hợp lệ. Hãy diễn đạt mục tiêu cụ thể hơn rồi thử lại.';
+    }
+    return 'AI chưa lập được kế hoạch. Vui lòng thử lại.';
+  }
+}

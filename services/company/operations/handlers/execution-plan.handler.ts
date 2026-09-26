@@ -13,6 +13,9 @@ import {
   ExecutionPlanItemView,
   AcceptExecutionPlanResult,
   CapabilityPolicyEntry,
+  DecompositionStateView,
+  latestDecompositionStateService,
+  recordDecompositionFailureService,
 } from "../services/execution-plan.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import { TenantPolicyDecision } from "../services/autonomy-classifier";
@@ -31,14 +34,53 @@ interface ListParams {
 
 export const listExecutionPlans = api(
   { method: "GET", path: "/operations/execution-plans", expose: true },
-  async (p: ListParams): Promise<{ plans: ExecutionPlanView[] }> => {
+  async (
+    p: ListParams
+  ): Promise<{ plans: ExecutionPlanView[]; latestDecomposition: DecompositionStateView | null }> => {
     if (!p.workspaceId) throw APIError.invalidArgument("X-Workspace-Id header required");
     if (!p.projectId) throw APIError.invalidArgument("projectId query required");
     const plans = await listExecutionPlansService(
       { workspaceId: p.workspaceId, projectId: p.projectId, status: p.status },
       p.authorization
     );
-    return { plans };
+    // G6 — UI dừng chờ và hiện lỗi khi phân rã 'failed' thay vì chờ vô hạn.
+    const latestDecomposition = await latestDecompositionStateService(
+      { workspaceId: p.workspaceId, projectId: p.projectId },
+      p.authorization
+    );
+    return { plans, latestDecomposition };
+  }
+);
+
+interface DecompositionFailureParams {
+  weeklyPlanId: string;
+  runId: string;
+  errorCode: string;
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
+}
+
+// Gọi bởi background task goal_decomposition của apps/cosa khi phân rã thất bại
+// — cosa delegation khớp run_id + capability tạo plan (cùng quyền với POST plan).
+export const recordDecompositionFailure = api(
+  {
+    method: "POST",
+    path: "/operations/weekly-plans/:weeklyPlanId/decomposition-failure",
+    expose: true,
+  },
+  async (p: DecompositionFailureParams): Promise<DecompositionStateView> => {
+    if (!p.workspaceId) throw APIError.invalidArgument("X-Workspace-Id header required");
+    if (!p.runId || !p.runId.trim()) throw APIError.invalidArgument("runId required");
+    if (!/^\d+$/.test(p.weeklyPlanId)) throw APIError.invalidArgument("weeklyPlanId must be numeric");
+    const ctx = resolveCosaTaskContext(p.authorization, {
+      workspaceId: p.workspaceId,
+      capabilityId: WGA_CAP_EXECUTION_PLAN_CREATE,
+      runId: p.runId,
+    });
+    return recordDecompositionFailureService(
+      { weeklyPlanId: p.weeklyPlanId, errorCode: p.errorCode },
+      ctx
+    );
   }
 );
 
