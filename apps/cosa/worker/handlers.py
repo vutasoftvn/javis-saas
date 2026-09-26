@@ -293,6 +293,28 @@ async def _execute_run_task_inner(
     project_id = payload.get("project_id")
     stream_repo = plane.stream_event_repository
 
+    async def _reject(content: str, error_payload: dict[str, Any]) -> None:
+        """Ghi assistant message `failed` + phát `run.failed` (cùng scope Project)."""
+        await _append_message(
+            plane,
+            conversation_id=conversation_id,
+            role="assistant",
+            content=content,
+            run_id=run_id,
+            status_="failed",
+            project_id=project_id,
+        )
+        await stream_mgr.emit(
+            stream_repo,
+            run_id=run_id,
+            conversation_id=conversation_id,
+            event_type="run.failed",
+            payload=error_payload,
+            activity_service=getattr(plane, "project_activity_service", None),
+            workspace_id=workspace_id,
+            project_id=project_id,
+        )
+
     # IA24: trước đây payload["user_prompt"] truy cập trực tiếp — một payload
     # event-driven thiếu field này (vd producer/adapter cũ, hoặc lỗi upstream)
     # sẽ raise KeyError chưa được bắt, làm hỏng cả task thay vì fail-closed có
@@ -300,47 +322,13 @@ async def _execute_run_task_inner(
     user_prompt = payload.get("user_prompt")
     if not user_prompt:
         logger.error("run_id=%s missing user_prompt in payload, failing closed", run_id)
-        await _append_message(
-            plane,
-            conversation_id=conversation_id,
-            role="assistant",
-            content="Missing user_prompt — run rejected",
-            run_id=run_id,
-            status_="failed",
-            project_id=project_id,
-        )
-        await stream_mgr.emit(
-            stream_repo,
-            run_id=run_id,
-            conversation_id=conversation_id,
-            event_type="run.failed",
-            payload={"error": "missing_user_prompt"},
-            activity_service=getattr(plane, "project_activity_service", None),
-            workspace_id=workspace_id,
-            project_id=project_id,
-        )
+        await _reject("Missing user_prompt — run rejected", {"error": "missing_user_prompt"})
         return
 
     bearer_token = payload.get("delegation_token")
     if not bearer_token:
-        await _append_message(
-            plane,
-            conversation_id=conversation_id,
-            role="assistant",
-            content="Missing delegation token — run rejected",
-            run_id=run_id,
-            status_="failed",
-            project_id=project_id,
-        )
-        await stream_mgr.emit(
-            stream_repo,
-            run_id=run_id,
-            conversation_id=conversation_id,
-            event_type="run.failed",
-            payload={"error": "missing_delegation_token"},
-            activity_service=getattr(plane, "project_activity_service", None),
-            workspace_id=workspace_id,
-            project_id=project_id,
+        await _reject(
+            "Missing delegation token — run rejected", {"error": "missing_delegation_token"}
         )
         return
 
@@ -351,24 +339,9 @@ async def _execute_run_task_inner(
             agent_profile,
             run_id,
         )
-        await _append_message(
-            plane,
-            conversation_id=conversation_id,
-            role="assistant",
-            content=f"Unsupported agent profile '{agent_profile}' — run rejected",
-            run_id=run_id,
-            status_="failed",
-            project_id=project_id,
-        )
-        await stream_mgr.emit(
-            stream_repo,
-            run_id=run_id,
-            conversation_id=conversation_id,
-            event_type="run.failed",
-            payload={"error": f"unsupported_agent_profile_{agent_profile}"},
-            activity_service=getattr(plane, "project_activity_service", None),
-            workspace_id=workspace_id,
-            project_id=project_id,
+        await _reject(
+            f"Unsupported agent profile '{agent_profile}' — run rejected",
+            {"error": f"unsupported_agent_profile_{agent_profile}"},
         )
         return
 
@@ -379,24 +352,9 @@ async def _execute_run_task_inner(
         assignment = await plane.workforce_repository.get_assignment(workspace_id, assignment_id)
         if assignment is None or assignment.status != "ACTIVE":
             logger.error("assignment %r not found or retired for run_id=%s", assignment_id, run_id)
-            await _append_message(
-                plane,
-                conversation_id=conversation_id,
-                role="assistant",
-                content="Workforce assignment retired or not found — run rejected",
-                run_id=run_id,
-                status_="failed",
-                project_id=project_id,
-            )
-            await stream_mgr.emit(
-                stream_repo,
-                run_id=run_id,
-                conversation_id=conversation_id,
-                event_type="run.failed",
-                payload={"error": "workforce_assignment_retired"},
-                activity_service=getattr(plane, "project_activity_service", None),
-                workspace_id=workspace_id,
-                project_id=project_id,
+            await _reject(
+                "Workforce assignment retired or not found — run rejected",
+                {"error": "workforce_assignment_retired"},
             )
             return
         if not company_workforce_member_id and assignment.company_workforce_member_id:
@@ -425,24 +383,9 @@ async def _execute_run_task_inner(
         # Log đầy đủ server-side kèm run_id để debug, client chỉ nhận mã lỗi
         # ổn định — cùng pattern với broad-failure branch bên dưới.
         logger.exception("tenant policy snapshot unavailable", extra={"run_id": run_id})
-        await _append_message(
-            plane,
-            conversation_id=conversation_id,
-            role="assistant",
-            content="Unable to verify tenant policy — run rejected",
-            run_id=run_id,
-            status_="failed",
-            project_id=project_id,
-        )
-        await stream_mgr.emit(
-            stream_repo,
-            run_id=run_id,
-            conversation_id=conversation_id,
-            event_type="run.failed",
-            payload={"error": "policy_snapshot_unavailable"},
-            activity_service=getattr(plane, "project_activity_service", None),
-            workspace_id=workspace_id,
-            project_id=project_id,
+        await _reject(
+            "Unable to verify tenant policy — run rejected",
+            {"error": "policy_snapshot_unavailable"},
         )
         return
 
@@ -454,24 +397,9 @@ async def _execute_run_task_inner(
     try:
         spec = await resolve_spec(plane, run_id=run_id, local_spec=local_spec)
     except RunCoreError:
-        await _append_message(
-            plane,
-            conversation_id=conversation_id,
-            role="assistant",
-            content="Unable to resolve agent spec from registry — run rejected",
-            run_id=run_id,
-            status_="failed",
-            project_id=project_id,
-        )
-        await stream_mgr.emit(
-            stream_repo,
-            run_id=run_id,
-            conversation_id=conversation_id,
-            event_type="run.failed",
-            payload={"error": "spec_resolution_unavailable"},
-            activity_service=getattr(plane, "project_activity_service", None),
-            workspace_id=workspace_id,
-            project_id=project_id,
+        await _reject(
+            "Unable to resolve agent spec from registry — run rejected",
+            {"error": "spec_resolution_unavailable"},
         )
         return
 
@@ -549,48 +477,18 @@ async def _execute_run_task_inner(
         )
     except RunCoreError as exc:
         if exc.reason_code == "compliance_resolver_unavailable":
-            await _append_message(
-                plane,
-                conversation_id=conversation_id,
-                role="assistant",
-                content="AI compliance resolver not configured — run rejected",
-                run_id=run_id,
-                status_="failed",
-                project_id=project_id,
-            )
-            await stream_mgr.emit(
-                stream_repo,
-                run_id=run_id,
-                conversation_id=conversation_id,
-                event_type="run.failed",
-                payload={"error": "compliance_resolver_unavailable"},
-                activity_service=getattr(plane, "project_activity_service", None),
-                workspace_id=workspace_id,
-                project_id=project_id,
+            await _reject(
+                "AI compliance resolver not configured — run rejected",
+                {"error": "compliance_resolver_unavailable"},
             )
             return
         # compliance_denied — chỉ emit reason code, không leak str(exc).
         code = exc.compliance_code or "UNKNOWN"
         if code != "MISSING_DELEGATION_TOKEN":
-            await _append_message(
-                plane,
-                conversation_id=conversation_id,
-                role="assistant",
-                content=f"AI compliance check failed — run rejected: {code}",
-                run_id=run_id,
-                status_="failed",
-                project_id=project_id,
+            await _reject(
+                f"AI compliance check failed — run rejected: {code}",
+                {"error": "compliance_denied", "reason_code": code},
             )
-        await stream_mgr.emit(
-            stream_repo,
-            run_id=run_id,
-            conversation_id=conversation_id,
-            event_type="run.failed",
-            payload={"error": "compliance_denied", "reason_code": code},
-            activity_service=getattr(plane, "project_activity_service", None),
-            workspace_id=workspace_id,
-            project_id=project_id,
-        )
         return
 
     _run_start = time.monotonic()
@@ -795,24 +693,9 @@ async def _execute_run_task_inner(
         _run_duration = time.monotonic() - _run_start
         record_run_outcome("failed", duration_sec=_run_duration)
         logger.exception("agent run failed", extra={"run_id": run_id})
-        await _append_message(
-            plane,
-            conversation_id=conversation_id,
-            role="assistant",
-            content="Đã xảy ra lỗi không mong muốn khi thực thi run. Vui lòng thử lại hoặc liên hệ hỗ trợ.",
-            run_id=run_id,
-            status_="failed",
-            project_id=project_id,
-        )
-        await stream_mgr.emit(
-            stream_repo,
-            run_id=run_id,
-            conversation_id=conversation_id,
-            event_type="run.failed",
-            payload={"error": "internal_error"},
-            activity_service=getattr(plane, "project_activity_service", None),
-            workspace_id=workspace_id,
-            project_id=project_id,
+        await _reject(
+            "Đã xảy ra lỗi không mong muốn khi thực thi run. Vui lòng thử lại hoặc liên hệ hỗ trợ.",
+            {"error": "internal_error"},
         )
 
 
