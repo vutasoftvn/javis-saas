@@ -5,9 +5,9 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 
 | Lớp | Occurrences | Files |
 |---|---|---|
-| LEGACY_TENANCY (M2 xóa) | 112 | 22 |
+| LEGACY_TENANCY (M2 xóa) | 113 | 23 |
 | VALID_KEEP (giữ nguyên) | 132 | 37 |
-| REVIEW (chưa phân loại) | 1259 | 283 |
+| REVIEW (chưa phân loại) | 1262 | 285 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -33,6 +33,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/policies/company_policy_client.py | 1 |
 | frontend/lib/modules/auth/views/register_view.dart | 1 |
 | frontend/lib/modules/sales/views/widgets/deal_kanban_board.dart | 1 |
+| services/company/identity/services/membership-reconciliation.service.ts | 1 |
 | services/company/shared/db/schema/identity.ts | 1 |
 | services/cosa/storage/schema.ts | 1 |
 
@@ -55,9 +56,9 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/capabilities/startup_os_onboard.py | 15 |
 | apps/cosa/composition/agent_plane.py | 15 |
 | apps/cosa/worker/handlers.py | 15 |
+| frontend/lib/modules/auth/services/auth_service.dart | 15 |
 | apps/cosa/capabilities/client.py | 14 |
 | frontend/lib/modules/auth/controllers/auth_controller.dart | 14 |
-| frontend/lib/modules/auth/services/auth_service.dart | 14 |
 | apps/cosa/events/router.py | 13 |
 | services/company/operations/services/workspace-runtime.service.ts | 13 |
 | apps/cosa/capabilities/startup_os_goals.py | 12 |
@@ -283,6 +284,8 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/identity/handlers/workforce.handler.ts | 1 |
 | services/company/identity/services/e2e-session.service.ts | 1 |
 | services/company/identity/services/health.service.ts | 1 |
+| services/company/identity/services/membership-projection.service.ts | 1 |
+| services/company/identity/services/membership-reconciliation.service.ts | 1 |
 | services/company/identity/services/workforce.service.ts | 1 |
 | services/company/operations/domain/runtime-observation.ts | 1 |
 | services/company/operations/handlers/execution-plan.handler.ts | 1 |

@@ -10,6 +10,7 @@ import {
   type PlatformWorkspaceMembership,
 } from "./platform.client";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
+import { revocationValues } from "./membership-reconciliation.service";
 import { ventureProfiles } from "../../shared/db/schema/strategy";
 
 // Đồng bộ một chiều control-plane (cloud tenancy source of truth) -> identity
@@ -200,11 +201,7 @@ export async function syncFromPlatformService(params: SyncFromPlatformParams): P
       const activePlatformWsIds = verifiedMemberships.map((m) => BigInt(m.platformWorkspaceId));
       await tx
         .update(identityWorkspaceMemberships)
-        .set({
-          membershipState: "revoked",
-          revokedAt: new Date(),
-          updatedAt: new Date(),
-        })
+        .set(revocationValues(new Date()))
         .where(
           and(
             eq(identityWorkspaceMemberships.userId, userId),
@@ -274,7 +271,7 @@ async function revokeAllActiveMembershipsForPlatformUser(platformUserId: string)
   const now = new Date();
   await db
     .update(identityWorkspaceMemberships)
-    .set({ membershipState: "revoked", revokedAt: now, updatedAt: now })
+    .set(revocationValues(now))
     .where(
       and(
         eq(identityWorkspaceMemberships.userId, localUser.id),

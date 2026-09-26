@@ -7,6 +7,8 @@ const { identityUserProjections, identityWorkspaces, identityWorkspaceMembership
 export interface CreateE2eSessionParams {
   email: string;
   displayName: string;
+  /** Id user phía Core, để E2E gửi được event membership Core cho user này. */
+  platformUserId?: string;
 }
 
 export interface E2eSession {
@@ -29,6 +31,7 @@ export async function createE2eSession(params: CreateE2eSessionParams): Promise<
       id: userId,
       email: params.email,
       displayName: params.displayName,
+      platformUserId: params.platformUserId ?? null,
     });
     await tx.insert(identityWorkspaces).values({
       id: workspaceId,

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../../../core/network/api_client.dart';
@@ -73,8 +74,23 @@ class AuthResult {
 /// nhap BAT BUOC online tren control_plane truoc, sau do sync xuong backend
 /// local (COSA) de lay 1 local JWT dung cho moi API local khac. Local
 /// KHONG con dang ky/dang nhap doc lap bang email+password nua.
+/// Kết quả một lần đối soát membership với Core (plan 2026-09-25 core-auth Task 4).
+enum MembershipReconcileOutcome { notNeeded, throttled, noPlatformToken, synced, failed }
+
 class AuthService {
   AuthService({CoreAuthClient? coreAuth}) : _injectedCoreAuth = coreAuth;
+
+  /// Giãn cách tối thiểu giữa hai lần đối soát — `/identity/me` được gọi từ nhiều
+  /// màn hình, không được biến mỗi lần gọi thành một lần đồng bộ với Core.
+  static const Duration membershipReconcileMinInterval = Duration(minutes: 5);
+  static DateTime? _lastMembershipReconcileAt;
+  static Future<MembershipReconcileOutcome>? _inflightMembershipReconcile;
+
+  @visibleForTesting
+  static void resetMembershipReconcileForTest() {
+    _lastMembershipReconcileAt = null;
+    _inflightMembershipReconcile = null;
+  }
 
   /// Client đăng nhập/đăng ký với backend/core. Tạo lười vì cần `ApiClient.client` mới nhất
   /// (test thay `ApiClient.client` bằng MockClient sau khi dựng service).
@@ -549,6 +565,10 @@ class AuthService {
           // "Phê duyệt" (chỉ admin/founder được approve, xem strategy_canvas_service.py).
           await SecureStorageService.write('role', data['role'].toString());
         }
+        if (data is Map<String, dynamic>) {
+          // Chạy nền: không chặn màn hình đang chờ /identity/me.
+          unawaited(reconcileMembershipIfStale(data));
+        }
 
         return data;
       }
@@ -556,6 +576,50 @@ class AuthService {
     } catch (e) {
       debugPrint('GetMe error: $e');
       return null;
+    }
+  }
+
+  /// Đối soát có giới hạn: khi `/identity/me` báo membership quá tuổi quan sát,
+  /// chạy lại `/identity/sync-from-platform` bằng token Core của chính người dùng
+  /// (Company không có credential dịch vụ để tự hỏi Core). Sync tombstone mọi
+  /// membership Core không còn liệt kê và cấp local session mới. Lỗi mạng hoặc
+  /// thiếu token Core giữ nguyên trạng thái — không đăng xuất, không coi là
+  /// "vẫn active".
+  Future<MembershipReconcileOutcome> reconcileMembershipIfStale(
+    Map<String, dynamic> me, {
+    DateTime? now,
+  }) {
+    if (me['membershipObservationStale'] != true) {
+      return Future.value(MembershipReconcileOutcome.notNeeded);
+    }
+    final inflight = _inflightMembershipReconcile;
+    if (inflight != null) return inflight;
+    final current = now ?? DateTime.now();
+    final last = _lastMembershipReconcileAt;
+    if (last != null && current.difference(last) < membershipReconcileMinInterval) {
+      return Future.value(MembershipReconcileOutcome.throttled);
+    }
+    _lastMembershipReconcileAt = current;
+    final run = _runMembershipReconcile();
+    _inflightMembershipReconcile = run;
+    return run.whenComplete(() => _inflightMembershipReconcile = null);
+  }
+
+  Future<MembershipReconcileOutcome> _runMembershipReconcile() async {
+    try {
+      final platformToken = await PlatformTokenProvider.currentToken();
+      if (platformToken == null || platformToken.isEmpty) {
+        return MembershipReconcileOutcome.noPlatformToken;
+      }
+      final result = await syncFromPlatform(platformToken: platformToken);
+      if (!result.success) {
+        debugPrint('membership reconcile failed: ${result.errorMessage}');
+        return MembershipReconcileOutcome.failed;
+      }
+      return MembershipReconcileOutcome.synced;
+    } catch (e) {
+      debugPrint('membership reconcile error: $e');
+      return MembershipReconcileOutcome.failed;
     }
   }
 
