@@ -160,7 +160,7 @@ export async function recordEnqueueFailure(params: {
   createdAt: Date;
   err: unknown;
   now: Date;
-}): Promise<void> {
+}): Promise<{ terminal: boolean }> {
   const { executionId, definitionId, priorAttemptCount, createdAt, err, now } = params;
   const attemptCount = priorAttemptCount + 1;
   const message = err instanceof Error ? err.message : String(err);
@@ -188,7 +188,7 @@ export async function recordEnqueueFailure(params: {
       queueAgeMs,
       error: message,
     });
-    return;
+    return { terminal: true };
   }
 
   const nextAttemptAt = new Date(now.getTime() + computeEnqueueBackoffSeconds(attemptCount) * 1000);
@@ -213,6 +213,43 @@ export async function recordEnqueueFailure(params: {
     queueAgeMs,
     error: message,
   });
+  return { terminal: false };
+}
+
+/**
+ * Bỏ qua 1 occurrence đã enqueue_failed vĩnh viễn: chỉ đẩy nextRunAt sang slot
+ * kế tiếp (không đụng lastRunAt vì occurrence đó chưa từng chạy). Không có bước
+ * này thì mọi tick sau đều đụng unique (definitionId, scheduledFor) và lịch chết
+ * vĩnh viễn. Chỉ tiến khi nextRunAt vẫn đang trỏ đúng occurrence thất bại.
+ */
+export async function skipFailedOccurrence(
+  definitionId: string,
+  failedScheduledFor: Date,
+  now: Date
+): Promise<void> {
+  const def = await findScheduleDefinitionById(definitionId);
+  if (!def || !def.nextRunAt || def.nextRunAt.getTime() > failedScheduledFor.getTime()) {
+    return;
+  }
+  const isOneTime = def.scheduleKind === "one_time";
+  const nextNextRun = isOneTime
+    ? null
+    : calculateNextRun(
+        def.scheduleKind as ScheduleKind,
+        def.timezone,
+        def.hour,
+        def.minute,
+        def.weekdays as number[],
+        now
+      );
+  await db
+    .update(workspaceScheduleDefinitions)
+    .set({
+      nextRunAt: nextNextRun,
+      state: isOneTime ? "paused" : def.state,
+      updatedAt: new Date(),
+    })
+    .where(eq(workspaceScheduleDefinitions.id, def.id));
 }
 
 /**
@@ -326,6 +363,22 @@ export async function updateExecutionCompletion(input: {
     .where(eq(workspaceScheduleExecutions.id, input.executionId))
     .returning();
   return updated || null;
+}
+
+export async function findExecutionBySlot(
+  definitionId: string,
+  scheduledFor: Date
+): Promise<ScheduleExecutionRow | undefined> {
+  const [row] = await db
+    .select()
+    .from(workspaceScheduleExecutions)
+    .where(
+      and(
+        eq(workspaceScheduleExecutions.definitionId, definitionId),
+        eq(workspaceScheduleExecutions.scheduledFor, scheduledFor)
+      )
+    );
+  return row;
 }
 
 export async function findExecutionById(executionId: string): Promise<ScheduleExecutionRow | undefined> {

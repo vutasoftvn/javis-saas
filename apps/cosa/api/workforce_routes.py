@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 
+from agent.contracts.run import RunStatus
 from agent.workforce.catalog import FUNCTIONAL_AGENT_CATALOG, build_functional_spec
 from agent.workforce.repository import WorkforceRepository, WorkforceScheduleRecord
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -1022,6 +1023,7 @@ async def decide_approval(
         )
 
     run_id = decided.run_id
+    run_record = None
     if run_id:
         run_record = await plane.repository.get_scoped_run(
             run_id=run_id,
@@ -1052,6 +1054,32 @@ async def decide_approval(
             workspace_id=identity.workspace_id,
             project_id=run_record.project_id if run_record else None,
         )
+
+    # Từ chối approval phải kết thúc run: trước đây chỉ nhánh approve mới lên
+    # lịch resume, nên run bị từ chối nằm ở WAITING_APPROVAL mãi và UI kẹt.
+    # Kết thúc bằng CANCELLED (CAS qua repository, idempotent) thay vì cho
+    # model chạy tiếp — hành động rủi ro đã bị người duyệt chặn thì dừng hẳn.
+    if (
+        not approved_flag
+        and run_id
+        and run_record is not None
+        and run_record.status == RunStatus.WAITING_APPROVAL
+    ):
+        cancelled_record = await plane.repository.cancel_run(
+            run_id,
+            reason=f"Approval {approval_id} rejected by {identity.principal_id}",
+        )
+        if cancelled_record is not None and cancelled_record.status == RunStatus.CANCELLED:
+            await stream_mgr.emit(
+                plane.stream_event_repository,
+                run_id=run_id,
+                conversation_id=resume_conversation_id,
+                event_type="run.cancelled",
+                payload={"reason": "approval_rejected", "approval_id": approval_id},
+                activity_service=getattr(plane, "project_activity_service", None),
+                workspace_id=identity.workspace_id,
+                project_id=run_record.project_id,
+            )
 
     # Resume kernel if approved. Quyết định approval ĐÃ được ghi nhận hợp lệ ở
     # trên (submit_decision) dù bước schedule dưới đây có thất bại — không để

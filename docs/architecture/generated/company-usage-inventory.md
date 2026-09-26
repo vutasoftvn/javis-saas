@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 112 | 22 |
 | VALID_KEEP (giữ nguyên) | 132 | 37 |
-| REVIEW (chưa phân loại) | 1215 | 275 |
+| REVIEW (chưa phân loại) | 1216 | 275 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -121,6 +121,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/shared/services/snowflake.service.ts | 5 |
 | services/cosa/services/workspace-settings.service.ts | 5 |
 | apps/cosa/api/approval_authority.py | 4 |
+| apps/cosa/api/conversation_routes.py | 4 |
 | apps/cosa/api/project_activity_routes.py | 4 |
 | apps/cosa/api/project_knowledge_routes.py | 4 |
 | apps/cosa/api/workforce_internal_routes.py | 4 |
@@ -136,7 +137,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/cosa/handlers/agent-policy.handler.ts | 4 |
 | services/cosa/services/ai-governance-snapshot.service.ts | 4 |
 | apps/cosa/api/app.py | 3 |
-| apps/cosa/api/conversation_routes.py | 3 |
 | apps/cosa/api/copilot_routes.py | 3 |
 | apps/cosa/assets/internal_routes.py | 3 |
 | apps/cosa/capabilities/__init__.py | 3 |

@@ -141,7 +141,7 @@ export async function dispatchDueWorkspaceSchedules(
       dispatchedCount++;
     } catch (retryErr) {
       console.error(`[ScheduleDispatcher] Retry enqueue failed for execution ${execution.id}:`, retryErr);
-      await repo.recordEnqueueFailure({
+      const { terminal } = await repo.recordEnqueueFailure({
         executionId: execution.id,
         definitionId: execution.definitionId,
         priorAttemptCount: execution.attemptCount,
@@ -149,6 +149,9 @@ export async function dispatchDueWorkspaceSchedules(
         err: retryErr,
         now,
       });
+      if (terminal) {
+        await repo.skipFailedOccurrence(execution.definitionId, execution.scheduledFor, now);
+      }
     }
   }
 
@@ -186,7 +189,13 @@ export async function dispatchDueWorkspaceSchedules(
       });
 
       if (!execution) {
-        // Idempotency: occurrence already exists
+        // Idempotency: occurrence already exists. Nếu occurrence đó đã
+        // enqueue_failed vĩnh viễn (dữ liệu từ trước khi có skipFailedOccurrence)
+        // thì bỏ qua slot này để lịch chạy tiếp ở slot sau.
+        const existing = await repo.findExecutionBySlot(def.id, scheduledFor);
+        if (existing?.state === "enqueue_failed") {
+          await repo.skipFailedOccurrence(def.id, scheduledFor, now);
+        }
         continue;
       }
 
@@ -207,7 +216,7 @@ export async function dispatchDueWorkspaceSchedules(
     } catch (err) {
       console.error(`[ScheduleDispatcher] Error dispatching schedule ${def.id}:`, err);
       if (execution) {
-        await repo.recordEnqueueFailure({
+        const { terminal } = await repo.recordEnqueueFailure({
           executionId: execution.id,
           definitionId: def.id,
           priorAttemptCount: execution.attemptCount ?? 0,
@@ -215,6 +224,9 @@ export async function dispatchDueWorkspaceSchedules(
           err,
           now,
         });
+        if (terminal) {
+          await repo.skipFailedOccurrence(def.id, scheduledFor, now);
+        }
       }
     }
   }

@@ -416,3 +416,53 @@ async def test_tenant_b_cannot_read_tenant_a_session_timeline(test_app):
         override_authenticated_identity(test_app, **TENANT_B)
         res_session_b = await ac.get(f"/agent/sessions/{conv_id}")
         assert res_session_b.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_rejecting_approval_cancels_waiting_run(test_app):
+    """Từ chối approval phải kết thúc run (CANCELLED + run.cancelled), không
+    để run nằm ở WAITING_APPROVAL mãi và không lên lịch resume."""
+    from agent.contracts.run import RunStatus
+    from agent.runs.models import RunRecord
+
+    override_authenticated_identity(test_app, workspace_id="ws_a")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=test_app), base_url="http://test"
+    ) as ac:
+        plane = test_app.state.plane
+        run = RunRecord(
+            company_id="ws_a",
+            workspace_id="ws_a",
+            principal="user:test_user",
+            root_executable_id="test-spec",
+            conversation_id="conv_reject",
+        )
+        await plane.repository.create_run(run)
+        await plane.repository.update_run_status(run.run_id, RunStatus.WAITING_APPROVAL)
+
+        approval, _wait_desc = await plane.approval_service.create_approval_request(
+            run_id=run.run_id,
+            tool_call_id="tc_rejected_call",
+            checkpoint_ref="ckpt_reject_1",
+            requirement={"risk_level": "high"},
+            requester="user:test_user",
+            action="finance.payout.execute",
+            subject="Acme Corp",
+        )
+
+        res_decide = await ac.post(
+            f"/agent/workforce/approvals/{approval.approval_id}/decision",
+            json={"approved": False, "reason": "not now"},
+        )
+        assert res_decide.status_code == 200
+
+        stored = await plane.repository.get_run(run.run_id)
+        assert stored is not None
+        assert stored.status == RunStatus.CANCELLED
+
+        due = await plane.scheduler.poll_due_tasks()
+        assert [t for t in due if t.target_spec_id == "cosa.resume"] == []
+
+        events = await plane.stream_event_repository.list_since(run.run_id, None)
+        cancelled = [e for e in events if e.event_type == "run.cancelled"]
+        assert len(cancelled) == 1
