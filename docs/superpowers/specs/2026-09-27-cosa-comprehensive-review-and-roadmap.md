@@ -266,3 +266,67 @@ Nguyên tắc chung:
 - Cập nhật danh sách ADR và quy trình nhánh trong CLAUDE.md (G-13).
 - Test parity đầu tiên cho `PostgresProjectActivityRepository` và phần còn lại của
   `PostgresRunRepository` (G-2): đây là hai nơi vừa lộ lỗi schema/DTO. `list_runs` đã có test.
+
+## 8. Nhật ký triển khai (2026-09-27, nhánh `claude/festive-fermi-ami9pa`)
+
+Các quyết định ở mục 6 áp dụng theo mặc định khuyến nghị:
+
+- đợt 1 làm trước;
+- quota token theo workspace (env), kèm ngân sách USD theo model profile;
+- `crm` gộp vào `sales`;
+- memory chỉ lưu fact founder đã xác nhận;
+- connector MCP chỉ đọc trước.
+
+| Việc | Trạng thái | Commit |
+|---|---|---|
+| G-2 parity InMemory/Postgres (run, conversation, artifact, activity, memory) | IMPLEMENTED | `246a1f8`, `09cdd31` |
+| G-3 sổ cái `models.run_usage`, chặn quota/ngân sách trước run | IMPLEMENTED | `8f8d651` |
+| G-4 rate limit theo IP và tạo run (429 `RATE_LIMITED`) | IMPLEMENTED | `3fd98d1` |
+| G-15 hook SessionStart (venv, npm, Flutter, Postgres + pgvector) | IMPLEMENTED; Encore CLI cài theo kiểu best-effort | `14a9fbb` |
+| G-1 lịch sử chat trong prompt (ADR-CONV-002) | IMPLEMENTED | `88841ac` |
+| G-7 `agent.consult` (child run chỉ đọc, sâu 1 cấp) | IMPLEMENTED | `627b5c2` |
+| G-8 fact dự án: thẻ `memory_confirm`, API `/agent/projects/{id}/memory/facts`, đưa vào prompt | IMPLEMENTED | `09cdd31` |
+| Regression PR #12: pin company operations 1.3.0 → `spec_hash_mismatch` | FIXED: worker chạy đúng version đã pin, lấy từ registry | `09cdd31` |
+| G-5 9 capability `.draft` và route WGA cho product/people/security/legal/data | IMPLEMENTED | `7efdd00` |
+| G-5 `crm` | Giữ key vì DB đã có dòng dữ liệu (migration chỉ Expand); nhãn đổi thành "merged into Sales"; task CRM route về `sales` | `7efdd00` |
+| G-6 connector MCP theo manifest (`COSA_MCP_CONNECTORS_FILE`) | IMPLEMENTED (khung). Chưa có server email/lịch/kế toán thật | `7efdd00` |
+| G-9 eval: case định tuyến WGA (CI) và rubric theo domain (`live_provider`, nightly) | IMPLEMENTED | đợt 4 |
+| G-11 tách `worker/scheduled_tasks.py` và `founder_command_center_wga.dart` | IMPLEMENTED (bước đầu) | đợt 4 |
+| G-13 CLAUDE.md: danh sách ADR, danh sách agent, nhánh phiên cloud, quy trình đổi spec | IMPLEMENTED | đợt 4 |
+
+Có chủ đích chưa làm, hoặc thay đổi so với đề xuất:
+
+- **Executive đọc dữ liệu domain (đợt 3, mục 4):**
+  - Không thêm capability cho spec executive. Spec executive "capability-empty" là
+    contract có test khoá và có overlay pin hash (`executive-advisor-overlays`).
+  - Trong chat, lời khuyên dựa trên số liệu đi qua `agent.consult`: agent chuyên môn
+    (finance, product…) đọc bằng capability chỉ đọc của chính nó.
+  - Trong Executive Board, dữ liệu đi qua evidence founder chọn khi frame.
+- **Secret connector theo workspace:**
+  - Hiện dùng credential server qua `auth_env`.
+  - Bước sau: lấy `secret_ref` của grant từ vault.
+  - Tool `write` đã bị chặn hai lớp: approval ALWAYS, và control plane không có
+    scope ghi.
+- **G-10 lifecycle founder asset (clone → eval → publish):**
+  - Chưa làm. Spec 2026-09-13 không còn trong cây.
+  - Cần design và plan được duyệt trước khi code (quy tắc 13).
+- **G-12 mở rộng contract MVP:**
+  - Mới thêm 3 route memory.
+  - Việc đưa các route còn lại ra khỏi allowlist nên tách thành một đợt riêng.
+- **ADR-COSA-DELEGATION-002:** đã ở trạng thái ACCEPTED & IMPLEMENTED từ 2026-09-04,
+  không cần đổi.
+
+Lỗi test có sẵn trước đợt này:
+
+- `tests/contracts/test_automation_contract.py` và `test_founder_trial_mvp_surface.py`
+  fail từ commit khởi tạo:
+  - tham chiếu migration `003_cosa_automation_mvp.up.sql` không tồn tại;
+  - danh sách `PENDING_EVIDENCE` đã lỗi thời.
+
+  CI không chạy thư mục này.
+- `tests/apps/cosa/control_plane/test_connector_lifecycle_e2e.py` cần DB `cosa` thật
+  (lỗi ở bước setup khi chạy local).
+- `make agent-test` có 7 lỗi RLS/skill-improvement khi chạy trên DB tạm bằng superuser
+  (RLS không áp dụng cho superuser).
+- Gate Encore (`services-test-*`) và e2e cross-plane chỉ chạy được trên CI (container
+  không có Encore CLI). Test thuần của `autonomy-classifier` đã chạy bằng `vitest`.

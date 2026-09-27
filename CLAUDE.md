@@ -98,6 +98,13 @@ make deploy              # preflight → migrate-all → deploy-app (tuần tự
 
 - **Tuyệt đối KHÔNG tạo git worktree:** Không bao giờ chạy `git worktree add` hoặc tạo / chuyển ngữ cảnh làm việc sang worktree tách biệt.
 - **Code trực tiếp trong `main`:** Mọi thao tác đọc, sửa code, chạy lệnh, refactor và commit phải được thực hiện trực tiếp trên nhánh `main` tại thư mục gốc của repository này.
+- **Ngoại lệ phiên cloud (Claude Code on the web):** khi phiên được giao một nhánh làm việc
+  riêng (vd. `claude/...`), commit và push lên đúng nhánh đó rồi merge vào `main` qua PR —
+  vẫn ở thư mục gốc repository, không tạo worktree.
+- **Đổi AgentSpec:** nâng `version`, rồi cập nhật pin phía company
+  (`AGENT_PROFILE_SPEC_VERSION`/`AGENT_PROFILE_SPEC_HASH` trong
+  `services/company/operations/services/ai-member.service.ts`) và các test khoá hash;
+  `tests/contracts/test_company_agent_spec_pins.py` chặn lệch.
 
 ## Nguồn sự thật kiến trúc
 
@@ -113,9 +120,10 @@ make deploy              # preflight → migrate-all → deploy-app (tuần tự
 **Document index hiện tại** (chỉ đọc các file TỒN TẠI trong cây):
 
 - `docs/architecture/adr/` — ADR đang hoạt động: `ADR-AGENT-REG-001`,
-  `ADR-AI-COMPLIANCE-RUNTIME-001`, `ADR-CONV-001`, `ADR-COSA-DELEGATION-002`,
-  `ADR-CUTOVER-001`, `ADR-DEPLOY-001`, `ADR-ID-MODEL-001`,
-  `ADR-LOCAL-EVENT-BACKBONE-001`, `ADR-LOCAL-FIRST-001`, `ADR-SLUG-001`. Trước
+  `ADR-AI-COMPLIANCE-RUNTIME-001`, `ADR-CONV-002` (thay `ADR-CONV-001`, nay
+  SUPERSEDED), `ADR-COSA-DELEGATION-002`, `ADR-CUTOVER-001`, `ADR-DEPLOY-001`,
+  `ADR-EXECUTIVE-BOARD-001`, `ADR-ID-MODEL-001`, `ADR-LOCAL-EVENT-BACKBONE-001`,
+  `ADR-LOCAL-FIRST-001`, `ADR-SLUG-001`, `ADR-WORKSPACE-INVITATION-001`. Trước
   khi hành động, kiểm tra ADR liên quan tại đây. Danh sách này tự nó có thể lỗi
   thời — `ls docs/architecture/adr/` để chắc chắn không bỏ sót ADR mới hơn.
 - `docs/superpowers/specs/` — design đã duyệt (vd.
@@ -212,9 +220,9 @@ Agent Platform        packages/agent (Python, reusable) + apps/cosa (Python, com
 - `legacy/` đã xoá hẳn 2026-08-25 (bao gồm `agentos/` archive cũ, `legacy/backend`, `legacy/agent_runtime`, và các thư mục split-out khác). Mọi tính năng runtime hiện hoạt đều nằm tại `packages/agent/` và `apps/cosa/`.
 
 **AgentSpec — authoring hard-code, resolution qua registry (hybrid, có chủ
-đích):** agent hiện có (`operations`, `finance`, `marketing`,
-`customer_support`, `customer_support_autopilot`) khai báo dạng Python
-constant trong `apps/cosa/agents/specs.py` (đổi = sửa code + redeploy — theo
+đích):** mọi agent (operations, founder_assistant, finance, marketing, các agent
+chuyên môn sales/product/legal/people/security/data…, customer_support và các
+executive advisor) khai báo dạng Python constant trong `apps/cosa/agents/specs.py` (đổi = sửa code + redeploy — theo
 `ADR-AGENT-REG-001`, registration API runtime là post-launch). Nhưng lúc chạy,
 `apps/cosa/worker/handlers.py` **không tin object Python đang import** — luôn
 `SpecResolver(repository=plane.spec_registry).resolve_agent_spec_dependencies()`

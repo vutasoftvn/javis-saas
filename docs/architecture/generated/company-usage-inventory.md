@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 114 | 24 |
 | VALID_KEEP (giữ nguyên) | 139 | 38 |
-| REVIEW (chưa phân loại) | 1313 | 294 |
+| REVIEW (chưa phân loại) | 1313 | 295 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -56,11 +56,11 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/api/project_context.py | 15 |
 | apps/cosa/capabilities/startup_os_onboard.py | 15 |
 | apps/cosa/composition/agent_plane.py | 15 |
-| apps/cosa/worker/handlers.py | 15 |
 | frontend/lib/modules/auth/services/auth_service.dart | 15 |
 | apps/cosa/capabilities/client.py | 14 |
 | apps/cosa/events/router.py | 14 |
 | frontend/lib/modules/auth/controllers/auth_controller.dart | 14 |
+| apps/cosa/worker/handlers.py | 13 |
 | services/company/operations/services/workspace-runtime.service.ts | 13 |
 | apps/cosa/capabilities/startup_os_goals.py | 12 |
 | apps/cosa/compliance/resolver.py | 12 |
@@ -201,6 +201,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/policies/snapshot.py | 2 |
 | apps/cosa/worker/autopilot_run.py | 2 |
 | apps/cosa/worker/governed_workflow_run.py | 2 |
+| apps/cosa/worker/scheduled_tasks.py | 2 |
 | frontend/lib/core/routing/app_routes.dart | 2 |
 | frontend/lib/modules/agents/services/agents_service.dart | 2 |
 | frontend/lib/modules/agents/services/workforce_service.dart | 2 |

@@ -209,7 +209,7 @@ async def test_scheduled_session_fails_closed_when_payload_project_mismatches_sn
     mock_post = AsyncMock()
 
     with (
-        patch("apps.cosa.worker.handlers.resolve_platform_control_plane_url", return_value="http://control-plane"),
+        patch("apps.cosa.worker.scheduled_tasks.resolve_platform_control_plane_url", return_value="http://control-plane"),
         patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get,
         patch("httpx.AsyncClient.post", new=mock_post),
     ):
