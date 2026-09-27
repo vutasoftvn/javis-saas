@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 114 | 24 |
 | VALID_KEEP (giữ nguyên) | 139 | 38 |
-| REVIEW (chưa phân loại) | 1310 | 293 |
+| REVIEW (chưa phân loại) | 1313 | 294 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -152,6 +152,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/capabilities/ai_governance_read.py | 3 |
 | apps/cosa/capabilities/commercial_customer_read.py | 3 |
 | apps/cosa/capabilities/data_governance_read.py | 3 |
+| apps/cosa/capabilities/domain_draft.py | 3 |
 | apps/cosa/capabilities/finance_read.py | 3 |
 | apps/cosa/capabilities/legal_issue_read.py | 3 |
 | apps/cosa/capabilities/people_risk_read.py | 3 |
