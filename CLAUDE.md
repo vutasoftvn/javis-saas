@@ -123,7 +123,9 @@ make deploy              # preflight → migrate-all → deploy-app (tuần tự
   `ADR-AI-COMPLIANCE-RUNTIME-001`, `ADR-CHAT-ACTIONS-001` (agent chat thực thi hành động T2
   sau khi founder duyệt trong chat), `ADR-CONV-002` (thay `ADR-CONV-001`, nay
   SUPERSEDED), `ADR-COSA-DELEGATION-002`, `ADR-CUTOVER-001`, `ADR-DEPLOY-001`,
-  `ADR-EXECUTIVE-BOARD-001`, `ADR-ID-MODEL-001`, `ADR-LOCAL-EVENT-BACKBONE-001`,
+  `ADR-EXECUTIVE-BOARD-001`, `ADR-FOUNDER-CHANNEL-001` (kênh nhận đã xác minh của founder;
+  `founder.notify.send` T2 không có tham số người nhận, không mở T3; thu hồi kênh chặn lịch bằng
+  `blocked_reauth`), `ADR-ID-MODEL-001`, `ADR-LOCAL-EVENT-BACKBONE-001`,
   `ADR-LOCAL-FIRST-001`, `ADR-SLUG-001`, `ADR-WORKSPACE-INVITATION-001`. Trước
   khi hành động, kiểm tra ADR liên quan tại đây. Danh sách này tự nó có thể lỗi
   thời — `ls docs/architecture/adr/` để chắc chắn không bỏ sót ADR mới hơn.
