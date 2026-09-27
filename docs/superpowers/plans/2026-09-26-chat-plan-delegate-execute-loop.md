@@ -242,7 +242,14 @@ cột mới.
 `weekly-goal`), `make e2e-test` (các test cần `encore`), `tenancy-check` phần vitest DB.
 `make agent-test` có 3 lỗi có sẵn từ trước, do cần Postgres ở cổng 5432.
 
-**Còn mở:**
-- Đưa next-best-actions vào prompt phân rã.
-- Đẩy `plan_progress` qua SSE: hiện message chỉ hiện khi tải lại hội thoại.
-- Fallback model và lỗi HTTP 500: xem kế hoạch reliability.
+**Đợt 2 (2026-09-27): đã xử lý các mục còn mở**
+
+| Mục | Commit | Ghi chú |
+|---|---|---|
+| Next-best-actions vào prompt phân rã | `ef2fa77` | `setWeeklyGoal` đọc tối đa 5 NBA còn hiệu lực (PROPOSED/ACCEPTED) của Project, gửi kèm event `weekly_goal.set.v1`. |
+| Tiến độ đẩy qua SSE | `f055075` | Phát hiện thêm: chat Command Center giữ state cục bộ, nên `plan_progress`, kết quả lập kế hoạch và `goal_confirm` (chèn sau `run.completed`) **chưa bao giờ hiện**, kể cả khi tải lại. Stream Project Activity có thêm poll trực tiếp; activity `agent.chat_message` được ghi sau khi message đã lưu; Flutter đồng bộ các message này từ session view. |
+| Fallback model lúc chạy | `101ed66`, fix tiếp theo | `FallbackModel` và `resolve_fallback_routes`; chi tiết xem plan reliability. |
+| HTTP 500 dashboard | `997606b` | Tái hiện trên Postgres thật. (1) `list_runs` dùng tên cột cũ, làm 500 các endpoint dashboard-summary, exceptions (listEscalations), artifacts (work products) và runs. (2) `ProjectActivityEventDTO` bắt buộc actor, làm 500 danh sách Project Activity và làm SSE stream phát lỗi ngay event đầu tiên. |
+
+**Còn mở:** không còn mục nào từ kế hoạch này. Vẫn cần chạy `make services-test-company` và
+`make e2e-test` trên máy có Encore.
