@@ -275,6 +275,30 @@ async def _verify_rejected_resume(
     return None
 
 
+async def _resume_agent_member_id(
+    plane: Any, *, run_id: str, workspace_id: Any, project_id: Any
+) -> str | None:
+    """AI member đang giữ profile của run trong Project team (None nếu không xác định được)."""
+    if not workspace_id or not project_id:
+        return None
+    try:
+        run = await plane.repository.get_run(run_id)
+        spec_id = getattr(run, "root_executable_id", None) if run is not None else None
+        profile_key = next(
+            (key for key, spec in _AGENT_PROFILE_SPECS.items() if spec.id == spec_id), None
+        )
+        if profile_key not in PROJECT_TEAM_OPERATING_PROFILES:
+            return None
+        team_client = getattr(plane, "project_team_client", None) or ProjectTeamClient()
+        authority = await team_client.get_run_authority(
+            workspace_id=str(workspace_id), project_id=str(project_id), profile_key=profile_key
+        )
+    except Exception:
+        logger.warning("resume: project team authority unavailable", extra={"run_id": run_id})
+        return None
+    return str(authority.agent_workforce_member_id)
+
+
 async def _append_message(
     plane: CosaAgentPlane,
     *,
@@ -412,6 +436,9 @@ async def execute_run_task(
 
         payload["assignment_version"] = authority.assignment_version
         payload["spec_hash"] = authority.spec.hash
+        # AI member của Project team: gateway xin live authorization ticket cho capability
+        # ghi bằng member này (grant do founder cấp ở company quyết định, không phải prompt).
+        payload["agent_workforce_member_id"] = str(authority.agent_workforce_member_id)
 
     if agent_profile == "customer_support" or payload.get("copilot") is True:
         with log_context(run_id=run_id, workspace_id=workspace_id):
@@ -593,6 +620,8 @@ async def _execute_run_task_inner(
     if company_workforce_member_id:
         extra_md["agent_workforce_member_id"] = str(company_workforce_member_id)
         extra_md["company_workforce_member_id"] = str(company_workforce_member_id)
+    elif payload.get("agent_workforce_member_id"):
+        extra_md["agent_workforce_member_id"] = str(payload["agent_workforce_member_id"])
     if assignment_id:
         extra_md["assignment_id"] = str(assignment_id)
     for name_key in ("project_name", "workspace_name"):
@@ -957,6 +986,13 @@ async def execute_resume_task(
     # Context resume dựng lại từ updates: phải mang lại danh sách T2 buộc duyệt, nếu không
     # hành động T2 kế tiếp trong lượt resume sẽ chạy mà không cần founder duyệt.
     resume_updates[REQUIRE_APPROVAL_CAPABILITIES_KEY] = sorted(CHAT_T2_CAPABILITIES)
+    # AI member của Project team cho live authorization ticket khi tool đã duyệt chạy — resolve
+    # lại từ authority hiện hành (member bị gỡ khỏi team thì ticket fail closed).
+    agent_member_id = await _resume_agent_member_id(
+        plane, run_id=run_id, workspace_id=workspace_id, project_id=project_id
+    )
+    if agent_member_id:
+        resume_updates["agent_workforce_member_id"] = agent_member_id
     if workspace_id:
         try:
             fresh_snapshot = await plane.tenant_policy_client.get_snapshot(

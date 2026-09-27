@@ -120,7 +120,8 @@ make deploy              # preflight → migrate-all → deploy-app (tuần tự
 **Document index hiện tại** (chỉ đọc các file TỒN TẠI trong cây):
 
 - `docs/architecture/adr/` — ADR đang hoạt động: `ADR-AGENT-REG-001`,
-  `ADR-AI-COMPLIANCE-RUNTIME-001`, `ADR-CONV-002` (thay `ADR-CONV-001`, nay
+  `ADR-AI-COMPLIANCE-RUNTIME-001`, `ADR-CHAT-ACTIONS-001` (agent chat thực thi hành động T2
+  sau khi founder duyệt trong chat), `ADR-CONV-002` (thay `ADR-CONV-001`, nay
   SUPERSEDED), `ADR-COSA-DELEGATION-002`, `ADR-CUTOVER-001`, `ADR-DEPLOY-001`,
   `ADR-EXECUTIVE-BOARD-001`, `ADR-ID-MODEL-001`, `ADR-LOCAL-EVENT-BACKBONE-001`,
   `ADR-LOCAL-FIRST-001`, `ADR-SLUG-001`, `ADR-WORKSPACE-INVITATION-001`. Trước
