@@ -1180,10 +1180,14 @@ class FounderCommandCenterController extends GetxController {
           _projectGeneration != projectGenerationAtSend) {
         return;
       }
+      // 429 (rate limit tạo run) là trạng thái bình thường có chủ đích — báo
+      // rõ, không hiện exception thô.
+      final rateLimited = e is AgentChatApiException && e.statusCode == 429;
       chatMessages.add({
         'role': 'error',
-        'content':
-            'Không thể gửi yêu cầu tới COSA runtime. Yêu cầu chưa được tạo thành Mission. ($e)',
+        'content': rateLimited
+            ? 'Bạn gửi quá nhiều yêu cầu cho agent trong thời gian ngắn. Vui lòng thử lại sau ít giây.'
+            : 'Không thể gửi yêu cầu tới COSA runtime. Yêu cầu chưa được tạo thành Mission. ($e)',
       });
       isChatLoading.value = false;
     }

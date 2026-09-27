@@ -217,9 +217,11 @@ def create_cosa_app(plane: CosaAgentPlane | None = None) -> FastAPI:
 
     # Part 2C.4 — chặn body request quá lớn ở lớp app (defense-in-depth; edge
     # proxy Caddy vẫn đặt giới hạn cứng + rate limit — xem Caddyfile / ADR-DEPLOY-001).
-    from apps.cosa.api.middleware import MaxBodySizeMiddleware
+    from apps.cosa.api.middleware import MaxBodySizeMiddleware, RateLimitMiddleware
 
     app.add_middleware(MaxBodySizeMiddleware)
+    # Review 2026-09-27 G-4 — rate limit theo IP ở app (Caddy chuẩn không có).
+    app.add_middleware(RateLimitMiddleware)
 
     app.include_router(router)
     app.include_router(create_conversation_router())
