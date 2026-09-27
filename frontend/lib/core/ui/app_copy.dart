@@ -46,4 +46,24 @@ class AppCopy {
       Get.locale?.languageCode == 'en'
           ? 'New Chat'
           : 'Tạo mới chat';
+
+  // Thẻ duyệt hành động agent ngay trong chat (spec 2026-09-27-chat-business-actions).
+  static String get hubApprovalHeading =>
+      Get.locale?.languageCode == 'en'
+          ? 'Co-Founder asks for your approval'
+          : 'Co-Founder xin bạn duyệt';
+  static String get hubApprovalApprove =>
+      Get.locale?.languageCode == 'en' ? 'Approve' : 'Duyệt';
+  static String get hubApprovalReject =>
+      Get.locale?.languageCode == 'en' ? 'Reject' : 'Từ chối';
+  static String get hubApprovalApproved =>
+      Get.locale?.languageCode == 'en' ? 'Approved' : 'Đã duyệt';
+  static String get hubApprovalRejected =>
+      Get.locale?.languageCode == 'en' ? 'Rejected' : 'Đã từ chối';
+  static String get hubApprovalExpired =>
+      Get.locale?.languageCode == 'en' ? 'Expired' : 'Hết hạn';
+  static String get hubApprovalFailed =>
+      Get.locale?.languageCode == 'en'
+          ? 'Could not record your decision. Please try again.'
+          : 'Chưa ghi nhận được quyết định. Vui lòng thử lại.';
 }

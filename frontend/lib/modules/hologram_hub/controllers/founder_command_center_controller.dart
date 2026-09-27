@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/ui/app_copy.dart';
 import '../../../data/models/company_pulse_model.dart';
 import '../../../data/models/founder_decision_model.dart';
 import '../../../data/models/workforce_pack_model.dart';
@@ -86,6 +87,13 @@ class FounderCommandCenterController extends GetxController {
 
   String? _cofounderConversationId;
   StreamSubscription<Map<String, dynamic>>? _chatSseSubscription;
+  // Luồng SSE chat hiện tại: run nào, còn mở không, sequence cuối đã nhận — để sau khi
+  // founder duyệt/từ chối trong chat, nối lại đúng chỗ nếu luồng đã đóng khi chờ duyệt.
+  String? _chatSseRunId;
+  bool _chatSseOpen = false;
+  int? _chatSseLastSequence;
+  // Bong bóng trả lời bị tạm gỡ khi run chờ duyệt — gắn lại sau khi founder quyết định.
+  final Map<String, Map<String, String>> _approvalReplyBubbles = {};
 
   /// Chỉ dùng trong test để seed/kiểm tra `_cofounderConversationId` — chứng
   /// minh `resetForWorkspace()` (final review C-1) thực sự xoá conversation
@@ -1071,8 +1079,66 @@ class FounderCommandCenterController extends GetxController {
     chatMessages[idx] = assistantMsg;
   }
 
-  void _subscribeChatSse(String runId, Map<String, String> assistantMsg) {
+  /// Founder duyệt / từ chối hành động agent ngay trong chat (thẻ `role: approval`).
+  /// Cả hai quyết định đều resume run ở backend: duyệt thì tool chạy, từ chối thì agent
+  /// nhận kết quả "bị từ chối" — trả lời tiếp hiện trong cùng luồng chat.
+  Future<bool> decideChatApproval(String approvalId, {required bool approve}) async {
+    final at = chatMessages.indexWhere(
+      (m) => m['role'] == 'approval' && m['approval_id'] == approvalId,
+    );
+    if (at == -1 || chatMessages[at]['status'] != 'pending') return false;
+    final card = chatMessages[at];
+    chatMessages[at] = {...card, 'status': 'deciding'};
+    final result = await _workforceMvpService.decideApproval(
+      approvalId,
+      approved: approve,
+      reason: approve ? null : 'Founder từ chối trong chat',
+    );
+    final now = chatMessages.indexWhere(
+      (m) => m['role'] == 'approval' && m['approval_id'] == approvalId,
+    );
+    if (result is! ApiSuccess<WorkforceApprovalDecision>) {
+      if (now != -1) chatMessages[now] = {...card, 'status': 'pending'};
+      AppToast.error(AppCopy.hubApprovalFailed);
+      return false;
+    }
+    if (now != -1) {
+      chatMessages[now] = {...card, 'status': approve ? 'approved' : 'rejected'};
+    }
+    pendingApprovals.removeWhere((a) => a['id'] == approvalId);
+    final reply =
+        _approvalReplyBubbles.remove(approvalId) ??
+        <String, String>{'role': 'cosa', 'content': ''};
+    if (!chatMessages.contains(reply)) chatMessages.add(reply);
+    isChatLoading.value = true;
+    final runId = card['run_id'] ?? '';
+    if (runId.isNotEmpty && !(_chatSseOpen && _chatSseRunId == runId)) {
+      _subscribeChatSse(
+        runId,
+        reply,
+        sinceSequence: _chatSseRunId == runId ? _chatSseLastSequence : null,
+      );
+    }
+    return true;
+  }
+
+  void _setApprovalCardStatus(String approvalId, String status) {
+    final at = chatMessages.indexWhere(
+      (m) => m['role'] == 'approval' && m['approval_id'] == approvalId,
+    );
+    if (at == -1 || chatMessages[at]['status'] == status) return;
+    chatMessages[at] = {...chatMessages[at], 'status': status};
+  }
+
+  void _subscribeChatSse(
+    String runId,
+    Map<String, String> assistantMsg, {
+    int? sinceSequence,
+  }) {
     _chatSseSubscription?.cancel();
+    _chatSseRunId = runId;
+    _chatSseOpen = true;
+    if (sinceSequence == null) _chatSseLastSequence = null;
     final previous = _pendingAssistantMsg;
     if (previous != null && !identical(previous, assistantMsg)) {
       _markAssistantFailed(
@@ -1083,12 +1149,57 @@ class FounderCommandCenterController extends GetxController {
     _pendingAssistantMsg = assistantMsg;
     var terminal = false;
     _chatSseSubscription = _chatService
-        .streamRunEvents(runId, conversationId: _cofounderConversationId)
+        .streamRunEvents(
+          runId,
+          sinceSequence: sinceSequence,
+          conversationId: _cofounderConversationId,
+        )
         .listen(
           (event) {
             final eventType = event['event_type']?.toString() ?? '';
             final payload = (event['payload'] as Map<String, dynamic>?) ?? {};
+            final sequence = event['sequence'];
+            if (sequence is int) _chatSseLastSequence = sequence;
             switch (eventType) {
+              case 'approval.required':
+                final approvalId = payload['approval_id']?.toString() ?? '';
+                if (approvalId.isEmpty ||
+                    chatMessages.any(
+                      (m) => m['role'] == 'approval' && m['approval_id'] == approvalId,
+                    )) {
+                  break;
+                }
+                final summary = payload['summary'] is Map
+                    ? (payload['summary'] as Map)
+                    : const {};
+                // Run đang chờ founder, không phải đang "gõ": gỡ bong bóng "..." rỗng,
+                // gắn lại sau khi founder quyết định (decideChatApproval).
+                final idx = chatMessages.indexOf(assistantMsg);
+                if (idx != -1 && (assistantMsg['content'] ?? '').isEmpty) {
+                  chatMessages.removeAt(idx);
+                }
+                _approvalReplyBubbles[approvalId] = assistantMsg;
+                chatMessages.add({
+                  'role': 'approval',
+                  'approval_id': approvalId,
+                  'run_id': runId,
+                  'title': summary['title']?.toString() ?? '',
+                  'detail': summary['detail']?.toString() ?? '',
+                  'status': 'pending',
+                });
+                isChatLoading.value = false;
+                break;
+              case 'approval.resolved':
+                // Quyết định từ nơi khác (màn Duyệt, thiết bị khác) — đồng bộ thẻ.
+                final approvalId = payload['approval_id']?.toString() ?? '';
+                final status = payload['status']?.toString() ?? '';
+                if (approvalId.isNotEmpty && status.isNotEmpty) {
+                  _setApprovalCardStatus(
+                    approvalId,
+                    status == 'approved' ? 'approved' : 'rejected',
+                  );
+                }
+                break;
               case 'message.delta':
                 final delta = payload['delta']?.toString() ?? '';
                 final idx = chatMessages.indexOf(assistantMsg);
@@ -1134,10 +1245,12 @@ class FounderCommandCenterController extends GetxController {
             }
           },
           onError: (Object e) {
+            _chatSseOpen = false;
             _markAssistantFailed(assistantMsg, 'Mất kết nối luồng phản hồi của COSA runtime ($e).');
             isChatLoading.value = false;
           },
           onDone: () {
+            _chatSseOpen = false;
             if (!terminal) {
               _markAssistantFailed(
                 assistantMsg,

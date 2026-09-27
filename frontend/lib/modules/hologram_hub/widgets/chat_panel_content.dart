@@ -241,6 +241,22 @@ class _ChatPanelContentState extends State<ChatPanelContent> {
                                       'role': 'cosa',
                                       'content': '',
                                     };
+                              // Hành động agent chờ founder duyệt (spec 2026-09-27).
+                              if (msg['role'] == 'approval') {
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 4,
+                                  ),
+                                  child: _ApprovalCard(
+                                    msg: msg,
+                                    onDecide: (approve) =>
+                                        controller.decideChatApproval(
+                                          msg['approval_id'] ?? '',
+                                          approve: approve,
+                                        ),
+                                  ),
+                                );
+                              }
                               final isUser = msg['role'] == 'user';
                               final isError = msg['role'] == 'error';
 
@@ -830,6 +846,102 @@ class _TypingDotsState extends State<_TypingDots>
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+/// Thẻ duyệt hành động agent ngay trong chat: tóm tắt bằng tên (không ID) do backend
+/// dựng theo locale, hai nút Duyệt / Từ chối; đã quyết định thì thay nút bằng nhãn.
+class _ApprovalCard extends StatelessWidget {
+  final Map<String, String> msg;
+  final Future<bool> Function(bool approve) onDecide;
+
+  const _ApprovalCard({required this.msg, required this.onDecide});
+
+  @override
+  Widget build(BuildContext context) {
+    final status = msg['status'] ?? 'pending';
+    final title = msg['title'] ?? '';
+    final detail = msg['detail'] ?? '';
+    final busy = status == 'deciding';
+    final resolved = switch (status) {
+      'approved' => (AppCopy.hubApprovalApproved, Colors.greenAccent),
+      'rejected' => (AppCopy.hubApprovalRejected, const Color(0xFFF87171)),
+      'expired' => (AppCopy.hubApprovalExpired, const Color(0xFF94A3B8)),
+      _ => null,
+    };
+    return Container(
+      key: Key('hub_chat_approval_${msg['approval_id'] ?? ''}'),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A).withValues(alpha: 0.22),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.45)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.shield_outlined, color: AppTheme.primaryLight, size: 16),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  AppCopy.hubApprovalHeading,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.6),
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (detail.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              detail,
+              style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 12),
+            ),
+          ],
+          const SizedBox(height: 10),
+          if (resolved != null)
+            Text(
+              resolved.$1,
+              style: TextStyle(color: resolved.$2, fontSize: 12),
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FilledButton(
+                  onPressed: busy ? null : () => onDecide(true),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppTheme.primary,
+                    foregroundColor: const Color(0xFF04070E),
+                  ),
+                  child: Text(AppCopy.hubApprovalApprove),
+                ),
+                OutlinedButton(
+                  onPressed: busy ? null : () => onDecide(false),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFCBD5E1),
+                  ),
+                  child: Text(AppCopy.hubApprovalReject),
+                ),
+              ],
+            ),
+        ],
       ),
     );
   }
