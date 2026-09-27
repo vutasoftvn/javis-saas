@@ -668,6 +668,10 @@ class CapabilityGateway:
             handler_ctx = (
                 req.context.metadata if isinstance(req.context, InvocationContext) else req.context
             )
+            from agent.capabilities.connector_grant_context import (
+                reset_current_connector_grant,
+                set_current_connector_grant,
+            )
             from agent.capabilities.outbound_headers import (
                 get_outbound_headers,
                 reset_outbound_headers,
@@ -678,12 +682,16 @@ class CapabilityGateway:
             if auth_ticket_id:
                 outbound["X-Cosa-Authorization-Ticket"] = auth_ticket_id
             header_token = set_outbound_headers(outbound)
+            # Grant vừa re-verify ở Bước 8.5 — handler cần credential theo workspace đọc qua
+            # connector_grant_context (không tự assert lần hai). None nếu spec không cần connector.
+            grant_token = set_current_connector_grant(grant_resolution.grant)
             try:
                 if asyncio.iscoroutinefunction(handler):
                     output = await handler(req.input_payload, handler_ctx)
                 else:
                     output = handler(req.input_payload, handler_ctx)
             finally:
+                reset_current_connector_grant(grant_token)
                 reset_outbound_headers(header_token)
 
             # Persist status completed & audit

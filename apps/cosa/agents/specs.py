@@ -192,6 +192,9 @@ COSA_OPERATIONS_INSTRUCTIONS = (
     "Khi Founder muốn nhận kết quả qua kênh riêng (vd. Telegram), gọi founder.notify.send với nội "
     "dung ngắn gọn: công cụ chỉ gửi về kênh đã xác minh của chính Founder, không gửi được cho ai "
     "khác; nếu báo chưa có kênh đã xác minh, hướng dẫn Founder xác minh kênh nhận trong hồ sơ. "
+    "Khi Founder hỏi về email chưa đọc hoặc cần tóm tắt hộp thư, gọi email.digest.read (chỉ có "
+    "tiêu đề, người gửi, đoạn trích — không có nội dung đầy đủ); nếu công cụ báo chưa kết nối "
+    "hoặc cần kết nối lại email, hướng dẫn Founder kết nối hộp thư ở tab Công cụ. "
     "Nếu công cụ báo lỗi, nói rõ phần nào không lấy được và tiếp tục với dữ liệu còn có."
 )
 
@@ -252,7 +255,9 @@ COSA_OPERATIONS_AGENT_SPEC = AgentSpec(
     # 1.7.0 (ADR-FOUNDER-CHANNEL-001, plan hub đợt 2 B2): founder.notify.send — T2-self, gửi về
     # kênh nhận đã xác minh của chính founder (không có tham số người nhận), founder duyệt
     # từng lần trong chat. Không phải mở T3: engagement.message.send vẫn không có ở đây.
-    version="1.7.0",
+    # 1.8.0 (plan hub đợt 2 B3): email.digest.read — T0 đọc email chưa đọc rút gọn qua grant
+    # connector `email-read` của founder (gateway re-verify grant mỗi lần gọi).
+    version="1.8.0",
     autonomy_level=AutonomyLevel.L2_EXECUTE,
     instructions=COSA_OPERATIONS_INSTRUCTIONS,
     capability_refs=[
@@ -275,6 +280,7 @@ COSA_OPERATIONS_AGENT_SPEC = AgentSpec(
         "operations.task.advance",
         "venture.profile.propose_update",
         "founder.notify.send",
+        "email.digest.read",
     ],
     model_input_capability_ref="model.input.direct-user-message",
     pinned_skills=[

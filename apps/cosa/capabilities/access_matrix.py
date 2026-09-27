@@ -105,6 +105,9 @@ MATRIX: dict[str, AccessEntry] = {
     # --- thông báo cho chính founder (ADR-FOUNDER-CHANNEL-001): T2-self, KHÔNG phải mở T3 —
     # không có tham số người nhận, đích luôn là kênh founder tự cấu hình và đã xác minh.
     "founder.notify.send": _c("founder", "founder.notify.send"),
+    # --- email của founder (plan hub đợt 2 B3): T0 đọc metadata qua grant connector `email-read`;
+    # gọi Gmail bằng token của grant, không gọi company bằng token agent ⇒ không có AGENT_CAP.
+    "email.digest.read": _r("email"),
     # --- legal / people / product / security / data / ai governance
     "legal.issue.read": _r("legal", "legal.issue.read"),
     "legal.applicability.assess": _r("legal"),

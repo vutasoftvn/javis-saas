@@ -33,6 +33,10 @@ from apps.cosa.capabilities.domain_draft import (
     DOMAIN_DRAFT_SPECS,
     create_domain_draft_handler,
 )
+from apps.cosa.capabilities.email_digest_read import (
+    EMAIL_DIGEST_READ_SPEC,
+    create_email_digest_read_handler,
+)
 from apps.cosa.capabilities.engagement_assignment_write import (
     ENGAGEMENT_ASSIGNMENT_WRITE_SPEC,
     create_engagement_assignment_write_handler,
@@ -298,6 +302,10 @@ def register_cosa_capabilities(
     # Thông báo cho chính founder (ADR-FOUNDER-CHANNEL-001): T2-self, không có tham số người
     # nhận — company tự tra kênh đã xác minh của founder sở hữu run.
     cap_registry.register(FOUNDER_NOTIFY_SEND_SPEC, create_founder_notify_send_handler(client))
+
+    # Email chưa đọc của founder (plan hub đợt 2 B3): T0; gateway re-verify grant connector
+    # `email-read` ở mọi lần execute, token lấy từ secret_ref của grant đó.
+    cap_registry.register(EMAIL_DIGEST_READ_SPEC, create_email_digest_read_handler())
 
     # Knowledge & Legal
     cap_registry.register(

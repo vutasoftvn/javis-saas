@@ -292,6 +292,26 @@ describe("resolveRuntimeComplianceSnapshot — approved-only, never creates reco
     ).rejects.toMatchObject({ code: "not_found" });
   });
 
+  // Plan hub vận hành đợt 2 B3: deployment chưa có binding `email.digest.read` (vd. chưa chạy
+  // finance-legal 007) thì cả run bị từ chối rõ ràng, nêu đúng capability thiếu — không lặng lẽ
+  // cấp snapshot chỉ với các capability đã bind.
+  it("rejects email.digest.read as out of scope when the deployment has no binding for it", async () => {
+    const { workspaceId, systemKey, capabilityId } = await seedFullyApprovedChain();
+
+    const attempt = resolveRuntimeComplianceSnapshot({
+      workspaceId: String(workspaceId),
+      runId: "run-1",
+      systemKey,
+      capabilityIds: [capabilityId, "email.digest.read"],
+      policySnapshotHash: "",
+    });
+
+    await expect(attempt).rejects.toMatchObject({
+      code: "not_found",
+      message: "Requested capability is out of scope for this deployment: email.digest.read",
+    });
+  });
+
   it("produces a hash whose canonical serialization is independent of key insertion order", async () => {
     const { workspaceId, systemKey, capabilityId } = await seedFullyApprovedChain();
 

@@ -1,0 +1,8 @@
+[project]
+name = "agent-integrations-gmail"
+version = "0.1.0"
+description = "Adapter đọc Gmail REST API (metadata email chưa đọc) — token do caller truyền từ grant connector email-read, không đọc env."
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27",
+]

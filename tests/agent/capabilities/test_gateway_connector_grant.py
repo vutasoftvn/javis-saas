@@ -206,3 +206,64 @@ async def test_connector_grant_deny_fails_claim_with_nonempty_deterministic_deta
     assert repo.failed_claim_details, "idempotency claim phải được fail khi grant bị từ chối"
     assert all(isinstance(detail, str) and detail for detail in repo.failed_claim_details)
     assert "revoked" in repo.failed_claim_details[0]
+
+
+@pytest.mark.asyncio
+async def test_handler_sees_exactly_the_grant_verified_for_this_call(gateway_with_grant):
+    """Plan hub đợt 2 B3: handler connector (vd. email.digest.read) dùng đúng grant gateway vừa
+    re-verify ở Bước 8.5 — không tự assert lần hai — và grant không rò ra ngoài tool call."""
+    from agent.capabilities.connector_grant_context import get_current_connector_grant
+
+    gateway, repo, _call_counts, state = gateway_with_grant
+    seen: dict = {}
+
+    async def handler(payload, ctx):
+        seen["grant"] = get_current_connector_grant()
+        return {"ok": True}
+
+    gateway._registry.register(
+        CapabilitySpec(
+            id="mcp.sandbox_read.peek",
+            risk=CapabilityRisk.MEDIUM,
+            connector_requirements={"connector_id": "sandbox-read"},
+        ),
+        handler,
+    )
+    req = GatewayExecutionRequest(
+        run_id="run_ctx", capability_id="mcp.sandbox_read.peek",
+        input_payload={}, workspace_id="ws_a", principal="user_a",
+    )
+    res = await gateway.execute(req)
+
+    assert res.status == "completed"
+    assert seen["grant"] == state["grant"]
+    assert get_current_connector_grant() is None
+
+
+@pytest.mark.asyncio
+async def test_handler_without_connector_requirement_sees_no_grant():
+    from agent.capabilities.connector_grant_context import get_current_connector_grant
+
+    registry = CapabilityRegistry()
+    seen: dict = {}
+
+    def handler(payload, ctx):
+        seen["grant"] = get_current_connector_grant()
+        return {}
+
+    registry.register(CapabilitySpec(id="plain.read", risk=CapabilityRisk.LOW), handler)
+
+    async def resolver(connector_id, req):  # không được gọi vì spec không cần connector
+        raise AssertionError("resolver must not be called")
+
+    gateway = CapabilityGateway(
+        registry=registry, repository=InMemoryRunRepository(), connector_grant_resolver=resolver
+    )
+    res = await gateway.execute(
+        GatewayExecutionRequest(
+            run_id="run_plain", capability_id="plain.read", input_payload={},
+            workspace_id="ws_a", principal="user_a",
+        )
+    )
+    assert res.status == "completed"
+    assert seen["grant"] is None

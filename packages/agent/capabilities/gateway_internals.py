@@ -514,6 +514,8 @@ class ConnectorGrantResolution:
         deny_kind: "resolver_error" | "denied" | None — chỉ set khi allowed=False.
         deny_detail: error_msg (resolver_error) hoặc verification.reason (denied).
         deny_result: GatewayExecutionResult sẵn sàng để caller trả về (denied).
+        grant: ConnectorGrant đã verify (chỉ khi allowed và có connector requirement) —
+            gateway đưa cho handler qua `connector_grant_context` (plan hub đợt 2 B3).
     """
 
     allowed: bool
@@ -521,6 +523,7 @@ class ConnectorGrantResolution:
     deny_kind: str | None = None
     deny_detail: str | None = None
     deny_result: GatewayExecutionResult | None = None
+    grant: ConnectorGrant | None = None
 
 
 class ConnectorGrantResolver:
@@ -619,7 +622,7 @@ class ConnectorGrantResolver:
         )
         target_snapshot.credential_grant_version = grant.grant_id if grant else None
 
-        return ConnectorGrantResolution(allowed=True, target_snapshot=target_snapshot)
+        return ConnectorGrantResolution(allowed=True, target_snapshot=target_snapshot, grant=grant)
 
 
 class AmbientGovernanceVerifier:

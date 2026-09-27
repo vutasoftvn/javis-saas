@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 114 | 24 |
 | VALID_KEEP (giữ nguyên) | 139 | 38 |
-| REVIEW (chưa phân loại) | 1365 | 310 |
+| REVIEW (chưa phân loại) | 1367 | 311 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -90,11 +90,11 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | packages/agent_integrations/openai_agents_sdk/kernel.py | 8 |
 | services/company/operations/services/founder-asset-query.service.ts | 8 |
 | apps/cosa/auth/workspace_client.py | 7 |
+| apps/cosa/capabilities/access_matrix.py | 7 |
 | apps/cosa/capabilities/engagement_assignment_write.py | 7 |
 | apps/cosa/company/project_team_client.py | 7 |
 | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart | 7 |
 | frontend/lib/shared/widgets/company_scope_switcher.dart | 7 |
-| apps/cosa/capabilities/access_matrix.py | 6 |
 | apps/cosa/capabilities/finance_write.py | 6 |
 | apps/cosa/capabilities/okr_write.py | 6 |
 | apps/cosa/capabilities/operations_write.py | 6 |
@@ -257,6 +257,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/api/schemas.py | 1 |
 | apps/cosa/approvals/summary.py | 1 |
 | apps/cosa/assets/schemas.py | 1 |
+| apps/cosa/capabilities/connector_secret.py | 1 |
 | apps/cosa/compliance/__init__.py | 1 |
 | apps/cosa/compliance/contracts.py | 1 |
 | apps/cosa/events/founder_asset_callback_outbox.py | 1 |
