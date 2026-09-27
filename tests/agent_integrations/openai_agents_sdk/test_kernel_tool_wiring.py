@@ -198,3 +198,52 @@ async def test_needs_approval_skips_interrupt_for_other_project() -> None:
     # Không xin duyệt, nhưng lệnh gọi vẫn bị chặn và trả lỗi cho model.
     result = await tool.on_invoke_tool(_Ctx(), '{"project_id": "p2"}')
     assert "project_id" in result["error"]
+
+
+# --- Lỗi backend của handler (qua gateway thật) không làm hỏng run, có giới hạn liên tiếp
+
+
+class _CompanyError(Exception):
+    def __init__(self, status_code: int) -> None:
+        super().__init__(f"Company Service Error ({status_code}): denied")
+        self.status_code = status_code
+
+
+@pytest.mark.asyncio
+async def test_gateway_backend_error_becomes_structured_result() -> None:
+    def handler(payload: dict[str, Any], ctx: Any) -> Any:
+        raise _CompanyError(401)
+
+    result = await _gateway_tool(GW_READ, handler).on_invoke_tool(_Ctx(), '{"q": "x"}')
+    assert result["ok"] is False and result["error_code"] == "tool_backend_error"
+    assert "401" in result["message"]
+
+
+@pytest.mark.asyncio
+async def test_consecutive_backend_errors_stop_after_limit_and_success_resets() -> None:
+    from agent_integrations.openai_agents_sdk.tool_args import MAX_CONSECUTIVE_TOOL_ERRORS
+
+    fail = {"on": True}
+
+    def handler(payload: dict[str, Any], ctx: Any) -> Any:
+        if fail["on"]:
+            raise _CompanyError(503)
+        return {"ok": True}
+
+    tool = _gateway_tool(GW_READ, handler)
+    seq = iter(range(100))
+
+    async def call() -> Any:
+        # Payload khác nhau mỗi lần — gateway cache kết quả theo (run, capability, payload).
+        return await tool.on_invoke_tool(_Ctx(), f'{{"q": "x{next(seq)}"}}')
+
+    for _ in range(MAX_CONSECUTIVE_TOOL_ERRORS - 1):
+        assert (await call())["error_code"] == "tool_backend_error"
+    # Thành công ở giữa đặt lại bộ đếm.
+    fail["on"] = False
+    assert await call() == {"ok": True}
+    fail["on"] = True
+    for _ in range(MAX_CONSECUTIVE_TOOL_ERRORS):
+        assert (await call())["error_code"] == "tool_backend_error"
+    with pytest.raises(_CompanyError):
+        await call()

@@ -34,9 +34,11 @@ from pydantic import ValidationError
 
 from agent_integrations.openai_agents_sdk.model_guard import ModelInputGuard
 from agent_integrations.openai_agents_sdk.tool_args import (
+    MAX_CONSECUTIVE_TOOL_ERRORS,
     ToolInputError,
     apply_run_scope,
     input_error_payload,
+    tool_backend_error_result,
     tool_input_error_result,
 )
 
@@ -148,6 +150,9 @@ class RealOpenAIAgentsSDKKernel:
         # với chữ ký (context, args, call_id), không nhận policy_evaluator của
         # COSA trực tiếp nên phải cache quyết định ở đây trước khi Runner gọi.
         self._pending_decisions: dict[str, str] = {}
+        # Số lỗi backend liên tiếp của tool theo run — quá MAX_CONSECUTIVE_TOOL_ERRORS thì
+        # để lỗi làm run thất bại (tránh model gọi lại mãi một backend đang hỏng).
+        self._consecutive_tool_errors: dict[str, int] = {}
 
     async def _emit_event(
         self,
@@ -230,8 +235,16 @@ class RealOpenAIAgentsSDKKernel:
             except Exception as exc:
                 recoverable = tool_input_error_result(exc)
                 if recoverable is None:
-                    raise
+                    recoverable = tool_backend_error_result(exc)
+                    if recoverable is None:
+                        raise
+                    errors = self._consecutive_tool_errors.get(run_id, 0) + 1
+                    self._consecutive_tool_errors[run_id] = errors
+                    if errors > MAX_CONSECUTIVE_TOOL_ERRORS:
+                        raise
                 result = recoverable
+            else:
+                self._consecutive_tool_errors.pop(run_id, None)
             # Audit event `tool.completed` chỉ lưu HASH của result, không lưu nội
             # dung thô — cùng nguyên tắc đã áp dụng cho CapabilityGateway
             # (packages/agent/capabilities/gateway.py, Task 9), vì cùng ghi vào
@@ -375,6 +388,18 @@ class RealOpenAIAgentsSDKKernel:
                             res = self._capability_executor(req)
                         res_status = getattr(res, "status", "completed")
                         input_error = _gateway_input_error(res) if res_status == "failed" else None
+                        failure = getattr(res, "failure", None)
+                        if (
+                            input_error is None
+                            and res_status == "failed"
+                            and isinstance(failure, Exception)
+                            and tool_backend_error_result(failure) is not None
+                        ):
+                            # Lỗi backend của handler (company 401/5xx, ValueError nội
+                            # bộ…) — ném lại lỗi gốc để _on_invoke trả kết quả có cấu
+                            # trúc cho model và đếm lỗi liên tiếp. denied/waiting_approval
+                            # KHÔNG đi nhánh này (status khác "failed").
+                            raise failure from None
                         if input_error is not None:
                             # Gateway báo lỗi đầu vào (schema hoặc handler 4xx) —
                             # trả về model để tự sửa; denied/waiting_approval và
@@ -760,6 +785,16 @@ class RealOpenAIAgentsSDKKernel:
                 "sequence_no": ev.sequence_no,
             }
 
+    async def _run_counting_tool_errors(
+        self, runner: Runner, *, run_id: str, agent: Agent, sdk_input: Any, hooks: Any
+    ) -> Any:
+        # Bộ đếm lỗi tool liên tiếp chỉ sống trong một lượt Runner (run hoặc resume).
+        self._consecutive_tool_errors.pop(run_id, None)
+        try:
+            return await runner.run(agent, sdk_input, hooks=hooks)
+        finally:
+            self._consecutive_tool_errors.pop(run_id, None)
+
     async def _invoke_and_translate(
         self,
         *,
@@ -779,7 +814,9 @@ class RealOpenAIAgentsSDKKernel:
 
         runner = Runner()
         try:
-            sdk_result = await runner.run(agent, sdk_input, hooks=hooks)
+            sdk_result = await self._run_counting_tool_errors(
+                runner, run_id=run_id, agent=agent, sdk_input=sdk_input, hooks=hooks
+            )
         except _RunCancelled:
             await self._repo.update_run_status(run_id, RunStatus.CANCELLED)
             await self._emit_event(run_id, "run.cancelled", {}, correlation_id)
