@@ -49,13 +49,22 @@ Cùng lúc, nhiều capability ghi đã có nhưng không agent nào dùng, và 
 - Môi trường dùng compliance thật (không `COSA_COMPLIANCE_MOCK`): deployment AI của workspace phải
   có capability binding cho capability mới (kể cả các capability đọc mà `business.read` dispatch
   tới), nếu không company trả 404 "out of scope" cho cả snapshot và run bị từ chối.
-- **Live authorization ticket vẫn áp dụng** cho mọi capability ghi (gateway → company
-  `/identity/agent-authorization/tickets`): chat run mang `agent_workforce_member_id` của AI member
-  giữ profile trong Project team (resolve lại khi resume). Company chỉ cấp ticket khi capability có
-  `core.capability_permission_bindings` và founder đã cấp grant cho AI member đó. Hiện migration chỉ
-  seed binding cho `operations.task.list` ⇒ hành động T2 trong chat sẽ bị từ chối ở bước ticket cho
-  tới khi có binding + grant — cố ý KHÔNG vượt qua lớp này (xem mục "Việc còn mở" trong nhật ký
-  roadmap). Đây là quyết định quản trị riêng cần founder chốt.
+- **Live authorization ticket vẫn áp dụng** cho mọi capability ghi qua company (gateway →
+  `/identity/agent-authorization/tickets`); bậc cần ticket lấy theo access matrix (T0 và T1 nháp
+  không gọi company thì không cần). Chat run và resume mang `agent_workforce_member_id` của AI member
+  giữ profile trong Project team.
+- **Cấp phép (grant) do founder kích hoạt:** kích hoạt profile trong Project startup team cấp cho AI
+  member các capability ghi của profile, scope Project
+  (`operations/services/agent-profile-grants.service.ts`); tạm dừng thu hồi. Migration identity 007
+  thêm binding capability → permission; operations 030 backfill grant cho assignment đang ACTIVE.
+  `finance.transaction.record` không tự cấp (hạn mức chưa chốt): founder cấp tay qua
+  `POST /identity/agent-capability-grants` với `constraints.maxAmountMinor`.
+- Project đã kích hoạt trước đây vẫn chạy đúng spec đã ghim (quy tắc 13): muốn dùng spec 1.6.0,
+  founder tạm dừng rồi kích hoạt lại profile `operations`.
+- **Compliance thật:** migration finance-legal 005 bổ sung binding cho mọi system version của catalog
+  `cosa.agents.operations` (đúng tập ComplianceResolver xin, kể cả đích của `business.read`); hành
+  động ghi luôn `requires_human_confirmation`. Workspace chưa có deployment AI thì vẫn cần dựng
+  deployment như trước.
 - Thêm một bậc duyệt trong chat: founder phải phản hồi thẻ duyệt; hết hạn duyệt dùng cơ chế
   approval hiện hữu (spec §8.1 chưa chốt thời hạn riêng).
 

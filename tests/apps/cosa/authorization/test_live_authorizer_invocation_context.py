@@ -58,3 +58,21 @@ def test_draft_flag_in_invocation_metadata_skips_ticket() -> None:
     authorizer = LiveAuthorizationAuthorizer()
     assert authorizer.is_ticket_required(SPEC, _req({}).context, SPEC.id) is True
     assert authorizer.is_ticket_required(SPEC, _req({"draft_only": True}).context, SPEC.id) is False
+
+
+def test_ticket_requirement_follows_access_matrix() -> None:
+    authorizer = LiveAuthorizationAuthorizer()
+
+    def required(cap_id: str) -> bool:
+        return authorizer.is_ticket_required(CapabilitySpec(id=cap_id, description="x"), {}, cap_id)
+
+    # T0 đọc, kể cả hậu tố lạ, không cần ticket.
+    assert not required("startup_os.goal.tree_read")
+    assert not required("web.search")
+    assert not required("business.read")
+    # T1 nháp không gọi company: không side-effect.
+    assert not required("strategy.plan.draft")
+    # Ghi qua company (T1 có AGENT_CAP, T2, T3) luôn cần ticket.
+    assert required("operations.task.create_draft")
+    assert required("okr.key_result.create")
+    assert required("engagement.message.send")

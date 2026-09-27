@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 114 | 24 |
 | VALID_KEEP (giữ nguyên) | 139 | 38 |
-| REVIEW (chưa phân loại) | 1338 | 300 |
+| REVIEW (chưa phân loại) | 1343 | 301 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -78,6 +78,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | frontend/lib/core/localization/locales/en/en_strategy.dart | 9 |
 | services/company/identity/handlers/workspace.handler.ts | 9 |
 | apps/cosa/api/test_main.py | 8 |
+| apps/cosa/authorization/live_authorizer.py | 8 |
 | apps/cosa/composition/context_assembler.py | 8 |
 | apps/cosa/tests/test_ai_governance_read.py | 8 |
 | apps/cosa/tests/test_data_governance_read.py | 8 |
@@ -108,7 +109,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | frontend/lib/modules/hologram_hub/controllers/founder_command_center_controller.dart | 6 |
 | packages/agent/workforce/scorecard.py | 6 |
 | services/cosa/services/token.service.ts | 6 |
-| apps/cosa/authorization/live_authorizer.py | 5 |
 | apps/cosa/capabilities/engagement_message_send.py | 5 |
 | apps/cosa/capabilities/marketing_write.py | 5 |
 | apps/cosa/capabilities/project_crm_read.py | 5 |
@@ -225,6 +225,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/events/outbox-relay.service.ts | 2 |
 | services/company/finance-legal/services/cas-link.service.ts | 2 |
 | services/company/identity/migrations/001_cosa_startup_core_baseline.up.sql | 2 |
+| services/company/identity/migrations/007_agent_capability_permission_bindings.up.sql | 2 |
 | services/company/identity/services/tenant-context.service.ts | 2 |
 | services/company/identity/tests/helpers/test-session.ts | 2 |
 | services/company/operations/application/runtime/runtime-signal-projector.ts | 2 |

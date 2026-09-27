@@ -356,13 +356,15 @@ tố capability sang profile `strategy`/`legal`, thêm vào `operations` phá b�
 
 Việc còn mở (chưa VERIFIED, phải nêu rõ):
 
-- **Grant ở company:** mọi capability ghi đi qua live authorization ticket. Company chỉ cấp
-  ticket khi capability có `core.capability_permission_bindings` (migration hiện chỉ seed
-  `operations.task.list`) và founder đã grant cho AI member. Chưa có binding/grant thì T1/T2 trong
-  chat bị từ chối ở bước ticket. Cần founder chốt: seed binding + permission cho các capability
-  mới và luồng grant cho AI member `operations` của Project team.
-- **Compliance thật:** deployment AI của workspace phải bind các capability mới (kể cả đích của
-  `business.read`), nếu không snapshot trả 404 và cả run bị từ chối.
+- **Cấp phép ở company — ĐÃ LÀM (vòng 2):** binding capability → permission (identity 007), kích
+  hoạt profile trong startup team tự cấp grant scope Project, tạm dừng thu hồi, backfill cho
+  assignment ACTIVE (operations 030), `LiveAuthorizer` xác định cần ticket theo access matrix.
+  Đã chạy migration + backfill trên Postgres 16 cục bộ với dữ liệu mẫu (idempotent, down OK).
+  Test Encore `operations/tests/agent-profile-grants.test.ts` viết cho CI (container không có
+  runtime Encore).
+- **Compliance thật — ĐÃ LÀM (vòng 2):** finance-legal 005 thêm binding cho catalog
+  `cosa.agents.operations`; test parity chặn thiếu khi spec đổi.
+- Project cũ: founder tạm dừng rồi kích hoạt lại `operations` để lên spec 1.6.0 (spec ghim, quy tắc 13).
 - **Thử tay trên stack thật** (plan Task 12 Step 3): chưa chạy — container không có Encore CLI
   (tải bị proxy chặn) và không có model thật. Đã có test tích hợp trong process: plane thật,
   kernel SDK thật, gateway thật, model giả (`tests/apps/cosa/worker/test_chat_business_actions_e2e.py`).

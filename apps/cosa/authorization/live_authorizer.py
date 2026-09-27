@@ -6,6 +6,8 @@ from typing import Any
 
 from agent.contracts.capability import CapabilitySpec
 
+from apps.cosa.capabilities.access_matrix import MATRIX, Tier
+
 logger = logging.getLogger(__name__)
 
 
@@ -46,6 +48,17 @@ class LiveAuthorizationAuthorizer:
             return False
         if _ctx_value(context, "is_draft") is True or _ctx_value(context, "draft_only") is True:
             return False
+
+        # 1b. Access matrix (spec 2026-09-27-chat-business-actions) là nguồn sự thật về bậc:
+        # T0 đọc và T1 nháp không gọi company (không side-effect) không cần ticket; mọi hành
+        # động ghi qua company (T1 có AGENT_CAP, T2, T3) đều cần. Trước đây chỉ đoán theo hậu tố
+        # tên nên các capability đọc như `startup_os.goal.tree_read`, `web.search` cũng bị đòi
+        # ticket và fail closed.
+        entry = MATRIX.get(capability_id)
+        if entry is not None:
+            if entry.tier is Tier.T0_READ:
+                return False
+            return not (entry.tier is Tier.T1_DRAFT and entry.company_agent_cap is None)
 
         # 2. Risk / Action class check
         metadata = getattr(spec, "metadata", {}) or {}

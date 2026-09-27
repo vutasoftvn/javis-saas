@@ -17,7 +17,12 @@ import {
   AGENT_PROFILE_SPEC_VERSION,
   AGENT_PROFILE_SPEC_HASH,
   OwnerAgentProfile,
+  resolveFounderMemberId,
 } from "./ai-member.service";
+import {
+  ensureProfileCapabilityGrants,
+  revokeProfileCapabilityGrants,
+} from "./agent-profile-grants.service";
 import {
   STARTUP_TEAM_PROFILES,
   STARTUP_TEAM_PROFILE_KEYS,
@@ -332,6 +337,20 @@ export async function activateProjectStartupTeamMember(
       profileKey as OwnerAgentProfile
     );
 
+    // Kích hoạt = founder cấp cho AI member các capability ghi của profile (scope Project).
+    // Mỗi lần chạy vẫn phải qua founder duyệt trong chat + live authorization ticket.
+    const founderMemberId = await resolveFounderMemberId(tx, ctx.workspaceId, ctx.workforceMemberId);
+    if (founderMemberId) {
+      await ensureProfileCapabilityGrants(tx, {
+        workspaceId: ctx.workspaceId,
+        projectId,
+        profileKey,
+        agentWorkforceMemberId: workforceMemberId,
+        founderMemberId,
+        correlationId: ctx.correlationId,
+      });
+    }
+
     const specId = AGENT_PROFILE_SPEC_ID[profileKey as OwnerAgentProfile];
     const specVersion = AGENT_PROFILE_SPEC_VERSION[profileKey as OwnerAgentProfile];
     const specHash = AGENT_PROFILE_SPEC_HASH[profileKey as OwnerAgentProfile];
@@ -548,6 +567,19 @@ export async function pauseProjectStartupTeamMember(
     const nextVersion = row.version + 1;
     const now = new Date();
     const disabledReason = input.reason ?? "PAUSED_BY_FOUNDER";
+
+    // Tạm dừng agent thu hồi các grant đã cấp lúc kích hoạt cho đúng Project này.
+    if (row.agentWorkforceMemberId) {
+      await revokeProfileCapabilityGrants(tx, {
+        workspaceId: ctx.workspaceId,
+        projectId,
+        profileKey,
+        agentWorkforceMemberId: row.agentWorkforceMemberId.toString(),
+        actorMemberId: ctx.workforceMemberId,
+        reason: disabledReason,
+        correlationId: ctx.correlationId,
+      });
+    }
 
     await tx
       .update(projectAgentAssignments)
