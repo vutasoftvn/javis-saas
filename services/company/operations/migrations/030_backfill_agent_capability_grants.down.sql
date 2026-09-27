@@ -5,3 +5,5 @@ WHERE id IN (
   WHERE reason = 'Startup team activation backfill (030)' AND grant_id IS NOT NULL
 );
 DELETE FROM core.authorization_events WHERE reason = 'Startup team activation backfill (030)';
+-- Role startup_team_agent (kéo theo role_permissions và member_role_assignments qua CASCADE).
+DELETE FROM core.workspace_roles WHERE role_key = 'startup_team_agent';

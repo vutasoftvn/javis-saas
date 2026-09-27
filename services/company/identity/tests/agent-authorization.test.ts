@@ -100,6 +100,19 @@ export async function seedAgentAuthorityWorkspace(opts?: { capabilityId?: string
       version: 1,
     })
     .onConflictDoNothing();
+  // Binding có thể đã được migration seed với permission khác (identity 007, vd.
+  // finance.transaction.record) — role agent cần đúng permission đó.
+  const [binding] = await db
+    .select({ permissionKey: coreCapabilityPermissionBindings.permissionKey })
+    .from(coreCapabilityPermissionBindings)
+    .where(eq(coreCapabilityPermissionBindings.capabilityId, capabilityId))
+    .limit(1);
+  if (binding && binding.permissionKey !== "operations.task.read") {
+    await db
+      .insert(coreRolePermissions)
+      .values({ roleId: agentRoleId, permissionKey: binding.permissionKey, effect: "ALLOW" })
+      .onConflictDoNothing();
+  }
 
   const founderCtx: TenantContext = {
     workspaceId: ws.workspaceId,

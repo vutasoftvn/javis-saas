@@ -2,6 +2,9 @@ import { and, eq, inArray } from "drizzle-orm";
 import {
   coreAgentCapabilityGrants,
   coreCapabilityPermissionBindings,
+  coreMemberRoleAssignments,
+  coreRolePermissions,
+  coreWorkspaceRoles,
 } from "../../shared/db/schema/identity";
 import type { db } from "../models/db";
 import {
@@ -39,6 +42,11 @@ export const AGENT_PROFILE_GRANTED_CAPABILITIES: Readonly<Record<string, readonl
 // Transaction Drizzle của operations (cùng DB workspace với bảng core.* của identity).
 type DbLike = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
+// Role workspace gán cho AI member của startup team: live authorization ticket đòi AI member có
+// role chứa permission của capability (identity/services/agent-authorization.service.ts bước 6),
+// ngoài grant. Chỉ cho AI_AGENT; phạm vi thực tế vẫn do grant theo capability + Project quyết định.
+export const STARTUP_TEAM_AGENT_ROLE_KEY = "startup_team_agent";
+
 export interface ProfileGrantInput {
   workspaceId: string;
   projectId: string;
@@ -64,10 +72,18 @@ export async function ensureProfileCapabilityGrants(
   const memberId = BigInt(input.agentWorkforceMemberId);
 
   const bound = await tx
-    .select({ capabilityId: coreCapabilityPermissionBindings.capabilityId })
+    .select({
+      capabilityId: coreCapabilityPermissionBindings.capabilityId,
+      permissionKey: coreCapabilityPermissionBindings.permissionKey,
+    })
     .from(coreCapabilityPermissionBindings)
     .where(inArray(coreCapabilityPermissionBindings.capabilityId, [...capabilities]));
   const boundIds = new Set<string>(bound.map((b) => b.capabilityId));
+  await ensureStartupTeamAgentRole(tx, {
+    workspaceId: input.workspaceId,
+    agentWorkforceMemberId: input.agentWorkforceMemberId,
+    permissionKeys: [...new Set(bound.map((b) => b.permissionKey))],
+  });
 
   const existing = await tx
     .select({ capabilityId: coreAgentCapabilityGrants.capabilityId })
@@ -169,4 +185,66 @@ export async function revokeProfileCapabilityGrants(
     );
   }
   return revoked.map((r) => r.capabilityId);
+}
+
+/**
+ * Đảm bảo role `startup_team_agent` của workspace tồn tại, có ALLOW cho các permission cần và
+ * được gán cho AI member. Idempotent.
+ */
+export async function ensureStartupTeamAgentRole(
+  tx: DbLike,
+  input: { workspaceId: string; agentWorkforceMemberId: string; permissionKeys: string[] }
+): Promise<void> {
+  if (input.permissionKeys.length === 0) return;
+  const wsId = BigInt(input.workspaceId);
+  const memberId = BigInt(input.agentWorkforceMemberId);
+
+  await tx
+    .insert(coreWorkspaceRoles)
+    .values({
+      workspaceId: wsId,
+      roleKey: STARTUP_TEAM_AGENT_ROLE_KEY,
+      name: "Startup team agent",
+      isSystem: true,
+      allowedMemberTypes: ["AI_AGENT"],
+    })
+    .onConflictDoNothing();
+  const [role] = await tx
+    .select({ id: coreWorkspaceRoles.id })
+    .from(coreWorkspaceRoles)
+    .where(
+      and(
+        eq(coreWorkspaceRoles.workspaceId, wsId),
+        eq(coreWorkspaceRoles.roleKey, STARTUP_TEAM_AGENT_ROLE_KEY)
+      )
+    )
+    .limit(1);
+
+  await tx
+    .insert(coreRolePermissions)
+    .values(
+      input.permissionKeys.map((permissionKey) => ({
+        roleId: role.id,
+        permissionKey,
+        effect: "ALLOW",
+      }))
+    )
+    .onConflictDoNothing();
+
+  const [assigned] = await tx
+    .select({ id: coreMemberRoleAssignments.id })
+    .from(coreMemberRoleAssignments)
+    .where(
+      and(
+        eq(coreMemberRoleAssignments.workspaceId, wsId),
+        eq(coreMemberRoleAssignments.workforceMemberId, memberId),
+        eq(coreMemberRoleAssignments.roleId, role.id)
+      )
+    )
+    .limit(1);
+  if (!assigned) {
+    await tx
+      .insert(coreMemberRoleAssignments)
+      .values({ workspaceId: wsId, workforceMemberId: memberId, roleId: role.id });
+  }
 }

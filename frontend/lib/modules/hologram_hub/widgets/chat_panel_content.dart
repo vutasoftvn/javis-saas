@@ -778,8 +778,9 @@ class _ChatPanelContentState extends State<ChatPanelContent> {
 
 /// G-8 — fact trong thẻ `{"kind":"memory_confirm","fact":...}`; null nếu không phải.
 String? memoryConfirmFact(String content) {
-  if (!content.startsWith('{') || !content.contains('"memory_confirm"'))
+  if (!content.startsWith('{') || !content.contains('"memory_confirm"')) {
     return null;
+  }
   try {
     final j = jsonDecode(content);
     if (j is Map<String, dynamic> && j['kind'] == 'memory_confirm') {
@@ -1052,12 +1053,14 @@ class PlanProgress {
   });
 
   static PlanProgress? tryParse(String content) {
-    if (!content.startsWith('{') || !content.contains('"plan_progress"'))
+    if (!content.startsWith('{') || !content.contains('"plan_progress"')) {
       return null;
+    }
     try {
       final j = jsonDecode(content);
-      if (j is! Map<String, dynamic> || j['kind'] != 'plan_progress')
+      if (j is! Map<String, dynamic> || j['kind'] != 'plan_progress') {
         return null;
+      }
       List<String> list(String k) =>
           ((j[k] as List<dynamic>?) ?? const []).map((e) => '$e').toList();
       return PlanProgress(

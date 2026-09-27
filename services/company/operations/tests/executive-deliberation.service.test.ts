@@ -22,7 +22,7 @@ import {
 } from "../services/workspace-executive-role-activation.service";
 import { createProjectService } from "../services/project.service";
 import { transitionProjectLifecycle } from "../services/project-lifecycle.service";
-import { AGENT_PROFILE_SPEC_HASH } from "../services/ai-member.service";
+import { AGENT_PROFILE_SPEC_HASH, AGENT_PROFILE_SPEC_VERSION } from "../services/ai-member.service";
 import { completeAllAnalyses } from "./_deliberation-helpers";
 
 import { ADVISOR_OVERLAY_CATALOG } from "../../shared/contracts/executive-advisor-overlays.generated";
@@ -308,7 +308,7 @@ describe("Executive Deliberation Service", () => {
       // Deployment pin: đúng profile operations của Project.
       expect(pin?.deployment.profileKey).toBe("operations");
       expect(pin?.deployment.specId).toBe("cosa.agents.operations");
-      expect(pin?.deployment.specVersion).toBe("1.3.0");
+      expect(pin?.deployment.specVersion).toBe(AGENT_PROFILE_SPEC_VERSION.operations);
       expect(pin?.deployment.specHash).toBe(AGENT_PROFILE_SPEC_HASH.operations);
       expect(pin?.deployment.projectAgentDeploymentId).toBeTruthy();
       // Overlay pin: exact identity từ catalog, tách biệt với deployment.

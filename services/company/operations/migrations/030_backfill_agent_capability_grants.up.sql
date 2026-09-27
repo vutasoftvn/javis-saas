@@ -8,6 +8,98 @@
 -- Danh sách (profile, capability) PHẢI khớp bảng TS — test parity
 -- tests/apps/cosa/test_agent_capability_grants_parity.py. Expand-only, idempotent.
 
+-- Live authorization ticket còn đòi AI member có role chứa permission của capability: tạo role
+-- `startup_team_agent` (chỉ AI_AGENT) theo workspace, cấp ALLOW đúng các permission cần, rồi gán.
+WITH wanted(profile_key, capability_id) AS (
+  VALUES
+    ('operations', 'operations.task.create_draft'),
+    ('operations', 'operations.task.advance'),
+    ('operations', 'okr.key_result.create'),
+    ('operations', 'okr.key_result.checkin'),
+    ('operations', 'startup_os.goal.create'),
+    ('operations', 'startup_os.project.triage'),
+    ('operations', 'venture.profile.propose_update'),
+    ('finance', 'finance.transaction.classify_propose'),
+    ('finance', 'finance.accounting_document.create_draft')
+),
+targets AS (
+  SELECT DISTINCT a.workspace_id, a.agent_workforce_member_id, b.permission_key
+  FROM operating.project_agent_assignments a
+  JOIN wanted w ON w.profile_key = a.profile_key
+  JOIN core.capability_permission_bindings b ON b.capability_id = w.capability_id
+  JOIN core.workforce_members agent
+    ON agent.id = a.agent_workforce_member_id
+   AND agent.workspace_id = a.workspace_id
+   AND agent.member_type = 'AI_AGENT'
+  WHERE a.state = 'ACTIVE'
+)
+INSERT INTO core.workspace_roles (workspace_id, role_key, name, is_system, allowed_member_types)
+SELECT DISTINCT workspace_id, 'startup_team_agent', 'Startup team agent', true, ARRAY['AI_AGENT']
+FROM targets
+ON CONFLICT (workspace_id, role_key) DO NOTHING;
+
+WITH wanted(profile_key, capability_id) AS (
+  VALUES
+    ('operations', 'operations.task.create_draft'),
+    ('operations', 'operations.task.advance'),
+    ('operations', 'okr.key_result.create'),
+    ('operations', 'okr.key_result.checkin'),
+    ('operations', 'startup_os.goal.create'),
+    ('operations', 'startup_os.project.triage'),
+    ('operations', 'venture.profile.propose_update'),
+    ('finance', 'finance.transaction.classify_propose'),
+    ('finance', 'finance.accounting_document.create_draft')
+),
+targets AS (
+  SELECT DISTINCT a.workspace_id, a.agent_workforce_member_id, b.permission_key
+  FROM operating.project_agent_assignments a
+  JOIN wanted w ON w.profile_key = a.profile_key
+  JOIN core.capability_permission_bindings b ON b.capability_id = w.capability_id
+  JOIN core.workforce_members agent
+    ON agent.id = a.agent_workforce_member_id
+   AND agent.workspace_id = a.workspace_id
+   AND agent.member_type = 'AI_AGENT'
+  WHERE a.state = 'ACTIVE'
+)
+INSERT INTO core.role_permissions (role_id, permission_key, effect)
+SELECT DISTINCT r.id, t.permission_key, 'ALLOW'
+FROM targets t
+JOIN core.workspace_roles r ON r.workspace_id = t.workspace_id AND r.role_key = 'startup_team_agent'
+ON CONFLICT (role_id, permission_key) DO NOTHING;
+
+WITH wanted(profile_key, capability_id) AS (
+  VALUES
+    ('operations', 'operations.task.create_draft'),
+    ('operations', 'operations.task.advance'),
+    ('operations', 'okr.key_result.create'),
+    ('operations', 'okr.key_result.checkin'),
+    ('operations', 'startup_os.goal.create'),
+    ('operations', 'startup_os.project.triage'),
+    ('operations', 'venture.profile.propose_update'),
+    ('finance', 'finance.transaction.classify_propose'),
+    ('finance', 'finance.accounting_document.create_draft')
+),
+targets AS (
+  SELECT DISTINCT a.workspace_id, a.agent_workforce_member_id
+  FROM operating.project_agent_assignments a
+  JOIN wanted w ON w.profile_key = a.profile_key
+  JOIN core.workforce_members agent
+    ON agent.id = a.agent_workforce_member_id
+   AND agent.workspace_id = a.workspace_id
+   AND agent.member_type = 'AI_AGENT'
+  WHERE a.state = 'ACTIVE'
+)
+INSERT INTO core.member_role_assignments (workspace_id, workforce_member_id, role_id)
+SELECT t.workspace_id, t.agent_workforce_member_id, r.id
+FROM targets t
+JOIN core.workspace_roles r ON r.workspace_id = t.workspace_id AND r.role_key = 'startup_team_agent'
+WHERE NOT EXISTS (
+  SELECT 1 FROM core.member_role_assignments m
+  WHERE m.workspace_id = t.workspace_id
+    AND m.workforce_member_id = t.agent_workforce_member_id
+    AND m.role_id = r.id
+);
+
 WITH wanted(profile_key, capability_id) AS (
   VALUES
     ('operations', 'operations.task.create_draft'),
