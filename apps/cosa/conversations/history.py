@@ -57,6 +57,8 @@ def _describe_structured(data: dict[str, Any]) -> str:
             if data.get(key)
         ]
         return "[Cập nhật tiến độ kế hoạch — " + "; ".join(parts) + "]"
+    if kind == "memory_confirm":
+        return f"[Đã đề xuất lưu vào trí nhớ dự án: {data.get('fact', '')}]"
     return f"[{kind}]"
 
 

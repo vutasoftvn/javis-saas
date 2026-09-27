@@ -199,6 +199,9 @@ class ManualToolLoopKernel:
         system_prompt = PromptBundle(
             agent_instructions=spec.instructions,
             skill_instructions=skill_texts,
+            project_facts=[
+                str(f) for f in ((request.metadata or {}).get("project_facts") or []) if f
+            ],
             locale=request.locale,
         ).render()
         messages = [{"role": "system", "content": system_prompt}]

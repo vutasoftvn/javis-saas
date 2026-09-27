@@ -583,4 +583,10 @@ def build_cosa_agent_plane(
     from apps.cosa.agents.consult import AGENT_CONSULT_SPEC, create_agent_consult_handler
 
     cap_registry.register(AGENT_CONSULT_SPEC, create_agent_consult_handler(plane))
+    from apps.cosa.memory.propose import (
+        MEMORY_FACT_PROPOSE_SPEC,
+        create_memory_fact_propose_handler,
+    )
+
+    cap_registry.register(MEMORY_FACT_PROPOSE_SPEC, create_memory_fact_propose_handler(plane))
     return plane

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from agent.memory.base import MemoryStore
 from agent.memory.models import MemoryItem, MemoryKind
@@ -56,6 +56,9 @@ class MemoryService:
         importance: float = 0.5,
         tags: tuple[str, ...] = (),
         provenance_run_id: str | None = None,
+        scope_type: str | None = None,
+        scope_id: str | None = None,
+        provenance: dict[str, Any] | None = None,
     ) -> MemoryItem:
         item = MemoryItem(
             workspace_id=workspace_id,
@@ -65,6 +68,9 @@ class MemoryService:
             importance=importance,
             tags=tags,
             provenance_run_id=provenance_run_id,
+            scope_type=scope_type,
+            scope_id=scope_id,
+            provenance=provenance or {},
         )
         await self._store.put(item)
         return item
@@ -76,10 +82,45 @@ class MemoryService:
         agent_key: str | None = None,
         kind: MemoryKind | None = None,
         limit: int = 10,
+        scope_type: str | None = None,
+        scope_id: str | None = None,
     ) -> list[MemoryItem]:
         return await self._store.search(
             workspace_id=workspace_id,
             agent_key=agent_key,
             kind=kind,
             limit=limit,
+            scope_type=scope_type,
+            scope_id=scope_id,
         )
+
+    async def retract_memory(
+        self,
+        *,
+        workspace_id: str,
+        memory_id: str,
+        scope_type: str,
+        scope_id: str,
+        reason: str | None = None,
+    ) -> MemoryItem | None:
+        """Chuyển memory ACTIVE sang RETRACTED (không xoá — giữ provenance).
+        Chỉ tìm trong đúng scope để không retract chéo Project."""
+        from datetime import UTC, datetime
+
+        from agent.memory.models import MemoryStatus
+
+        items = await self._store.search(
+            workspace_id=workspace_id, limit=500, scope_type=scope_type, scope_id=scope_id
+        )
+        target = next((i for i in items if i.id == memory_id), None)
+        if target is None:
+            return None
+        retracted = target.model_copy(
+            update={
+                "status": MemoryStatus.RETRACTED,
+                "updated_at": datetime.now(UTC),
+                "metadata": {**target.metadata, **({"retract_reason": reason} if reason else {})},
+            }
+        )
+        await self._store.put(retracted)
+        return retracted

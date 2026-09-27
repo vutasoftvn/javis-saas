@@ -475,6 +475,9 @@ class RealOpenAIAgentsSDKKernel:
                 "workspace_id": str(request.workspace_id or ""),
                 "project_id": str((request.metadata or {}).get("project_id") or ""),
             },
+            project_facts=[
+                str(f) for f in ((request.metadata or {}).get("project_facts") or []) if f
+            ],
             locale=request.locale,
         ).render()
 

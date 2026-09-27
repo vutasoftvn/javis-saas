@@ -98,10 +98,20 @@ class PostgresMemoryStore:
         agent_key: str | None = None,
         kind: MemoryKind | None = None,
         limit: int = 20,
+        scope_type: str | None = None,
+        scope_id: str | None = None,
     ) -> list[MemoryItem]:
         async with self._session_factory() as session:
             clauses = ["workspace_id = :workspace_id", "status = 'ACTIVE'"]
+            if scope_type is not None:
+                clauses.append("scope_type = :scope_type")
+            if scope_id is not None:
+                clauses.append("scope_id = :scope_id")
             params: dict[str, Any] = {"workspace_id": workspace_id, "limit": limit}
+            if scope_type is not None:
+                params["scope_type"] = scope_type
+            if scope_id is not None:
+                params["scope_id"] = scope_id
 
             if agent_key is not None:
                 clauses.append("agent_key = :agent_key")

@@ -11,6 +11,7 @@ from typing import Any
 import httpx
 from agent.artifacts import WorkspaceArtifact
 from agent.contracts.run import RunStatus
+from agent.contracts.spec import AgentSpec
 from agent.conversations.models import ConversationRecord, MessageRecord
 
 from apps.cosa.agents.agent_profile_specs import AGENT_PROFILE_SPECS
@@ -24,6 +25,7 @@ from apps.cosa.api.event_stream import CosaEventStreamManager
 from apps.cosa.composition.agent_plane import CosaAgentPlane
 from apps.cosa.config.planes import resolve_platform_control_plane_url
 from apps.cosa.conversations.history import build_history, history_limits
+from apps.cosa.memory.project_facts import list_project_facts
 from apps.cosa.observability.logging import log_context
 from apps.cosa.observability.metrics import record_model_tokens, record_run_outcome
 from apps.cosa.observability.otel import inject_trace_carrier, trace_span
@@ -117,6 +119,47 @@ async def _weekly_goal_suggestion(plane: CosaAgentPlane, user_prompt: str) -> Go
     return detect_weekly_goal_suggestion(user_prompt)
 
 
+async def _spec_for_authority(plane: Any, local_spec: Any, pin: Any, *, run_id: str) -> Any | None:
+    """Spec đúng như authority của Project pin (id + version + hash).
+
+    Khớp spec đang import -> dùng luôn. Lệch (built-in đã nâng version sau khi
+    workspace kích hoạt) -> chạy ĐÚNG version đã pin lấy từ registry bất biến,
+    không tự nâng quyền lên version mới (quy tắc 13: không floating latest,
+    không tự tăng authority). Không tìm thấy bản pin -> None (fail closed)."""
+    if (
+        local_spec.id == pin.id
+        and local_spec.version == pin.version
+        and local_spec.compute_hash() == pin.hash
+    ):
+        return local_spec
+    registry = getattr(plane, "spec_registry", None)
+    record = None
+    if registry is not None:
+        with contextlib.suppress(Exception):
+            record = await registry.get(spec_kind="agent", spec_id=pin.id, version=pin.version)
+    if record is not None and getattr(record, "definition_hash", None) == pin.hash:
+        logger.info(
+            "run_id=%s running pinned %s@%s (current built-in is %s)",
+            run_id,
+            pin.id,
+            pin.version,
+            local_spec.version,
+        )
+        return AgentSpec(**record.content)
+    logger.error(
+        "run_id=%s spec mismatch: local=(%s, %s, %s) authority=(%s, %s, %s), pinned version "
+        "not in registry",
+        run_id,
+        local_spec.id,
+        local_spec.version,
+        local_spec.compute_hash(),
+        pin.id,
+        pin.version,
+        pin.hash,
+    )
+    return None
+
+
 async def _load_chat_history(
     plane: CosaAgentPlane, *, conversation_id: str, run_id: str
 ) -> list[dict[str, str]]:
@@ -134,6 +177,23 @@ async def _load_chat_history(
     return build_history(
         messages, exclude_run_id=run_id, max_messages=max_messages, max_chars=max_chars
     )
+
+
+async def _load_project_facts(
+    plane: CosaAgentPlane, *, workspace_id: str, project_id: str | None
+) -> list[str]:
+    """Fact dự án founder đã xác nhận (G-8), cũ -> mới. Lỗi đọc -> [] + log."""
+    service = getattr(plane, "memory_service", None)
+    if service is None or not project_id:
+        return []
+    try:
+        items = await list_project_facts(
+            service, workspace_id=workspace_id, project_id=str(project_id)
+        )
+    except Exception:
+        logger.warning("load project facts failed ws=%s", workspace_id, exc_info=True)
+        return []
+    return [i.content for i in reversed(items)]
 
 
 async def _append_message(
@@ -261,23 +321,10 @@ async def execute_run_task(
             # phải phát run.failed, nếu không client chờ stream mãi.
             return await _fail("unknown_agent_profile")
 
-        if (
-            local_spec.id != authority.spec.id
-            or local_spec.version != authority.spec.version
-            or local_spec.compute_hash() != authority.spec.hash
-        ):
-            logger.error(
-                "run_id=%s spec mismatch for %s: local=(%s, %s, %s) authority=(%s, %s, %s)",
-                run_id,
-                agent_profile,
-                local_spec.id,
-                local_spec.version,
-                local_spec.compute_hash(),
-                authority.spec.id,
-                authority.spec.version,
-                authority.spec.hash,
-            )
+        pinned_spec = await _spec_for_authority(plane, local_spec, authority.spec, run_id=run_id)
+        if pinned_spec is None:
             return await _fail("spec_hash_mismatch")
+        local_spec = pinned_spec
 
         if agent_profile == "customer_support" and not authority.policy_snapshot.get(
             "knowledge_gate_passed", False
@@ -492,6 +539,9 @@ async def _execute_run_task_inner(
         extra_md["locale_source"] = locale_source
 
     history = await _load_chat_history(plane, conversation_id=conversation_id, run_id=run_id)
+    facts = await _load_project_facts(plane, workspace_id=workspace_id, project_id=project_id)
+    if facts:
+        extra_md["project_facts"] = facts
 
     try:
         prep = await prepare_request(

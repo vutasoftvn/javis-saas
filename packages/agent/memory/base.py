@@ -33,6 +33,8 @@ class MemoryStore(Protocol):
         agent_key: str | None = None,
         kind: MemoryKind | None = None,
         limit: int = 20,
+        scope_type: str | None = None,
+        scope_id: str | None = None,
     ) -> list[MemoryItem]: ...
 
     async def delete(self, item_id: str, workspace_id: str) -> None: ...

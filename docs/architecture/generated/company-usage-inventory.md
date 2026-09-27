@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 114 | 24 |
 | VALID_KEEP (giữ nguyên) | 139 | 38 |
-| REVIEW (chưa phân loại) | 1307 | 290 |
+| REVIEW (chưa phân loại) | 1310 | 293 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -236,14 +236,17 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/cosa/services/advisor-overlay.service.ts | 2 |
 | apps/cosa/agents/advisor_overlay_validation.py | 1 |
 | apps/cosa/agents/capability_risk_map.py | 1 |
+| apps/cosa/agents/consult.py | 1 |
 | apps/cosa/agents/goal_intent.py | 1 |
 | apps/cosa/api/mvp_response.py | 1 |
+| apps/cosa/api/project_memory_routes.py | 1 |
 | apps/cosa/api/schemas.py | 1 |
 | apps/cosa/assets/schemas.py | 1 |
 | apps/cosa/compliance/__init__.py | 1 |
 | apps/cosa/compliance/contracts.py | 1 |
 | apps/cosa/events/founder_asset_callback_outbox.py | 1 |
 | apps/cosa/events/local_auth.py | 1 |
+| apps/cosa/memory/project_facts.py | 1 |
 | apps/cosa/worker/executive_board_runtime.py | 1 |
 | frontend/lib/core/controllers/company_scope_controller.dart | 1 |
 | frontend/lib/core/network/api_auth_resolver.dart | 1 |

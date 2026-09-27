@@ -22,9 +22,12 @@ log "pip install (apps/cosa, packages/agent, dev)"
   -r requirements-dev.txt pytest pytest-asyncio
 
 # ── Node: 2 app Encore độc lập ──────────────────────────────────────────────
+# npm ci (không sửa package-lock.json); bỏ qua nếu node_modules đã có (cache).
 for app in services/company services/cosa; do
-  log "npm install ($app)"
-  (cd "$app" && npm install --no-audit --no-fund --loglevel=error)
+  if [ ! -d "$app/node_modules" ]; then
+    log "npm ci ($app)"
+    (cd "$app" && npm ci --no-audit --no-fund --loglevel=error)
+  fi
 done
 
 # ── Flutter SDK (frontend-test/analyze) ─────────────────────────────────────

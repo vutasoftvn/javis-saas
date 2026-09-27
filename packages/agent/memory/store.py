@@ -24,6 +24,8 @@ class InMemoryMemoryStore:
         agent_key: str | None = None,
         kind: MemoryKind | None = None,
         limit: int = 20,
+        scope_type: str | None = None,
+        scope_id: str | None = None,
     ) -> list[MemoryItem]:
         results = [
             item
@@ -32,6 +34,8 @@ class InMemoryMemoryStore:
             and item.status == MemoryStatus.ACTIVE
             and (agent_key is None or item.agent_key == agent_key)
             and (kind is None or item.kind == kind)
+            and (scope_type is None or (item.scope_type or "WORKSPACE") == scope_type)
+            and (scope_id is None or (item.scope_id or item.workspace_id) == scope_id)
         ]
         results.sort(key=lambda item: item.created_at, reverse=True)
         return results[:limit]

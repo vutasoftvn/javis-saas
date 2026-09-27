@@ -26,6 +26,7 @@ import '../../../modules/workforce/services/workforce_mvp_service.dart';
 import '../models/project_startup_team.dart';
 import '../services/project_startup_team_service.dart';
 import '../services/project_activity_service.dart';
+import '../services/project_memory_service.dart';
 import '../models/project_activity_models.dart';
 import '../../projects/widgets/p0_core_setup_banner.dart';
 
@@ -55,11 +56,14 @@ class FounderCommandCenterController extends GetxController {
     WorkforceMvpService? workforceMvpService,
     ProjectStartupTeamService? startupTeamService,
     ProjectActivityService? projectActivityService,
+    ProjectMemoryService? projectMemoryService,
   })  : _workforceMvpService = workforceMvpService ?? WorkforceMvpService(),
         _startupTeamService = startupTeamService ?? ProjectStartupTeamService(),
-        _projectActivityService = projectActivityService ?? ProjectActivityService();
+        _projectActivityService = projectActivityService ?? ProjectActivityService(),
+        _projectMemoryService = projectMemoryService ?? ProjectMemoryService();
 
   final ProjectActivityService _projectActivityService;
+  final ProjectMemoryService _projectMemoryService;
 
   // WGA G9 — message do agent/run nền chèn vào conversation (goal_confirm,
   // kết quả lập kế hoạch, plan_progress) không đi qua run stream của chat;
@@ -956,6 +960,22 @@ class FounderCommandCenterController extends GetxController {
       debugPrint('[FounderCommandCenter] syncAgentChatMessages error: $e');
     } finally {
       _agentMessageSyncRunning = false;
+    }
+  }
+
+  /// G-8 — founder xác nhận fact agent đề xuất (thẻ `memory_confirm`). Chỉ
+  /// đường này ghi trí nhớ dự án; agent không tự ghi. Trả true nếu đã lưu.
+  Future<bool> confirmProjectFact(String fact) async {
+    final pid = activeProjectId.value;
+    if (pid == null || pid.isEmpty || fact.trim().isEmpty) return false;
+    final res = await _projectMemoryService.create(pid, fact.trim());
+    switch (res) {
+      case ApiSuccess():
+        AppToast.success('Đã lưu vào trí nhớ dự án.');
+        return true;
+      case ApiFailure(:final failure):
+        AppToast.error('Không lưu được vào trí nhớ dự án: ${failure.message}');
+        return false;
     }
   }
 

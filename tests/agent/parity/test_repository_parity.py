@@ -227,3 +227,61 @@ async def test_activity_append_idempotent_list_since_and_nullable_actor(activity
     )
     assert [r.source_id for r in after] == ["k2"]
     assert await activity_repo.list_since(workspace_id=f"{ws}_x", project_id=proj) == []
+
+
+# ── Memory (scope + retract) ─────────────────────────────────────────────────
+
+
+@pytest.fixture(params=BACKENDS)
+def memory_service(request):
+    from agent.memory.providers.postgres import PostgresMemoryStore
+    from agent.memory.service import MemoryService
+    from agent.memory.store import InMemoryMemoryStore
+
+    if request.param == "memory":
+        return MemoryService(InMemoryMemoryStore())
+    return MemoryService(PostgresMemoryStore(request.getfixturevalue("pg_session_factory")))
+
+
+async def test_memory_scoped_search_and_retract(memory_service):
+    from agent.memory.models import MemoryKind, MemoryStatus
+
+    ws = _uid("ws")
+    a = await memory_service.record_memory(
+        workspace_id=ws,
+        agent_key="founder",
+        kind=MemoryKind.SEMANTIC,
+        content="Runway 6 tháng",
+        scope_type="PROJECT",
+        scope_id="p1",
+        provenance={"confirmed_by": "user:1"},
+    )
+    await memory_service.record_memory(
+        workspace_id=ws,
+        agent_key="founder",
+        kind=MemoryKind.SEMANTIC,
+        content="Fact của project khác",
+        scope_type="PROJECT",
+        scope_id="p2",
+    )
+    got = await memory_service.retrieve_memories(
+        workspace_id=ws, scope_type="PROJECT", scope_id="p1"
+    )
+    assert [m.content for m in got] == ["Runway 6 tháng"]
+    assert got[0].provenance == {"confirmed_by": "user:1"}
+
+    # retract chéo project không được
+    assert (
+        await memory_service.retract_memory(
+            workspace_id=ws, memory_id=a.id, scope_type="PROJECT", scope_id="p2"
+        )
+        is None
+    )
+    done = await memory_service.retract_memory(
+        workspace_id=ws, memory_id=a.id, scope_type="PROJECT", scope_id="p1", reason="sai"
+    )
+    assert done is not None and done.status == MemoryStatus.RETRACTED
+    assert (
+        await memory_service.retrieve_memories(workspace_id=ws, scope_type="PROJECT", scope_id="p1")
+        == []
+    )
