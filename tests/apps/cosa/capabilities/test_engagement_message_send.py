@@ -117,9 +117,7 @@ async def test_engagement_message_send_executes_after_approval(gateway_setup):
 async def test_engagement_message_send_handles_takeover_drop_or_conflict(gateway_setup):
     gateway, repo, mock_client = gateway_setup
 
-    mock_client.post.side_effect = CompanyServiceError(
-        "Conflict: thread taken over", status_code=409
-    )
+    mock_client.post.side_effect = CompanyServiceError("Conflict: thread taken over", status_code=409)
 
     req = GatewayExecutionRequest(
         run_id="run_send_3",
