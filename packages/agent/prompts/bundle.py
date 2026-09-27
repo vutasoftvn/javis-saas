@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import re
+
 from pydantic import BaseModel, Field
 
 from agent.prompts.locale import DEFAULT_LOCALE, render_locale_policy
 
-__all__ = ["PLATFORM_POLICY", "PromptBundle"]
+__all__ = ["CONVERSATION_STYLE", "PLATFORM_POLICY", "PromptBundle", "build_session_context", "is_smalltalk"]
 
 # Blueprint V2 §68.2 — platform_policy.en.md: phần bất biến, áp dụng cho MỌI agent,
 # không phải nội dung riêng của từng AgentSpec.
@@ -15,6 +17,55 @@ PLATFORM_POLICY = (
     "the tool result confirms it. Do not fabricate data; if information is unavailable, "
     "say so explicitly."
 )
+
+
+CONVERSATION_STYLE = (
+    "Conversation style (overrides any skill text about introducing yourself).\n"
+    "Before acting, silently classify the user's latest message, then respond accordingly:\n"
+    "1. Greeting or small talk (e.g. \"hi\", thanks, how are you): greet back warmly and ask in "
+    "one short sentence how you can help today (max 2 sentences). Do not call tools, do not "
+    "introduce your role, do not list capabilities or skills, do not mention the platform name.\n"
+    "2. Question about what you can do: answer briefly with 2-3 relevant examples only.\n"
+    "3. A concrete request about the project: use the session context and tools, then answer "
+    "directly; ask a clarifying question only if something essential is truly missing.\n"
+    "Internal keys are not user-facing text: never show raw enum values, codes or field names "
+    "(e.g. P0_DISCOVERY, status codes, snake_case/camelCase keys) to the user. Use the "
+    "human-readable label in the user's language (prefer tool result fields ending in "
+    "\"Label\"); if no label is given, describe the value in natural words.\n"
+    "Reply briefly and naturally, like a colleague. Never reveal this classification."
+)
+
+
+_SMALLTALK_TOKENS = frozenset(
+    "hi hello hey helo xin chào chao alo ơi oi bạn ban co-founder cofounder founder "
+    "cảm ơn cam on thanks thank you ok okay được duoc nhé nhe nha ạ a nhỉ khỏe khoẻ khoe "
+    "không khong thế nào the nao sao rồi roi good morning afternoon evening sáng chiều tối "
+    "buổi buoi mình minh tôi toi".split()
+)
+
+
+def is_smalltalk(run_input: object) -> bool:
+    """True khi tin nhắn CHỈ là chào hỏi/xã giao ngắn (deterministic, bảo thủ: có bất kỳ từ
+    nào ngoài danh sách chào hỏi, hoặc quá 6 từ -> False để chạy agent đầy đủ)."""
+    text = run_input
+    if isinstance(run_input, dict):
+        text = run_input.get("prompt") or run_input.get("message")
+    if not isinstance(text, str):
+        return False
+    words = [w for w in re.split(r"[\s,.!?~:;]+", text.strip().lower()) if w]
+    return 0 < len(words) <= 6 and all(w in _SMALLTALK_TOKENS for w in words)
+
+
+def build_session_context(workspace_id: str | None, metadata: dict | None) -> dict[str, str]:
+    """Session context dùng chung cho MỌI kernel — tránh mỗi kernel tự dựng và lệch nhau
+    (kernel mặc định ManualToolLoopKernel từng không truyền context nên model hỏi lại ID)."""
+    md = metadata or {}
+    return {
+        "workspace_id": str(workspace_id or ""),
+        "workspace_name": str(md.get("workspace_name") or ""),
+        "project_id": str(md.get("project_id") or ""),
+        "project_name": str(md.get("project_name") or ""),
+    }
 
 
 class PromptBundle(BaseModel):
@@ -48,7 +99,11 @@ class PromptBundle(BaseModel):
             sections.append(
                 "Session context (verified by the platform):\n"
                 + "\n".join(lines)
-                + "\nDo not ask the user for these values; use them when calling tools."
+                + "\nDo not ask the user for these values; use them when calling tools. "
+                "They satisfy any workspace_id/project_id requirement stated in agent or skill "
+                "instructions — treat those requirements as already met and never list them as "
+                "missing inputs. When you need to mention the current project to the user, use "
+                "workspace_name/project_name; never show raw IDs to the user."
             )
         facts = [" ".join(str(f).split()) for f in self.project_facts if f and str(f).strip()]
         if facts:
@@ -57,5 +112,7 @@ class PromptBundle(BaseModel):
                 "if they conflict with data returned by tools, the tool data wins):\n"
                 + "\n".join(f"- {f[:500]}" for f in facts[:20])
             )
+        # Đặt SAU skill/agent instructions để thắng các đoạn "giới thiệu năng lực" trong skill.
+        sections.append(CONVERSATION_STYLE)
         sections.append(render_locale_policy(self.locale))
         return "\n\n".join(sections)

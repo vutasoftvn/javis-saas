@@ -14,7 +14,7 @@ from agent.contracts.run import RunRequest, RunResult, RunStatus
 from agent.contracts.spec import AgentSpec
 from agent.contracts.wait import WaitDescriptor, WaitKind
 from agent.governance.contracts import ExecutionMode
-from agent.prompts.bundle import PromptBundle
+from agent.prompts.bundle import PromptBundle, build_session_context, is_smalltalk
 from agent.registry.publisher import publish_agent_spec
 from agent.registry.repository import InMemorySpecRegistryRepository, SpecRegistryRepository
 from agent.runs.models import (
@@ -196,9 +196,13 @@ class ManualToolLoopKernel:
         # policy (bất biến, mọi agent) + agent instructions (từ spec đã pin) +
         # resolved skill instructions + locale policy (canonical English, điều
         # khiển ngôn ngữ output theo request.locale — mặc định vi-VN).
+        # Chào hỏi/xã giao: bỏ instructions + skill khỏi prompt — chính chúng là nguồn để model
+        # "giới thiệu năng lực". Vẫn giữ policy nền tảng, session context và conversation style.
+        smalltalk = is_smalltalk(request.input)
         system_prompt = PromptBundle(
-            agent_instructions=spec.instructions,
-            skill_instructions=skill_texts,
+            agent_instructions="" if smalltalk else spec.instructions,
+            skill_instructions=[] if smalltalk else skill_texts,
+            session_context=build_session_context(request.workspace_id, request.metadata),
             project_facts=[
                 str(f) for f in ((request.metadata or {}).get("project_facts") or []) if f
             ],

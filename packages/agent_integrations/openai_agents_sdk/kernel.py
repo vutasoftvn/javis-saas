@@ -17,7 +17,7 @@ from agent.contracts.run import RunRequest, RunResult, RunStatus
 from agent.contracts.spec import AgentSpec
 from agent.contracts.wait import WaitDescriptor, WaitKind
 from agent.governance.contracts import ExecutionMode
-from agent.prompts.bundle import PromptBundle
+from agent.prompts.bundle import PromptBundle, build_session_context, is_smalltalk
 from agent.registry.publisher import publish_agent_spec
 from agent.registry.repository import InMemorySpecRegistryRepository, SpecRegistryRepository
 from agent.runs.models import (
@@ -468,13 +468,11 @@ class RealOpenAIAgentsSDKKernel:
                 run_record, pinned_spec, resolved_skills, spec.pinned_skills
             )
 
+        smalltalk = is_smalltalk(request.input)  # chào hỏi: không nạp instructions/skill
         system_prompt = PromptBundle(
-            agent_instructions=spec.instructions,
-            skill_instructions=skill_texts,
-            session_context={
-                "workspace_id": str(request.workspace_id or ""),
-                "project_id": str((request.metadata or {}).get("project_id") or ""),
-            },
+            agent_instructions="" if smalltalk else spec.instructions,
+            skill_instructions=[] if smalltalk else skill_texts,
+            session_context=build_session_context(request.workspace_id, request.metadata),
             project_facts=[
                 str(f) for f in ((request.metadata or {}).get("project_facts") or []) if f
             ],

@@ -477,7 +477,7 @@ async def test_kernel_run_composes_system_prompt_with_locale_policy():
     request = RunRequest(
         principal="test_user",
         root_executable_ref=spec.to_pinned_identity(),
-        input={"prompt": "Xin chào"},
+        input={"prompt": "Tổng hợp task tuần này"},
         locale="en-US",
     )
 
@@ -488,6 +488,59 @@ async def test_kernel_run_composes_system_prompt_with_locale_policy():
     assert "Bạn là trợ lý tài chính." in system_msg["content"]
     assert "preferred locale is en-US" in system_msg["content"]
     assert "COSA" in system_msg["content"]  # platform policy luôn có mặt
+
+
+@pytest.mark.asyncio
+async def test_kernel_run_injects_session_context_and_conversation_style():
+    client = _CapturingModelClient()
+    kernel = ManualToolLoopKernel(repository=InMemoryRunRepository(), model_client=client)
+    spec = AgentSpec(
+        id="test.agent.session_ctx_1",
+        version="1.0.0",
+        instructions="Bạn là trợ lý vận hành.",
+        model_input_capability_ref="model.input.direct-user-message",
+    )
+    request = RunRequest(
+        principal="test_user",
+        root_executable_ref=spec.to_pinned_identity(),
+        input={"prompt": "Tổng hợp task tuần này"},
+        workspace_id="w-1",
+        metadata={"project_id": "p-9", "project_name": "Miva Core", "workspace_name": "Miva"},
+    )
+
+    await kernel.run(request, spec)
+
+    content = client.captured_messages[0]["content"]
+    assert "- project_id: p-9" in content and "- project_name: Miva Core" in content
+    assert "- workspace_name: Miva" in content
+    assert "Do not ask the user for these values" in content
+    assert "Conversation style" in content
+    assert "Bạn là trợ lý vận hành." in content  # yêu cầu thật vẫn nạp instructions
+
+
+@pytest.mark.asyncio
+async def test_kernel_run_greeting_drops_agent_instructions():
+    client = _CapturingModelClient()
+    kernel = ManualToolLoopKernel(repository=InMemoryRunRepository(), model_client=client)
+    spec = AgentSpec(
+        id="test.agent.smalltalk_1",
+        version="1.0.0",
+        instructions="Bạn là trợ lý vận hành.",
+        model_input_capability_ref="model.input.direct-user-message",
+    )
+    request = RunRequest(
+        principal="test_user",
+        root_executable_ref=spec.to_pinned_identity(),
+        input={"prompt": "hi"},
+        workspace_id="w-1",
+        metadata={"project_id": "p-9", "project_name": "Miva Core"},
+    )
+
+    await kernel.run(request, spec)
+
+    content = client.captured_messages[0]["content"]
+    assert "Bạn là trợ lý vận hành." not in content
+    assert "- project_name: Miva Core" in content and "Conversation style" in content
 
 
 @pytest.mark.asyncio

@@ -42,9 +42,17 @@ def apply_run_scope(
 ) -> dict[str, Any]:
     """Tự điền `project_id` từ scope của run (đã verify ở backend) để model
     không phải chép/bịa ID; ID khác project của run bị chặn (không đọc chéo
-    project)."""
-    scoped = context.get("project_id")
+    project).
+
+    `workspace_id` luôn bị GHI ĐÈ bằng workspace của run: không có ca dùng hợp lệ nào cho
+    workspace khác, còn model hay chép sai chuỗi ID dài (vd. rớt 1 chữ số) khiến cả run hỏng
+    vì "Cross-tenant workspace_id mismatch" dù không có ý đồ chéo tenant. Ghi đè vẫn giữ nguyên
+    đảm bảo cách ly: tool chỉ bao giờ chạy trên workspace của run."""
     props = (input_schema or {}).get("properties") or {}
+    ws_scoped = context.get("workspace_id")
+    if ws_scoped not in (None, "") and "workspace_id" in props:
+        args = {**args, "workspace_id": ws_scoped}
+    scoped = context.get("project_id")
     if not scoped or "project_id" not in props:
         return args
     given = args.get("project_id")

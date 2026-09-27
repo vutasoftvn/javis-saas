@@ -79,6 +79,23 @@ def test_rejects_other_project() -> None:
         apply_run_scope({"project_id": "p2"}, SCOPE_SCHEMA, {"project_id": "p1"})
 
 
+WS_SCHEMA = {"properties": {"workspace_id": {"type": "string"}, "project_id": {"type": "string"}}}
+
+
+def test_overrides_mangled_workspace_id_with_run_workspace() -> None:
+    out = apply_run_scope(
+        {"workspace_id": "2995083268657152", "project_id": "p1"},  # model làm rớt 1 chữ số
+        WS_SCHEMA,
+        {"workspace_id": "29950683268657152", "project_id": "p1"},
+    )
+    assert out["workspace_id"] == "29950683268657152"
+
+
+def test_fills_missing_workspace_id_and_ignores_schema_without_it() -> None:
+    assert apply_run_scope({}, WS_SCHEMA, {"workspace_id": "w1"}) == {"workspace_id": "w1"}
+    assert apply_run_scope({"a": 1}, {"properties": {}}, {"workspace_id": "w1"}) == {"a": 1}
+
+
 def test_no_change_when_schema_has_no_project_id_or_no_context() -> None:
     assert apply_run_scope({"a": 1}, {"properties": {}}, {"project_id": "p1"}) == {"a": 1}
     assert apply_run_scope({}, SCOPE_SCHEMA, {}) == {}
