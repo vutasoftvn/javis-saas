@@ -14,13 +14,13 @@ def test_security_profile_has_explicit_spec_and_read_only_capability():
     spec = AGENT_PROFILE_SPECS["security"]
     assert spec is COSA_SECURITY_AGENT_SPEC
     assert spec.id == "cosa.agents.security"
-    assert spec.version == "1.0.0"
+    assert spec.version == "1.1.0"
     assert spec.autonomy_level is AutonomyLevel.L1_PROPOSE
     assert "security.posture.read" in spec.capability_refs
     assert not any(
         ref.endswith(".write") or ref.endswith(".create_draft") for ref in spec.capability_refs
     )
-    assert spec.compute_hash() == "54232cdc8454ebda917991b48eb38f639dae3e6d8db3081070b859561670d966"
+    assert spec.compute_hash() == "74e66e486eca6fddcfa5dba081334a6073a3033b77b207daca04eaaff076cb2d"
 
 
 def test_ciso_is_capability_empty_and_security_cannot_scan_or_access_secret():

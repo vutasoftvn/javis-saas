@@ -195,8 +195,8 @@ def test_sales_agent_spec_integrity():
     spec = AGENT_PROFILE_SPECS["sales"]
     assert spec is COSA_SALES_AGENT_SPEC
     assert spec.id == "cosa.agents.sales"
-    assert spec.version == "1.0.0"
+    assert spec.version == "1.1.0"
     assert "project.crm.read" in spec.capability_refs
     assert "engagement.message.send" not in spec.capability_refs
     assert "finance.transaction.record" not in spec.capability_refs
-    assert spec.compute_hash() == "089a67c81dc22041835b0ed05df7a441305c6abe416f293f609cc5262d31f332"
+    assert spec.compute_hash() == "3604eb24d4ddd9f45c55253c4a72e37ca271e4128833ac9be1d23abba11633d2"

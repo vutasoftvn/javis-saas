@@ -36,6 +36,12 @@ OWNER_AGENT_PROFILES: tuple[str, ...] = (
     "strategy",
     "sales",
     "coding",
+    # Agent chuyên môn nhận task qua capability nháp (review 2026-09-27, G-5).
+    "product",
+    "people",
+    "security",
+    "legal",
+    "data",
 )
 
 

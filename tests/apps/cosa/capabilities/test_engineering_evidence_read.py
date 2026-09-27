@@ -10,7 +10,9 @@ from agent.local_executor.grants import (
     verify_receipt_against_context,
 )
 from agent.local_executor.repository import LocalExecutorRepository
-from apps.cosa.capabilities.engineering_evidence_read import create_engineering_evidence_read_handler
+from apps.cosa.capabilities.engineering_evidence_read import (
+    create_engineering_evidence_read_handler,
+)
 
 
 @pytest.mark.asyncio

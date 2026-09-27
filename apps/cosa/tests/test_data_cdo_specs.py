@@ -14,7 +14,7 @@ def test_data_profile_has_explicit_spec_and_read_only_capability():
     spec = AGENT_PROFILE_SPECS["data"]
     assert spec is COSA_DATA_AGENT_SPEC
     assert spec.id == "cosa.agents.data"
-    assert spec.version == "1.0.0"
+    assert spec.version == "1.1.0"
     assert spec.autonomy_level is AutonomyLevel.L1_PROPOSE
     assert "data.governance.read" in spec.capability_refs
     # Data cannot write ANYTHING — not just a data governance write capability.
@@ -22,7 +22,7 @@ def test_data_profile_has_explicit_spec_and_read_only_capability():
         ref.endswith(".write") or ref.endswith(".create_draft") or ref.endswith(".confirm")
         for ref in spec.capability_refs
     )
-    assert spec.compute_hash() == "71535c32bc5d48e79e8b92887e5f9fd549d6142c0a2582690e6a5e6ca65fb21f"
+    assert spec.compute_hash() == "a6dc3b9771e8b394898ed656593e1d1b8b819c61432cc8eed9263e04c0f8edd7"
 
 
 def test_cdo_is_capability_empty_and_carries_advisory_disclaimer():
@@ -47,4 +47,5 @@ def test_data_profile_has_no_write_and_cdo_has_no_capability():
         "data.governance.read",
         "knowledge.profile.read",
         "workspace.context.read",
+        "data.quality.draft",
     ]

@@ -14,13 +14,13 @@ def test_people_profile_has_explicit_spec_and_read_only_capability():
     spec = AGENT_PROFILE_SPECS["people"]
     assert spec is COSA_PEOPLE_AGENT_SPEC
     assert spec.id == "cosa.agents.people"
-    assert spec.version == "1.0.0"
+    assert spec.version == "1.1.0"
     assert spec.autonomy_level is AutonomyLevel.L1_PROPOSE
     assert "people.risk.read" in spec.capability_refs
     assert not any(
         ref.endswith(".write") or ref.endswith(".create_draft") for ref in spec.capability_refs
     )
-    assert spec.compute_hash() == "a03fcb1d3050bf4f364ca7c9e7581b443c08d3dac781199162626a5329dc0b05"
+    assert spec.compute_hash() == "c8f2e66c267071113ce309becf3c93d0162e1f4e751dcb667b49e4898454146f"
 
 
 def test_chro_is_advisory_only_with_no_capability_refs():

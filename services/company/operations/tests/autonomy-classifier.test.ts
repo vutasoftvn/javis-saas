@@ -121,6 +121,23 @@ describe("routeOwnerProfile", () => {
     expect(routeOwnerProfile("research.deep_research.run", null)).toBe("marketing");
   });
 
+  it("routes specialist draft capabilities to their own profile", () => {
+    expect(routeOwnerProfile("project.crm.lead.draft", null)).toBe("sales");
+    expect(routeOwnerProfile("product.decision.draft", null)).toBe("product");
+    expect(routeOwnerProfile("people.plan.draft", null)).toBe("people");
+    expect(routeOwnerProfile("security.remediation.draft", null)).toBe("security");
+    expect(routeOwnerProfile("legal.issue.draft", null)).toBe("legal");
+    expect(routeOwnerProfile("data.quality.draft", null)).toBe("data");
+    expect(routeOwnerProfile("research.intelligence.brief.draft", null)).toBe("research_intelligence");
+  });
+
+  it("specialist drafts are AUTO when LOW risk, legal.write stays gated", () => {
+    const draft = { expectedCapability: "legal.issue.draft", capabilityRisk: "LOW" as const, tenantPolicyDecision: null };
+    expect(classifyItem(draft).autonomyClass).toBe("AUTO");
+    const write = { expectedCapability: "legal.write.contract", capabilityRisk: "LOW" as const, tenantPolicyDecision: null };
+    expect(classifyItem(write).autonomyClass).toBe("NEEDS_APPROVAL");
+  });
+
   it("no capability + domain matches keyword -> domain profile", () => {
     expect(routeOwnerProfile(null, "marketing campaign")).toBe("marketing");
     expect(routeOwnerProfile(null, "cash runway review")).toBe("finance");

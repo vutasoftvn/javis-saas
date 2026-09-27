@@ -14,13 +14,13 @@ def test_product_profile_has_explicit_spec_and_read_only_capability():
     spec = AGENT_PROFILE_SPECS["product"]
     assert spec is COSA_PRODUCT_AGENT_SPEC
     assert spec.id == "cosa.agents.product"
-    assert spec.version == "1.1.0"
+    assert spec.version == "1.2.0"
     assert spec.autonomy_level is AutonomyLevel.L1_PROPOSE
     assert "product.decision.read" in spec.capability_refs
     assert not any(
         ref.endswith(".write") or ref.endswith(".create_draft") for ref in spec.capability_refs
     )
-    assert spec.compute_hash() == "b1dd13108cde94d879b774e1eace24b29660360e68285880c650d24d6532dda7"
+    assert spec.compute_hash() == "820f0a5a020da30f322a120aec8106d327a8f7ebeb4edeae3115eab6a586a303"
 
 
 def test_cpo_is_advisory_only_with_no_capability_refs():

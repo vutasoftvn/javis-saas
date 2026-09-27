@@ -24,6 +24,10 @@ from apps.cosa.capabilities.data_governance_read import (
     DATA_GOVERNANCE_READ_SPEC,
     create_data_governance_read_handler,
 )
+from apps.cosa.capabilities.domain_draft import (
+    DOMAIN_DRAFT_SPECS,
+    create_domain_draft_handler,
+)
 from apps.cosa.capabilities.engagement_assignment_write import (
     ENGAGEMENT_ASSIGNMENT_WRITE_SPEC,
     create_engagement_assignment_write_handler,
@@ -91,6 +95,10 @@ from apps.cosa.capabilities.marketing_write import (
     create_campaign_asset_write_handler,
     create_experiment_write_handler,
     create_marketing_context_write_handler,
+)
+from apps.cosa.capabilities.mcp_connectors import (
+    load_mcp_connector_manifests,
+    register_mcp_connectors,
 )
 from apps.cosa.capabilities.operations_read import (
     OPERATIONS_EXECUTION_PLAN_READ_SPEC,
@@ -248,6 +256,9 @@ def register_cosa_capabilities(
         COMMERCIAL_CUSTOMER_360_READ_SPEC, create_commercial_customer_360_read_handler(client)
     )
     cap_registry.register(ENGAGEMENT_MESSAGE_DRAFT_SPEC, create_engagement_message_draft_handler())
+    # Nháp theo domain cho agent chỉ-đọc (G-5) — không side-effect, không cần client.
+    for draft_spec in DOMAIN_DRAFT_SPECS:
+        cap_registry.register(draft_spec, create_domain_draft_handler(draft_spec.id))
     cap_registry.register(
         ENGAGEMENT_MESSAGE_SEND_SPEC, create_engagement_message_send_handler(client)
     )
@@ -427,3 +438,5 @@ def register_cosa_capabilities(
 
     # Sandbox MCP
     register_sandbox_read_mcp_tools(cap_registry)
+    # Connector MCP theo manifest đã review (G-6); không cấu hình = không đăng ký.
+    register_mcp_connectors(cap_registry, load_mcp_connector_manifests())

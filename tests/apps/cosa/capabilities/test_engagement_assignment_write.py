@@ -37,7 +37,9 @@ def assignment_gateway_setup():
         # Mặc định yêu cầu approval, trừ khi op=handoff_human được allow theo rule scope
         if payload.get("op") == "handoff_human":
             return PolicyDecision(outcome=PolicyOutcome.ALLOW, reasons=("Handoff allow",))
-        return PolicyDecision(outcome=PolicyOutcome.REQUIRE_APPROVAL, reasons=("Route require approval",))
+        return PolicyDecision(
+            outcome=PolicyOutcome.REQUIRE_APPROVAL, reasons=("Route require approval",)
+        )
 
     gateway = CapabilityGateway(
         registry=registry,
@@ -97,7 +99,9 @@ async def test_engagement_assignment_write_requires_approval_and_executes(assign
 
 
 @pytest.mark.asyncio
-async def test_engagement_assignment_write_handoff_human_allowed_by_rule_scope(assignment_gateway_setup):
+async def test_engagement_assignment_write_handoff_human_allowed_by_rule_scope(
+    assignment_gateway_setup,
+):
     gateway, repo, mock_client = assignment_gateway_setup
 
     mock_client.post.return_value = {"status": "ok", "mode": "team_queue"}

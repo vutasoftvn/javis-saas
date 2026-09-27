@@ -29,6 +29,12 @@ export type SessionConnectorGrantState = "enabled" | "revoked" | "expired";
 export const CONNECTOR_SCOPE_ALLOWLIST: Record<string, string[]> = {
   "sandbox-read": ["read", "read:data", "metadata"],
   "cas": ["balance:read", "transactions:read"],
+  // Connector MCP khai báo qua manifest phía apps/cosa (review 2026-09-27, G-6).
+  // Chỉ scope đọc: tool ghi (gửi mail, tạo lịch...) vừa bắt buộc approval ở
+  // CapabilityGateway, vừa không có scope để grant — fail closed hai lớp.
+  "email-read": ["mail:read", "metadata"],
+  "calendar-read": ["calendar:read", "metadata"],
+  "customer-channel-read": ["messages:read", "metadata"],
 };
 
 

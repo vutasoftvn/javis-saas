@@ -14,7 +14,7 @@ def test_legal_profile_has_explicit_spec_and_read_only_capability():
     spec = AGENT_PROFILE_SPECS["legal"]
     assert spec is COSA_LEGAL_AGENT_SPEC
     assert spec.id == "cosa.agents.legal"
-    assert spec.version == "1.0.0"
+    assert spec.version == "1.1.0"
     assert spec.autonomy_level is AutonomyLevel.L1_PROPOSE
     assert "legal.issue.read" in spec.capability_refs
     # Legal cannot write ANYTHING — not just finance-legal write capabilities.
@@ -22,7 +22,7 @@ def test_legal_profile_has_explicit_spec_and_read_only_capability():
         ref.endswith(".write") or ref.endswith(".create_draft") or ref.endswith(".confirm")
         for ref in spec.capability_refs
     )
-    assert spec.compute_hash() == "b3f8435557658d3882da386db95c41f087c173acfe39f43e688c122263f46baf"
+    assert spec.compute_hash() == "7b5800e439d40f635de343c0b0ad934d17eb833c3fcccb5a6e1aaed6749c447d"
 
 
 def test_gc_is_capability_empty_and_carries_not_legal_advice_disclaimer():
@@ -49,4 +49,5 @@ def test_legal_profile_has_no_write_and_gc_has_no_capability():
         "legal.issue.read",
         "knowledge.profile.read",
         "workspace.context.read",
+        "legal.issue.draft",
     ]

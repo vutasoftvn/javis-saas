@@ -89,7 +89,7 @@ STARTUP_TEAM_PROFILES: Final[list[dict[str, str]]] = [
     },
     {
         "key": "crm",
-        "label": "CRM",
+        "label": "CRM (merged into Sales)",
         "defaultMode": "TEMPLATE",
         "runtimeReadiness": "PENDING_CRM_FOUNDATION",
     },
@@ -188,7 +188,7 @@ STARTUP_TEAM_PROFILES_MAP: Final[dict[str, dict[str, str]]] = {
     },
     "crm": {
         "key": "crm",
-        "label": "CRM",
+        "label": "CRM (merged into Sales)",
         "defaultMode": "TEMPLATE",
         "runtimeReadiness": "PENDING_CRM_FOUNDATION",
     },

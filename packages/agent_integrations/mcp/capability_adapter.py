@@ -6,7 +6,7 @@ from typing import Any
 from agent.capabilities.canonicalization import compute_payload_hash
 from agent.capabilities.registry import CapabilityRegistry
 from agent.contracts.capability import CapabilityImplementationIdentity, CapabilitySpec
-from agent.governance.contracts import CapabilityRisk
+from agent.governance.contracts import ApprovalPolicy, CapabilityRisk
 
 __all__ = ["McpToolCaller", "mcp_tool_to_capability_spec", "register_mcp_tools"]
 
@@ -26,6 +26,8 @@ def mcp_tool_to_capability_spec(
     catalog_version: str,
     capability_id_prefix: str = "mcp",
     risk: CapabilityRisk = CapabilityRisk.MEDIUM,
+    approval_policy: ApprovalPolicy = ApprovalPolicy.POLICY_DRIVEN,
+    extra_metadata: dict[str, Any] | None = None,
 ) -> CapabilitySpec:
     """Convert 1 MCP tool definition (`{"name", "description", "inputSchema"}`,
     đúng response shape của MCP `tools/list`) thành `CapabilitySpec`. MCP chỉ là
@@ -45,6 +47,7 @@ def mcp_tool_to_capability_spec(
         description=tool.get("description", ""),
         input_schema=input_schema,
         risk=risk,
+        approval_policy=approval_policy,
         connector_requirements={"connector_id": connector_key},
         implementation_identity=CapabilityImplementationIdentity(
             capability_id=capability_id,
@@ -55,6 +58,7 @@ def mcp_tool_to_capability_spec(
             "mcp_source": "tools/list",
             "mcp_server_name": connector_key,
             "mcp_tool_schema_hash": schema_hash,
+            **(extra_metadata or {}),
         },
     )
 

@@ -14,7 +14,12 @@ export type OwnerAgentProfile =
   | "research_intelligence"
   | "strategy"
   | "sales"
-  | "coding";
+  | "coding"
+  | "product"
+  | "people"
+  | "security"
+  | "legal"
+  | "data";
 
 // Outbound / finance-write / deploy / delete / workspace-settings — vĩnh viễn
 // KHÔNG bao giờ AUTO, không nới được kể cả founder ép.
@@ -79,6 +84,12 @@ const CAP_PREFIX_TO_PROFILE: ReadonlyArray<readonly [string, OwnerAgentProfile]>
   ["research.", "marketing"],
   ["project.crm.", "sales"],
   ["engineering.", "coding"],
+  // Agent chuyên môn có capability nháp riêng (review 2026-09-27, G-5).
+  ["product.", "product"],
+  ["people.", "people"],
+  ["security.", "security"],
+  ["legal.", "legal"],
+  ["data.", "data"],
 ];
 
 const DOMAIN_KEYWORDS: Record<OwnerAgentProfile, RegExp> = {
@@ -89,6 +100,11 @@ const DOMAIN_KEYWORDS: Record<OwnerAgentProfile, RegExp> = {
   strategy: /(strategy|initiative[_\s-]?draft|ranking[_\s-]?explanation)/i,
   sales: /(sales|crm|pipeline|deal|prospect|outreach|revenue)/i,
   coding: /(coding|engineering|code|software|architecture|tech|build)/i,
+  product: /(product|prd|roadmap|feature|user[_\s-]?stor)/i,
+  people: /(people|hiring|recruit|talent|\bhr\b|team[_\s-]?plan)/i,
+  security: /(security|infosec|vulnerab|access[_\s-]?control|compliance[_\s-]?control)/i,
+  legal: /(legal|contract|terms|privacy[_\s-]?policy|regulat|licen[cs]e)/i,
+  data: /(data[_\s-]?(quality|governance|catalog)|classification|retention)/i,
 };
 
 /**

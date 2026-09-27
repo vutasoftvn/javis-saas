@@ -250,6 +250,7 @@ async def test_web_search_handler_empty_and_normal_query():
 @pytest.mark.asyncio
 async def test_web_search_handler_graceful_fallback_when_provider_fails():
     """web.search falls back gracefully to NullWebSearchProvider when primary fails."""
+
     class FailingSearchProvider:
         async def search(self, query: str, **kwargs):
             raise ConnectionError("Tavily service offline")
@@ -261,4 +262,3 @@ async def test_web_search_handler_graceful_fallback_when_provider_fails():
     assert res["status"] if "status" in res else True
     assert res["provider"] == "null"
     assert res["results"] == []
-
