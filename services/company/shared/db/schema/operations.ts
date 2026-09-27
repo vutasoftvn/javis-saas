@@ -434,6 +434,10 @@ export const weeklyPlans = operatingSchema.table("weekly_plans", {
   outcomeScore: doublePrecision("outcome_score"),
   reflection: text("reflection"),
   decisionId: bigint("decision_id", { mode: "bigint" }),
+  // WGA G6 (migration 029) — 'pending' | 'done' | 'failed'; NULL = chưa yêu cầu phân rã.
+  decompositionStatus: text("decomposition_status"),
+  decompositionErrorCode: text("decomposition_error_code"),
+  decompositionUpdatedAt: timestamp("decomposition_updated_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),

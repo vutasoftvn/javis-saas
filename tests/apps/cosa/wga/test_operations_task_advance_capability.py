@@ -29,14 +29,25 @@ async def test_advance_posts_to_company_endpoint():
     handler = create_operations_task_advance_handler(client)
 
     res = await handler(
-        {"task_id": "task-1", "to_status": "done", "run_id": "run_abc", "note": "shipped"},
+        {
+            "task_id": "task-1",
+            "to_status": "done",
+            "run_id": "run_abc",
+            "note": "shipped",
+            "evidence_refs": ["artifact:a1", "  "],
+        },
         context={"workspace_id": "ws-9"},
     )
     assert res["task"]["status"] == "done"
     client.post.assert_called_once()
     call = client.post.call_args
     assert call[0][0] == "/operations/tasks/task-1/advance"
-    assert call[1]["json"] == {"toStatus": "done", "runId": "run_abc", "note": "shipped"}
+    assert call[1]["json"] == {
+        "toStatus": "done",
+        "runId": "run_abc",
+        "note": "shipped",
+        "evidenceRefs": ["artifact:a1"],
+    }
     assert call[1]["headers"]["X-Workspace-Id"] == "ws-9"
 
 
@@ -57,6 +68,12 @@ async def test_advance_validation_failures():
     with pytest.raises(ValueError, match="to_status must be"):
         await handler(
             {"task_id": "t", "to_status": "cancelled", "run_id": "r"},
+            context={"workspace_id": "ws-1"},
+        )
+
+    with pytest.raises(ValueError, match="evidence_refs is required"):
+        await handler(
+            {"task_id": "t", "to_status": "done", "run_id": "r", "evidence_refs": [" "]},
             context={"workspace_id": "ws-1"},
         )
 

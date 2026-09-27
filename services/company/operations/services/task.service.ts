@@ -499,6 +499,8 @@ export interface AdvanceTaskByAgentParams {
   toStatus: AgentAdvanceStatus;
   runId: string;
   note?: string;
+  /** Bắt buộc (≥1 ref không rỗng) khi toStatus='done' — xem IA22/IA23. */
+  evidenceRefs?: string[];
 }
 
 /**
@@ -520,6 +522,20 @@ export async function advanceTaskByAgentService(
   }
   if (!params.runId || !params.runId.trim()) {
     throw APIError.invalidArgument("runId là bắt buộc");
+  }
+
+  // Cùng chính sách với validateTaskCompletion (IA22/IA23): agent không được
+  // đóng task mà không có bằng chứng. Trước đây run nền WGA gọi một endpoint
+  // validate-completion không tồn tại nên task không bao giờ tới 'done' và
+  // mọi task phụ thuộc bị kẹt; nay agent gửi evidence thẳng qua advance.
+  const evidenceRefs = (params.evidenceRefs ?? [])
+    .filter((ref): ref is string => typeof ref === "string")
+    .map((ref) => ref.trim())
+    .filter((ref) => ref.length > 0);
+  if (params.toStatus === "done" && evidenceRefs.length === 0) {
+    throw APIError.invalidArgument(
+      "Task completion requires at least one non-blank evidence reference (evidenceRefs)"
+    );
   }
 
   const wsId = BigInt(ctx.workspaceId);
@@ -570,7 +586,15 @@ export async function advanceTaskByAgentService(
       capabilityId: "operations.task.advance",
       triggeredByKind: "agent",
       status: params.toStatus === "blocked" ? "FAILED" : "SUCCESS",
-      errorDetails: params.note ? { note: params.note } : null,
+      // error_details là cột jsonb chung của bản ghi — lưu cả evidence để truy
+      // vết task được đóng dựa trên kết quả nào (không cần migration).
+      errorDetails:
+        params.note || evidenceRefs.length > 0
+          ? {
+              ...(params.note ? { note: params.note } : {}),
+              ...(evidenceRefs.length > 0 ? { evidenceRefs } : {}),
+            }
+          : null,
     });
 
     const t = toTask(updated!);
@@ -596,6 +620,11 @@ export interface AgentClaimableTask {
   evidenceRefs: string[];
   planItemId: string;
   planId: string;
+  /** Project của execution plan — run của agent bắt buộc mang scope này. */
+  projectId: string;
+  /** Nguồn plan ('chat' | 'command_center') + conversation gốc để báo tiến độ (G9). */
+  planOrigin: string;
+  planOriginRef: string | null;
 }
 
 /**
@@ -608,7 +637,8 @@ export async function listAgentClaimableTasksService(
   workspaceId: string,
   limit: number,
   authorization: string | undefined,
-  ctxOverride?: TenantContext
+  ctxOverride?: TenantContext,
+  projectId?: string
 ): Promise<AgentClaimableTask[]> {
   if (!ctxOverride) {
     await requireWorkspaceAccess(authorization, workspaceId);
@@ -653,6 +683,9 @@ export async function listAgentClaimableTasksService(
       evidenceRefs: executionPlanItems.evidenceRefs,
       planItemId: executionPlanItems.id,
       planId: executionPlanItems.planId,
+      projectId: executionPlans.projectId,
+      planOrigin: executionPlans.origin,
+      planOriginRef: executionPlans.originRef,
       sortKey: executionPlanItems.sortKey,
     })
     .from(tasks)
@@ -666,6 +699,8 @@ export async function listAgentClaimableTasksService(
         eq(tasks.source, "ai_agent_proposal"),
         eq(executionPlanItems.status, "accepted"),
         eq(executionPlans.status, "accepted"),
+        // Sweep theo Project của plan vừa accept (quy tắc 14 — không quét chéo Project).
+        projectId ? eq(executionPlans.projectId, BigInt(projectId)) : undefined,
         inArray(executionPlanItems.autonomyClass, ["AUTO", "NEEDS_APPROVAL"]),
         sql`${tasks.assigneeMemberId} IN (
           SELECT id FROM core.workforce_members
@@ -693,6 +728,9 @@ export async function listAgentClaimableTasksService(
     evidenceRefs: Array.isArray(r.evidenceRefs) ? (r.evidenceRefs as string[]) : [],
     planItemId: r.planItemId.toString(),
     planId: r.planId.toString(),
+    projectId: r.projectId.toString(),
+    planOrigin: r.planOrigin,
+    planOriginRef: r.planOriginRef,
   }));
 }
 

@@ -126,6 +126,9 @@ async def test_weekly_goal_set_schedules_goal_decomposition_task():
         "focus": "Close 3 customer interviews",
         "origin": "chat",
         "originRef": "conv_9",
+        "lifecycleStage": "P1_PROBLEM_FIT",
+        "existingTaskTitles": ["Interview 3 customers"],
+        "nextBestActions": ["Validate pricing with 5 customers"],
     }
     env = _env(
         "operating.weekly_goal.set.v1", payload, aggregate_type="weekly_plan", aggregate_id="wp_1"
@@ -143,6 +146,9 @@ async def test_weekly_goal_set_schedules_goal_decomposition_task():
     assert t["input_payload"]["goal_text"] == "Close 3 customer interviews"
     assert t["input_payload"]["origin"] == "chat"
     assert t["input_payload"]["origin_ref"] == "conv_9"
+    assert t["input_payload"]["lifecycle_stage"] == "P1_PROBLEM_FIT"
+    assert t["input_payload"]["existing_task_titles"] == ["Interview 3 customers"]
+    assert t["input_payload"]["next_best_actions"] == ["Validate pricing with 5 customers"]
     assert t["input_payload"]["actor_id"] == "u1"  # from envelope actor.id
 
 
@@ -160,6 +166,7 @@ async def test_execution_plan_accepted_schedules_workspace_task_sweep():
     assert res.outcome == "accepted"
     assert deps.execution_plane.platform_tasks[0]["task_type"] == "workspace_task_sweep"
     assert deps.execution_plane.platform_tasks[0]["input_payload"]["workspace_id"] == "ws_1"
+    assert deps.execution_plane.platform_tasks[0]["input_payload"]["project_id"] == "proj_1"
 
 
 @pytest.mark.asyncio

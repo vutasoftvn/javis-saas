@@ -9,6 +9,8 @@ export const AGENT_CAP = Object.freeze({
   OPERATIONS_TASK_LIST: "operations.task.list",
   OPERATIONS_TASK_READ: "operations.task.read",
   OPERATIONS_TASK_CREATE_DRAFT: "operations.task.create_draft",
+  // WGA G8 — agent chat đọc kế hoạch triển khai + tiến độ task (chỉ đọc).
+  OPERATIONS_EXECUTION_PLAN_READ: "operations.execution_plan.read",
   STRATEGY_EVIDENCE_LIST: "strategy.evidence.list",
   FINANCE_CONNECTION_READ: "finance.connection.read",
   FINANCE_TRANSACTION_READ: "finance.transaction.read",

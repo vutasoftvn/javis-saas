@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 114 | 24 |
 | VALID_KEEP (giữ nguyên) | 139 | 38 |
-| REVIEW (chưa phân loại) | 1292 | 289 |
+| REVIEW (chưa phân loại) | 1307 | 290 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -45,13 +45,13 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | frontend/lib/core/network/mvp_endpoints.g.dart | 100 |
 | apps/cosa/auth/jwt.py | 39 |
 | apps/cosa/policies/company_policy_client.py | 27 |
+| apps/cosa/worker/wga_run.py | 25 |
 | services/company/shared/auth/cosa-delegation.service.ts | 24 |
 | apps/cosa/api/workforce_routes.py | 22 |
 | packages/agent/workforce/repository.py | 22 |
 | apps/cosa/worker/copilot_run.py | 20 |
 | apps/cosa/auth/dependency.py | 19 |
 | apps/cosa/project_activity/company_event_projector.py | 18 |
-| apps/cosa/worker/wga_run.py | 18 |
 | services/company/shared/auth/ai-governance-snapshot-verification.ts | 16 |
 | apps/cosa/api/project_context.py | 15 |
 | apps/cosa/capabilities/startup_os_onboard.py | 15 |
@@ -59,8 +59,8 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/worker/handlers.py | 15 |
 | frontend/lib/modules/auth/services/auth_service.dart | 15 |
 | apps/cosa/capabilities/client.py | 14 |
+| apps/cosa/events/router.py | 14 |
 | frontend/lib/modules/auth/controllers/auth_controller.dart | 14 |
-| apps/cosa/events/router.py | 13 |
 | services/company/operations/services/workspace-runtime.service.ts | 13 |
 | apps/cosa/capabilities/startup_os_goals.py | 12 |
 | apps/cosa/compliance/resolver.py | 12 |
@@ -71,6 +71,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | packages/agent/capabilities/readiness.py | 10 |
 | services/cosa/services/workspace-connector.service.ts | 10 |
 | services/cosa/services/workspace-invitation.service.ts | 10 |
+| apps/cosa/capabilities/operations_read.py | 9 |
 | apps/cosa/company/executive_board_client.py | 9 |
 | apps/cosa/graphql/resolvers.py | 9 |
 | frontend/lib/core/localization/locales/en/en_strategy.dart | 9 |
@@ -88,7 +89,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/operations/services/founder-asset-query.service.ts | 8 |
 | apps/cosa/auth/workspace_client.py | 7 |
 | apps/cosa/capabilities/engagement_assignment_write.py | 7 |
-| apps/cosa/capabilities/operations_read.py | 7 |
 | apps/cosa/company/project_team_client.py | 7 |
 | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart | 7 |
 | frontend/lib/shared/widgets/company_scope_switcher.dart | 7 |
@@ -109,6 +109,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/authorization/live_authorizer.py | 5 |
 | apps/cosa/capabilities/engagement_message_send.py | 5 |
 | apps/cosa/capabilities/marketing_write.py | 5 |
+| apps/cosa/capabilities/operations_write.py | 5 |
 | apps/cosa/capabilities/project_crm_read.py | 5 |
 | apps/cosa/capabilities/workspace_context_read.py | 5 |
 | apps/cosa/events/automation_outcome_client.py | 5 |
@@ -143,6 +144,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/shared/events/envelope.ts | 4 |
 | services/cosa/handlers/agent-policy.handler.ts | 4 |
 | services/cosa/services/ai-governance-snapshot.service.ts | 4 |
+| apps/cosa/agents/goal_decomposition.py | 3 |
 | apps/cosa/api/app.py | 3 |
 | apps/cosa/api/copilot_routes.py | 3 |
 | apps/cosa/assets/internal_routes.py | 3 |
@@ -152,7 +154,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/capabilities/data_governance_read.py | 3 |
 | apps/cosa/capabilities/finance_read.py | 3 |
 | apps/cosa/capabilities/legal_issue_read.py | 3 |
-| apps/cosa/capabilities/operations_write.py | 3 |
 | apps/cosa/capabilities/people_risk_read.py | 3 |
 | apps/cosa/capabilities/product_decision_read.py | 3 |
 | apps/cosa/capabilities/security_posture_read.py | 3 |

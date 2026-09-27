@@ -92,6 +92,10 @@ describe("setWeeklyGoalService", () => {
     expect(events[0]!.envelope.payload.origin).toBe("chat");
     expect(events[0]!.envelope.payload.originRef).toBe("conv_123");
     expect(events[0]!.envelope.payload.focus).toBe("C");
+    // Ngữ cảnh cho agent phân rã: stage của Project + task đang mở (mới tạo nên rỗng).
+    expect(events[0]!.envelope.payload.lifecycleStage).toBe("P0_DISCOVERY");
+    expect(events[0]!.envelope.payload.existingTaskTitles).toEqual([]);
+    expect(events[0]!.envelope.payload.nextBestActions).toEqual([]);
   });
 
   it("does not append an event when triggerDecomposition is false", async () => {

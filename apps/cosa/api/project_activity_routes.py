@@ -29,6 +29,8 @@ logger = logging.getLogger("cosa.api.project_activity_routes")
 
 # SSE heartbeat để tránh timeout client
 PROJECT_ACTIVITY_HEARTBEAT_INTERVAL_SEC = 15.0
+# Chu kỳ poll durable store cho event mới sau replay.
+PROJECT_ACTIVITY_POLL_INTERVAL_SEC = 2.0
 
 
 def get_cosa_plane(request: Request) -> CosaAgentPlane:
@@ -142,18 +144,38 @@ async def _stream_project_activity(
         limit=1000,  # Reasonable replay limit
     )
 
+    last_sequence = after_sequence
     for event in replay_events:
         dto = _event_record_to_dto(event)
         yield f"id: {dto.project_sequence}\n"
         yield f"data: {dto.model_dump_json()}\n\n"
+        last_sequence = dto.project_sequence
 
-    # Heartbeat loop (simple keepalive; không có live fanout vào demo này,
-    # nhưng SSE stream vẫn open khi client connect).
+    # Live: worker ghi activity ở tiến trình khác (không có queue chung), nên
+    # poll durable store định kỳ — cùng cách run stream (event_stream.py) làm.
+    # Trước đây sau replay chỉ còn heartbeat nên client không bao giờ nhận event
+    # mới (vd. tiến độ kế hoạch agent chèn vào chat) khi chưa kết nối lại.
+    loop = asyncio.get_running_loop()
+    last_output_at = loop.time()
     heartbeat_count = 0
     while True:
-        await asyncio.sleep(PROJECT_ACTIVITY_HEARTBEAT_INTERVAL_SEC)
-        heartbeat_count += 1
-        yield f": heartbeat {heartbeat_count}\n\n"
+        await asyncio.sleep(PROJECT_ACTIVITY_POLL_INTERVAL_SEC)
+        new_events = await repo.list_since(
+            workspace_id=identity.workspace_id,
+            project_id=project_id,
+            after_sequence=last_sequence,
+            limit=1000,
+        )
+        for event in new_events:
+            dto = _event_record_to_dto(event)
+            yield f"id: {dto.project_sequence}\n"
+            yield f"data: {dto.model_dump_json()}\n\n"
+            last_sequence = dto.project_sequence
+            last_output_at = loop.time()
+        if loop.time() - last_output_at >= PROJECT_ACTIVITY_HEARTBEAT_INTERVAL_SEC:
+            heartbeat_count += 1
+            yield f": heartbeat {heartbeat_count}\n\n"
+            last_output_at = loop.time()
 
 
 def create_project_activity_router() -> APIRouter:

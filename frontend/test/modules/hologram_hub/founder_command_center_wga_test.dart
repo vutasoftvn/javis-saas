@@ -201,4 +201,104 @@ void main() {
     expect(c.draftPlans, hasLength(1));
     expect(c.draftPlans.single.goalText, contains('phỏng vấn'));
   });
+
+  test('loadDraftPlans exposes a failed decomposition with a friendly message', () async {
+    ApiClient.client = MockClient((req) async {
+      if (req.method == 'GET' && req.url.path == '/operations/execution-plans') {
+        return _ok({
+          'plans': <dynamic>[],
+          'latestDecomposition': {
+            'weeklyPlanId': 'wp-1',
+            'status': 'failed',
+            'errorCode': 'provider_insufficient_balance',
+            'updatedAt': null,
+          },
+        });
+      }
+      return http.Response('{}', 404);
+    });
+    final c = FounderCommandCenterController();
+    c.activeProjectId.value = 'proj-1';
+    await c.loadDraftPlans();
+    final st = c.latestDecomposition.value!;
+    expect(st.isFailed, isTrue);
+    expect(st.userMessage, contains('hết hạn mức'));
+    expect(st.userMessage, isNot(contains('provider_')));
+  });
+
+  test('requestDecomposition marks the new weekly plan as pending', () async {
+    ApiClient.client = MockClient((req) async {
+      if (req.method == 'POST' &&
+          req.url.path == '/operations/strategy/projects/proj-1/weekly-goal') {
+        return _ok({'weeklyPlanId': 'wp-9', 'focus': 'x', 'decompositionRequested': true});
+      }
+      return http.Response('{}', 404);
+    });
+    final c = FounderCommandCenterController();
+    c.activeProjectId.value = 'proj-1';
+    await c.requestDecomposition('Chốt 3 phỏng vấn khách hàng');
+    expect(c.latestDecomposition.value?.weeklyPlanId, 'wp-9');
+    expect(c.latestDecomposition.value?.isPending, isTrue);
+  });
+
+  test('DecompositionState.tryParse tolerates missing/invalid payloads', () {
+    expect(DecompositionState.tryParse(null), isNull);
+    expect(DecompositionState.tryParse({'status': 'failed'}), isNull);
+    expect(
+      DecompositionState.tryParse({'weeklyPlanId': 5, 'status': 'done'})?.weeklyPlanId,
+      '5',
+    );
+  });
+
+  test('requestDecomposition from chat carries the conversation as originRef', () async {
+    final calls = <Map<String, dynamic>>[];
+    ApiClient.client = MockClient((req) async {
+      if (req.method == 'POST' &&
+          req.url.path == '/operations/strategy/projects/proj-1/weekly-goal') {
+        calls.add(jsonDecode(req.body) as Map<String, dynamic>);
+        return _ok({'weeklyPlanId': 'wp-1', 'focus': 'x', 'decompositionRequested': true});
+      }
+      return http.Response('{}', 404);
+    });
+    final c = FounderCommandCenterController();
+    c.activeProjectId.value = 'proj-1';
+    c.seedConversationIdForTest('conv_42');
+    await c.requestDecomposition('Chốt 3 phỏng vấn khách hàng', origin: 'chat');
+    expect(calls.single['origin'], 'chat');
+    expect(calls.single['originRef'], 'conv_42');
+  });
+
+  test('planFromChatInput sends the typed goal to decomposition and clears input', () async {
+    final calls = <Map<String, dynamic>>[];
+    ApiClient.client = MockClient((req) async {
+      if (req.method == 'POST' &&
+          req.url.path == '/operations/strategy/projects/proj-1/weekly-goal') {
+        calls.add(jsonDecode(req.body) as Map<String, dynamic>);
+        return _ok({'weeklyPlanId': 'wp-1', 'focus': 'x', 'decompositionRequested': true});
+      }
+      return http.Response('{}', 404);
+    });
+    final c = FounderCommandCenterController();
+    c.activeProjectId.value = 'proj-1';
+    c.seedConversationIdForTest('conv_7');
+    c.chatInputController.text = '  Ra mắt landing page và thu 20 email  ';
+    await c.planFromChatInput();
+    expect(calls.single['focus'], 'Ra mắt landing page và thu 20 email');
+    expect(calls.single['origin'], 'chat');
+    expect(calls.single['originRef'], 'conv_7');
+    expect(calls.single['triggerDecomposition'], isTrue);
+    expect(c.chatInputController.text, isEmpty);
+  });
+
+  test('planFromChatInput with empty input does not call backend', () async {
+    var called = false;
+    ApiClient.client = MockClient((req) async {
+      called = true;
+      return http.Response('{}', 404);
+    });
+    final c = FounderCommandCenterController();
+    c.activeProjectId.value = 'proj-1';
+    await c.planFromChatInput();
+    expect(called, isFalse);
+  });
 }

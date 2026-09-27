@@ -36,6 +36,9 @@ SAFE_ACTIVITY_KINDS = frozenset(
         "run.completed",
         "run.failed",
         "run.cancelled",
+        # WGA G9 — assistant message do run nền (lập kế hoạch, tiến độ task)
+        # chèn vào conversation; canonical record = MessageRecord đã persist.
+        "agent.chat_message",
     }
 )
 
@@ -69,6 +72,8 @@ _SUMMARY_ALLOWLIST = frozenset(
         "error_code",
         "step_name",
         "run_id",
+        "conversation_id",
+        "message_kind",
     }
 )
 

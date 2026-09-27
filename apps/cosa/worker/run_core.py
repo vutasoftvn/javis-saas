@@ -14,6 +14,7 @@ chèn được 3 UI emit ĐÚNG vị trí cũ (sau resolve spec, trước compli
 
 from __future__ import annotations
 
+import functools
 import logging
 import time
 from dataclasses import dataclass
@@ -87,6 +88,7 @@ async def prepare_request(
     policy_snapshot: Any | None,
     locale: str = "vi-VN",
     extra_metadata: dict[str, Any] | None = None,
+    project_id: str | None = None,
 ) -> RunCorePrep:
     """Dựng RunRequest + resolve compliance (mint company delegation).
 
@@ -99,6 +101,10 @@ async def prepare_request(
         run_metadata["policy_snapshot"] = policy_snapshot.model_dump()
     if extra_metadata:
         run_metadata.update(extra_metadata)
+    # project_id tường minh (đã verify ở backend) thắng extra_metadata — kernel
+    # dùng nó cho session_context trong prompt và apply_run_scope của tool.
+    if project_id:
+        run_metadata["project_id"] = str(project_id)
     run_metadata["locale"] = locale
 
     req = RunRequest(
@@ -162,9 +168,16 @@ async def prepare_run(
     policy_snapshot: Any | None = None,
     locale: str = "vi-VN",
     extra_metadata: dict[str, Any] | None = None,
+    project_id: str | None = None,
 ) -> RunCorePrep:
     """Tiện ích cho headless caller (WGA task) — resolve_spec + prepare_request
-    một lượt, không cần chèn UI emit ở giữa."""
+    một lượt, không cần chèn UI emit ở giữa.
+
+    Business run phải có scope Project (quy tắc 14): thiếu `project_id` thì
+    raise `RunCoreError("missing_project_scope")`, không suy diễn project.
+    """
+    if not project_id:
+        raise RunCoreError("missing_project_scope")
     spec = await resolve_spec(plane, run_id=run_id, local_spec=local_spec)
     return await prepare_request(
         plane,
@@ -177,6 +190,7 @@ async def prepare_run(
         policy_snapshot=policy_snapshot,
         locale=locale,
         extra_metadata=extra_metadata,
+        project_id=project_id,
     )
 
 
@@ -247,6 +261,25 @@ async def _build_routed_kernel(plane: CosaAgentPlane, route: ResolvedModelRoute)
         model_client = await factory.create(route)
     except ModelProviderMisconfigured as exc:
         raise RunCoreError("model_provider_misconfigured") from exc
+
+    # Fallback lúc chạy (spec reliability hạng mục 2): lỗi provider khi gọi
+    # model chuyển sang profile kế tiếp trong allowlist của policy.
+    resolver = getattr(plane, "model_route_resolver", None)
+    resolve_fallbacks = getattr(resolver, "resolve_fallback_routes", None)
+    if resolve_fallbacks is not None and route.fallback_profile_ids:
+        fallback_routes = [
+            r for r in list(await resolve_fallbacks(route)) if isinstance(r, ResolvedModelRoute)
+        ]
+        if fallback_routes:
+            from apps.cosa.models.fallback_model import FallbackModel
+
+            model_client = FallbackModel(
+                model_client,
+                primary_profile_id=route.profile_id,
+                fallbacks=[
+                    (r.profile_id, functools.partial(factory.create, r)) for r in fallback_routes
+                ],
+            )
 
     from apps.cosa.composition.kernel_factory import build_execution_kernel
 

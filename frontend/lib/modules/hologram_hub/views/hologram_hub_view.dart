@@ -1309,6 +1309,23 @@ class _WgaSurfacesState extends State<_WgaSurfaces> {
     final c = widget.controller;
     return Column(
       children: [
+        Obx(() {
+          final st = c.latestDecomposition.value;
+          if (st == null || !st.isFailed || c.draftPlans.isNotEmpty) {
+            return const SizedBox.shrink();
+          }
+          return Padding(
+            key: const ValueKey('wga-decomposition-failed'),
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.redAccent, size: 18),
+                const SizedBox(width: 8),
+                Expanded(child: Text(st.userMessage)),
+              ],
+            ),
+          );
+        }),
         Obx(
           () => Column(
             children: c.draftPlans

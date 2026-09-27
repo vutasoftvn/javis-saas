@@ -123,10 +123,8 @@ async def test_eval_no_metric_evidence_task_pending():
     """Case 7: No metric evidence keeps WGA task in_progress with completion_pending."""
     plane = MagicMock()
     plane.company_client = MagicMock()
-    # validate-completion returns pending or fails because metric evidence is missing
-    plane.company_client.post = AsyncMock(
-        return_value={"status": "pending", "reason": "missing_metric_evidence"}
-    )
+    # Không có evidence (vd. thiếu metric) -> không được advance('done').
+    plane.company_client.post = AsyncMock(return_value={"status": "ok"})
 
     await finalize_wga_task_completion(
         plane,
@@ -134,12 +132,12 @@ async def test_eval_no_metric_evidence_task_pending():
         task_id="t_metric_1",
         run_id="r_metric_1",
         token="tok_eval",
+        evidence_refs=[],
     )
 
     # Must advance to in_progress with completion_pending
-    assert plane.company_client.post.await_count == 2
+    assert plane.company_client.post.await_count == 1
     calls = plane.company_client.post.await_args_list
-    assert "/validate-completion" in calls[0].args[0]
-    assert "/advance" in calls[1].args[0]
-    assert calls[1].kwargs["json"]["toStatus"] == "in_progress"
-    assert calls[1].kwargs["json"]["note"] == "completion_pending"
+    assert "/advance" in calls[0].args[0]
+    assert calls[0].kwargs["json"]["toStatus"] == "in_progress"
+    assert calls[0].kwargs["json"]["note"] == "completion_pending"

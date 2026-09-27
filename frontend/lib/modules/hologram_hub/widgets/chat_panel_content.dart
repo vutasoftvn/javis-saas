@@ -193,6 +193,16 @@ class _ChatPanelContentState extends State<ChatPanelContent> {
 
                         // WGA — agent chèn 1 message JSON {"kind":"goal_confirm",...}
                         final content = (msg['content'] ?? '').trim();
+                        // WGA G9 — tiến độ kế hoạch {"kind":"plan_progress",...}
+                        final progress = !isUser && !isError
+                            ? PlanProgress.tryParse(content)
+                            : null;
+                        if (progress != null) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: _PlanProgressCard(progress: progress),
+                          );
+                        }
                         if (!isUser &&
                             !isError &&
                             content.startsWith('{') &&
@@ -492,12 +502,26 @@ class _ChatPanelContentState extends State<ChatPanelContent> {
                     icon: const Icon(Icons.add, color: AppTheme.primary, size: 20),
                     splashRadius: 20,
                   ),
-                  suffixIcon: IconButton(
-                    key: const Key('hub_chat_send_button'),
-                    tooltip: isEn ? 'Send' : 'Gửi',
-                    onPressed: () => controller.sendChatMessage(controller.chatInputController.text),
-                    icon: const Icon(Icons.send, color: AppTheme.primary, size: 20),
-                    splashRadius: 20,
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // WGA G10 — kích hoạt lập kế hoạch tường minh (không đoán
+                      // từ văn bản): nội dung ô nhập là mục tiêu cần phân rã.
+                      IconButton(
+                        key: const Key('hub_chat_plan_button'),
+                        tooltip: isEn ? 'Plan & assign to agents' : 'Lập kế hoạch & giao việc',
+                        onPressed: controller.planFromChatInput,
+                        icon: const Icon(Icons.account_tree_outlined, color: AppTheme.primary, size: 20),
+                        splashRadius: 20,
+                      ),
+                      IconButton(
+                        key: const Key('hub_chat_send_button'),
+                        tooltip: isEn ? 'Send' : 'Gửi',
+                        onPressed: () => controller.sendChatMessage(controller.chatInputController.text),
+                        icon: const Icon(Icons.send, color: AppTheme.primary, size: 20),
+                        splashRadius: 20,
+                      ),
+                    ],
                   ),
                 ),
                 onSubmitted: (text) => controller.sendChatMessage(text),
@@ -506,6 +530,105 @@ class _ChatPanelContentState extends State<ChatPanelContent> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// WGA G9 — message có cấu trúc báo tiến độ task của 1 execution plan.
+class PlanProgress {
+  final String planId;
+  final List<String> done;
+  final List<String> pendingReview;
+  final List<String> waitingApproval;
+  final List<String> blocked;
+
+  const PlanProgress({
+    required this.planId,
+    required this.done,
+    required this.pendingReview,
+    required this.waitingApproval,
+    required this.blocked,
+  });
+
+  static PlanProgress? tryParse(String content) {
+    if (!content.startsWith('{') || !content.contains('"plan_progress"')) return null;
+    try {
+      final j = jsonDecode(content);
+      if (j is! Map<String, dynamic> || j['kind'] != 'plan_progress') return null;
+      List<String> list(String k) =>
+          ((j[k] as List<dynamic>?) ?? const []).map((e) => '$e').toList();
+      return PlanProgress(
+        planId: '${j['plan_id'] ?? ''}',
+        done: list('done'),
+        pendingReview: list('pending_review'),
+        waitingApproval: list('waiting_approval'),
+        blocked: list('blocked'),
+      );
+    } on FormatException {
+      return null;
+    }
+  }
+}
+
+class _PlanProgressCard extends StatelessWidget {
+  final PlanProgress progress;
+
+  const _PlanProgressCard({required this.progress});
+
+  @override
+  Widget build(BuildContext context) {
+    final isEn = Get.isRegistered<LocaleController>()
+        ? Get.find<LocaleController>().current.value == SupportedLocale.enUS
+        : Get.locale?.languageCode == 'en';
+    final rows = <(IconData, Color, String, List<String>)>[
+      (Icons.check_circle_outline, Colors.greenAccent, isEn ? 'Done' : 'Đã xong', progress.done),
+      (
+        Icons.rate_review_outlined,
+        Colors.amberAccent,
+        isEn ? 'Needs your confirmation' : 'Chờ bạn xác nhận kết quả',
+        progress.pendingReview,
+      ),
+      (
+        Icons.pending_actions_outlined,
+        Colors.amberAccent,
+        isEn ? 'Waiting for your approval' : 'Chờ bạn duyệt',
+        progress.waitingApproval,
+      ),
+      (Icons.block, Colors.redAccent, isEn ? 'Blocked' : 'Bị chặn', progress.blocked),
+    ];
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A).withValues(alpha: 0.22),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.22)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            isEn ? 'Plan progress update' : 'Cập nhật tiến độ kế hoạch',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.82), fontSize: 13),
+          ),
+          for (final (icon, color, label, titles) in rows)
+            if (titles.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(icon, color: color, size: 16),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '$label: ${titles.join(', ')}',
+                      style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+        ],
+      ),
     );
   }
 }

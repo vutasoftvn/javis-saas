@@ -52,7 +52,7 @@ async function seedAcceptedPlan(items: CreatePlanItemInput[]) {
   const res = await acceptExecutionPlanService(
     plan.id, { workspaceId: ws.workspaceId, acceptedByMemberId: founderId.toString() }, ws.bearerToken
   );
-  return { workspaceId: ws.workspaceId, auth: ws.bearerToken, plan, res };
+  return { workspaceId: ws.workspaceId, auth: ws.bearerToken, plan, res, projectId: String(project.id) };
 }
 
 function autoItem(title: string, over: Partial<CreatePlanItemInput> = {}): CreatePlanItemInput {
@@ -72,6 +72,16 @@ describe("listAgentClaimableTasksService", () => {
     expect(claimable.every((t) => t.autonomyClass === "AUTO")).toBe(true);
     expect(claimable.every((t) => t.ownerAgentProfile === "operations")).toBe(true);
     expect(claimable[0]!.planItemId).toBeTruthy();
+    expect(claimable.every((t) => t.projectId === s.projectId)).toBe(true);
+    expect(claimable.every((t) => t.planOrigin === "command_center" && t.planOriginRef === null)).toBe(true);
+  });
+
+  it("filters by projectId so a sweep never crosses Projects", async () => {
+    const s = await seedAcceptedPlan([autoItem("A")]);
+    const own = await listAgentClaimableTasksService(s.workspaceId, 10, s.auth, undefined, s.projectId);
+    expect(own.map((t) => t.title)).toEqual(["A"]);
+    const other = await listAgentClaimableTasksService(s.workspaceId, 10, s.auth, undefined, "999999999");
+    expect(other).toEqual([]);
   });
 
   it("excludes FOUNDER_ONLY tasks", async () => {
@@ -92,7 +102,7 @@ describe("listAgentClaimableTasksService", () => {
     // complete "first"
     const firstTaskId = claimable[0]!.taskId;
     await advanceTaskByAgentService({ taskId: firstTaskId, toStatus: "in_progress", runId: "r" }, ctxFor(s.workspaceId));
-    await advanceTaskByAgentService({ taskId: firstTaskId, toStatus: "done", runId: "r" }, ctxFor(s.workspaceId));
+    await advanceTaskByAgentService({ taskId: firstTaskId, toStatus: "done", runId: "r", evidenceRefs: ["artifact:a1"] }, ctxFor(s.workspaceId));
 
     claimable = await listAgentClaimableTasksService(s.workspaceId, 10, s.auth);
     expect(claimable.map((t) => t.title)).toEqual(["second"]);

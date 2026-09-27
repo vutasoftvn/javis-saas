@@ -404,8 +404,10 @@ class ProjectActivityEventDTO(BaseModel):
     # `ProjectActivityEvent` cũng coi 2 field này là nullable; DTO bắt buộc str làm list activity 500.
     phase: str | None = None  # "runtime", "business_decision", v.v.
     status: str | None = None  # "accepted", "pending", "completed", v.v.
-    actor_kind: str  # "human", "ai", "system"
-    actor_id: str
+    # Runtime event do event_stream.emit ghi không mang actor (NULL trong DB) —
+    # bắt buộc str từng làm GET /activity 500 và SSE stream phát event: error.
+    actor_kind: str | None = None  # "human", "ai", "system"
+    actor_id: str | None = None
     correlation_id: str | None = None
     source_type: str  # "run", "conversation", "task", "decision", v.v.
     source_id: str

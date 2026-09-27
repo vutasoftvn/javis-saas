@@ -1,4 +1,4 @@
-import { api, APIError, Header } from "encore.dev/api";
+import { api, APIError, Header, Query } from "encore.dev/api";
 import {
   Task,
   TaskStatus,
@@ -136,6 +136,7 @@ export const advanceTask = api(
     toStatus,
     runId,
     note,
+    evidenceRefs,
     workspaceId,
     authorization,
   }: {
@@ -143,6 +144,7 @@ export const advanceTask = api(
     toStatus: AgentAdvanceStatus;
     runId: string;
     note?: string;
+    evidenceRefs?: string[];
     workspaceId: Header<"X-Workspace-Id">;
     authorization?: Header<"Authorization">;
   }): Promise<Task> => {
@@ -152,7 +154,7 @@ export const advanceTask = api(
       capabilityId: WGA_CAP_TASK_ADVANCE,
       runId,
     });
-    return advanceTaskByAgentService({ taskId: id, toStatus, runId, note }, ctx);
+    return advanceTaskByAgentService({ taskId: id, toStatus, runId, note, evidenceRefs }, ctx);
   }
 );
 
@@ -163,21 +165,28 @@ export const listAgentClaimableTasks = api(
   async ({
     workspaceId,
     limit,
+    projectId,
     authorization,
   }: {
     workspaceId: Header<"X-Workspace-Id">;
     limit?: number;
+    projectId?: Query<string>;
     authorization?: Header<"Authorization">;
   }): Promise<{ tasks: AgentClaimableTask[] }> => {
     const ctx = resolveCosaTaskContext(authorization, {
       workspaceId,
       capabilityId: WGA_CAP_TASK_LIST,
     });
+    const trimmedProjectId = projectId?.trim();
+    if (trimmedProjectId && !/^\d+$/.test(trimmedProjectId)) {
+      throw APIError.invalidArgument("projectId must be a numeric id");
+    }
     const tasks = await listAgentClaimableTasksService(
       workspaceId,
       limit ?? 5,
       authorization,
-      ctx
+      ctx,
+      trimmedProjectId || undefined
     );
     return { tasks };
   }

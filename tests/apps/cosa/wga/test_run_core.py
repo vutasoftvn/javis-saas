@@ -150,3 +150,20 @@ async def test_run_kernel_invokes_plane_kernel_and_times_it():
     assert result.status == "completed"
     assert duration >= 0.0
     kernel.run.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_prepare_run_fails_closed_without_project_scope():
+    from apps.cosa.worker.run_core import RunCoreError, prepare_run
+
+    with pytest.raises(RunCoreError) as exc:
+        await prepare_run(
+            SimpleNamespace(),
+            run_id="r",
+            local_spec=SimpleNamespace(),
+            prompt="p",
+            principal="system:wga:ws1",
+            workspace_id="ws1",
+            conversation_id="c",
+        )
+    assert exc.value.reason_code == "missing_project_scope"

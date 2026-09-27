@@ -118,3 +118,64 @@ def test_prompt_contains_goal_and_schema_guidance():
     assert "P1_PROBLEM_VALIDATION" in prompt
     assert "Old task" in prompt
     assert "JSON" in prompt
+
+
+def _draft(cap, domain):
+    from apps.cosa.agents.goal_decomposition import PlanItemDraft
+
+    return PlanItemDraft(
+        title="Do it",
+        decision_reason="because it matters",
+        evidence_refs=[],
+        suggested_domain=domain,
+        expected_capability=cap,
+    )
+
+
+_CATALOG = {
+    "operations": ["operations.task.list", "strategy.project.get"],
+    "strategy": ["strategy.project.get", "strategy.evidence.list"],
+    "sales": ["project.crm.read"],
+}
+
+
+def test_validate_plan_capabilities_drops_unknown_capability():
+    from apps.cosa.agents.goal_decomposition import validate_plan_capabilities
+
+    [out] = validate_plan_capabilities([_draft("operations.sop.draft", "operations")], _CATALOG)
+    assert out.expected_capability is None
+    assert out.suggested_domain == "operations"
+
+
+def test_validate_plan_capabilities_reassigns_domain_to_owner():
+    from apps.cosa.agents.goal_decomposition import validate_plan_capabilities
+
+    [out] = validate_plan_capabilities([_draft("project.crm.read", "marketing")], _CATALOG)
+    assert out.expected_capability == "project.crm.read"
+    assert out.suggested_domain == "sales"
+
+
+def test_validate_plan_capabilities_keeps_valid_pair_and_does_not_mutate():
+    from apps.cosa.agents.goal_decomposition import validate_plan_capabilities
+
+    item = _draft("strategy.project.get", "strategy")
+    [out] = validate_plan_capabilities([item], _CATALOG)
+    assert (out.suggested_domain, out.expected_capability) == ("strategy", "strategy.project.get")
+    assert out is not item
+
+
+def test_prompt_lists_capability_catalog_and_existing_tasks():
+    from apps.cosa.agents.goal_decomposition import build_decomposition_prompt
+
+    prompt = build_decomposition_prompt(
+        "Ship v1",
+        {
+            "lifecycle_stage": "P2_VALIDATION",
+            "existing_task_titles": ["Interview 3 customers"],
+            "capability_catalog": _CATALOG,
+        },
+    )
+    assert "P2_VALIDATION" in prompt
+    assert "- Interview 3 customers" in prompt
+    assert "- sales: project.crm.read" in prompt
+    assert "operations.sop.draft" not in prompt

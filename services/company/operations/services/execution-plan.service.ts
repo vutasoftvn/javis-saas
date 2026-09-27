@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { APIError } from "encore.dev/api";
 import { db } from "../models/db";
 import {
@@ -13,6 +13,7 @@ import {
   workspaceCapabilityPolicy,
 } from "../../shared/db/schema/operations";
 import { requireWorkspaceAccess, requireFounderCommand } from "../../shared/auth/workspace-access";
+import { AGENT_CAP } from "../../shared/auth/agent-capabilities";
 import { requireStrategyGovernanceAuthority } from "../strategy/services/strategy-governance-authorization.service";
 import { assertInitiativeInWorkspace } from "./initiative.service";
 import type { TenantContext } from "../../shared/types/tenant_context";
@@ -70,6 +71,8 @@ export interface ExecutionPlanItemView {
   dependsOnItemIds: string[];
   status: string;
   materializedTaskId: string | null;
+  /** Trạng thái task đã materialize (todo/in_progress/waiting_approval/blocked/done); null nếu chưa có. */
+  taskStatus: string | null;
 }
 
 export interface ExecutionPlanView {
@@ -99,7 +102,7 @@ export interface PatchPlanItemInput {
 type ItemRow = typeof executionPlanItems.$inferSelect;
 type PlanRow = typeof executionPlans.$inferSelect;
 
-function toItemView(row: ItemRow): ExecutionPlanItemView {
+function toItemView(row: ItemRow, taskStatus: string | null = null): ExecutionPlanItemView {
   return {
     id: row.id.toString(),
     title: row.title,
@@ -115,10 +118,15 @@ function toItemView(row: ItemRow): ExecutionPlanItemView {
       : [],
     status: row.status,
     materializedTaskId: row.materializedTaskId ? row.materializedTaskId.toString() : null,
+    taskStatus,
   };
 }
 
-function toPlanView(plan: PlanRow, items: ItemRow[]): ExecutionPlanView {
+function toPlanView(
+  plan: PlanRow,
+  items: ItemRow[],
+  taskStatusById: ReadonlyMap<string, string> = new Map()
+): ExecutionPlanView {
   return {
     id: plan.id.toString(),
     workspaceId: plan.workspaceId.toString(),
@@ -132,7 +140,12 @@ function toPlanView(plan: PlanRow, items: ItemRow[]): ExecutionPlanView {
     items: items
       .slice()
       .sort((a, b) => (a.sortKey ?? 0) - (b.sortKey ?? 0))
-      .map(toItemView),
+      .map((it) =>
+        toItemView(
+          it,
+          it.materializedTaskId ? taskStatusById.get(it.materializedTaskId.toString()) ?? null : null
+        )
+      ),
     createdAt: plan.createdAt.toISOString(),
     updatedAt: plan.updatedAt.toISOString(),
   };
@@ -175,6 +188,20 @@ export async function createExecutionPlanService(
             eq(executionPlans.workspaceId, wsId),
             eq(executionPlans.status, "draft"),
             isNull(executionPlans.deletedAt)
+          )
+        );
+      // G6 — phân rã đã ra kế hoạch: trạng thái 'done' (xoá mã lỗi cũ nếu có).
+      await tx
+        .update(weeklyPlans)
+        .set({
+          decompositionStatus: "done",
+          decompositionErrorCode: null,
+          decompositionUpdatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(weeklyPlans.id, BigInt(input.weeklyPlanId)),
+            eq(weeklyPlans.workspaceId, wsId)
           )
         );
     }
@@ -277,11 +304,106 @@ export async function createExecutionPlanService(
   });
 }
 
+export interface DecompositionStateView {
+  weeklyPlanId: string;
+  status: "pending" | "done" | "failed";
+  errorCode: string | null;
+  updatedAt: string | null;
+}
+
+const DECOMPOSITION_ERROR_CODE_RE = /^[a-z0-9_.:-]{1,80}$/;
+
+/**
+ * G6 — worker báo phân rã thất bại (provider lỗi, JSON sai schema, POST lỗi).
+ * Chỉ chuyển 'pending' -> 'failed'; weekly plan đã 'done' (có plan) giữ nguyên
+ * để một lần retry lỗi muộn không ghi đè kết quả thật.
+ */
+export async function recordDecompositionFailureService(
+  p: { weeklyPlanId: string; errorCode: string },
+  ctx: TenantContext
+): Promise<DecompositionStateView> {
+  const code = p.errorCode?.trim();
+  if (!code || !DECOMPOSITION_ERROR_CODE_RE.test(code)) {
+    throw APIError.invalidArgument("errorCode phải là mã máy (a-z0-9_.:-, tối đa 80 ký tự)");
+  }
+  const wsId = BigInt(ctx.workspaceId);
+  const wpId = BigInt(p.weeklyPlanId);
+  const now = new Date();
+  await db
+    .update(weeklyPlans)
+    .set({ decompositionStatus: "failed", decompositionErrorCode: code, decompositionUpdatedAt: now })
+    .where(
+      and(
+        eq(weeklyPlans.id, wpId),
+        eq(weeklyPlans.workspaceId, wsId),
+        eq(weeklyPlans.decompositionStatus, "pending")
+      )
+    );
+  const [row] = await db
+    .select({
+      id: weeklyPlans.id,
+      status: weeklyPlans.decompositionStatus,
+      errorCode: weeklyPlans.decompositionErrorCode,
+      updatedAt: weeklyPlans.decompositionUpdatedAt,
+    })
+    .from(weeklyPlans)
+    .where(and(eq(weeklyPlans.id, wpId), eq(weeklyPlans.workspaceId, wsId)))
+    .limit(1);
+  if (!row || !row.status) throw APIError.notFound(`weekly plan ${p.weeklyPlanId} not found`);
+  return toDecompositionView(row);
+}
+
+function toDecompositionView(row: {
+  id: bigint;
+  status: string | null;
+  errorCode: string | null;
+  updatedAt: Date | null;
+}): DecompositionStateView {
+  return {
+    weeklyPlanId: row.id.toString(),
+    status: row.status as DecompositionStateView["status"],
+    errorCode: row.errorCode,
+    updatedAt: row.updatedAt ? row.updatedAt.toISOString() : null,
+  };
+}
+
+/** Trạng thái phân rã gần nhất của Project (null nếu chưa từng yêu cầu). */
+export async function latestDecompositionStateService(
+  p: { workspaceId: string; projectId: string },
+  authorization: string | undefined
+): Promise<DecompositionStateView | null> {
+  const ctx = await requireWorkspaceAccess(authorization, p.workspaceId, {
+    agentCapabilities: [AGENT_CAP.OPERATIONS_EXECUTION_PLAN_READ],
+  });
+  const [row] = await db
+    .select({
+      id: weeklyPlans.id,
+      status: weeklyPlans.decompositionStatus,
+      errorCode: weeklyPlans.decompositionErrorCode,
+      updatedAt: weeklyPlans.decompositionUpdatedAt,
+    })
+    .from(weeklyPlans)
+    .where(
+      and(
+        eq(weeklyPlans.workspaceId, BigInt(ctx.workspaceId)),
+        eq(weeklyPlans.projectId, BigInt(p.projectId)),
+        isNull(weeklyPlans.deletedAt),
+        isNotNull(weeklyPlans.decompositionStatus)
+      )
+    )
+    .orderBy(desc(weeklyPlans.decompositionUpdatedAt))
+    .limit(1);
+  return row ? toDecompositionView(row) : null;
+}
+
 export async function listExecutionPlansService(
   p: { workspaceId: string; projectId: string; status?: string },
   authorization: string | undefined
 ): Promise<ExecutionPlanView[]> {
-  const ctx = await requireWorkspaceAccess(authorization, p.workspaceId);
+  // G8 — agent chat đọc kế hoạch + tiến độ qua operations.execution_plan.read.
+  const ctx = await requireWorkspaceAccess(authorization, p.workspaceId, {
+    agentCapabilities: [AGENT_CAP.OPERATIONS_EXECUTION_PLAN_READ],
+  });
   const wsId = BigInt(ctx.workspaceId);
   const conds = [
     eq(executionPlans.workspaceId, wsId),
@@ -311,7 +433,18 @@ export async function listExecutionPlansService(
     const k = it.planId.toString();
     (byPlan.get(k) ?? byPlan.set(k, []).get(k)!).push(it);
   }
-  return plans.map((pl) => toPlanView(pl, byPlan.get(pl.id.toString()) ?? []));
+  const taskIds = items
+    .map((it) => it.materializedTaskId)
+    .filter((id): id is bigint => id !== null);
+  const taskStatusById = new Map<string, string>();
+  if (taskIds.length > 0) {
+    const rows = await db
+      .select({ id: tasks.id, status: tasks.status })
+      .from(tasks)
+      .where(and(eq(tasks.workspaceId, wsId), inArray(tasks.id, taskIds)));
+    for (const r of rows) taskStatusById.set(r.id.toString(), r.status);
+  }
+  return plans.map((pl) => toPlanView(pl, byPlan.get(pl.id.toString()) ?? [], taskStatusById));
 }
 
 export async function getExecutionPlanService(

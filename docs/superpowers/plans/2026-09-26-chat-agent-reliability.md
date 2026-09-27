@@ -650,3 +650,15 @@ git commit -m "feat(chat): ngữ cảnh phiên trong prompt và tự điền pro
 
 1. **Fallback lúc chạy (spec hạng mục 2):** thiết kế wrapper `agents.models.interface.Model` (chữ ký `get_response`/`stream_response` đã xác minh) chuyển sang profile trong `fallback_profile_ids` khi lỗi thuộc `provider_insufficient_balance | provider_auth | provider_unavailable`, cần `resolver.resolve_route(..., exclude_profile_ids=...)` và credential từng profile qua `factory.create(route)`.
 2. **HTTP 500 (spec hạng mục 6):** cần log server COSA của `listEscalations`, `getDashboardSummary`, work products, project activity, agent runs; dùng systematic-debugging, viết test tái hiện rồi mới sửa.
+
+## Trạng thái các mục "cần làm sau" (2026-09-27)
+
+1. **Fallback lúc chạy:** đã làm. `apps/cosa/models/fallback_model.py` bọc model khi
+   `ModelRouteResolver.resolve_fallback_routes(route)` trả về route ACTIVE đứng sau profile đang
+   dùng. Chỉ chuyển model khi gặp `provider_insufficient_balance | provider_auth |
+   provider_unavailable`. Stream chỉ được chuyển trước event đầu tiên. Sau khi fallback, các
+   lượt gọi tiếp theo trong cùng run dùng luôn profile đã hoạt động. Chưa phát event
+   `model.fallback` lên stream chat: hiện chỉ ghi log `model.fallback` và lưu
+   `FallbackModel.fallback_events`.
+2. **HTTP 500:** đã sửa hai nguyên nhân gốc, tái hiện trên Postgres thật. Xem commit
+   `997606b` và mục 6 của `2026-09-26-chat-plan-delegate-execute-loop.md`.

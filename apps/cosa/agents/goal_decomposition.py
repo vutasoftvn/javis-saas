@@ -12,14 +12,31 @@ import json
 from dataclasses import dataclass, field
 
 __all__ = [
+    "OWNER_AGENT_PROFILES",
     "PLAN_OUTPUT_JSON_SCHEMA",
     "PlanItemDraft",
     "PlanSchemaError",
     "build_decomposition_prompt",
     "parse_plan_output",
+    "validate_plan_capabilities",
 ]
 
 _VALID_PRIORITIES = {"low", "medium", "high", "urgent"}
+
+# Nguồn sự thật phía Python cho các agent profile nhận task WGA. PHẢI khớp
+# union `OwnerAgentProfile` ở services/company/operations/services/
+# autonomy-classifier.ts (routeOwnerProfile) — test chéo trong
+# tests/apps/cosa/wga/test_owner_agent_profiles.py chặn lệch. Trước đây worker
+# chỉ biết 3 profile nên task company route cho strategy/sales/... bị block.
+OWNER_AGENT_PROFILES: tuple[str, ...] = (
+    "operations",
+    "finance",
+    "marketing",
+    "research_intelligence",
+    "strategy",
+    "sales",
+    "coding",
+)
 
 
 class PlanSchemaError(ValueError):
@@ -67,14 +84,20 @@ def build_decomposition_prompt(goal_text: str, context: dict) -> str:
     """Build the English prompt that asks the agent to decompose a weekly goal.
 
     `context` may carry: lifecycle_stage, next_best_actions (list[str]),
-    existing_task_titles (list[str]).
+    existing_task_titles (list[str]), capability_catalog (dict[profile, list[cap]]).
     """
     stage = context.get("lifecycle_stage") or "unknown"
     nba = context.get("next_best_actions") or []
     existing = context.get("existing_task_titles") or []
+    catalog: dict[str, list[str]] = context.get("capability_catalog") or {}
 
     nba_block = "\n".join(f"- {x}" for x in nba) if nba else "- (none)"
     existing_block = "\n".join(f"- {x}" for x in existing) if existing else "- (none)"
+    catalog_block = (
+        "\n".join(f"- {p}: {', '.join(caps)}" for p, caps in catalog.items() if caps)
+        if catalog
+        else "- (none)"
+    )
 
     return (
         "You are decomposing a founder's WEEKLY GOAL into concrete work items for "
@@ -83,14 +106,18 @@ def build_decomposition_prompt(goal_text: str, context: dict) -> str:
         f"PROJECT LIFECYCLE STAGE: {stage}\n\n"
         f"DETERMINISTIC NEXT-BEST-ACTIONS (advisory):\n{nba_block}\n\n"
         f"TASKS THAT ALREADY EXIST (do not duplicate):\n{existing_block}\n\n"
+        "AVAILABLE CAPABILITIES BY DOMAIN (the ONLY valid expected_capability "
+        f"values; pick the domain that owns it):\n{catalog_block}\n\n"
         "Produce 2-7 items. Each item MUST have:\n"
         "- title: an imperative action phrase (starts with a verb)\n"
         "- decision_reason: >=5 chars, why this item serves the goal\n"
         "- evidence_refs: array of reference strings in this workspace (may be "
         "empty for items only a human can do)\n"
-        "- suggested_domain: one of 'operations' | 'finance' | 'marketing', or null\n"
-        "- expected_capability: the single capability id the AI would call to do "
-        "this (e.g. 'operations.sop.draft'), or null if NO capability can do it "
+        "- suggested_domain: one of "
+        + " | ".join(f"'{p}'" for p in OWNER_AGENT_PROFILES)
+        + ", or null\n"
+        "- expected_capability: the single capability id from the list above the AI "
+        "would call to do this, or null if NO listed capability can do it "
         "(interviews, calls, meetings, strategic decisions -> null)\n"
         "- depends_on_titles: array of other item titles that must finish first\n"
         "- priority: 'low' | 'medium' | 'high' | 'urgent'\n\n"
@@ -185,3 +212,41 @@ def parse_plan_output(raw: str) -> list[PlanItemDraft]:
                 raise PlanSchemaError(f"item[{i}] depends on itself")
 
     return drafts
+
+
+def validate_plan_capabilities(
+    items: list[PlanItemDraft], catalog: dict[str, list[str]]
+) -> list[PlanItemDraft]:
+    """Đối chiếu `expected_capability` do model sinh với catalog thật (G5).
+
+    - Capability không thuộc profile nào -> `None` (company xếp FOUNDER_ONLY),
+      không để item AUTO với tool bịa.
+    - Capability có thật nhưng `suggested_domain` không sở hữu nó -> đổi domain
+      sang profile đầu tiên (theo thứ tự catalog) có capability đó.
+    Hàm thuần, không mutate input.
+    """
+    owners: dict[str, str] = {}
+    for profile, profile_caps in catalog.items():
+        for owned_cap in profile_caps:
+            owners.setdefault(owned_cap, profile)
+
+    out: list[PlanItemDraft] = []
+    for it in items:
+        cap: str | None = it.expected_capability
+        domain: str | None = it.suggested_domain
+        if cap is not None and cap not in owners:
+            cap = None
+        elif cap is not None and cap not in (catalog.get(domain or "") or []):
+            domain = owners[cap]
+        out.append(
+            PlanItemDraft(
+                title=it.title,
+                decision_reason=it.decision_reason,
+                evidence_refs=list(it.evidence_refs),
+                suggested_domain=domain,
+                expected_capability=cap,
+                depends_on_titles=list(it.depends_on_titles),
+                priority=it.priority,
+            )
+        )
+    return out
