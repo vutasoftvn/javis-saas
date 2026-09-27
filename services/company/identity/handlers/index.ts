@@ -10,3 +10,4 @@ export * from "./business-policy.handler";
 export * from "./permissions.handler";
 export * from "./agent-authorization.handler";
 export * from "./membership-event.handler";
+export * from "./founder-notification-channel.handler";

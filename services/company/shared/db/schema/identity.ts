@@ -1,4 +1,5 @@
-import { pgSchema, text, bigint, integer, timestamp, primaryKey, boolean, uuid, jsonb, index, unique } from "drizzle-orm/pg-core";
+import { pgSchema, text, bigint, integer, timestamp, primaryKey, boolean, uuid, jsonb, index, unique, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const coreSchema = pgSchema("core");
 
@@ -269,5 +270,31 @@ export const coreAgentAuthorizationTickets = coreSchema.table("agent_authorizati
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   ixTicketLookup: index("ix_agent_auth_tickets_lookup").on(t.workspaceId, t.runId, t.capabilityId),
+}));
+
+// Task 2 (B1, ADR-FOUNDER-CHANNEL-001) — kênh nhận thông báo ngoài của founder
+// (Telegram trước, mở rộng `kind` sau). Đây là dữ liệu profile của founder,
+// KHÔNG phải config tĩnh và KHÔNG phải tham số của agent (Decision 1). Chỉ
+// founder tạo/xác minh/thu hồi kênh của chính mình; agent không bao giờ thấy
+// `secretRef` (token thô không lưu ở đây — chỉ tham chiếu vault qua
+// `secret://cosa-connectors/founder-channels/<kind>/<channel-id>`, Decision 2).
+// Kênh dùng được khi và chỉ khi `verifiedAt IS NOT NULL AND revokedAt IS NULL`
+// (Decision 3). Mỗi (workspaceId, founderMemberId, kind) có tối đa một kênh
+// chưa thu hồi — unique index một phần dưới đây.
+export const founderNotificationChannels = coreSchema.table("founder_notification_channels", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull().references(() => identityWorkspaces.id, { onDelete: "cascade" }),
+  founderMemberId: bigint("founder_member_id", { mode: "bigint" }).notNull().references(() => identityWorkforceMembers.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull(), // chỉ "telegram" hiện tại — validate ở service, không CHECK ở DB để dễ mở rộng.
+  secretRef: text("secret_ref").notNull(),
+  chatId: text("chat_id").notNull(),
+  label: text("label"),
+  verifiedAt: timestamp("verified_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+}, (t) => ({
+  uqActiveChannelPerKind: uniqueIndex("uq_founder_notification_channels_active")
+    .on(t.workspaceId, t.founderMemberId, t.kind)
+    .where(sql`${t.revokedAt} IS NULL`),
 }));
 

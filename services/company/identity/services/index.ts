@@ -4,3 +4,6 @@ export * from "./sync.service";
 export * from "./token.service";
 export * from "./workspace.service";
 export * from "./tenant-context.service";
+export * from "./founder-notification-channel.service";
+export * from "./telegram-channel-adapter";
+export * from "./founder-channel-secret";
