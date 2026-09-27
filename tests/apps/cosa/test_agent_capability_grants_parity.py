@@ -4,7 +4,7 @@
    của profile — trừ `finance.transaction.record` (hạn mức chưa chốt, founder cấp tay).
 2. Mọi capability ghi qua company có binding permission (migration identity) — thiếu thì company
    không cấp được live authorization ticket.
-3. Backfill grant (operations 030) khớp đúng bảng TS.
+3. Backfill grant (operations 030 + 031) khớp đúng bảng TS.
 4. Binding compliance của `cosa.agents.operations` phủ đúng tập ComplianceResolver xin — thiếu 1
    capability là 404 cho cả run.
 """
@@ -71,13 +71,20 @@ def test_every_company_write_capability_has_a_permission_binding() -> None:
     assert not missing, f"capability ghi thiếu binding permission: {missing}"
 
 
+# Backfill grant cho assignment ACTIVE có sẵn: 030 (spec 2026-09-27-chat-business-actions) và
+# 031 (founder.notify.send, ADR-FOUNDER-CHANNEL-001). Hợp các file phải khớp bảng TS.
+BACKFILL_MIGRATIONS = (
+    "030_backfill_agent_capability_grants.up.sql",
+    "031_backfill_founder_notify_send_grant.up.sql",
+)
+
+
 def test_backfill_migration_matches_ts_grant_table() -> None:
-    sql = (
-        COMPANY / "operations/migrations/030_backfill_agent_capability_grants.up.sql"
-    ).read_text()
     pairs: dict[str, set[str]] = {}
-    for profile, cap in re.findall(r"\('(\w+)', '([a-z_.]+)'\)", sql):
-        pairs.setdefault(profile, set()).add(cap)
+    for name in BACKFILL_MIGRATIONS:
+        sql = (COMPANY / "operations/migrations" / name).read_text()
+        for profile, cap in re.findall(r"\('(\w+)', '([a-z_.]+)'\)", sql):
+            pairs.setdefault(profile, set()).add(cap)
     assert pairs == _ts_grant_table()
 
 

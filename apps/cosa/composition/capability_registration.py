@@ -73,6 +73,10 @@ from apps.cosa.capabilities.finance_write import (
     create_finance_transaction_classify_propose_handler,
     create_finance_transaction_record_handler,
 )
+from apps.cosa.capabilities.founder_notify import (
+    FOUNDER_NOTIFY_SEND_SPEC,
+    create_founder_notify_send_handler,
+)
 from apps.cosa.capabilities.knowledge_read import (
     KNOWLEDGE_PROFILE_READ_SPEC,
     create_knowledge_profile_read_handler,
@@ -290,6 +294,10 @@ def register_cosa_capabilities(
     cap_registry.register(
         ENGAGEMENT_ASSIGNMENT_WRITE_SPEC, create_engagement_assignment_write_handler(client)
     )
+
+    # Thông báo cho chính founder (ADR-FOUNDER-CHANNEL-001): T2-self, không có tham số người
+    # nhận — company tự tra kênh đã xác minh của founder sở hữu run.
+    cap_registry.register(FOUNDER_NOTIFY_SEND_SPEC, create_founder_notify_send_handler(client))
 
     # Knowledge & Legal
     cap_registry.register(

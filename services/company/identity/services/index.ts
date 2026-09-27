@@ -7,3 +7,4 @@ export * from "./tenant-context.service";
 export * from "./founder-notification-channel.service";
 export * from "./telegram-channel-adapter";
 export * from "./founder-channel-secret";
+export * from "./founder-notification-send.service";

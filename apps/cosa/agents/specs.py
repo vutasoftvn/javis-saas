@@ -189,6 +189,9 @@ COSA_OPERATIONS_INSTRUCTIONS = (
     "bạn đã đề xuất gì và đang chờ duyệt, KHÔNG nói đã hoàn thành trước khi có kết quả thực thi. "
     "Nếu Founder từ chối, ghi nhận và hỏi cách làm khác, không gọi lại y hệt. "
     "Luôn gọi Objective, Key Result, task và dự án bằng tên, không đọc ID cho Founder. "
+    "Khi Founder muốn nhận kết quả qua kênh riêng (vd. Telegram), gọi founder.notify.send với nội "
+    "dung ngắn gọn: công cụ chỉ gửi về kênh đã xác minh của chính Founder, không gửi được cho ai "
+    "khác; nếu báo chưa có kênh đã xác minh, hướng dẫn Founder xác minh kênh nhận trong hồ sơ. "
     "Nếu công cụ báo lỗi, nói rõ phần nào không lấy được và tiếp tục với dữ liệu còn có."
 )
 
@@ -246,7 +249,10 @@ COSA_OPERATIONS_AGENT_SPEC = AgentSpec(
     # chốt, spec §8.3) KHÔNG có ở đây. strategy.evidence.create / strategy.pilot.* /
     # legal.obligation.create_draft cũng không: company route WGA theo tiền tố sang profile
     # strategy/legal (tests/apps/cosa/wga/test_owner_agent_profiles.py).
-    version="1.6.0",
+    # 1.7.0 (ADR-FOUNDER-CHANNEL-001, plan hub đợt 2 B2): founder.notify.send — T2-self, gửi về
+    # kênh nhận đã xác minh của chính founder (không có tham số người nhận), founder duyệt
+    # từng lần trong chat. Không phải mở T3: engagement.message.send vẫn không có ở đây.
+    version="1.7.0",
     autonomy_level=AutonomyLevel.L2_EXECUTE,
     instructions=COSA_OPERATIONS_INSTRUCTIONS,
     capability_refs=[
@@ -268,6 +274,7 @@ COSA_OPERATIONS_AGENT_SPEC = AgentSpec(
         "startup_os.project.triage",
         "operations.task.advance",
         "venture.profile.propose_update",
+        "founder.notify.send",
     ],
     model_input_capability_ref="model.input.direct-user-message",
     pinned_skills=[

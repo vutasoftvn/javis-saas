@@ -4,7 +4,10 @@
 // chỉ nhận phiên đăng nhập của người dùng.
 //
 // Cố ý CHƯA mở cho agent: finance.accounting_document.confirm và
-// engagement.message.send (hành động rủi ro cao, cần người dùng tự thực hiện).
+// engagement.message.send (hành động rủi ro cao, cần người dùng tự thực hiện;
+// engagement.message.send vẫn là T3 và vẫn đóng). `founder.notify.send` KHÔNG phải
+// ngoại lệ của quy tắc này: nó chỉ gửi về kênh nhận đã xác minh của CHÍNH founder
+// sở hữu run, agent không chọn được người nhận (T2-self, ADR-FOUNDER-CHANNEL-001).
 //
 // Bậc hành động (T0 đọc … T3 ra ngoài) của từng id nằm ở
 // apps/cosa/capabilities/access_matrix.py; test parity
@@ -64,4 +67,8 @@ export const AGENT_CAP = Object.freeze({
   STARTUP_OS_GOAL_ADVISORY: "startup_os.goal.advisory",
   STARTUP_OS_GOAL_CREATE: "startup_os.goal.create",
   STARTUP_OS_PROJECT_TRIAGE: "startup_os.project.triage",
+  // T2-self (ADR-FOUNDER-CHANNEL-001 Decision 4/6/7): gửi thông báo vào kênh nhận đã xác
+  // minh của chính founder sở hữu run. Không có tham số người nhận; company tự tra kênh
+  // theo danh tính trong delegation. Chat vẫn buộc founder duyệt từng lần.
+  FOUNDER_NOTIFY_SEND: "founder.notify.send",
 });

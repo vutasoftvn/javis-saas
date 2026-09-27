@@ -6,7 +6,10 @@ from apps.cosa.capabilities.access_matrix import CHAT_T2_CAPABILITIES
 
 def test_key_result_checkin_vi_uses_names_not_ids() -> None:
     s = summarize_action(
-        "okr.key_result.checkin", {"key_result_id": "kr1", "value": 12}, "vi-VN", project_name="COSA"
+        "okr.key_result.checkin",
+        {"key_result_id": "kr1", "value": 12},
+        "vi-VN",
+        project_name="COSA",
     )
     assert s["title"] == "Ghi nhận tiến độ Key Result cho COSA"
     assert "12" in s["detail"]
@@ -54,3 +57,38 @@ def test_tool_name_maps_back_to_capability_id() -> None:
     assert capability_id_for_tool("okr_key_result_create", ids) == "okr.key_result.create"
     assert capability_id_for_tool("okr.key_result.create", ids) == "okr.key_result.create"
     assert capability_id_for_tool("nope", ids) is None
+
+
+def test_founder_notify_send_vi_shows_channel_label_and_short_content() -> None:
+    s = summarize_action(
+        "founder.notify.send",
+        {"content": "Tóm tắt 3 email chưa đọc", "channel_kind": "telegram"},
+        "vi-VN",
+        project_name="COSA",
+    )
+    assert s["title"] == "Gửi thông báo vào kênh Telegram của bạn"
+    assert s["detail"] == "Tóm tắt 3 email chưa đọc"
+
+
+def test_founder_notify_send_en_without_kind_uses_verified_label() -> None:
+    s = summarize_action("founder.notify.send", {"content": "Hi"}, "en-US", project_name=None)
+    assert s["title"] == "Send a notification to your verified channel"
+    assert s["detail"] == "Hi"
+    vi = summarize_action("founder.notify.send", {"content": "Chào"}, "vi", project_name=None)
+    assert vi["title"] == "Gửi thông báo vào kênh đã xác minh của bạn"
+
+
+def test_founder_notify_send_truncates_long_content_and_never_shows_raw_kind() -> None:
+    long = "Dòng một\n\n" + "x" * 300
+    s = summarize_action(
+        "founder.notify.send",
+        {"content": long, "channel_kind": "telegram"},
+        "vi",
+        project_name=None,
+    )
+    assert s["detail"].endswith("…")
+    assert len(s["detail"]) <= 121
+    assert s["detail"].startswith("Dòng một x")
+    assert "telegram" not in s["title"]  # nhãn đã dịch, không phải enum thô
+    short = summarize_action("founder.notify.send", {"content": "y" * 120}, "vi", project_name=None)
+    assert short["detail"] == "y" * 120

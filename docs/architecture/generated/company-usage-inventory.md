@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 114 | 24 |
 | VALID_KEEP (giữ nguyên) | 139 | 38 |
-| REVIEW (chưa phân loại) | 1345 | 302 |
+| REVIEW (chưa phân loại) | 1365 | 310 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -99,6 +99,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/capabilities/okr_write.py | 6 |
 | apps/cosa/capabilities/operations_write.py | 6 |
 | apps/cosa/compliance/company_client.py | 6 |
+| apps/cosa/composition/capability_registration.py | 6 |
 | apps/cosa/composition/kernel_factory.py | 6 |
 | apps/cosa/policies/evaluator.py | 6 |
 | apps/cosa/tests/test_worker_jwt.py | 6 |
@@ -113,7 +114,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/capabilities/marketing_write.py | 5 |
 | apps/cosa/capabilities/project_crm_read.py | 5 |
 | apps/cosa/capabilities/workspace_context_read.py | 5 |
-| apps/cosa/composition/capability_registration.py | 5 |
 | apps/cosa/events/automation_outcome_client.py | 5 |
 | apps/cosa/events/runtime_signal.py | 5 |
 | apps/cosa/workflows/deployment_authority_resolver.py | 5 |
@@ -136,6 +136,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/api/workforce_internal_routes.py | 4 |
 | apps/cosa/assets/authoring_service.py | 4 |
 | apps/cosa/capabilities/engagement_read.py | 4 |
+| apps/cosa/capabilities/founder_notify.py | 4 |
 | apps/cosa/capabilities/marketing_read.py | 4 |
 | apps/cosa/capabilities/venture_profile.py | 4 |
 | apps/cosa/events/founder_asset_callback_client.py | 4 |
@@ -143,6 +144,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | frontend/lib/modules/hologram_hub/controllers/mixins/hub_evidence_mixin.dart | 4 |
 | frontend/lib/modules/startup_os/controllers/startup_os_controller.dart | 4 |
 | frontend/lib/modules/startup_os/widgets/onboard_wizard_dialog.dart | 4 |
+| services/company/identity/services/founder-notification-channel.service.ts | 4 |
 | services/company/shared/events/envelope.ts | 4 |
 | services/cosa/handlers/agent-policy.handler.ts | 4 |
 | services/cosa/services/ai-governance-snapshot.service.ts | 4 |
@@ -178,6 +180,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | packages/agent/migrations/003_add_workforce_member_reference.sql | 3 |
 | packages/agent/workflows/live_authority.py | 3 |
 | services/company/finance-legal/handlers/ai-compliance-e2e-seed.handler.ts | 3 |
+| services/company/identity/handlers/founder-notification-send.handler.ts | 3 |
 | services/company/identity/handlers/tenant-context.handler.ts | 3 |
 | services/company/identity/services/platform.client.ts | 3 |
 | services/company/operations/application/runtime/runtime-overview-query.ts | 3 |
@@ -226,6 +229,8 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/finance-legal/services/cas-link.service.ts | 2 |
 | services/company/identity/migrations/001_cosa_startup_core_baseline.up.sql | 2 |
 | services/company/identity/migrations/007_agent_capability_permission_bindings.up.sql | 2 |
+| services/company/identity/migrations/009_founder_notify_send_permission_binding.up.sql | 2 |
+| services/company/identity/services/founder-channel-secret.ts | 2 |
 | services/company/identity/services/tenant-context.service.ts | 2 |
 | services/company/identity/tests/helpers/test-session.ts | 2 |
 | services/company/operations/application/runtime/runtime-signal-projector.ts | 2 |
@@ -236,6 +241,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/operations/services/automation-outcome.service.ts | 2 |
 | services/company/operations/services/executive-context.service.ts | 2 |
 | services/company/package-lock.json | 2 |
+| services/company/shared/auth/agent-capabilities.ts | 2 |
 | services/company/shared/contracts/mvp-response.ts | 2 |
 | services/company/shared/db/schema/identity.ts | 2 |
 | services/company/shared/services/workspace-resolver.service.ts | 2 |
@@ -249,6 +255,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/api/mvp_response.py | 1 |
 | apps/cosa/api/project_memory_routes.py | 1 |
 | apps/cosa/api/schemas.py | 1 |
+| apps/cosa/approvals/summary.py | 1 |
 | apps/cosa/assets/schemas.py | 1 |
 | apps/cosa/compliance/__init__.py | 1 |
 | apps/cosa/compliance/contracts.py | 1 |
@@ -298,12 +305,14 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/finance-legal/services/ingestion.service.ts | 1 |
 | services/company/identity/handlers/auth.handler.ts | 1 |
 | services/company/identity/handlers/e2e-session.handler.ts | 1 |
+| services/company/identity/handlers/founder-notification-channel.handler.ts | 1 |
 | services/company/identity/handlers/membership-event.handler.ts | 1 |
 | services/company/identity/handlers/workforce.handler.ts | 1 |
 | services/company/identity/services/e2e-session.service.ts | 1 |
 | services/company/identity/services/health.service.ts | 1 |
 | services/company/identity/services/membership-projection.service.ts | 1 |
 | services/company/identity/services/membership-reconciliation.service.ts | 1 |
+| services/company/identity/services/telegram-channel-adapter.ts | 1 |
 | services/company/identity/services/workforce.service.ts | 1 |
 | services/company/operations/domain/runtime-observation.ts | 1 |
 | services/company/operations/handlers/execution-plan.handler.ts | 1 |
@@ -329,7 +338,6 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/operations/strategy/handlers/experiment.handler.ts | 1 |
 | services/company/operations/tests/_helpers.ts | 1 |
 | services/company/package.json | 1 |
-| services/company/shared/auth/agent-capabilities.ts | 1 |
 | services/company/shared/auth/workspace-access.ts | 1 |
 | services/company/shared/events/customer-engagement-events.ts | 1 |
 | services/company/shared/events/event-types.ts | 1 |

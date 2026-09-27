@@ -54,7 +54,21 @@ _TEMPLATES: dict[str, dict[str, tuple[str, str]]] = {
         "vi": ("Giao hội thoại khách hàng cho người phụ trách", "{reason}"),
         "en": ("Assign a customer conversation", "{reason}"),
     },
+    # ADR-FOUNDER-CHANNEL-001: chỉ nhãn kênh + nội dung rút gọn; không có chat id/token vì
+    # tham số tool không chứa chúng (người nhận do company tự tra).
+    "founder.notify.send": {
+        "vi": ("Gửi thông báo vào kênh {channel_label} của bạn", "{content_preview}"),
+        "en": ("Send a notification to your {channel_label} channel", "{content_preview}"),
+    },
 }
+
+# Độ dài tối đa phần nội dung hiển thị trên thẻ duyệt `founder.notify.send` (trước "…").
+_NOTIFY_PREVIEW_MAX = 120
+_CHANNEL_KIND_LABELS: dict[str, dict[str, str]] = {
+    "vi": {"telegram": "Telegram"},
+    "en": {"telegram": "Telegram"},
+}
+_UNSPECIFIED_CHANNEL_LABEL = {"vi": "đã xác minh", "en": "verified"}
 
 _ENUM_LABELS: dict[str, dict[str, dict[str, str]]] = {
     "goal_type": {
@@ -158,6 +172,15 @@ def summarize_action(
             )
             or "—"
         )
+    if capability_id == "founder.notify.send":
+        kind = str(args.get("channel_kind") or "")
+        values["channel_label"] = _CHANNEL_KIND_LABELS[lang].get(
+            kind, _UNSPECIFIED_CHANNEL_LABEL[lang]
+        )
+        content = " ".join(str(args.get("content") or "").split())
+        if len(content) > _NOTIFY_PREVIEW_MAX:
+            content = content[:_NOTIFY_PREVIEW_MAX].rstrip() + "…"
+        values["content_preview"] = content or "—"
     title, detail = templates[lang]
     return {
         "title": title.format_map(values),

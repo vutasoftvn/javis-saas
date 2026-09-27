@@ -6,7 +6,8 @@ Spec: [`2026-09-27-hub-operations-workspace-design.md`](../../superpowers/specs/
 (mục 3 đợt 2, mục 4), plan: [`2026-09-27-hub-operations-phase2-phase3.md`](../../superpowers/plans/2026-09-27-hub-operations-phase2-phase3.md)
 (mục B0–B6). Tiếp nối [ADR-CHAT-ACTIONS-001](ADR-CHAT-ACTIONS-001-agent-actions-with-founder-approval.md).
 
-Trạng thái triển khai: chưa có code. B1–B6 của plan triển khai ADR này.
+Trạng thái triển khai: B1 (kênh nhận) và B2 (`founder.notify.send`) đã có code và test; B4–B6
+chưa. B1–B6 của plan triển khai ADR này.
 
 ## Context
 
@@ -63,10 +64,25 @@ nên cần ADR.
    - Input chỉ gồm `content` (văn bản, giới hạn độ dài) và `channel_kind` (tuỳ chọn, enum các kind
      đã hỗ trợ). **Không có** `chat_id`, `recipient`, `channel_id`, địa chỉ hay member id nào. Schema
      phía Python đặt `additionalProperties: false`.
-   - Endpoint nội bộ của company (`expose: false`) nhận `workspaceId + founderMemberId +
-     channelKind? + content`. Phía server tra `founderMemberId`, không lấy từ model (xem mục 5).
-     Payload có field lạ (`chat_id`, `recipient`, …) bị **`invalidArgument`**, không bị lặng lẽ bỏ
-     qua. Test sẽ khoá hành vi này.
+   - Endpoint company: **`POST /identity/founder-notifications/send`, `expose: true`**, cổng quyền
+     `requireWorkspaceAccess(authorization, workspaceId, { agentCapabilities:
+     [AGENT_CAP.FOUNDER_NOTIFY_SEND] })` (header `Authorization` + `X-Workspace-Id`).
+     *Sửa 2026-09-27 (B2):* bản đầu ghi `expose: false` nhận `workspaceId + founderMemberId`.
+     Không chạy được: apps/cosa là Python, gọi company qua HTTP (`CompanyServiceClient`), không gọi
+     được endpoint nội bộ của Encore. Vì endpoint phải mở ra ngoài, **không nhận `founderMemberId`
+     trong payload**: founder sở hữu run là danh tính trong delegation của run
+     (`ctx.workforceMemberId` + `ctx.membershipRole`, TenantContext mang danh tính người uỷ
+     quyền). Role không phải `founder`/`co-founder`, thiếu workforce member hoặc workforce member
+     không còn active ⇒ `permissionDenied` mã `founder_owner_not_authorized`.
+   - Payload là **allowlist** `{ content, channelKind? }` (`content` trim không rỗng, ≤ 4000 ký
+     tự; `channelKind` ∈ kind đã hỗ trợ). Mọi field khác (`chat_id`, `chatId`, `recipient`,
+     `channelId`, `founderMemberId`, …) bị **`invalidArgument`**, không bị lặng lẽ bỏ qua. Decoder
+     typed API của Encore bỏ qua field lạ (kiểm chứng: body có field thừa vẫn vào handler, không
+     báo lỗi), nên endpoint là `api.raw`: tự đọc JSON và đưa nguyên object cho allowlist ở service;
+     lỗi trả đúng khuôn `{ code, message, details }` của Encore. Test khoá hành vi này.
+   - Lịch nền (B5) dùng **cùng endpoint**: worker mint delegation cho `founder_member_id` đã
+     snapshot của lịch (mang capability `founder.notify.send`), nên cùng một cổng quyền và cùng
+     bước kiểm lúc gửi (mục 5) phục vụ cả chat run lẫn lịch.
    - Khi bỏ `channel_kind`: nếu founder có đúng một kênh dùng được thì gửi vào kênh đó. Có nhiều hơn
      một thì trả `failedPrecondition` mã `founder_channel_ambiguous` và yêu cầu nêu `channel_kind`.
      Không có kênh nào thì trả `failedPrecondition` mã `founder_channel_unavailable`.
@@ -96,7 +112,10 @@ nên cần ADR.
    - Trong lịch chạy nền đã được founder duyệt qua thẻ kế hoạch, capability được **uỷ quyền trước**
      chỉ khi nằm trong snapshot `preAuthorizedCapabilityIds` của lịch (B5). Mọi T2 khác ngoài
      snapshot vẫn không tự chạy.
-   - Live authorization ticket và grant vẫn áp dụng như mọi capability ghi qua company.
+   - Live authorization ticket và grant vẫn áp dụng như mọi capability ghi qua company: binding
+     `founder.notify.send → permission founder.notify.send` (risk `EXTERNAL_WRITE`, migration
+     identity 009), AI member profile `operations` được cấp khi kích hoạt Project team
+     (`AGENT_PROFILE_GRANTED_CAPABILITIES`, backfill operations 031).
 
 8. **Thu hồi kênh: tái dùng state `blocked_reauth` sẵn có, không thêm state mới.**
    `ScheduleExecutionState` (`services/cosa/services/schedule/schedule-types.ts`, CHECK
@@ -135,8 +154,16 @@ nên cần ADR.
   không gọi mạng thật.** Test tối thiểu: kênh chưa xác minh không dùng được; xác minh thành công và
   thất bại; revoke làm kênh không dùng được (lookup/preflight sau revoke trả lỗi
   `founder_channel_unavailable`). B1 không gọi sang services/cosa và không ghi state lịch (mục 8).
-- **B2 (apps/cosa + company):** `founder.notify.send` là T2 trong `MATRIX` và `AGENT_CAP`. Endpoint
-  nội bộ từ chối field người nhận (`invalidArgument`). Mẫu tóm tắt duyệt không lộ bí mật.
+- **B2 (apps/cosa + company):** `founder.notify.send` là T2 trong `MATRIX` và `AGENT_CAP`, có trong
+  spec `cosa.agents.operations` 1.7.0 (pin company cập nhật). Endpoint
+  `POST /identity/founder-notifications/send` (`expose: true`, `api.raw`, guard delegation có
+  capability — mục 4) từ chối mọi field ngoài `content`/`channelKind` (`invalidArgument`), lấy
+  founder từ delegation, trả `{ delivered, channelKind, channelLabel }` (không chat id/bí mật).
+  Telegram lỗi/timeout ⇒ `unavailable` mã `founder_channel_delivery_failed`, không đổi
+  `verified_at`. Log chỉ channel id, kind, độ dài nội dung. Binding permission (identity 009),
+  grant + backfill (operations 031), compliance binding `EXTERNAL`/`PERSONAL` cho
+  `cosa.agents.operations` (finance-legal 006). Mẫu tóm tắt duyệt chỉ hiện nhãn kênh + nội dung
+  rút gọn ≤ 120 ký tự.
 - **B4:** `automation.plan.propose` chỉ tham chiếu kênh theo trạng thái/nhãn (đã xác minh hay chưa),
   không bao giờ đưa bí mật hay chat id vào context của model. Nếu thiếu kênh đã xác minh thì khoá nút
   Duyệt.

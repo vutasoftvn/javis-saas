@@ -2,7 +2,7 @@
 // founder. Chỉ CRUD + verify/revoke kênh (Decision 1/2/3). KHÔNG gọi sang
 // services/cosa, KHÔNG đụng ScheduleExecutionState/blocked_reauth (Decision 8
 // và Consequences B1 dành phần đó cho B5). `resolveUsableChannelForFounder`
-// export ra để Task 3 (B2, endpoint nội bộ `founder.notify.send`) gọi trực
+// export ra để Task 3 (B2, `founder-notification-send.service.ts`) gọi trực
 // tiếp — KHÔNG được đặt private hay đổi chữ ký mà không có ADR mới.
 import { APIError } from "encore.dev/api";
 import { and, eq, isNull } from "drizzle-orm";

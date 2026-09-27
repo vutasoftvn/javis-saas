@@ -12,8 +12,21 @@ export interface FounderChannelAdapter {
 }
 
 const TELEGRAM_API_BASE = "https://api.telegram.org";
+// Task 3 (B2): request tới Telegram không được treo vô hạn — quá hạn thì trả {ok:false}
+// để caller map sang lỗi thử lại được (ADR-FOUNDER-CHANNEL-001, Consequences).
+const DEFAULT_TELEGRAM_TIMEOUT_MS = 10_000;
+
+export interface TelegramBotApiAdapterOptions {
+  timeoutMs?: number;
+}
 
 export class TelegramBotApiAdapter implements FounderChannelAdapter {
+  private readonly timeoutMs: number;
+
+  constructor(options: TelegramBotApiAdapterOptions = {}) {
+    this.timeoutMs = options.timeoutMs ?? DEFAULT_TELEGRAM_TIMEOUT_MS;
+  }
+
   async sendVerificationProbe(chatId: string, token: string, label?: string): Promise<FounderChannelSendResult> {
     const text = label
       ? `Kênh nhận thông báo "${label}" đã được kết nối. Đây là tin nhắn xác minh.`
@@ -27,6 +40,7 @@ export class TelegramBotApiAdapter implements FounderChannelAdapter {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ chat_id: chatId, text: content }),
+        signal: AbortSignal.timeout(this.timeoutMs),
       });
 
       const body = await res.json().catch(() => null);

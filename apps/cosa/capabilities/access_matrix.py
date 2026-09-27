@@ -102,6 +102,9 @@ MATRIX: dict[str, AccessEntry] = {
     "engagement.message.draft": _d("customer"),
     "engagement.assignment.write": _c("customer"),
     "engagement.message.send": _x("customer"),
+    # --- thông báo cho chính founder (ADR-FOUNDER-CHANNEL-001): T2-self, KHÔNG phải mở T3 —
+    # không có tham số người nhận, đích luôn là kênh founder tự cấu hình và đã xác minh.
+    "founder.notify.send": _c("founder", "founder.notify.send"),
     # --- legal / people / product / security / data / ai governance
     "legal.issue.read": _r("legal", "legal.issue.read"),
     "legal.applicability.assess": _r("legal"),

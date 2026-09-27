@@ -3,8 +3,8 @@
 // `services/company/operations/handlers/founder-asset-query.handler.ts`
 // (requireWorkspaceAccess + requireFounderCommand, Header<"Authorization">,
 // Header<"X-Workspace-Id">, trả MvpSuccess<T>). `expose: true` — đây là API
-// founder gọi từ frontend, không phải nội bộ service-to-service (khác với
-// endpoint `founder.notify.send` của B2, sẽ là expose: false).
+// founder gọi từ frontend. Endpoint `founder.notify.send` của B2 nằm ở
+// founder-notification-send.handler.ts (nhận delegation của agent).
 import { api, Header } from "encore.dev/api";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import {

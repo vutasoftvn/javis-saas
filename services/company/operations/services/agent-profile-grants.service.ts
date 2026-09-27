@@ -33,6 +33,8 @@ export const AGENT_PROFILE_GRANTED_CAPABILITIES: Readonly<Record<string, readonl
       "startup_os.goal.create",
       "startup_os.project.triage",
       "venture.profile.propose_update",
+      // ADR-FOUNDER-CHANNEL-001: T2-self, chỉ gửi về kênh đã xác minh của founder sở hữu run.
+      "founder.notify.send",
     ]),
     finance: Object.freeze([
       "finance.transaction.classify_propose",
@@ -62,6 +64,10 @@ export const CAPABILITY_LABELS: Readonly<Record<string, { vi: string; en: string
     en: "Draft accounting documents",
   },
   "finance.transaction.record": { vi: "Ghi giao dịch tài chính", en: "Record transactions" },
+  "founder.notify.send": {
+    vi: "Gửi thông báo vào kênh riêng của founder",
+    en: "Send notifications to the founder's own channel",
+  },
 });
 
 const UNKNOWN_CAPABILITY_LABEL = Object.freeze({ vi: "Quyền khác", en: "Other permission" });

@@ -15,12 +15,13 @@ MUST_HAVE = {
     "startup_os.goal.create",
     "startup_os.project.triage",
     "operations.task.advance",
+    "founder.notify.send",
 }
 
 
 def test_operations_spec_has_business_capabilities() -> None:
     assert MUST_HAVE <= set(SPEC.capability_refs)
-    assert SPEC.version == "1.6.0"
+    assert SPEC.version == "1.7.0"
     assert SPEC.autonomy_level == AutonomyLevel.L2_EXECUTE
 
 
