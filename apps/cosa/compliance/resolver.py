@@ -8,6 +8,7 @@ from agent.contracts.spec import AgentSpec
 from pydantic import ValidationError
 
 from apps.cosa.auth.jwt import mint_company_delegation
+from apps.cosa.capabilities.business_read import delegated_capability_ids
 from apps.cosa.compliance.company_client import AiComplianceClient
 from apps.cosa.compliance.contracts import (
     AiComplianceUnavailable,
@@ -51,6 +52,11 @@ class ComplianceResolver:
                 if capability_id != spec.model_input_capability_ref
             )
         )
+        # `business.read` dispatch tới capability đọc có sẵn; company kiểm đúng capability
+        # đích trên token nên token phải mang chúng (chỉ tập cố định, không hơn).
+        for delegated in delegated_capability_ids(spec.capability_refs):
+            if delegated not in capability_ids:
+                capability_ids.append(delegated)
         if spec.model_input_capability_ref:
             capability_ids.append(spec.model_input_capability_ref)
 

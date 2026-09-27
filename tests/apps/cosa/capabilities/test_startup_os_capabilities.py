@@ -236,7 +236,7 @@ async def test_goal_advisory_handler_reads_company_for_run_workspace():
     assert {c[2]["workspaceId"] for c in client.calls} == {"ws-run"}
 
 
-def test_registry_exposes_startup_os_read_and_context_capabilities_only():
+def test_registry_exposes_startup_os_capabilities_with_goal_writes_gated_by_approval():
     from unittest.mock import MagicMock
 
     from agent.capabilities.registry import CapabilityRegistry
@@ -267,7 +267,11 @@ def test_registry_exposes_startup_os_read_and_context_capabilities_only():
         "startup_os.goal.advisory",
     }
     assert expected <= ids
-    # Founder quyết định tạo Goal / triage Project — không mở cho agent.
-    assert "startup_os.goal.create" not in ids
-    assert "startup_os.project.triage" not in ids
+    # ADR-CHAT-ACTIONS-001: tạo Goal / triage Project vẫn là quyết định của Founder —
+    # agent chat chỉ thực thi sau khi founder duyệt (T2 trong access matrix).
+    from apps.cosa.capabilities.access_matrix import CHAT_T2_CAPABILITIES
+
+    for cap in ("startup_os.goal.create", "startup_os.project.triage"):
+        assert cap in ids
+        assert cap in CHAT_T2_CAPABILITIES
     assert expected <= set(COSA_COFOUNDER_ASSISTANT_AGENT_SPEC.capability_refs)

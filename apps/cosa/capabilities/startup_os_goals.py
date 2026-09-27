@@ -1,10 +1,12 @@
 """Capability Goal của Startup OS (plan 2026-09-18, Phase 3 — Task 3.2).
 
 Agent được ĐỌC cây Goal, danh sách Goal cần review và nhận tư vấn đặt Goal
-(`startup_os.goal.advisory`). Tạo Goal và triage discovery Project là quyết định của
-Founder ("Onboard inform, not control"): `startup_os.goal.create` và
-`startup_os.project.triage` được định nghĩa cho UI/workflow nội bộ nhưng KHÔNG đăng
-ký vào registry của agent và Company không mở delegation cho hai endpoint đó.
+(`startup_os.goal.advisory`). Tạo Goal và triage discovery Project vẫn là quyết định của
+Founder ("Onboard inform, not control"), nhưng từ spec
+docs/superpowers/specs/2026-09-27-chat-business-actions-design.md (ADR-CHAT-ACTIONS-001)
+`startup_os.goal.create` và `startup_os.project.triage` được đăng ký như hành động T2:
+agent chat chỉ soạn tham số và thực thi SAU KHI founder bấm duyệt trong chat
+(`access_matrix.CHAT_T2_CAPABILITIES`); company chỉ nhận delegation mang đúng capability.
 
 Scope luôn lấy từ InvocationContext của run, không từ tham số model sinh ra.
 """

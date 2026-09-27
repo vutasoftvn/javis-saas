@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 from typing import Any
 
 from agent.artifacts import ArtifactRepository
@@ -14,6 +15,10 @@ from agent.knowledge.snapshot_repository import KnowledgeSnapshotRepository
 from apps.cosa.capabilities.ai_governance_read import (
     AI_GOVERNANCE_READ_SPEC,
     create_ai_governance_read_handler,
+)
+from apps.cosa.capabilities.business_read import (
+    BUSINESS_READ_SPEC,
+    create_business_read_handler,
 )
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.capabilities.commercial_customer_read import (
@@ -100,6 +105,14 @@ from apps.cosa.capabilities.mcp_connectors import (
     load_mcp_connector_manifests,
     register_mcp_connectors,
 )
+from apps.cosa.capabilities.okr_write import (
+    OKR_KEY_RESULT_CHECKIN_SPEC,
+    OKR_KEY_RESULT_CREATE_SPEC,
+    OKR_OBJECTIVE_LIST_SPEC,
+    create_okr_key_result_checkin_handler,
+    create_okr_key_result_create_handler,
+    create_okr_objective_list_handler,
+)
 from apps.cosa.capabilities.operations_read import (
     OPERATIONS_EXECUTION_PLAN_READ_SPEC,
     OPERATIONS_TASK_LIST_SPEC,
@@ -149,11 +162,15 @@ from apps.cosa.capabilities.security_posture_read import (
 )
 from apps.cosa.capabilities.startup_os_goals import (
     STARTUP_OS_GOAL_ADVISORY_SPEC,
+    STARTUP_OS_GOAL_CREATE_SPEC,
     STARTUP_OS_GOAL_TREE_READ_SPEC,
     STARTUP_OS_GOALS_NEEDING_REVIEW_SPEC,
+    STARTUP_OS_PROJECT_TRIAGE_SPEC,
     create_startup_os_goal_advisory_handler,
+    create_startup_os_goal_create_handler,
     create_startup_os_goal_tree_read_handler,
     create_startup_os_goals_needing_review_handler,
+    create_startup_os_project_triage_handler,
 )
 from apps.cosa.capabilities.startup_os_onboard import (
     STARTUP_OS_ONBOARD_CADENCE_ADVISORY_SPEC,
@@ -213,6 +230,14 @@ def register_cosa_capabilities(
     cap_registry.register(
         OPERATIONS_TASK_ADVANCE_SPEC,
         create_operations_task_advance_handler(client),
+    )
+
+    # OKR (spec 2026-09-27-chat-business-actions): tạo/check-in Key Result là T2 —
+    # chat run buộc founder duyệt (access_matrix.CHAT_T2_CAPABILITIES).
+    cap_registry.register(OKR_OBJECTIVE_LIST_SPEC, create_okr_objective_list_handler(client))
+    cap_registry.register(OKR_KEY_RESULT_CREATE_SPEC, create_okr_key_result_create_handler(client))
+    cap_registry.register(
+        OKR_KEY_RESULT_CHECKIN_SPEC, create_okr_key_result_checkin_handler(client)
     )
 
     # Finance
@@ -308,8 +333,14 @@ def register_cosa_capabilities(
     )
 
     # Startup OS (plan 2026-09-18 Phase 3): onboarding hội thoại /cs:setup, /cs:update
-    # và tư vấn Goal. goal.create / project.triage cố ý KHÔNG đăng ký — Founder quyết
-    # định trên UI; Company cũng không mở delegation cho hai endpoint đó.
+    # và tư vấn Goal. goal.create / project.triage (ADR-CHAT-ACTIONS-001): đăng ký như
+    # hành động T2 — agent chat chỉ thực thi sau khi founder duyệt trong chat.
+    cap_registry.register(
+        STARTUP_OS_GOAL_CREATE_SPEC, create_startup_os_goal_create_handler(client)
+    )
+    cap_registry.register(
+        STARTUP_OS_PROJECT_TRIAGE_SPEC, create_startup_os_project_triage_handler(client)
+    )
     cap_registry.register(
         STARTUP_OS_ONBOARD_INTERVIEW_PLAN_SPEC, create_startup_os_interview_plan_handler()
     )
@@ -435,6 +466,27 @@ def register_cosa_capabilities(
         AI_GOVERNANCE_READ_SPEC,
         create_ai_governance_read_handler(client),
     )
+
+    # business.read — đăng ký SAU mọi capability đọc để dispatch tìm được đích.
+    async def _dispatch_business_read(cap_id: str, scoped: dict[str, Any], context: Any) -> Any:
+        registered = cap_registry.get(cap_id)
+        if registered is None:
+            raise ValueError(f"business.read: capability không khả dụng: {cap_id}")
+        schema = registered.spec.input_schema or {}
+        props = schema.get("properties") or {}
+        payload = {k: v for k, v in scoped.items() if k in props}
+        missing = [f for f in schema.get("required") or [] if f not in payload]
+        if missing:
+            # Domain cần Project mà phiên chưa có — trả kết quả cấu trúc cho model.
+            return {
+                "ok": False,
+                "error_code": "scope_missing",
+                "message": f"Domain này cần {', '.join(missing)} của phiên hiện tại.",
+            }
+        result = registered.handler(payload, context)
+        return await result if inspect.isawaitable(result) else result
+
+    cap_registry.register(BUSINESS_READ_SPEC, create_business_read_handler(_dispatch_business_read))
 
     # Sandbox MCP
     register_sandbox_read_mcp_tools(cap_registry)

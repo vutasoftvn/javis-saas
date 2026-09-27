@@ -21,6 +21,7 @@ from apps.cosa.agents.goal_intent import (
     looks_like_weekly_goal,
 )
 from apps.cosa.api.event_stream import CosaEventStreamManager
+from apps.cosa.capabilities.access_matrix import CHAT_T2_CAPABILITIES
 from apps.cosa.composition.agent_plane import CosaAgentPlane
 from apps.cosa.conversations.history import build_history, history_limits
 from apps.cosa.memory.project_facts import list_project_facts
@@ -28,6 +29,7 @@ from apps.cosa.observability.logging import log_context
 from apps.cosa.observability.metrics import record_model_tokens, record_run_outcome
 from apps.cosa.observability.otel import trace_span
 from apps.cosa.policies.company_policy_client import CosaTenantPolicyError
+from apps.cosa.policies.evaluator import REQUIRE_APPROVAL_CAPABILITIES_KEY
 from apps.cosa.policies.snapshot import AgentAuthorizationSnapshot
 from apps.cosa.worker.autopilot_run import (
     resume_customer_support_autopilot,
@@ -520,6 +522,10 @@ async def _execute_run_task_inner(
     # project_id do conversation_routes đặt từ project đã verify, không lấy từ client.
     if project_id:
         extra_md["project_id"] = str(project_id)
+    # Chat: mọi hành động T2 (ghi thật vào dữ liệu nội bộ) buộc founder duyệt trước khi chạy
+    # (spec 2026-09-27-chat-business-actions §4.1). Policy engine chỉ SIẾT ALLOW thành
+    # REQUIRE_APPROVAL — DENY của company/tenant vẫn giữ nguyên.
+    extra_md[REQUIRE_APPROVAL_CAPABILITIES_KEY] = sorted(CHAT_T2_CAPABILITIES)
     direct_message_data_access = payload.get("direct_message_data_access")
     if direct_message_data_access is not None:
         extra_md["direct_message_data_access"] = direct_message_data_access
@@ -862,6 +868,9 @@ async def execute_resume_task(
     # updates) — để tool tự điền/chặn project_id như lúc chạy lần đầu.
     if project_id:
         resume_updates["project_id"] = str(project_id)
+    # Context resume dựng lại từ updates: phải mang lại danh sách T2 buộc duyệt, nếu không
+    # hành động T2 kế tiếp trong lượt resume sẽ chạy mà không cần founder duyệt.
+    resume_updates[REQUIRE_APPROVAL_CAPABILITIES_KEY] = sorted(CHAT_T2_CAPABILITIES)
     if workspace_id:
         try:
             fresh_snapshot = await plane.tenant_policy_client.get_snapshot(
