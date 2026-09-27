@@ -424,13 +424,15 @@ def build_cosa_agent_plane(
     # credential_ref/không cần DEEPSEEK_API_KEY hợp lệ).
     resolved_model_route_resolver = model_route_resolver
     if resolved_model_route_resolver is None:
-        from apps.cosa.models.contracts import ProviderType, SystemDefaultModelProfile
+        from apps.cosa.composition.model_provider import system_default_model_identity
+        from apps.cosa.models.contracts import SystemDefaultModelProfile
         from apps.cosa.models.resolver import ModelRouteResolver
 
+        system_default_provider_type, system_default_model_id = system_default_model_identity()
         system_default = SystemDefaultModelProfile(
             profile_id="system-default",
-            provider_type=ProviderType.DEEPSEEK_API,
-            model_id=os.environ.get("DEEPSEEK_DEFAULT_MODEL", "deepseek-chat"),
+            provider_type=system_default_provider_type,
+            model_id=system_default_model_id,
             credential_ref=None,
         )
         resolved_model_route_resolver = ModelRouteResolver(

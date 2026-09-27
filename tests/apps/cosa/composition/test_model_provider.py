@@ -115,3 +115,133 @@ def test_build_deepseek_model_defaults_base_url_and_model(monkeypatch):
     model = build_deepseek_model()
 
     assert isinstance(model, LitellmModel)
+
+
+# ── build_system_default_model() / system_default_model_configured() /
+# system_default_model_identity() (side task 2026-09-27 — OpenRouter làm
+# system-default model provider) ──
+
+
+def _clear_default_provider_env(monkeypatch):
+    monkeypatch.delenv("COSA_DEFAULT_MODEL_PROVIDER", raising=False)
+    monkeypatch.delenv("COSA_MODEL_PROVIDER", raising=False)
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+
+
+def test_build_system_default_model_defaults_to_deepseek_when_unset(monkeypatch):
+    """Không đặt COSA_DEFAULT_MODEL_PROVIDER -> giữ hành vi cũ (deepseek),
+    không đổi ngầm môi trường khác chưa cấu hình biến này."""
+    pytest.importorskip("agents")
+    _clear_default_provider_env(monkeypatch)
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key-123")
+    from agents.extensions.models.litellm_model import LitellmModel
+    from apps.cosa.composition.model_provider import build_system_default_model
+
+    model = build_system_default_model()
+
+    assert isinstance(model, LitellmModel)
+    assert model.model == "deepseek/deepseek-chat"
+
+
+def test_build_system_default_model_openrouter_requires_api_key(monkeypatch):
+    _clear_default_provider_env(monkeypatch)
+    monkeypatch.setenv("COSA_DEFAULT_MODEL_PROVIDER", "openrouter")
+    from apps.cosa.composition.model_provider import build_system_default_model
+
+    with pytest.raises(RuntimeError, match="OPENROUTER_API_KEY"):
+        build_system_default_model()
+
+
+def test_build_system_default_model_openrouter_builds_litellm_model(monkeypatch):
+    pytest.importorskip("agents")
+    _clear_default_provider_env(monkeypatch)
+    monkeypatch.setenv("COSA_DEFAULT_MODEL_PROVIDER", "openrouter")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-openrouter-fake-key-123")
+    monkeypatch.setenv("OPENROUTER_DEFAULT_MODEL", "inclusionai/ling-3.0-flash-fin:free")
+    from agents.extensions.models.litellm_model import LitellmModel
+    from apps.cosa.composition.model_provider import build_system_default_model
+
+    model = build_system_default_model()
+
+    assert isinstance(model, LitellmModel)
+    assert model.model == "openrouter/inclusionai/ling-3.0-flash-fin:free"
+
+
+def test_build_system_default_model_unknown_provider_raises(monkeypatch):
+    _clear_default_provider_env(monkeypatch)
+    monkeypatch.setenv("COSA_DEFAULT_MODEL_PROVIDER", "bogus-provider")
+    from apps.cosa.composition.model_provider import build_system_default_model
+
+    with pytest.raises(RuntimeError, match="bogus-provider"):
+        build_system_default_model()
+
+
+def test_build_system_default_model_fake_provider_short_circuits(monkeypatch):
+    _clear_default_provider_env(monkeypatch)
+    monkeypatch.setenv("COSA_DEFAULT_MODEL_PROVIDER", "openrouter")
+    monkeypatch.setenv("COSA_MODEL_PROVIDER", "fake")
+    from agent_testkit.fake_sdk_model import FakeSDKModel
+    from apps.cosa.composition.model_provider import build_system_default_model
+
+    model = build_system_default_model()
+
+    assert isinstance(model, FakeSDKModel)
+
+
+def test_system_default_model_configured_false_without_key(monkeypatch):
+    _clear_default_provider_env(monkeypatch)
+    monkeypatch.setenv("COSA_DEFAULT_MODEL_PROVIDER", "openrouter")
+    from apps.cosa.composition.model_provider import system_default_model_configured
+
+    assert system_default_model_configured() is False
+
+
+def test_system_default_model_configured_true_with_openrouter_key(monkeypatch):
+    _clear_default_provider_env(monkeypatch)
+    monkeypatch.setenv("COSA_DEFAULT_MODEL_PROVIDER", "openrouter")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-openrouter-fake-key-123")
+    from apps.cosa.composition.model_provider import system_default_model_configured
+
+    assert system_default_model_configured() is True
+
+
+def test_system_default_model_configured_deepseek_default(monkeypatch):
+    _clear_default_provider_env(monkeypatch)
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key-123")
+    from apps.cosa.composition.model_provider import system_default_model_configured
+
+    assert system_default_model_configured() is True
+
+
+def test_system_default_model_identity_openrouter(monkeypatch):
+    _clear_default_provider_env(monkeypatch)
+    monkeypatch.setenv("COSA_DEFAULT_MODEL_PROVIDER", "openrouter")
+    monkeypatch.setenv("OPENROUTER_DEFAULT_MODEL", "inclusionai/ling-3.0-flash-fin:free")
+    from apps.cosa.composition.model_provider import system_default_model_identity
+    from apps.cosa.models.contracts import ProviderType
+
+    provider_type, model_id = system_default_model_identity()
+
+    assert provider_type == ProviderType.OPENROUTER_API
+    assert model_id == "inclusionai/ling-3.0-flash-fin:free"
+
+
+def test_system_default_model_identity_deepseek_default(monkeypatch):
+    _clear_default_provider_env(monkeypatch)
+    from apps.cosa.composition.model_provider import system_default_model_identity
+    from apps.cosa.models.contracts import ProviderType
+
+    provider_type, model_id = system_default_model_identity()
+
+    assert provider_type == ProviderType.DEEPSEEK_API
+    assert model_id == "deepseek-chat"
+
+
+def test_system_default_model_identity_unknown_provider_raises(monkeypatch):
+    _clear_default_provider_env(monkeypatch)
+    monkeypatch.setenv("COSA_DEFAULT_MODEL_PROVIDER", "bogus-provider")
+    from apps.cosa.composition.model_provider import system_default_model_identity
+
+    with pytest.raises(RuntimeError, match="bogus-provider"):
+        system_default_model_identity()

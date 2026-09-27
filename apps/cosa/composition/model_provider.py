@@ -4,7 +4,7 @@ import os
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from apps.cosa.models.contracts import ResolvedModelRoute
+    from apps.cosa.models.contracts import ProviderType, ResolvedModelRoute
     from apps.cosa.models.credential_store import LocalCredentialStore
     from apps.cosa.models.providers import ModelClient, ModelProviderFactory
 
@@ -12,7 +12,10 @@ __all__ = [
     "build_credential_store",
     "build_deepseek_model",
     "build_model_provider_factory",
+    "build_system_default_model",
     "create_workspace_model_client",
+    "system_default_model_configured",
+    "system_default_model_identity",
 ]
 
 
@@ -53,6 +56,94 @@ def build_deepseek_model() -> Any:
         model=f"deepseek/{default_model}",
         base_url=base_url,
         api_key=api_key,
+    )
+
+
+def _build_openrouter_model() -> Any:
+    """Dựng `LitellmModel` trỏ tới OpenRouter THẬT từ `OPENROUTER_API_KEY`/
+    `OPENROUTER_BASE_URL`/`OPENROUTER_DEFAULT_MODEL` — cùng convention với
+    `build_deepseek_model()` (đọc env một chỗ duy nhất tại composition
+    root). Raise RuntimeError rõ ràng nếu thiếu OPENROUTER_API_KEY — không
+    fallback im lặng."""
+    if os.environ.get("COSA_MODEL_PROVIDER", "").lower() == "fake":
+        from agent_testkit.fake_sdk_model import FakeSDKModel
+
+        return FakeSDKModel()
+
+    api_key = os.environ.get("OPENROUTER_API_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "build_system_default_model() with COSA_DEFAULT_MODEL_PROVIDER="
+            "openrouter requires OPENROUTER_API_KEY to be set — production "
+            "must not silently run with an unconfigured model provider. For "
+            "tests, pass model=<FakeSDKModel instance> explicitly to "
+            "build_cosa_agent_plane() or set COSA_MODEL_PROVIDER=fake."
+        )
+
+    from agents.extensions.models.litellm_model import LitellmModel
+
+    base_url = os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+    default_model = os.environ.get("OPENROUTER_DEFAULT_MODEL", "inclusionai/ling-3.0-flash-fin:free")
+
+    return LitellmModel(
+        model=f"openrouter/{default_model}",
+        base_url=base_url,
+        api_key=api_key,
+    )
+
+
+def build_system_default_model() -> Any:
+    """Composition-root entrypoint DUY NHẤT cho "system default" model client
+    (bootstrap khi workspace chưa cấu hình policy/profile nào) — chọn
+    provider theo `COSA_DEFAULT_MODEL_PROVIDER` (`openrouter` | `deepseek`,
+    không đặt -> `deepseek` để giữ hành vi cũ, không đổi ngầm môi trường khác
+    chưa set biến này). Giá trị lạ -> RuntimeError rõ ràng. Nhánh
+    `COSA_MODEL_PROVIDER=fake` (FakeSDKModel) áp dụng cho cả 2 provider,
+    giống `build_deepseek_model()`."""
+    provider = os.environ.get("COSA_DEFAULT_MODEL_PROVIDER", "deepseek").strip().lower()
+    if provider == "deepseek":
+        return build_deepseek_model()
+    if provider == "openrouter":
+        return _build_openrouter_model()
+    raise RuntimeError(
+        f"Unknown COSA_DEFAULT_MODEL_PROVIDER={provider!r} — expected "
+        "'openrouter' or 'deepseek'."
+    )
+
+
+def system_default_model_configured() -> bool:
+    """True nếu credential thật cho system-default provider (theo
+    `COSA_DEFAULT_MODEL_PROVIDER`) đã có trong env — dùng ở
+    `worker/main.py`/`api/app.py`/`api/test_main.py` để quyết định
+    FakeSDKModel vs model thật, KHÔNG tự đọc `DEEPSEEK_API_KEY`/
+    `OPENROUTER_API_KEY` rải rác ở các chỗ đó nữa."""
+    provider = os.environ.get("COSA_DEFAULT_MODEL_PROVIDER", "deepseek").strip().lower()
+    if provider == "openrouter":
+        return bool(os.environ.get("OPENROUTER_API_KEY"))
+    if provider == "deepseek":
+        return bool(os.environ.get("DEEPSEEK_API_KEY"))
+    # Giá trị lạ: build_system_default_model() sẽ raise; ở đây trả False để
+    # caller (guard "chưa cấu hình" -> FakeSDKModel) không silently coi là
+    # configured.
+    return False
+
+
+def system_default_model_identity() -> tuple[ProviderType, str]:
+    """`(ProviderType, model_id)` cho system-default provider hiện tại — dùng
+    làm provenance ở `agent_plane.py::SystemDefaultModelProfile`, không đọc
+    env provider rải rác ở đó nữa."""
+    from apps.cosa.models.contracts import ProviderType
+
+    provider = os.environ.get("COSA_DEFAULT_MODEL_PROVIDER", "deepseek").strip().lower()
+    if provider == "openrouter":
+        model_id = os.environ.get("OPENROUTER_DEFAULT_MODEL", "inclusionai/ling-3.0-flash-fin:free")
+        return ProviderType.OPENROUTER_API, model_id
+    if provider == "deepseek":
+        model_id = os.environ.get("DEEPSEEK_DEFAULT_MODEL", "deepseek-chat")
+        return ProviderType.DEEPSEEK_API, model_id
+    raise RuntimeError(
+        f"Unknown COSA_DEFAULT_MODEL_PROVIDER={provider!r} — expected "
+        "'openrouter' or 'deepseek'."
     )
 
 

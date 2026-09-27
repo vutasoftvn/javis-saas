@@ -120,9 +120,9 @@ def build_execution_kernel(
         if model is not None:
             resolved_model: Any = model
         else:
-            from apps.cosa.composition.model_provider import build_deepseek_model
+            from apps.cosa.composition.model_provider import build_system_default_model
 
-            resolved_model = build_deepseek_model()
+            resolved_model = build_system_default_model()
 
         from apps.cosa.compliance.data_model_gate import CosaDataModelGate
 

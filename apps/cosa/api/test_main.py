@@ -13,6 +13,7 @@ from agent_testkit.fake_sdk_model import FakeSDKModel
 from apps.cosa.api.app import create_cosa_app
 from apps.cosa.capabilities.client import CompanyServiceClient, CompanyServiceError
 from apps.cosa.composition.agent_plane import build_cosa_agent_plane
+from apps.cosa.composition.model_provider import system_default_model_configured
 from tests.apps.cosa.auth_test_helpers import override_authenticated_identity
 
 __all__ = ["app"]
@@ -46,8 +47,10 @@ def _verified_projects_company_client() -> CompanyServiceClient | None:
     return _VerifiedProjectsCompanyClient(project_ids) if project_ids else None
 
 
-# For test runner subprocesses where DEEPSEEK_API_KEY / DB might not be preset,
-# construct appropriate plane with FakeSDKModel:
+# For test runner subprocesses where the system-default model provider
+# credential (DEEPSEEK_API_KEY / OPENROUTER_API_KEY tùy
+# COSA_DEFAULT_MODEL_PROVIDER) / DB might not be preset, construct appropriate
+# plane with FakeSDKModel:
 db_url = os.environ.get("AGENT_DATABASE_URL")
 plane: Any = None
 if not db_url:
@@ -59,7 +62,7 @@ if not db_url:
         stream_event_repository=InMemoryRunStreamEventRepository(),
         model=FakeSDKModel(),
     )
-elif not os.environ.get("DEEPSEEK_API_KEY"):
+elif not system_default_model_configured():
     plane = build_cosa_agent_plane(
         database_url=db_url,
         model=FakeSDKModel(),

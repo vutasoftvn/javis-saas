@@ -711,14 +711,20 @@ async def main() -> None:
     )
     args = parser.parse_args()
 
-    # Reject APP_ENV=test when using real API key — this seam is for test execution only.
-    # APP_ENV=test + no DEEPSEEK_API_KEY is allowed (uses FakeSDKModel).
-    # APP_ENV=test + DEEPSEEK_API_KEY is suspicious (mixing test mode with production API).
+    # Reject APP_ENV=test when using real system-default model credentials —
+    # this seam is for test execution only.
+    # APP_ENV=test + no credential configured is allowed (uses FakeSDKModel).
+    # APP_ENV=test + credential configured (DEEPSEEK_API_KEY hoặc
+    # OPENROUTER_API_KEY tùy COSA_DEFAULT_MODEL_PROVIDER) is suspicious
+    # (mixing test mode with production API).
+    from apps.cosa.composition.model_provider import system_default_model_configured
+
     env_name = os.environ.get("ENVIRONMENT", os.environ.get("APP_ENV", "development")).lower()
-    if env_name == "test" and os.environ.get("DEEPSEEK_API_KEY"):
+    if env_name == "test" and system_default_model_configured():
         raise RuntimeError(
-            "APP_ENV=test with DEEPSEEK_API_KEY is not allowed. "
-            "Test mode (APP_ENV=test) should only use FakeSDKModel (no DEEPSEEK_API_KEY). "
+            "APP_ENV=test with a system-default model credential configured "
+            "(DEEPSEEK_API_KEY / OPENROUTER_API_KEY) is not allowed. "
+            "Test mode (APP_ENV=test) should only use FakeSDKModel (no credential). "
             "Production deployments must use APP_ENV=production, staging, or development."
         )
 
@@ -738,7 +744,7 @@ async def main() -> None:
 
     require_worker_service_jwt_secret()
 
-    if not os.environ.get("DEEPSEEK_API_KEY"):
+    if not system_default_model_configured():
         from agent_testkit.fake_sdk_model import FakeSDKModel
 
         # COSA_FAKE_MODEL_TEXT: câu trả lời cố định cho process E2E (subprocess không tiêm được

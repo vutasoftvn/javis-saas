@@ -85,7 +85,7 @@ def create_cosa_app(plane: CosaAgentPlane | None = None) -> FastAPI:
     closure.md §10) — `CosaAgentPlane` được tạo ĐÚNG 1 LẦN, ở `lifespan`
     startup, không còn lazy singleton tạo trên request đầu tiên
     (`apps/cosa/api/routes.py::get_cosa_plane()` cũ). Thiếu config
-    (`AGENT_DATABASE_URL`/`DEEPSEEK_API_KEY`) làm ASGI startup fail
+    (`AGENT_DATABASE_URL`/model provider credential) làm ASGI startup fail
     ngay — app không bao giờ chuyển sang trạng thái phục vụ traffic với
     provider chưa cấu hình đúng.
 
@@ -108,7 +108,7 @@ def create_cosa_app(plane: CosaAgentPlane | None = None) -> FastAPI:
 
         if not injected:
             # Fail-fast: build_cosa_agent_plane() raise ngay nếu thiếu
-            # AGENT_DATABASE_URL/DEEPSEEK_API_KEY — exception ở đây làm
+            # AGENT_DATABASE_URL/model provider credential — exception ở đây làm
             # ASGI server từ chối start, không serve traffic với config thiếu.
             app.state.plane = build_cosa_agent_plane()
 
