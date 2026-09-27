@@ -537,7 +537,7 @@ def build_cosa_agent_plane(
             evaluator_registry=SkillEvaluatorRegistry(),
         )
 
-    return CosaAgentPlane(
+    plane = CosaAgentPlane(
         repository=storage.run_repository,
         conversation_repository=storage.conversation_repository,
         spec_registry=storage.spec_registry,
@@ -578,3 +578,9 @@ def build_cosa_agent_plane(
         skill_usage_observer=storage.skill_usage_observer,
         skill_improvement_service=resolved_skill_improvement_service,
     )
+    # agent.consult cần chính plane (prepare_run + run_kernel) nên đăng ký sau
+    # khi plane được dựng; registry là cùng object mà kernel/gateway đang dùng.
+    from apps.cosa.agents.consult import AGENT_CONSULT_SPEC, create_agent_consult_handler
+
+    cap_registry.register(AGENT_CONSULT_SPEC, create_agent_consult_handler(plane))
+    return plane

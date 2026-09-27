@@ -10,10 +10,27 @@ from agent.governance.contracts import (
 
 from apps.cosa.policies.snapshot import PolicySnapshot
 
-__all__ = ["REQUIRE_APPROVAL_CAPABILITIES_KEY", "CosaPolicyEngine"]
+__all__ = ["READ_ONLY_RUN_KEY", "REQUIRE_APPROVAL_CAPABILITIES_KEY", "CosaPolicyEngine"]
 
 # Key metadata run: danh sách capability bắt buộc founder duyệt trong run này.
 REQUIRE_APPROVAL_CAPABILITIES_KEY = "require_approval_capabilities"
+# Key metadata run: run chỉ đọc (child run của agent.consult) — mọi capability
+# không phải đọc bị DENY.
+READ_ONLY_RUN_KEY = "read_only_run"
+_READ_ONLY_SUFFIXES = (
+    ".read",
+    ".list",
+    ".get",
+    ".search",
+    ".tree_read",
+    ".context_read",
+    ".cadence_status",
+    ".needing_review",
+)
+
+
+def is_read_capability(capability_id: str) -> bool:
+    return capability_id.endswith(_READ_ONLY_SUFFIXES)
 
 
 class CosaPolicyEngine:
@@ -64,6 +81,11 @@ class CosaPolicyEngine:
         payload: dict[str, Any],
         context: dict[str, Any] | None = None,
     ) -> PolicyDecision:
+        if (context or {}).get(READ_ONLY_RUN_KEY) is True and not is_read_capability(capability_id):
+            return PolicyDecision(
+                outcome=PolicyOutcome.DENY,
+                reasons=(f"Read-only consultation run cannot call {capability_id}",),
+            )
         decision = self._evaluate_base(capability_id, payload, context)
         # 4. WGA G7 — item NEEDS_APPROVAL của execution plan: run nền đánh dấu
         # capability của item trong metadata (`REQUIRE_APPROVAL_CAPABILITIES_KEY`).

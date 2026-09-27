@@ -274,7 +274,9 @@ COSA_COFOUNDER_ASSISTANT_AGENT_SPEC = AgentSpec(
     # 1.1.0 (plan Startup OS 2026-09-18 Phase 3): capability onboarding hội thoại và
     # tư vấn Goal. Không có startup_os.goal.create / project.triage — Founder quyết định.
     # 1.2.0 (WGA G8): operations.execution_plan.read — đọc kế hoạch + tiến độ.
-    version="1.2.0",
+    # 1.3.0 (review 2026-09-27 G-7): agent.consult — hỏi agent chuyên môn (child
+    # run chỉ đọc, quyền của agent đích).
+    version="1.3.0",
     autonomy_level=AutonomyLevel.L0_OBSERVE,
     instructions=COSA_COFOUNDER_ASSISTANT_PROMPT.text,
     capability_refs=[
@@ -298,6 +300,7 @@ COSA_COFOUNDER_ASSISTANT_AGENT_SPEC = AgentSpec(
         "startup_os.goal.needing_review",
         "startup_os.goal.advisory",
         "operations.execution_plan.read",
+        "agent.consult",
     ],
     model_input_capability_ref="model.input.direct-user-message",
     pinned_skills=[
