@@ -109,3 +109,14 @@ async def test_compliance_bindings_cover_operations_spec_request() -> None:
             bound |= set(re.findall(r"\('([a-z_.\-]+)', '(?:READ|DRAFT|EXTERNAL)'", sql))
     missing = sorted(set(capture.capability_ids) - bound)
     assert not missing, f"thiếu binding compliance cho cosa.agents.operations: {missing}"
+
+
+def test_every_grantable_capability_has_vi_en_label() -> None:
+    """Hub đợt 1 — tab Công cụ hiển thị nhãn, không hiển thị enum capability thô."""
+    text = (COMPANY / "operations/services/agent-profile-grants.service.ts").read_text()
+    body = text[text.index("export const CAPABILITY_LABELS") :]
+    body = body[: body.index("});") + 3]
+    labelled = set(re.findall(r'"([a-z_.]+)": \{\s*vi: "[^"]+",\s*en: "[^"]+"', body))
+    grantable = set().union(*_ts_grant_table().values()) | NOT_AUTO_GRANTED
+    missing = sorted(grantable - labelled)
+    assert not missing, f"capability cấp được cho agent thiếu nhãn vi/en: {missing}"

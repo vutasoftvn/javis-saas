@@ -210,8 +210,26 @@ export async function listProjectStartupTeam(input: {
       assignmentVersion: row.version,
       activatedAt: row.activatedAt ? row.activatedAt.toISOString() : undefined,
       activatedBy: row.activatedBy ? row.activatedBy.toString() : undefined,
+      ...specPinInfo(profile.key, row.specVersion),
     };
   });
+}
+
+/**
+ * Phiên bản spec đang ghim so với built-in hiện hành (quy tắc 13: Project giữ spec đã ghim tới
+ * khi founder kích hoạt lại). Server tự so để client không phải biết bảng pin.
+ */
+function specPinInfo(
+  profileKey: string,
+  pinned: string | null
+): Pick<ProjectStartupTeamMember, "pinnedSpecVersion" | "currentSpecVersion" | "specUpdateAvailable"> {
+  const current = (AGENT_PROFILE_SPEC_VERSION as Partial<Record<string, string>>)[profileKey];
+  if (!current) return {};
+  return {
+    pinnedSpecVersion: pinned ?? undefined,
+    currentSpecVersion: current,
+    specUpdateAvailable: pinned ? pinned !== current : undefined,
+  };
 }
 
 export interface ActivateProjectStartupTeamMemberInput {
@@ -471,6 +489,7 @@ export async function activateProjectStartupTeamMember(
       assignmentVersion: nextVersion,
       activatedAt: now.toISOString(),
       activatedBy: actorId.toString(),
+      ...specPinInfo(profileDef.key, specVersion),
     };
   });
 }
@@ -641,6 +660,7 @@ export async function pauseProjectStartupTeamMember(
       assignmentVersion: nextVersion,
       activatedAt: row.activatedAt ? row.activatedAt.toISOString() : undefined,
       activatedBy: row.activatedBy ? row.activatedBy.toString() : undefined,
+      ...specPinInfo(profileDef.key, row.specVersion),
     };
   });
 }

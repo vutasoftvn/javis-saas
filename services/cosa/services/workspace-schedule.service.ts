@@ -333,3 +333,114 @@ export async function rebindLegacyWorkspaceSchedule(input: {
   return updated;
 }
 
+
+export const SCHEDULE_TARGET_STATES: readonly ScheduleState[] = ["enabled", "paused", "archived"];
+const MAX_EXECUTIONS_PAGE = 20;
+const EXECUTION_ERROR_PREVIEW_CHARS = 200;
+
+/**
+ * Founder tạm dừng / tiếp tục / lưu trữ một lịch (spec hub-operations đợt 1).
+ * `archived` là trạng thái cuối: không mở lại, không xoá bản ghi hay lịch sử chạy
+ * (expand-only). Tiếp tục (`enabled`) tính lại `nextRunAt` từ bây giờ và vẫn chịu
+ * quota lịch đang bật như khi tạo.
+ */
+export async function setWorkspaceScheduleState(input: {
+  scheduleId: string;
+  organizationId: string;
+  state: ScheduleState;
+  now?: Date;
+}): Promise<repo.ScheduleDefinitionRow> {
+  if (!SCHEDULE_TARGET_STATES.includes(input.state)) {
+    throw APIError.invalidArgument("state must be one of enabled, paused, archived");
+  }
+  const def = await repo.findScheduleDefinitionByIdAndWorkspace(input.scheduleId, input.organizationId);
+  if (!def) {
+    throw APIError.notFound("schedule definition not found in workspace");
+  }
+  const current = def.state as ScheduleState;
+  if (current === input.state) {
+    return def;
+  }
+  if (current === "archived") {
+    throw APIError.failedPrecondition("archived schedule cannot be reopened");
+  }
+
+  const now = input.now ?? new Date();
+  let nextRunAt: Date | null = def.nextRunAt;
+  if (input.state === "enabled") {
+    if (def.isLegacyUnscoped || !def.projectId) {
+      throw APIError.failedPrecondition("schedule has no project scope; re-create it inside a project");
+    }
+    const activeCount = await repo.countActiveSchedulesByWorkspace(input.organizationId);
+    if (activeCount >= MAX_ACTIVE_SCHEDULES_PER_WORKSPACE) {
+      throw APIError.resourceExhausted(
+        `active schedule quota exceeded: maximum of ${MAX_ACTIVE_SCHEDULES_PER_WORKSPACE} enabled schedules allowed per workspace`
+      );
+    }
+    if (def.scheduleKind === "one_time") {
+      // Lịch một lần đã chạy (hoặc đã quá giờ) thì không có lần chạy nào để tiếp tục.
+      if (!def.runAt || def.runAt <= now) {
+        throw APIError.failedPrecondition("one_time schedule already passed; create a new schedule");
+      }
+      nextRunAt = def.runAt;
+    } else {
+      nextRunAt = calculateNextRun(
+        def.scheduleKind as ScheduleKind,
+        def.timezone,
+        def.hour,
+        def.minute,
+        def.weekdays as number[],
+        now
+      );
+    }
+  } else if (input.state === "archived") {
+    nextRunAt = null;
+  }
+
+  const updated = await repo.updateScheduleDefinitionState({
+    scheduleId: def.id,
+    organizationId: input.organizationId,
+    fromState: current,
+    state: input.state,
+    nextRunAt,
+  });
+  if (!updated) {
+    throw APIError.aborted("schedule state changed concurrently; reload and retry");
+  }
+  return updated;
+}
+
+export interface ScheduleExecutionSummary {
+  id: string;
+  scheduledFor: Date;
+  state: string;
+  runId: string | null;
+  conversationId: string | null;
+  error: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/** Các lần chạy gần nhất của một lịch, mới nhất trước; lỗi rút gọn để hiển thị. */
+export async function listWorkspaceScheduleExecutions(input: {
+  scheduleId: string;
+  organizationId: string;
+  limit?: number;
+}): Promise<ScheduleExecutionSummary[]> {
+  const def = await repo.findScheduleDefinitionByIdAndWorkspace(input.scheduleId, input.organizationId);
+  if (!def) {
+    throw APIError.notFound("schedule definition not found in workspace");
+  }
+  const limit = Math.min(Math.max(Math.trunc(input.limit ?? 5), 1), MAX_EXECUTIONS_PAGE);
+  const rows = await repo.listExecutionsForDefinition(def.id, input.organizationId, limit);
+  return rows.map((row) => ({
+    id: row.id,
+    scheduledFor: row.scheduledFor,
+    state: row.state,
+    runId: row.runId,
+    conversationId: row.conversationId,
+    error: row.error ? row.error.slice(0, EXECUTION_ERROR_PREVIEW_CHARS) : null,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  }));
+}

@@ -369,3 +369,31 @@ Việc còn mở (chưa VERIFIED, phải nêu rõ):
   (tải bị proxy chặn) và không có model thật. Đã có test tích hợp trong process: plane thật,
   kernel SDK thật, gateway thật, model giả (`tests/apps/cosa/worker/test_chat_business_actions_e2e.py`).
 - Dự án con 3 (capability nháp cho domain chỉ-đọc) và 4 (connector email/lịch/kế toán): làm sau.
+
+### Đợt 4 (hub đợt 1): card vận hành 4 tab — nhánh `claude/dreamy-gates-5pojjq`
+
+Spec `2026-09-27-hub-operations-workspace-design.md` (đợt 1), plan
+`2026-09-27-hub-operations-tabs-phase1.md`. Điều kiện bắt đầu (PR #14 — chat business actions)
+đã merge vào `main` trước khi làm đợt này.
+
+| Việc | Trạng thái |
+|---|---|
+| `services/cosa`: `POST /cosa/schedules/:id/state` (enabled/paused/archived, archived là cuối, không xoá bản ghi), `GET /cosa/schedules/:id/executions`; dispatcher đã bỏ qua paused/archived từ trước | IMPLEMENTED (vitest viết, chưa chạy được ở container — thiếu Encore CLI) |
+| Proxy `apps/cosa`: `POST /agent/schedules/{id}/state`, `GET /agent/schedules/{id}/executions` | IMPLEMENTED + test (pytest chạy được, pass) |
+| Company: `GET /operations/projects/:projectId/agent-capability-grants` (nhãn vi/en, gộp grant scope Project + Workspace của AI member); `CAPABILITY_LABELS` + test parity Python | IMPLEMENTED (tsc sạch; vitest viết, chưa chạy được ở container) |
+| `ProjectStartupTeamMember` thêm `pinnedSpecVersion`/`currentSpecVersion`/`specUpdateAvailable` (server tự so, không so ở client) | IMPLEMENTED |
+| Contract MVP: 5 route mới (`hub.schedules.list`, `hub.schedule.run_now`, `hub.schedule.set_state`, `hub.schedule.executions`, `project.agent_capability_grants.read`) | IMPLEMENTED, `make mvp-contracts-gen` + `make frontend-api-contract-check` pass |
+| Flutter: `HubOperationsController` + `HubOperationsCard`/`HubOperationsPanel` (4 tab, cột trái dưới "Chu kỳ tuần"), `HubOperationsService`, model `HubSchedule`/`HubScheduleExecution`/`HubAgentGrant` | IMPLEMENTED, `flutter analyze` sạch, test widget + service pass |
+
+Quyết định founder áp dụng đúng như spec: card ở cột trái, giới hạn nháp/đề xuất do agent tạo
+(20/Project/ngày) để dành cho đợt 2 (chưa có UI tạo nháp ở đợt 1 nên chưa cần thực thi giới hạn).
+
+Việc còn mở:
+
+- Test Encore (`services/cosa`, `services/company`) cho phần này chỉ chạy được trên CI — container
+  không có Encore CLI (như đợt 3).
+- Thử tay trên dev stack thật (đổi Project → 4 tab nạp đúng; tạm dừng lịch → dispatcher không chạy;
+  thu hồi quyền → agent chat bị từ chối ticket lần gọi kế tiếp): chưa chạy — không có stack Encore
+  thật trong container này.
+- Đợt 2 (thẻ kế hoạch tự động hoá trong chat, kênh nhận founder, `automation.plan.propose`,
+  `founder.notify.send`, ADR-FOUNDER-CHANNEL-001) và đợt 3 (founder tạo agent) chưa làm.

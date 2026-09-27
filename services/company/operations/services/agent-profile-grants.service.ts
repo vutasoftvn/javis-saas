@@ -1,4 +1,5 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
+import { APIError } from "encore.dev/api";
 import {
   coreAgentCapabilityGrants,
   coreCapabilityPermissionBindings,
@@ -6,7 +7,7 @@ import {
   coreRolePermissions,
   coreWorkspaceRoles,
 } from "../../shared/db/schema/identity";
-import type { db } from "../models/db";
+import { db, schema } from "../models/db";
 import {
   appendAuthorizationEvent,
   advanceAuthorizationEpoch,
@@ -38,6 +39,32 @@ export const AGENT_PROFILE_GRANTED_CAPABILITIES: Readonly<Record<string, readonl
       "finance.accounting_document.create_draft",
     ]),
   });
+
+// Nhãn hiển thị (vi/en) cho capability agent có thể được cấp — card vận hành ở hub không hiển thị
+// enum thô. Test parity Python chặn thiếu nhãn cho capability trong bảng grant ở trên.
+export const CAPABILITY_LABELS: Readonly<Record<string, { vi: string; en: string }>> = Object.freeze({
+  "operations.task.create_draft": { vi: "Soạn nháp công việc", en: "Draft tasks" },
+  "operations.task.advance": { vi: "Chuyển trạng thái công việc", en: "Update task status" },
+  "okr.key_result.create": { vi: "Tạo Key Result", en: "Create Key Results" },
+  "okr.key_result.checkin": { vi: "Ghi nhận tiến độ Key Result", en: "Check in Key Results" },
+  "startup_os.goal.create": { vi: "Tạo mục tiêu", en: "Create goals" },
+  "startup_os.project.triage": { vi: "Phân loại dự án", en: "Triage projects" },
+  "venture.profile.propose_update": {
+    vi: "Cập nhật hồ sơ khởi nghiệp",
+    en: "Update the venture profile",
+  },
+  "finance.transaction.classify_propose": {
+    vi: "Đề xuất phân loại giao dịch",
+    en: "Propose transaction categories",
+  },
+  "finance.accounting_document.create_draft": {
+    vi: "Soạn nháp chứng từ kế toán",
+    en: "Draft accounting documents",
+  },
+  "finance.transaction.record": { vi: "Ghi giao dịch tài chính", en: "Record transactions" },
+});
+
+const UNKNOWN_CAPABILITY_LABEL = Object.freeze({ vi: "Quyền khác", en: "Other permission" });
 
 // Transaction Drizzle của operations (cùng DB workspace với bảng core.* của identity).
 type DbLike = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -247,4 +274,95 @@ export async function ensureStartupTeamAgentRole(
       .insert(coreMemberRoleAssignments)
       .values({ workspaceId: wsId, workforceMemberId: memberId, roleId: role.id });
   }
+}
+
+export interface ProjectAgentCapabilityGrant {
+  grantId: string;
+  profileKey: string;
+  agentWorkforceMemberId: string;
+  capabilityId: string;
+  label: { vi: string; en: string };
+  scope: "PROJECT" | "WORKSPACE";
+  status: string;
+  grantedAt: string;
+  grantedByMemberId: string;
+  revokedAt?: string;
+  revokeReason?: string;
+}
+
+// Số grant REVOKED gần nhất trả kèm để founder thấy lịch sử thu hồi mà không tải cả lịch sử.
+const RECENT_REVOKED_LIMIT = 20;
+
+/**
+ * Quyền đang cấp (và thu hồi gần đây) cho AI member của startup team trong Project — tab Công cụ
+ * của card vận hành ở hub. Gồm grant scope Project này và grant scope toàn workspace (projectId
+ * rỗng) của cùng AI member. Chỉ đọc; thu hồi đi qua POST /identity/agent-capability-grants/:id/revoke.
+ */
+export async function listProjectAgentCapabilityGrants(input: {
+  workspaceId: string;
+  projectId: string;
+}): Promise<ProjectAgentCapabilityGrant[]> {
+  const wsId = BigInt(input.workspaceId);
+  let projId: bigint;
+  try {
+    projId = BigInt(input.projectId);
+  } catch {
+    throw APIError.invalidArgument("projectId must be numeric");
+  }
+  const { projects, projectAgentAssignments } = schema;
+
+  const [project] = await db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(and(eq(projects.id, projId), eq(projects.workspaceId, wsId)))
+    .limit(1);
+  if (!project) {
+    throw APIError.notFound("Project not found");
+  }
+
+  const assignments = await db
+    .select({
+      profileKey: projectAgentAssignments.profileKey,
+      memberId: projectAgentAssignments.agentWorkforceMemberId,
+    })
+    .from(projectAgentAssignments)
+    .where(
+      and(eq(projectAgentAssignments.workspaceId, wsId), eq(projectAgentAssignments.projectId, projId))
+    );
+  const profileByMember = new Map<string, string>();
+  for (const a of assignments) {
+    if (a.memberId !== null) profileByMember.set(a.memberId.toString(), a.profileKey);
+  }
+  if (profileByMember.size === 0) return [];
+
+  const rows = await db
+    .select()
+    .from(coreAgentCapabilityGrants)
+    .where(
+      and(
+        eq(coreAgentCapabilityGrants.workspaceId, wsId),
+        inArray(
+          coreAgentCapabilityGrants.agentWorkforceMemberId,
+          [...profileByMember.keys()].map((id) => BigInt(id))
+        ),
+        or(eq(coreAgentCapabilityGrants.projectId, projId), isNull(coreAgentCapabilityGrants.projectId))
+      )
+    )
+    .orderBy(desc(coreAgentCapabilityGrants.createdAt));
+
+  const active = rows.filter((r) => r.status === "ACTIVE");
+  const revoked = rows.filter((r) => r.status !== "ACTIVE").slice(0, RECENT_REVOKED_LIMIT);
+  return [...active, ...revoked].map((row) => ({
+    grantId: row.id,
+    profileKey: profileByMember.get(row.agentWorkforceMemberId.toString()) ?? "",
+    agentWorkforceMemberId: row.agentWorkforceMemberId.toString(),
+    capabilityId: row.capabilityId,
+    label: CAPABILITY_LABELS[row.capabilityId] ?? UNKNOWN_CAPABILITY_LABEL,
+    scope: row.projectId === null ? "WORKSPACE" : "PROJECT",
+    status: row.status,
+    grantedAt: row.createdAt.toISOString(),
+    grantedByMemberId: row.grantedByFounderMemberId.toString(),
+    revokedAt: row.revokedAt ? row.revokedAt.toISOString() : undefined,
+    revokeReason: row.revokeReason ?? undefined,
+  }));
 }

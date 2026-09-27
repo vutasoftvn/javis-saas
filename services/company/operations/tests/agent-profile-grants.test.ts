@@ -8,7 +8,15 @@ import {
   activateProjectStartupTeamMember,
   pauseProjectStartupTeamMember,
 } from "../services/project-startup-team.service";
-import { AGENT_PROFILE_GRANTED_CAPABILITIES } from "../services/agent-profile-grants.service";
+import {
+  AGENT_PROFILE_GRANTED_CAPABILITIES,
+  CAPABILITY_LABELS,
+  listProjectAgentCapabilityGrants,
+} from "../services/agent-profile-grants.service";
+import { listProjectStartupTeam } from "../services/project-startup-team.service";
+import { revokeAgentCapability } from "../../identity/services/agent-authorization.service";
+import { AGENT_PROFILE_SPEC_VERSION } from "../services/ai-member.service";
+import { projectAgentAssignments } from "../../shared/db/schema/operations";
 import { issueAgentAuthorizationTicket } from "../../identity/services/agent-authorization-ticket.service";
 import {
   coreAgentCapabilityGrants,
@@ -117,5 +125,68 @@ describe("startup team activation grants agent capabilities", () => {
         agentWorkforceMemberId: agentId,
       })
     ).rejects.toMatchObject({ code: "permission_denied" });
+  });
+
+  // Hub đợt 1 — tab Công cụ: xem và thu hồi quyền agent trong Project.
+  it("lists project grants with labels and reflects a founder revoke", async () => {
+    await activateProjectStartupTeamMember(ctx, projectId, "operations", { expectedVersion: 1 });
+
+    const items = await listProjectAgentCapabilityGrants({
+      workspaceId: ctx.workspaceId,
+      projectId,
+    });
+    expect(items.map((g) => g.capabilityId).sort()).toEqual(
+      [...AGENT_PROFILE_GRANTED_CAPABILITIES.operations].sort()
+    );
+    for (const grant of items) {
+      expect(grant.profileKey).toBe("operations");
+      expect(grant.status).toBe("ACTIVE");
+      expect(grant.scope).toBe("PROJECT");
+      expect(grant.label).toEqual(CAPABILITY_LABELS[grant.capabilityId]);
+    }
+
+    const target = items.find((g) => g.capabilityId === "okr.key_result.create")!;
+    await revokeAgentCapability(ctx, { grantId: target.grantId, reason: "Founder revoked in hub" });
+
+    const after = await listProjectAgentCapabilityGrants({ workspaceId: ctx.workspaceId, projectId });
+    const revoked = after.find((g) => g.grantId === target.grantId)!;
+    expect(revoked.status).toBe("REVOKED");
+    expect(revoked.revokeReason).toBe("Founder revoked in hub");
+    // ACTIVE đứng trước REVOKED.
+    expect(after[after.length - 1].grantId).toBe(target.grantId);
+  });
+
+  it("lists nothing for a project without activated agents and 404s for another workspace", async () => {
+    expect(await listProjectAgentCapabilityGrants({ workspaceId: ctx.workspaceId, projectId })).toEqual(
+      []
+    );
+    const other = await createTestWorkspaceWithMember({ role: "founder" });
+    await expect(
+      listProjectAgentCapabilityGrants({ workspaceId: other.workspaceId, projectId })
+    ).rejects.toMatchObject({ code: "not_found" });
+  });
+
+  it("startup team exposes the pinned spec version and flags a newer built-in", async () => {
+    await activateProjectStartupTeamMember(ctx, projectId, "operations", { expectedVersion: 1 });
+    let team = await listProjectStartupTeam({ workspaceId: ctx.workspaceId, projectId });
+    let ops = team.find((m) => m.profileKey === "operations")!;
+    expect(ops.pinnedSpecVersion).toBe(AGENT_PROFILE_SPEC_VERSION.operations);
+    expect(ops.currentSpecVersion).toBe(AGENT_PROFILE_SPEC_VERSION.operations);
+    expect(ops.specUpdateAvailable).toBe(false);
+
+    // Project kích hoạt từ spec cũ giữ pin cũ (quy tắc 13) -> server báo có phiên bản mới.
+    await db
+      .update(projectAgentAssignments)
+      .set({ specVersion: "1.0.0" })
+      .where(
+        and(
+          eq(projectAgentAssignments.projectId, BigInt(projectId)),
+          eq(projectAgentAssignments.profileKey, "operations")
+        )
+      );
+    team = await listProjectStartupTeam({ workspaceId: ctx.workspaceId, projectId });
+    ops = team.find((m) => m.profileKey === "operations")!;
+    expect(ops.pinnedSpecVersion).toBe("1.0.0");
+    expect(ops.specUpdateAvailable).toBe(true);
   });
 });

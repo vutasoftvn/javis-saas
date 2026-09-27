@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel
 
 from apps.cosa.api.project_context import verify_project_context
 from apps.cosa.api.schemas import CreateScheduleRequest, ScheduleListResponse, ScheduleResponse
@@ -45,6 +46,31 @@ def _control_plane_bearer(identity: AuthenticatedIdentity) -> str:
             status_code=403,
             detail="Tài khoản chưa liên kết với platform identity — không thể dùng schedules qua control-plane",
         ) from exc
+
+
+class ScheduleStateRequest(BaseModel):
+    state: Literal["enabled", "paused", "archived"]
+
+
+def _schedule_response(d: dict[str, Any]) -> ScheduleResponse:
+    return ScheduleResponse(
+        id=d["id"],
+        workspace_id=d["organizationId"],
+        created_by=d["createdBy"],
+        schedule_kind=d["scheduleKind"],
+        timezone=d["timezone"],
+        prompt_template=d["promptTemplate"],
+        agent_profile=d["agentProfile"],
+        state=d["state"],
+        next_run_at=d.get("nextRunAt"),
+        last_run_at=d.get("lastRunAt"),
+        created_at=d["createdAt"],
+        project_id=d.get("projectId"),
+        is_legacy_unscoped=d.get("isLegacyUnscoped", False),
+        hour=d.get("hour"),
+        minute=d.get("minute"),
+        weekdays=d.get("weekdays") if isinstance(d.get("weekdays"), list) else None,
+    )
 
 
 # 13. Schedules Proxy Routes (Task 4)
@@ -94,22 +120,7 @@ async def create_schedule(
         )
         if resp.status_code != 200:
             raise HTTPException(status_code=resp.status_code, detail=resp.text)
-        data = resp.json()
-        return ScheduleResponse(
-            id=data["id"],
-            workspace_id=data["organizationId"],
-            created_by=data["createdBy"],
-            schedule_kind=data["scheduleKind"],
-            timezone=data["timezone"],
-            prompt_template=data["promptTemplate"],
-            agent_profile=data["agentProfile"],
-            state=data["state"],
-            next_run_at=data.get("nextRunAt"),
-            last_run_at=data.get("lastRunAt"),
-            created_at=data["createdAt"],
-            project_id=data.get("projectId"),
-            is_legacy_unscoped=data.get("isLegacyUnscoped", False),
-        )
+        return _schedule_response(resp.json())
 
 
 @router.get("/schedules", response_model=ScheduleListResponse)
@@ -130,24 +141,7 @@ async def list_schedules(
         if resp.status_code != 200:
             raise HTTPException(status_code=resp.status_code, detail=resp.text)
         data = resp.json()
-        items = [
-            ScheduleResponse(
-                id=d["id"],
-                workspace_id=d["organizationId"],
-                created_by=d["createdBy"],
-                schedule_kind=d["scheduleKind"],
-                timezone=d["timezone"],
-                prompt_template=d["promptTemplate"],
-                agent_profile=d["agentProfile"],
-                state=d["state"],
-                next_run_at=d.get("nextRunAt"),
-                last_run_at=d.get("lastRunAt"),
-                created_at=d["createdAt"],
-                project_id=d.get("projectId"),
-                is_legacy_unscoped=d.get("isLegacyUnscoped", False),
-            )
-            for d in data.get("items", [])
-        ]
+        items = [_schedule_response(d) for d in data.get("items", [])]
         return ScheduleListResponse(items=items, total=data.get("total", len(items)))
 
 
@@ -170,6 +164,61 @@ async def run_schedule_now_endpoint(
         if resp.status_code != 200:
             raise HTTPException(status_code=resp.status_code, detail=resp.text)
         return resp.json()
+
+
+@router.post("/schedules/{schedule_id}/state", response_model=ScheduleResponse)
+async def set_schedule_state(
+    schedule_id: str,
+    body: ScheduleStateRequest,
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+):
+    """Founder tạm dừng / tiếp tục / lưu trữ lịch (card vận hành ở hub). Organization
+    luôn lấy từ danh tính, không nhận từ client."""
+    control_plane_url = resolve_platform_control_plane_url()
+    token = _control_plane_bearer(identity)
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.post(
+            f"{control_plane_url}/cosa/schedules/{schedule_id}/state",
+            json={"organizationId": identity.workspace_id, "state": body.state},
+            headers={"Authorization": token},
+        )
+        if resp.status_code != 200:
+            raise HTTPException(status_code=resp.status_code, detail=resp.text)
+        return _schedule_response(resp.json())
+
+
+@router.get("/schedules/{schedule_id}/executions")
+async def list_schedule_executions(
+    schedule_id: str,
+    limit: int = Query(default=5, ge=1, le=20),
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+) -> dict[str, Any]:
+    """Các lần chạy gần nhất của một lịch (state, run, hội thoại, lỗi rút gọn)."""
+    control_plane_url = resolve_platform_control_plane_url()
+    token = _control_plane_bearer(identity)
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.get(
+            f"{control_plane_url}/cosa/schedules/{schedule_id}/executions",
+            params={"organizationId": identity.workspace_id, "limit": limit},
+            headers={"Authorization": token},
+        )
+        if resp.status_code != 200:
+            raise HTTPException(status_code=resp.status_code, detail=resp.text)
+        data = resp.json()
+        return {
+            "items": [
+                {
+                    "id": item["id"],
+                    "scheduled_for": item.get("scheduledFor"),
+                    "state": item.get("state"),
+                    "run_id": item.get("runId"),
+                    "conversation_id": item.get("conversationId"),
+                    "error": item.get("error"),
+                    "updated_at": item.get("updatedAt"),
+                }
+                for item in data.get("items", [])
+            ]
+        }
 
 
 def create_schedule_router() -> APIRouter:

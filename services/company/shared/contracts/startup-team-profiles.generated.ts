@@ -85,6 +85,9 @@ export interface ProjectStartupTeamMember {
   assignmentVersion?: number;
   activatedAt?: string;
   activatedBy?: string;
+  pinnedSpecVersion?: string;
+  currentSpecVersion?: string;
+  specUpdateAvailable?: boolean;
 }
 
 export function isStartupTeamProfileKey(val: unknown): val is StartupTeamProfileKey {

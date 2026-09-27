@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 114 | 24 |
 | VALID_KEEP (giữ nguyên) | 139 | 38 |
-| REVIEW (chưa phân loại) | 1343 | 301 |
+| REVIEW (chưa phân loại) | 1345 | 302 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -42,7 +42,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 
 | File | Hits |
 |---|---|
-| frontend/lib/core/network/mvp_endpoints.g.dart | 100 |
+| frontend/lib/core/network/mvp_endpoints.g.dart | 101 |
 | apps/cosa/auth/jwt.py | 39 |
 | apps/cosa/policies/company_policy_client.py | 27 |
 | apps/cosa/worker/wga_run.py | 25 |
@@ -265,6 +265,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | frontend/lib/modules/agents/services/agent_platform_service.dart | 1 |
 | frontend/lib/modules/chat/controllers/chat_controller.dart | 1 |
 | frontend/lib/modules/hologram_hub/controllers/mixins/hub_control_plane_mixin.dart | 1 |
+| frontend/lib/modules/hologram_hub/models/hub_operations_models.dart | 1 |
 | frontend/lib/modules/hologram_hub/views/hologram_hub_view.dart | 1 |
 | frontend/lib/modules/hologram_hub/widgets/agent_direct_chat_sheet.dart | 1 |
 | frontend/lib/modules/hologram_hub/widgets/top3_focus_widget.dart | 1 |

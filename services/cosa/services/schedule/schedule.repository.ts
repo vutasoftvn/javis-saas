@@ -361,3 +361,44 @@ export async function rebindLegacyScheduleDefinition(input: {
   return updated || null;
 }
 
+
+export async function updateScheduleDefinitionState(input: {
+  scheduleId: string;
+  organizationId: string;
+  fromState: ScheduleState;
+  state: ScheduleState;
+  nextRunAt: Date | null;
+}): Promise<ScheduleDefinitionRow | null> {
+  // Điều kiện `fromState` chống ghi đè đua (hai tab cùng bấm): chỉ đổi khi state
+  // vẫn đúng như lúc đọc.
+  const [updated] = await db
+    .update(workspaceScheduleDefinitions)
+    .set({ state: input.state, nextRunAt: input.nextRunAt, updatedAt: new Date() })
+    .where(
+      and(
+        eq(workspaceScheduleDefinitions.id, input.scheduleId),
+        eq(workspaceScheduleDefinitions.organizationId, input.organizationId),
+        eq(workspaceScheduleDefinitions.state, input.fromState)
+      )
+    )
+    .returning();
+  return updated || null;
+}
+
+export async function listExecutionsForDefinition(
+  definitionId: string,
+  organizationId: string,
+  limit: number
+): Promise<ScheduleExecutionRow[]> {
+  return db
+    .select()
+    .from(workspaceScheduleExecutions)
+    .where(
+      and(
+        eq(workspaceScheduleExecutions.definitionId, definitionId),
+        eq(workspaceScheduleExecutions.organizationId, organizationId)
+      )
+    )
+    .orderBy(desc(workspaceScheduleExecutions.scheduledFor))
+    .limit(limit);
+}

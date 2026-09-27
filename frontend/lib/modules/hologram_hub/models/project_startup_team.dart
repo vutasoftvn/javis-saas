@@ -81,6 +81,10 @@ class ProjectStartupTeamMember {
   final int? assignmentVersion;
   final DateTime? activatedAt;
   final String? activatedBy;
+  // Phiên bản spec đang ghim / built-in hiện hành; server tự so (`specUpdateAvailable`).
+  final String? pinnedSpecVersion;
+  final String? currentSpecVersion;
+  final bool specUpdateAvailable;
 
   const ProjectStartupTeamMember({
     required this.profileKey,
@@ -91,6 +95,9 @@ class ProjectStartupTeamMember {
     this.assignmentVersion,
     this.activatedAt,
     this.activatedBy,
+    this.pinnedSpecVersion,
+    this.currentSpecVersion,
+    this.specUpdateAvailable = false,
   });
 
   factory ProjectStartupTeamMember.fromJson(Map<String, dynamic> json) {
@@ -106,6 +113,9 @@ class ProjectStartupTeamMember {
           ? DateTime.tryParse(json['activatedAt'] as String)?.toUtc()
           : null,
       activatedBy: json['activatedBy'] as String?,
+      pinnedSpecVersion: json['pinnedSpecVersion'] as String?,
+      currentSpecVersion: json['currentSpecVersion'] as String?,
+      specUpdateAvailable: json['specUpdateAvailable'] == true,
     );
   }
 
@@ -119,6 +129,9 @@ class ProjectStartupTeamMember {
       if (assignmentVersion != null) 'assignmentVersion': assignmentVersion,
       if (activatedAt != null) 'activatedAt': activatedAt!.toIso8601String(),
       if (activatedBy != null) 'activatedBy': activatedBy,
+      if (pinnedSpecVersion != null) 'pinnedSpecVersion': pinnedSpecVersion,
+      if (currentSpecVersion != null) 'currentSpecVersion': currentSpecVersion,
+      if (specUpdateAvailable) 'specUpdateAvailable': true,
     };
   }
 }

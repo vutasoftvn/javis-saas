@@ -7,6 +7,10 @@ import {
   pauseProjectStartupTeamMember,
   ProjectAgentRunAuthority,
 } from "../services/project-startup-team.service";
+import {
+  listProjectAgentCapabilityGrants,
+  ProjectAgentCapabilityGrant,
+} from "../services/agent-profile-grants.service";
 import { resolveChatRunAuthority } from "../services/founder-agent-compatibility.service";
 import { ProjectStartupTeamMember } from "../../shared/contracts/startup-team-profiles.generated";
 
@@ -32,6 +36,31 @@ export const listProjectStartupTeamApi = api(
       workspaceId: ctx.workspaceId,
       projectId: params.projectId,
       actorId: ctx.workforceMemberId ?? undefined,
+    });
+    return { items };
+  }
+);
+
+interface ListProjectAgentCapabilityGrantsParams {
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
+  projectId: string;
+}
+
+// Tab Công cụ của card vận hành ở hub: quyền agent startup team đang có trong Project (chỉ đọc).
+export const listProjectAgentCapabilityGrantsApi = api(
+  {
+    expose: true,
+    method: "GET",
+    path: "/operations/projects/:projectId/agent-capability-grants",
+  },
+  async (
+    params: ListProjectAgentCapabilityGrantsParams
+  ): Promise<{ items: ProjectAgentCapabilityGrant[] }> => {
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const items = await listProjectAgentCapabilityGrants({
+      workspaceId: ctx.workspaceId,
+      projectId: params.projectId,
     });
     return { items };
   }

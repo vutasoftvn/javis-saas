@@ -177,3 +177,57 @@ export const completeScheduleExecutionEndpoint = api(
     return { ok: !!res };
   }
 );
+
+export interface SetScheduleStateParams {
+  authorization?: Header<"Authorization">;
+  scheduleId: string;
+  organizationId: string;
+  state: scheduleSvc.ScheduleState;
+}
+
+export interface ListScheduleExecutionsParams {
+  authorization?: Header<"Authorization">;
+  scheduleId: string;
+  organizationId: string;
+  limit?: number;
+}
+
+export interface ScheduleExecutionSummaryResponse {
+  id: string;
+  scheduledFor: Date;
+  state: string;
+  runId: string | null;
+  conversationId: string | null;
+  error: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Founder tạm dừng / tiếp tục / lưu trữ lịch từ card vận hành ở hub. Cùng guard
+// với tạo/chạy ngay: thành viên organization (delegation control-plane hoặc token core).
+export const setScheduleStateEndpoint = api(
+  { method: "POST", path: "/cosa/schedules/:scheduleId/state", expose: true },
+  async (params: SetScheduleStateParams): Promise<ScheduleDefinitionResponse> => {
+    await resolveCallerAuthorizedForWorkspace(params.authorization, params.organizationId);
+    return scheduleSvc.setWorkspaceScheduleState({
+      scheduleId: params.scheduleId,
+      organizationId: params.organizationId,
+      state: params.state,
+    });
+  }
+);
+
+export const listScheduleExecutionsEndpoint = api(
+  { method: "GET", path: "/cosa/schedules/:scheduleId/executions", expose: true },
+  async (
+    params: ListScheduleExecutionsParams
+  ): Promise<{ items: ScheduleExecutionSummaryResponse[] }> => {
+    await resolveCallerAuthorizedForWorkspace(params.authorization, params.organizationId);
+    const items = await scheduleSvc.listWorkspaceScheduleExecutions({
+      scheduleId: params.scheduleId,
+      organizationId: params.organizationId,
+      limit: params.limit,
+    });
+    return { items };
+  }
+);
