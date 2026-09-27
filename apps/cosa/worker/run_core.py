@@ -267,7 +267,9 @@ async def _build_routed_kernel(plane: CosaAgentPlane, route: ResolvedModelRoute)
     resolver = getattr(plane, "model_route_resolver", None)
     resolve_fallbacks = getattr(resolver, "resolve_fallback_routes", None)
     if resolve_fallbacks is not None and route.fallback_profile_ids:
-        fallback_routes = await resolve_fallbacks(route)
+        fallback_routes = [
+            r for r in list(await resolve_fallbacks(route)) if isinstance(r, ResolvedModelRoute)
+        ]
         if fallback_routes:
             from apps.cosa.models.fallback_model import FallbackModel
 
