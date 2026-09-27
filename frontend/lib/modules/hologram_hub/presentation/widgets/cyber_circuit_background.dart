@@ -890,34 +890,60 @@ class _HolographicLedRingsOverlayPainter extends CustomPainter {
       path.lineTo(p.dx, p.dy);
     }
 
-    // Dây liên kết mềm mờ (hơi phát sáng khi tiến gần hội tụ)
+    // 1. Lớp hào quang tỏa nhẹ (Subtle Glow Bloom)
     canvas.drawPath(
       path,
       Paint()
-        ..color = webColor.withValues(alpha: 0.12 + (alignmentIntensity * 0.35))
+        ..color = webColor.withValues(alpha: 0.16 + (alignmentIntensity * 0.22))
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.0 + (alignmentIntensity * 1.5)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 1.5 + (alignmentIntensity * 2.5)),
+        ..strokeWidth = 2.6 + (alignmentIntensity * 1.4)
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 2.0 + (alignmentIntensity * 1.5)),
     );
 
-    // Hạt photon lượng tử lướt theo các đoạn nối từ tâm Mặt Trời ra các hành tinh
+    // 2. Lớp vệt sáng chính sắc gọn, êm dịu, không chói mắt
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = webColor.withValues(alpha: 0.38 + (alignmentIntensity * 0.22))
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.1 + (alignmentIntensity * 0.5)
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+
+    // Điểm nút mềm mại tại các khớp nối hành tinh
+    for (final p in positions) {
+      canvas.drawCircle(
+        p,
+        1.8,
+        Paint()
+          ..color = webColor.withValues(alpha: 0.40)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.0),
+      );
+    }
+
+    // Hạt photon lượng tử lướt theo các đoạn nối nhẹ nhàng
     for (int k = 0; k < positions.length; k++) {
       final p1 = (k == 0) ? center : positions[k - 1];
       final p2 = positions[k];
       final photonT = (pulseProgress + k * 0.13) % 1.0;
       final photonPos = Offset.lerp(p1, p2, photonT)!;
 
+      // Hào quang photon nhẹ
       canvas.drawCircle(
         photonPos,
-        1.6 + (alignmentIntensity * 1.2),
-        Paint()..color = Colors.white.withValues(alpha: 0.85),
-      );
-      canvas.drawCircle(
-        photonPos,
-        3.2 + (alignmentIntensity * 2.0),
+        3.0 + (alignmentIntensity * 1.5),
         Paint()
-          ..color = webColor.withValues(alpha: 0.45)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.8),
+          ..color = webColor.withValues(alpha: 0.32)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.4),
+      );
+      // Lõi photon êm dịu
+      canvas.drawCircle(
+        photonPos,
+        1.5 + (alignmentIntensity * 0.6),
+        Paint()..color = Colors.white.withValues(alpha: 0.70),
       );
     }
   }
