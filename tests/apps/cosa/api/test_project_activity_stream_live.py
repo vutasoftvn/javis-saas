@@ -90,3 +90,41 @@ async def test_runtime_event_without_actor_serializes_in_list_and_stream():
     )
     assert await gen.__anext__() == "id: 1\n"
     await gen.aclose()
+
+
+@pytest.mark.asyncio
+async def test_message_source_visible_only_within_its_workspace():
+    """Trước đây so msg.workspace_id (MessageRecord không có field này) nên
+    nguồn loại message không bao giờ visible trong activity detail."""
+    from agent.conversations.models import ConversationRecord, MessageRecord
+    from agent.conversations.repository import InMemoryConversationRepository
+
+    repo = InMemoryConversationRepository()
+    conv = await repo.create_conversation(
+        ConversationRecord(
+            workspace_id="ws1",
+            title="t",
+            project_id="p1",
+            scope_state="PROJECT_SCOPED",
+            created_by_principal="user:1",
+        )
+    )
+    msg = await repo.add_message(
+        MessageRecord(
+            conversation_id=conv.conversation_id,
+            project_id="p1",
+            role="assistant",
+            content="x",
+            status="completed",
+        )
+    )
+    plane = SimpleNamespace(conversation_repository=repo)
+
+    ok, ref = await routes._fetch_and_verify_source_visibility(
+        plane, SimpleNamespace(workspace_id="ws1"), "message", msg.message_id
+    )
+    assert ok and ref["id"] == msg.message_id
+    other, _ = await routes._fetch_and_verify_source_visibility(
+        plane, SimpleNamespace(workspace_id="ws2"), "message", msg.message_id
+    )
+    assert other is False
