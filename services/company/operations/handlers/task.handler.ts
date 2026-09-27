@@ -26,7 +26,6 @@ import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
 import { AGENT_CAP } from "../../shared/auth/agent-capabilities";
 import {
   resolveCosaTaskContext,
-  WGA_CAP_TASK_ADVANCE,
   WGA_CAP_TASK_LIST,
 } from "../../shared/auth/cosa-task-delegation";
 
@@ -151,7 +150,7 @@ export const advanceTask = api(
     if (!runId || !runId.trim()) throw APIError.invalidArgument("runId required");
     const ctx = resolveCosaTaskContext(authorization, {
       workspaceId,
-      capabilityId: WGA_CAP_TASK_ADVANCE,
+      capabilityId: AGENT_CAP.OPERATIONS_TASK_ADVANCE,
       runId,
     });
     return advanceTaskByAgentService({ taskId: id, toStatus, runId, note, evidenceRefs }, ctx);

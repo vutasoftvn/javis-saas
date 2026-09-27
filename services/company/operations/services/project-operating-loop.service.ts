@@ -160,6 +160,8 @@ export interface TaskDto {
   timezone: string;
   assigneeMemberId?: string | null;
   executionMode?: string | null;
+  // Nguồn tạo task (vd. "ai_agent_proposal" khi agent soạn nháp) — hub gắn nhãn "do agent tạo".
+  source?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -344,6 +346,7 @@ function toTask(row: typeof tasks.$inferSelect): TaskDto {
     timezone: row.timezone,
     assigneeMemberId: row.assigneeMemberId ? row.assigneeMemberId.toString() : null,
     executionMode: row.executionMode,
+    source: row.source,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

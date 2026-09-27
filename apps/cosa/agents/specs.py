@@ -179,7 +179,17 @@ COSA_OPERATIONS_INSTRUCTIONS = (
     "KHÔNG liệt kê năng lực hay tự giới thiệu dài. "
     "Workspace và Project hiện tại đã được nền tảng xác nhận trong session context: KHÔNG hỏi "
     "workspace_id/project_id; mặc định làm việc trên Project hiện tại, chỉ hỏi lại khi Founder "
-    "nhắc rõ tới dự án khác."
+    "nhắc rõ tới dự án khác. "
+    "Khi Founder hỏi về dữ liệu business (mục tiêu, OKR, tài chính, CRM, pháp lý, nhân sự, sản "
+    "phẩm, bảo mật, dữ liệu, marketing, hồ sơ khởi nghiệp), gọi business.read đúng domain trước "
+    "khi trả lời; không đoán số liệu. "
+    "Khi Founder muốn làm một việc cụ thể (tạo mục tiêu hay Key Result, check-in Key Result, chuyển "
+    "trạng thái task, phân loại dự án, cập nhật hồ sơ khởi nghiệp): đọc dữ liệu cần thiết trước, "
+    "rồi gọi đúng công cụ với tham số đầy đủ. Hệ thống sẽ hiện thẻ để Founder duyệt: nói ngắn gọn "
+    "bạn đã đề xuất gì và đang chờ duyệt, KHÔNG nói đã hoàn thành trước khi có kết quả thực thi. "
+    "Nếu Founder từ chối, ghi nhận và hỏi cách làm khác, không gọi lại y hệt. "
+    "Luôn gọi Objective, Key Result, task và dự án bằng tên, không đọc ID cho Founder. "
+    "Nếu công cụ báo lỗi, nói rõ phần nào không lấy được và tiếp tục với dữ liệu còn có."
 )
 
 COSA_COFOUNDER_ASSISTANT_PROMPT = PromptSpec(
@@ -229,8 +239,15 @@ COSA_OPERATIONS_AGENT_SPEC = AgentSpec(
     # 1.4.0 (WGA G8): thêm operations.execution_plan.read để trả lời founder về
     # kế hoạch triển khai + tiến độ task (chỉ đọc).
     # 1.5.0 (2026-09-27): quy tắc hội thoại — chào ngắn, không hỏi workspace/project đã có.
-    version="1.5.0",
-    autonomy_level=AutonomyLevel.L0_OBSERVE,
+    # 1.6.0 (spec 2026-09-27-chat-business-actions, ADR-CHAT-ACTIONS-001): business.read đọc
+    # mọi domain; hành động T2 (goal/OKR/task advance/triage/venture) chỉ chạy sau khi founder
+    # duyệt trong chat (access_matrix) ⇒ autonomy L2 "execute with approval". T3 (gửi tin
+    # ra ngoài, xác nhận chứng từ, thanh toán) và finance.transaction.record (hạn mức chưa
+    # chốt, spec §8.3) KHÔNG có ở đây. strategy.evidence.create / strategy.pilot.* /
+    # legal.obligation.create_draft cũng không: company route WGA theo tiền tố sang profile
+    # strategy/legal (tests/apps/cosa/wga/test_owner_agent_profiles.py).
+    version="1.6.0",
+    autonomy_level=AutonomyLevel.L2_EXECUTE,
     instructions=COSA_OPERATIONS_INSTRUCTIONS,
     capability_refs=[
         "operations.task.list",
@@ -243,6 +260,14 @@ COSA_OPERATIONS_AGENT_SPEC = AgentSpec(
         "knowledge.profile.read",
         "workspace.context.read",
         "operations.execution_plan.read",
+        "business.read",
+        "okr.objective.list",
+        "okr.key_result.create",
+        "okr.key_result.checkin",
+        "startup_os.goal.create",
+        "startup_os.project.triage",
+        "operations.task.advance",
+        "venture.profile.propose_update",
     ],
     model_input_capability_ref="model.input.direct-user-message",
     pinned_skills=[

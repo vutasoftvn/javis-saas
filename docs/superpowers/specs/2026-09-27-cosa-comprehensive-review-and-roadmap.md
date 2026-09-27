@@ -330,3 +330,70 @@ Lỗi test có sẵn trước đợt này:
   (RLS không áp dụng cho superuser).
 - Gate Encore (`services-test-*`) và e2e cross-plane chỉ chạy được trên CI (container
   không có Encore CLI). Test thuần của `autonomy-classifier` đã chạy bằng `vitest`.
+
+### Đợt 3 (G-5, phần chat): Co-Founder đọc business và hành động có duyệt — nhánh `claude/dreamy-gates-5pojjq`
+
+Spec `2026-09-27-chat-business-actions-design.md`, plan cùng tên, ADR-CHAT-ACTIONS-001.
+
+| Việc | Trạng thái | Commit |
+|---|---|---|
+| Access matrix T0–T3 + test parity spec↔registry↔matrix↔`agent-capabilities.ts` | IMPLEMENTED | `a9ce870` |
+| Company: AGENT_CAP + `agentCapabilities` cho OKR, goal.create, triage, task.advance, evidence, pilot, metric contract, obligation, venture | IMPLEMENTED (tsc sạch; test Encore viết nhưng chưa chạy được ở container) | `a9ce870` |
+| Lỗi backend của tool trả về model, dừng sau 3 lỗi liên tiếp | IMPLEMENTED | `c341851` |
+| Capability OKR, `business.read` (dispatch theo domain, token mang đúng capability đích) | IMPLEMENTED | `6d0f757` |
+| Chat run + resume buộc founder duyệt mọi T2 | IMPLEMENTED | `6d0f757` |
+| Tóm tắt duyệt theo locale trong `approval.required`; từ chối cũng resume run chat | IMPLEMENTED | `54e3803` |
+| Thẻ duyệt inline trong chat (Flutter) | IMPLEMENTED (widget test + analyze sạch) | `1fc0680` |
+| Spec `operations` 1.6.0 (L2), pin company, ADR; LiveAuthorizer đọc `InvocationContext`; member Project team cho ticket; test tích hợp model giả | IMPLEMENTED | commit cuối nhánh |
+
+Quyết định mặc định cho câu hỏi mở của spec §8: hết hạn duyệt và vai trò duyệt dùng cơ chế
+approval hiện có (`approval_authority.py`, requirement `founder`); `finance.transaction.record`
+để T2 trong matrix nhưng **chưa đưa vào spec chat** tới khi founder chốt hạn mức.
+Lệch so với plan Task 11: `strategy.evidence.create`, `strategy.pilot.*`,
+`legal.obligation.create_draft` không vào spec `operations` — company route task WGA theo tiền
+tố capability sang profile `strategy`/`legal`, thêm vào `operations` phá bất biến định tuyến
+(`tests/apps/cosa/wga/test_owner_agent_profiles.py`). Chúng vẫn được đăng ký và có AGENT_CAP.
+
+Việc còn mở (chưa VERIFIED, phải nêu rõ):
+
+- **Cấp phép ở company — ĐÃ LÀM (vòng 2):** binding capability → permission (identity 007), kích
+  hoạt profile trong startup team tự cấp grant scope Project, tạm dừng thu hồi, backfill cho
+  assignment ACTIVE (operations 030), `LiveAuthorizer` xác định cần ticket theo access matrix.
+  Đã chạy migration + backfill trên Postgres 16 cục bộ với dữ liệu mẫu (idempotent, down OK).
+  Test Encore `operations/tests/agent-profile-grants.test.ts` viết cho CI (container không có
+  runtime Encore).
+- **Compliance thật — ĐÃ LÀM (vòng 2):** finance-legal 005 thêm binding cho catalog
+  `cosa.agents.operations`; test parity chặn thiếu khi spec đổi.
+- Project cũ: founder tạm dừng rồi kích hoạt lại `operations` để lên spec 1.6.0 (spec ghim, quy tắc 13).
+- **Thử tay trên stack thật** (plan Task 12 Step 3): chưa chạy — container không có Encore CLI
+  (tải bị proxy chặn) và không có model thật. Đã có test tích hợp trong process: plane thật,
+  kernel SDK thật, gateway thật, model giả (`tests/apps/cosa/worker/test_chat_business_actions_e2e.py`).
+- Dự án con 3 (capability nháp cho domain chỉ-đọc) và 4 (connector email/lịch/kế toán): làm sau.
+
+### Đợt 4 (hub đợt 1): card vận hành 4 tab — nhánh `claude/dreamy-gates-5pojjq`
+
+Spec `2026-09-27-hub-operations-workspace-design.md` (đợt 1), plan
+`2026-09-27-hub-operations-tabs-phase1.md`. Điều kiện bắt đầu (PR #14 — chat business actions)
+đã merge vào `main` trước khi làm đợt này.
+
+| Việc | Trạng thái |
+|---|---|
+| `services/cosa`: `POST /cosa/schedules/:id/state` (enabled/paused/archived, archived là cuối, không xoá bản ghi), `GET /cosa/schedules/:id/executions`; dispatcher đã bỏ qua paused/archived từ trước | IMPLEMENTED (vitest viết, chưa chạy được ở container — thiếu Encore CLI) |
+| Proxy `apps/cosa`: `POST /agent/schedules/{id}/state`, `GET /agent/schedules/{id}/executions` | IMPLEMENTED + test (pytest chạy được, pass) |
+| Company: `GET /operations/projects/:projectId/agent-capability-grants` (nhãn vi/en, gộp grant scope Project + Workspace của AI member); `CAPABILITY_LABELS` + test parity Python | IMPLEMENTED (tsc sạch; vitest viết, chưa chạy được ở container) |
+| `ProjectStartupTeamMember` thêm `pinnedSpecVersion`/`currentSpecVersion`/`specUpdateAvailable` (server tự so, không so ở client) | IMPLEMENTED |
+| Contract MVP: 5 route mới (`hub.schedules.list`, `hub.schedule.run_now`, `hub.schedule.set_state`, `hub.schedule.executions`, `project.agent_capability_grants.read`) | IMPLEMENTED, `make mvp-contracts-gen` + `make frontend-api-contract-check` pass |
+| Flutter: `HubOperationsController` + `HubOperationsCard`/`HubOperationsPanel` (4 tab, cột trái dưới "Chu kỳ tuần"), `HubOperationsService`, model `HubSchedule`/`HubScheduleExecution`/`HubAgentGrant` | IMPLEMENTED, `flutter analyze` sạch, test widget + service pass |
+
+Quyết định founder áp dụng đúng như spec: card ở cột trái, giới hạn nháp/đề xuất do agent tạo
+(20/Project/ngày) để dành cho đợt 2 (chưa có UI tạo nháp ở đợt 1 nên chưa cần thực thi giới hạn).
+
+Việc còn mở:
+
+- Test Encore (`services/cosa`, `services/company`) cho phần này chỉ chạy được trên CI — container
+  không có Encore CLI (như đợt 3).
+- Thử tay trên dev stack thật (đổi Project → 4 tab nạp đúng; tạm dừng lịch → dispatcher không chạy;
+  thu hồi quyền → agent chat bị từ chối ticket lần gọi kế tiếp): chưa chạy — không có stack Encore
+  thật trong container này.
+- Đợt 2 (thẻ kế hoạch tự động hoá trong chat, kênh nhận founder, `automation.plan.propose`,
+  `founder.notify.send`, ADR-FOUNDER-CHANNEL-001) và đợt 3 (founder tạo agent) chưa làm.

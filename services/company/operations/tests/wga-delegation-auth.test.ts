@@ -171,6 +171,7 @@ describe("WGA delegation auth", () => {
       id: taskId,
       toStatus: "done",
       runId,
+      evidenceRefs: ["artifact://run/wga_sweep_1/assistant-output"],
       authorization: `Bearer ${token}`,
       workspaceId: ws.workspaceId,
     });

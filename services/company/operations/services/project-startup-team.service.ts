@@ -17,7 +17,12 @@ import {
   AGENT_PROFILE_SPEC_VERSION,
   AGENT_PROFILE_SPEC_HASH,
   OwnerAgentProfile,
+  resolveFounderMemberId,
 } from "./ai-member.service";
+import {
+  ensureProfileCapabilityGrants,
+  revokeProfileCapabilityGrants,
+} from "./agent-profile-grants.service";
 import {
   STARTUP_TEAM_PROFILES,
   STARTUP_TEAM_PROFILE_KEYS,
@@ -205,8 +210,26 @@ export async function listProjectStartupTeam(input: {
       assignmentVersion: row.version,
       activatedAt: row.activatedAt ? row.activatedAt.toISOString() : undefined,
       activatedBy: row.activatedBy ? row.activatedBy.toString() : undefined,
+      ...specPinInfo(profile.key, row.specVersion),
     };
   });
+}
+
+/**
+ * Phiên bản spec đang ghim so với built-in hiện hành (quy tắc 13: Project giữ spec đã ghim tới
+ * khi founder kích hoạt lại). Server tự so để client không phải biết bảng pin.
+ */
+function specPinInfo(
+  profileKey: string,
+  pinned: string | null
+): Pick<ProjectStartupTeamMember, "pinnedSpecVersion" | "currentSpecVersion" | "specUpdateAvailable"> {
+  const current = (AGENT_PROFILE_SPEC_VERSION as Partial<Record<string, string>>)[profileKey];
+  if (!current) return {};
+  return {
+    pinnedSpecVersion: pinned ?? undefined,
+    currentSpecVersion: current,
+    specUpdateAvailable: pinned ? pinned !== current : undefined,
+  };
 }
 
 export interface ActivateProjectStartupTeamMemberInput {
@@ -332,6 +355,20 @@ export async function activateProjectStartupTeamMember(
       profileKey as OwnerAgentProfile
     );
 
+    // Kích hoạt = founder cấp cho AI member các capability ghi của profile (scope Project).
+    // Mỗi lần chạy vẫn phải qua founder duyệt trong chat + live authorization ticket.
+    const founderMemberId = await resolveFounderMemberId(tx, ctx.workspaceId, ctx.workforceMemberId);
+    if (founderMemberId) {
+      await ensureProfileCapabilityGrants(tx, {
+        workspaceId: ctx.workspaceId,
+        projectId,
+        profileKey,
+        agentWorkforceMemberId: workforceMemberId,
+        founderMemberId,
+        correlationId: ctx.correlationId,
+      });
+    }
+
     const specId = AGENT_PROFILE_SPEC_ID[profileKey as OwnerAgentProfile];
     const specVersion = AGENT_PROFILE_SPEC_VERSION[profileKey as OwnerAgentProfile];
     const specHash = AGENT_PROFILE_SPEC_HASH[profileKey as OwnerAgentProfile];
@@ -452,6 +489,7 @@ export async function activateProjectStartupTeamMember(
       assignmentVersion: nextVersion,
       activatedAt: now.toISOString(),
       activatedBy: actorId.toString(),
+      ...specPinInfo(profileDef.key, specVersion),
     };
   });
 }
@@ -549,6 +587,19 @@ export async function pauseProjectStartupTeamMember(
     const now = new Date();
     const disabledReason = input.reason ?? "PAUSED_BY_FOUNDER";
 
+    // Tạm dừng agent thu hồi các grant đã cấp lúc kích hoạt cho đúng Project này.
+    if (row.agentWorkforceMemberId) {
+      await revokeProfileCapabilityGrants(tx, {
+        workspaceId: ctx.workspaceId,
+        projectId,
+        profileKey,
+        agentWorkforceMemberId: row.agentWorkforceMemberId.toString(),
+        actorMemberId: ctx.workforceMemberId,
+        reason: disabledReason,
+        correlationId: ctx.correlationId,
+      });
+    }
+
     await tx
       .update(projectAgentAssignments)
       .set({
@@ -609,6 +660,7 @@ export async function pauseProjectStartupTeamMember(
       assignmentVersion: nextVersion,
       activatedAt: row.activatedAt ? row.activatedAt.toISOString() : undefined,
       activatedBy: row.activatedBy ? row.activatedBy.toString() : undefined,
+      ...specPinInfo(profileDef.key, row.specVersion),
     };
   });
 }

@@ -62,7 +62,9 @@ export interface UpdateEvidenceParams {
 export const recordEvidence = api(
   { method: "POST", path: "/operations/strategy/evidence", expose: true },
   async (params: RecordEvidenceParams): Promise<Evidence> => {
-    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId, {
+      agentCapabilities: [AGENT_CAP.STRATEGY_EVIDENCE_CREATE],
+    });
     return recordEvidenceInWorkspace(ctx, params);
   }
 );

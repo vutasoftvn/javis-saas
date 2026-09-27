@@ -288,6 +288,10 @@ class ScheduleResponse(BaseModel):
     # NULL, bị dispatcher bỏ qua kể từ Finding 2).
     project_id: str | None = None
     is_legacy_unscoped: bool = False
+    # Giờ chạy (theo `timezone`) để card vận hành hiển thị lịch mà không suy từ next_run_at.
+    hour: int | None = None
+    minute: int | None = None
+    weekdays: list[int] | None = None
 
 
 class ScheduleListResponse(BaseModel):

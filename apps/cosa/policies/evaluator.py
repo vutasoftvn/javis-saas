@@ -89,6 +89,7 @@ class CosaPolicyEngine:
         decision = self._evaluate_base(capability_id, payload, context)
         # 4. WGA G7 — item NEEDS_APPROVAL của execution plan: run nền đánh dấu
         # capability của item trong metadata (`REQUIRE_APPROVAL_CAPABILITIES_KEY`).
+        # Chat run đánh dấu mọi capability T2 theo access matrix (spec 2026-09-27).
         # Chỉ SIẾT: ALLOW -> REQUIRE_APPROVAL (founder); DENY/REQUIRE_APPROVAL giữ
         # nguyên. Approval sinh ra bind run_id + tool_call_id + checkpoint_ref như
         # mọi approval khác của gateway (quy tắc 5).
@@ -97,7 +98,7 @@ class CosaPolicyEngine:
             return PolicyDecision(
                 outcome=PolicyOutcome.REQUIRE_APPROVAL,
                 requirement=RoleApproval(role="founder"),
-                reasons=("Execution plan item is NEEDS_APPROVAL — founder must approve",),
+                reasons=(f"{capability_id} requires founder approval in this run",),
             )
         return decision
 

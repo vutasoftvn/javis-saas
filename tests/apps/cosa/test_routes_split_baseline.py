@@ -107,6 +107,8 @@ def test_all_schedule_routes_exist(built_app):
     expected = [
         "/agent/schedules",
         "/agent/schedules/{schedule_id}/run-now",
+        "/agent/schedules/{schedule_id}/state",
+        "/agent/schedules/{schedule_id}/executions",
     ]
     for route in expected:
         assert route in routes, f"Route {route} missing after split"

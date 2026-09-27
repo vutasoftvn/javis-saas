@@ -1,8 +1,10 @@
-"""Xử lý đầu vào tool ở biên kernel: (1) lỗi đầu vào (HTTP 400/404/409/422,
+"""Xử lý đầu vào/lỗi tool ở biên kernel: (1) lỗi đầu vào (HTTP 400/404/409/422,
 JSON args hỏng, ToolInputError) trả về cho model như kết quả tool để nó tự sửa
-và gọi lại — không làm cả run thất bại; (2) lỗi runtime có kiểu
-(AgentRuntimeError: denied, waiting_approval, ...), 401/403, 5xx và ValueError
-nội bộ vẫn phải ném ra như cũ."""
+và gọi lại — không làm cả run thất bại; (2) lỗi backend của tool (401/403/429/5xx,
+ValueError/timeout nội bộ) trả về model dạng có cấu trúc để nó báo phần không lấy
+được và dùng dữ liệu còn lại (kernel giới hạn số lỗi liên tiếp); (3) lỗi runtime
+có kiểu (AgentRuntimeError: denied, waiting_approval, ...) vẫn phải ném ra — đó là
+đường governance, không được nuốt."""
 
 from __future__ import annotations
 
@@ -11,7 +13,14 @@ from typing import Any
 
 from agent.contracts.errors import AgentRuntimeError
 
-__all__ = ["ToolInputError", "apply_run_scope", "input_error_payload", "tool_input_error_result"]
+__all__ = [
+    "MAX_CONSECUTIVE_TOOL_ERRORS",
+    "ToolInputError",
+    "apply_run_scope",
+    "input_error_payload",
+    "tool_backend_error_result",
+    "tool_input_error_result",
+]
 
 # Chỉ các mã "đầu vào sai" — 401/403 (quyền) và 429/5xx không phải lỗi model tự sửa được.
 _INPUT_ERROR_STATUSES = frozenset({400, 404, 409, 422})
@@ -35,6 +44,41 @@ def tool_input_error_result(exc: BaseException | None) -> dict[str, Any] | None:
         detail = getattr(exc, "detail", None) or str(exc)
         return input_error_payload(str(detail))
     return None
+
+
+# Quá số lỗi backend liên tiếp này trong một run thì dừng run (tránh vòng lặp gọi lại).
+MAX_CONSECUTIVE_TOOL_ERRORS = 3
+
+_BACKEND_ERROR_STATUSES = frozenset({401, 403, 429, 500, 502, 503, 504})
+
+
+def tool_backend_error_result(exc: BaseException | None) -> dict[str, Any] | None:
+    """Lỗi từ backend/nội bộ của tool -> kết quả có cấu trúc trả về model để nó báo lại
+    phần đã làm được, thay vì làm hỏng cả run (spec 2026-09-27-chat-business-actions §4.4).
+
+    Không bọc: lỗi runtime có kiểu (denied, waiting_approval — đường governance), lỗi
+    đầu vào (đã có `tool_input_error_result`) và lỗi lạ không rõ nguồn. Thông điệp chỉ
+    mang mã HTTP hoặc tên kiểu lỗi — không lộ chi tiết/token cho model."""
+    if exc is None or isinstance(exc, (AgentRuntimeError, ToolInputError, json.JSONDecodeError)):
+        return None
+    status = getattr(exc, "status_code", None)
+    if isinstance(status, int):
+        if status not in _BACKEND_ERROR_STATUSES:
+            return None
+        label = f"HTTP {status}"
+    elif isinstance(exc, (ValueError, TimeoutError, ConnectionError)):
+        label = type(exc).__name__
+    else:
+        return None
+    return {
+        "ok": False,
+        "error_code": "tool_backend_error",
+        "message": f"Công cụ không truy cập được dữ liệu ({label}).",
+        "hint": (
+            "Tell the user plainly which data could not be retrieved and continue with the "
+            "data you do have. Do not retry the same call."
+        ),
+    }
 
 
 def apply_run_scope(

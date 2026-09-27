@@ -1,5 +1,6 @@
 import { api, Header } from "encore.dev/api";
 import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
+import { AGENT_CAP } from "../../../shared/auth/agent-capabilities";
 import {
   createMetricContractDraft,
   updateMetricContractDraft,
@@ -198,7 +199,9 @@ export const reviseMetricContractHandler = api(
 export const getMetricContract = api(
   { method: "GET", path: "/operations/strategy/metric-contracts/:id", expose: true },
   async (params: GetMetricContractParams): Promise<MetricContractDto> => {
-    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId, {
+      agentCapabilities: [AGENT_CAP.ANALYTICS_METRIC_CONTRACT_GET],
+    });
     const wsId = BigInt(ctx.workspaceId);
 
     const row = await getMetricContractInWorkspace(wsId, BigInt(params.id));
@@ -209,7 +212,9 @@ export const getMetricContract = api(
 export const listMetricContracts = api(
   { method: "GET", path: "/operations/strategy/metric-contracts", expose: true },
   async (params: ListMetricContractsParams): Promise<{ items: MetricContractDto[] }> => {
-    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId, {
+      agentCapabilities: [AGENT_CAP.ANALYTICS_METRIC_CONTRACT_GET],
+    });
     const wsId = BigInt(ctx.workspaceId);
 
     const rows = await listMetricContractsInWorkspace(

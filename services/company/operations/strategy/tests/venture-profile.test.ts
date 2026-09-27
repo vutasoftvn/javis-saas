@@ -61,18 +61,24 @@ describe("venture profile API", () => {
     expect(res.profile.industry).toBe("Fintech");
   });
 
-  it("does not let an agent write the profile", async () => {
+  // ADR-CHAT-ACTIONS-001: agent chỉ ghi hồ sơ bằng capability venture.profile.propose_update
+  // (T2 — founder đã duyệt trong chat); capability khác vẫn bị từ chối.
+  it("lets an agent write the profile only with venture.profile.propose_update", async () => {
     const ws = await createTestWorkspaceWithMember({ role: "founder" });
     await expect(
       updateVentureProfile({
         workspaceId: ws.workspaceId,
-        authorization: delegation(ws.userId, ws.workspaceId, [
-          "venture.profile.read",
-          "venture.profile.propose_update",
-        ]),
+        authorization: delegation(ws.userId, ws.workspaceId, ["venture.profile.read"]),
         industry: "Other",
       })
-    ).rejects.toMatchObject({ code: "unauthenticated" });
+    ).rejects.toMatchObject({ code: "permission_denied" });
+
+    const res = await updateVentureProfile({
+      workspaceId: ws.workspaceId,
+      authorization: delegation(ws.userId, ws.workspaceId, ["venture.profile.propose_update"]),
+      industry: "Other",
+    });
+    expect(res.profile.industry).toBe("Other");
   });
 
   it("blocks read-only roles and invalid input", async () => {

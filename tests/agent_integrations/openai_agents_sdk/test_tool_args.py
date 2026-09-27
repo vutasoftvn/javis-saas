@@ -5,6 +5,7 @@ from agent.contracts.errors import AgentRuntimeError, RuntimeErrorCode
 from agent_integrations.openai_agents_sdk.tool_args import (
     ToolInputError,
     apply_run_scope,
+    tool_backend_error_result,
     tool_input_error_result,
 )
 
@@ -99,3 +100,37 @@ def test_fills_missing_workspace_id_and_ignores_schema_without_it() -> None:
 def test_no_change_when_schema_has_no_project_id_or_no_context() -> None:
     assert apply_run_scope({"a": 1}, {"properties": {}}, {"project_id": "p1"}) == {"a": 1}
     assert apply_run_scope({}, SCOPE_SCHEMA, {}) == {}
+
+
+# --- Lỗi backend của tool -> kết quả có cấu trúc (spec 2026-09-27-chat-business-actions §4.4)
+
+
+class _Company(Exception):
+    def __init__(self, status_code: int, message: str) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
+
+@pytest.mark.parametrize("status", [401, 403, 429, 500, 503])
+def test_backend_status_becomes_structured_result(status: int) -> None:
+    out = tool_backend_error_result(_Company(status, "Company Service Error: secret-token-xyz"))
+    assert out is not None
+    assert out["ok"] is False and out["error_code"] == "tool_backend_error"
+    assert str(status) in out["message"]
+    # Không lộ nội dung lỗi gốc (có thể chứa token/chi tiết nội bộ) cho model.
+    assert "secret-token-xyz" not in out["message"] + out["hint"]
+
+
+def test_backend_error_skips_runtime_input_and_unknown_errors() -> None:
+    assert tool_backend_error_result(AgentRuntimeError(RuntimeErrorCode.APPROVAL_REQUIRED, "w")) is None
+    assert tool_backend_error_result(ToolInputError("bad")) is None
+    assert tool_backend_error_result(_Http(422)) is None
+    assert tool_backend_error_result(RuntimeError("không rõ nguồn")) is None
+    assert tool_backend_error_result(None) is None
+
+
+def test_backend_error_wraps_internal_value_and_timeout_errors() -> None:
+    out = tool_backend_error_result(ValueError("Cross-tenant workspace_id mismatch"))
+    assert out is not None and "ValueError" in out["message"]
+    assert "Cross-tenant" not in out["message"]
+    assert tool_backend_error_result(TimeoutError()) is not None

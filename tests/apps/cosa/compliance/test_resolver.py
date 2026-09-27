@@ -441,3 +441,32 @@ async def test_resolver_denies_when_approval_incomplete_or_expired(
     )
     with pytest.raises(ComplianceDenied, match="APPROVAL_INCOMPLETE_OR_EXPIRED"):
         await resolver.resolve_for_run(sample_request, sample_spec)
+
+
+@pytest.mark.asyncio
+async def test_business_read_expands_delegated_capabilities_on_token(
+    sample_request: RunRequest,
+) -> None:
+    """`business.read` dispatch tới capability đọc có sẵn; company kiểm đúng capability đích
+    trên delegation token — token phải mang đúng tập đó, không hơn (spec 2026-09-27)."""
+    import jwt
+
+    from apps.cosa.capabilities.business_read import DOMAIN_TO_CAPABILITY
+
+    spec = AgentSpec(
+        id="cosa_chat_agent",
+        role="Chat",
+        instructions="chat",
+        capability_refs=["business.read", "operations.task.list"],
+        model_input_capability_ref="model.input.direct-user-message",
+    )
+    client = FakeAiComplianceClient(error=AiComplianceUnavailable("NOT_READY"))
+    with pytest.raises(ComplianceDenied):
+        await ComplianceResolver(client).resolve_for_run(sample_request, spec)
+
+    requested = client.calls[0]["capability_ids"]
+    assert set(DOMAIN_TO_CAPABILITY.values()) <= set(requested)
+    assert len(requested) == len(set(requested))
+    assert "engagement.message.send" not in requested
+    claims = jwt.decode(client.calls[0]["delegation_token"], options={"verify_signature": False})
+    assert set(claims["capability_ids"]) == set(requested)

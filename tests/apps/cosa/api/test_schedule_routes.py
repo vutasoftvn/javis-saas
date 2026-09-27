@@ -202,3 +202,98 @@ def test_create_schedule_rejects_project_not_in_workspace():
     )
 
     assert resp.status_code == 404
+
+
+def _plane_stub():
+    return type("Plane", (), {"company_client": AsyncMock()})()
+
+
+def test_set_schedule_state_forwards_org_from_identity_and_maps_response():
+    """Hub đợt 1: tạm dừng lịch. organizationId luôn lấy từ danh tính, client không gửi."""
+    client = _make_app(_plane_stub())
+    reply = httpx.Response(
+        200,
+        json={
+            "id": "sched_3",
+            "organizationId": WORKSPACE_A,
+            "createdBy": "user:test_user",
+            "scheduleKind": "daily",
+            "timezone": "Asia/Ho_Chi_Minh",
+            "hour": 8,
+            "minute": 0,
+            "weekdays": [],
+            "promptTemplate": "daily report",
+            "agentProfile": "operations",
+            "state": "paused",
+            "createdAt": "2026-09-14T00:00:00Z",
+            "projectId": PROJECT_A,
+        },
+    )
+    mock_post = AsyncMock(return_value=reply)
+    with patch("httpx.AsyncClient.post", new=mock_post):
+        resp = client.post(
+            "/agent/schedules/sched_3/state",
+            json={"state": "paused", "organizationId": "ws_other"},
+        )
+
+    assert resp.status_code == 200, resp.text
+    assert mock_post.call_args.args[0].endswith("/cosa/schedules/sched_3/state")
+    assert mock_post.call_args.kwargs["json"] == {"organizationId": WORKSPACE_A, "state": "paused"}
+    body = resp.json()
+    assert body["state"] == "paused"
+    assert body["hour"] == 8 and body["minute"] == 0
+
+
+def test_set_schedule_state_rejects_unknown_state():
+    client = _make_app(_plane_stub())
+    resp = client.post("/agent/schedules/sched_3/state", json={"state": "deleted"})
+    assert resp.status_code == 422
+
+
+def test_set_schedule_state_propagates_control_plane_error():
+    client = _make_app(_plane_stub())
+    reply = httpx.Response(400, json={"code": "failed_precondition"})
+    with patch("httpx.AsyncClient.post", new=AsyncMock(return_value=reply)):
+        resp = client.post("/agent/schedules/sched_3/state", json={"state": "enabled"})
+    assert resp.status_code == 400
+
+
+def test_list_schedule_executions_maps_items_and_scopes_org():
+    client = _make_app(_plane_stub())
+    reply = httpx.Response(
+        200,
+        json={
+            "items": [
+                {
+                    "id": "sched_exec_1",
+                    "scheduledFor": "2026-09-27T01:00:00Z",
+                    "state": "failed",
+                    "runId": "run_1",
+                    "conversationId": "conv_1",
+                    "error": "boom",
+                    "updatedAt": "2026-09-27T01:01:00Z",
+                }
+            ]
+        },
+    )
+    mock_get = AsyncMock(return_value=reply)
+    with patch("httpx.AsyncClient.get", new=mock_get):
+        resp = client.get("/agent/schedules/sched_3/executions?limit=3")
+
+    assert resp.status_code == 200, resp.text
+    assert mock_get.call_args.kwargs["params"] == {"organizationId": WORKSPACE_A, "limit": 3}
+    item = resp.json()["items"][0]
+    assert item == {
+        "id": "sched_exec_1",
+        "scheduled_for": "2026-09-27T01:00:00Z",
+        "state": "failed",
+        "run_id": "run_1",
+        "conversation_id": "conv_1",
+        "error": "boom",
+        "updated_at": "2026-09-27T01:01:00Z",
+    }
+
+
+def test_list_schedule_executions_bounds_limit():
+    client = _make_app(_plane_stub())
+    assert client.get("/agent/schedules/sched_3/executions?limit=50").status_code == 422

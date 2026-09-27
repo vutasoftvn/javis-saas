@@ -21,6 +21,8 @@ from apps.cosa.agents.goal_intent import (
     looks_like_weekly_goal,
 )
 from apps.cosa.api.event_stream import CosaEventStreamManager
+from apps.cosa.approvals.summary import capability_id_for_tool, summarize_action
+from apps.cosa.capabilities.access_matrix import CHAT_T2_CAPABILITIES, MATRIX
 from apps.cosa.composition.agent_plane import CosaAgentPlane
 from apps.cosa.conversations.history import build_history, history_limits
 from apps.cosa.memory.project_facts import list_project_facts
@@ -28,6 +30,7 @@ from apps.cosa.observability.logging import log_context
 from apps.cosa.observability.metrics import record_model_tokens, record_run_outcome
 from apps.cosa.observability.otel import trace_span
 from apps.cosa.policies.company_policy_client import CosaTenantPolicyError
+from apps.cosa.policies.evaluator import REQUIRE_APPROVAL_CAPABILITIES_KEY
 from apps.cosa.policies.snapshot import AgentAuthorizationSnapshot
 from apps.cosa.worker.autopilot_run import (
     resume_customer_support_autopilot,
@@ -194,6 +197,108 @@ async def _load_project_facts(
     return [i.content for i in reversed(items)]
 
 
+async def _approval_required_payload(
+    plane: Any, wait_desc: Any, *, locale: str | None, project_name: str | None
+) -> dict[str, Any]:
+    """Payload SSE `approval.required` kèm tóm tắt cho thẻ duyệt trong chat (spec
+    2026-09-27-chat-business-actions §4.5): capability, bậc T0–T3 và title/detail dựng từ
+    tham số tool theo locale — không có ID. Tham số thô KHÔNG đi ra client."""
+    appr_id = wait_desc.related_ref if wait_desc else None
+    payload: dict[str, Any] = {
+        "approval_id": appr_id,
+        "checkpoint_ref": wait_desc.checkpoint_ref if wait_desc else None,
+        "reason": wait_desc.reason if wait_desc else "Approval required",
+    }
+    capability_id: str | None = None
+    args: dict[str, Any] = {}
+    try:
+        approval = await plane.repository.get_approval(appr_id) if appr_id else None
+        if approval is not None:
+            capability_id = capability_id_for_tool(approval.action, MATRIX)
+            tool_call = (
+                await plane.repository.get_tool_call(approval.tool_call_id)
+                if approval.tool_call_id
+                else None
+            )
+            if tool_call is not None and isinstance(tool_call.input_payload, dict):
+                args = tool_call.input_payload
+    except Exception:
+        # Tóm tắt chỉ để hiển thị — thiếu thì thẻ dùng mẫu chung, không làm hỏng run.
+        logger.warning("approval summary unavailable", extra={"approval_id": appr_id})
+    payload["capability_id"] = capability_id
+    payload["tier"] = MATRIX[capability_id].tier.value if capability_id else None
+    payload["summary"] = summarize_action(capability_id, args, locale, project_name=project_name)
+    return payload
+
+
+def _is_chat_resume(payload: dict[str, Any]) -> bool:
+    """Run chat của founder (có conversation thật), không phải run nền WGA/autopilot."""
+    conversation_id = str(payload.get("conversation_id") or "")
+    if payload.get("autopilot") is True or payload.get("agent_profile") == (
+        "customer_support_autopilot"
+    ):
+        return False
+    return (
+        bool(conversation_id)
+        and conversation_id != "unknown"
+        and not (
+            conversation_id.startswith("wga_") or str(payload.get("run_id", "")).startswith("wga_")
+        )
+    )
+
+
+async def _verify_rejected_resume(
+    plane: Any,
+    *,
+    run_id: str,
+    tool_call_id: str,
+    checkpoint_ref: str,
+    approval_id: str | None,
+    snapshot: Any,
+) -> str | None:
+    """None nếu được resume với quyết định từ chối; ngược lại trả lý do chặn. Approval phải
+    bind đúng run_id + tool_call_id + checkpoint_ref (quy tắc 5) và thật sự đã bị từ chối."""
+    if snapshot.workspace_status != "active" or snapshot.principal_status != "active":
+        return "tenant_or_principal_inactive"
+    approval = await plane.repository.get_approval(approval_id) if approval_id else None
+    if approval is None:
+        approval = await plane.repository.get_approval_by_tool_call(tool_call_id)
+    if (
+        approval is None
+        or approval.run_id != run_id
+        or approval.tool_call_id != tool_call_id
+        or approval.checkpoint_ref != checkpoint_ref
+    ):
+        return "approval_binding_mismatch"
+    if approval.status not in ("denied", "rejected"):
+        return f"approval_not_rejected:{approval.status}"
+    return None
+
+
+async def _resume_agent_member_id(
+    plane: Any, *, run_id: str, workspace_id: Any, project_id: Any
+) -> str | None:
+    """AI member đang giữ profile của run trong Project team (None nếu không xác định được)."""
+    if not workspace_id or not project_id:
+        return None
+    try:
+        run = await plane.repository.get_run(run_id)
+        spec_id = getattr(run, "root_executable_id", None) if run is not None else None
+        profile_key = next(
+            (key for key, spec in _AGENT_PROFILE_SPECS.items() if spec.id == spec_id), None
+        )
+        if profile_key not in PROJECT_TEAM_OPERATING_PROFILES:
+            return None
+        team_client = getattr(plane, "project_team_client", None) or ProjectTeamClient()
+        authority = await team_client.get_run_authority(
+            workspace_id=str(workspace_id), project_id=str(project_id), profile_key=profile_key
+        )
+    except Exception:
+        logger.warning("resume: project team authority unavailable", extra={"run_id": run_id})
+        return None
+    return str(authority.agent_workforce_member_id)
+
+
 async def _append_message(
     plane: CosaAgentPlane,
     *,
@@ -331,6 +436,9 @@ async def execute_run_task(
 
         payload["assignment_version"] = authority.assignment_version
         payload["spec_hash"] = authority.spec.hash
+        # AI member của Project team: gateway xin live authorization ticket cho capability
+        # ghi bằng member này (grant do founder cấp ở company quyết định, không phải prompt).
+        payload["agent_workforce_member_id"] = str(authority.agent_workforce_member_id)
 
     if agent_profile == "customer_support" or payload.get("copilot") is True:
         with log_context(run_id=run_id, workspace_id=workspace_id):
@@ -512,6 +620,8 @@ async def _execute_run_task_inner(
     if company_workforce_member_id:
         extra_md["agent_workforce_member_id"] = str(company_workforce_member_id)
         extra_md["company_workforce_member_id"] = str(company_workforce_member_id)
+    elif payload.get("agent_workforce_member_id"):
+        extra_md["agent_workforce_member_id"] = str(payload["agent_workforce_member_id"])
     if assignment_id:
         extra_md["assignment_id"] = str(assignment_id)
     for name_key in ("project_name", "workspace_name"):
@@ -520,6 +630,10 @@ async def _execute_run_task_inner(
     # project_id do conversation_routes đặt từ project đã verify, không lấy từ client.
     if project_id:
         extra_md["project_id"] = str(project_id)
+    # Chat: mọi hành động T2 (ghi thật vào dữ liệu nội bộ) buộc founder duyệt trước khi chạy
+    # (spec 2026-09-27-chat-business-actions §4.1). Policy engine chỉ SIẾT ALLOW thành
+    # REQUIRE_APPROVAL — DENY của company/tenant vẫn giữ nguyên.
+    extra_md[REQUIRE_APPROVAL_CAPABILITIES_KEY] = sorted(CHAT_T2_CAPABILITIES)
     direct_message_data_access = payload.get("direct_message_data_access")
     if direct_message_data_access is not None:
         extra_md["direct_message_data_access"] = direct_message_data_access
@@ -706,11 +820,12 @@ async def _execute_run_task_inner(
                 run_id=run_id,
                 conversation_id=conversation_id,
                 event_type="approval.required",
-                payload={
-                    "approval_id": appr_id,
-                    "checkpoint_ref": ckpt_ref,
-                    "reason": wait_desc.reason if wait_desc else "Approval required",
-                },
+                payload=await _approval_required_payload(
+                    plane,
+                    wait_desc,
+                    locale=locale,
+                    project_name=payload.get("project_name"),
+                ),
                 activity_service=getattr(plane, "project_activity_service", None),
                 workspace_id=workspace_id,
                 project_id=project_id,
@@ -824,6 +939,12 @@ async def execute_resume_task(
     process riêng sau khi claim task + acquire lease durable."""
     run_id = payload["run_id"]
     agent_profile = payload.get("agent_profile")
+    rejected = payload.get("decision") == "rejected"
+
+    if rejected and not _is_chat_resume(payload):
+        # Run nền (WGA task, autopilot…) giữ hành vi cũ: từ chối không resume.
+        logger.info("rejected approval on non-chat run %s — not resuming", run_id)
+        return
 
     if agent_profile == "customer_support_autopilot" or payload.get("autopilot") is True:
         with log_context(run_id=run_id, workspace_id=payload.get("workspace_id", "")):
@@ -857,11 +978,21 @@ async def execute_resume_task(
             project_id=project_id,
         )
         return
-    resume_updates: dict[str, Any] = {"approved_tool_calls": {tool_call_id: True}}
+    resume_updates: dict[str, Any] = {"approved_tool_calls": {tool_call_id: not rejected}}
     # Scope project của run cũng phải có khi resume (context resume dựng từ
     # updates) — để tool tự điền/chặn project_id như lúc chạy lần đầu.
     if project_id:
         resume_updates["project_id"] = str(project_id)
+    # Context resume dựng lại từ updates: phải mang lại danh sách T2 buộc duyệt, nếu không
+    # hành động T2 kế tiếp trong lượt resume sẽ chạy mà không cần founder duyệt.
+    resume_updates[REQUIRE_APPROVAL_CAPABILITIES_KEY] = sorted(CHAT_T2_CAPABILITIES)
+    # AI member của Project team cho live authorization ticket khi tool đã duyệt chạy — resolve
+    # lại từ authority hiện hành (member bị gỡ khỏi team thì ticket fail closed).
+    agent_member_id = await _resume_agent_member_id(
+        plane, run_id=run_id, workspace_id=workspace_id, project_id=project_id
+    )
+    if agent_member_id:
+        resume_updates["agent_workforce_member_id"] = agent_member_id
     if workspace_id:
         try:
             fresh_snapshot = await plane.tenant_policy_client.get_snapshot(
@@ -893,37 +1024,62 @@ async def execute_resume_task(
         # production nào gọi. "APPROVED" không phải bypass token vĩnh viễn —
         # workspace có thể đã bị suspend/principal bị revoke GIỮA lúc approve
         # và lúc resume thật sự chạy.
-        verify_result = await plane.approval_service.verify_and_prepare_resume(
-            run_id=run_id,
-            tool_call_id=tool_call_id,
-            checkpoint_ref=checkpoint_ref,
-            ambient_context={
-                "tenant_status": fresh_snapshot.workspace_status,
-                "principal_status": fresh_snapshot.principal_status,
-                # emergency_lock: không có ambient signal wired production nào
-                # khác cho field này hiện nay — gap đã biết, không phải
-                # regression từ fix này.
-                "emergency_lock": False,
-            },
-        )
-        if not verify_result.can_resume:
-            logger.warning(
-                "resume blocked by verify_and_prepare_resume run_id=%s tool_call_id=%s reason=%s",
-                run_id,
-                tool_call_id,
-                verify_result.reason,
-            )
-            await stream_mgr.emit(
-                stream_repo,
+        if rejected:
+            # Từ chối: tool KHÔNG chạy, SDK trả kết quả "bị từ chối" cho model. Vẫn kiểm
+            # approval đúng binding + đã bị từ chối và tenant/principal còn active.
+            reject_block = await _verify_rejected_resume(
+                plane,
                 run_id=run_id,
-                conversation_id=conversation_id,
-                event_type="run.failed",
-                payload={"error": "resume_verification_failed", "reason": verify_result.reason},
-                activity_service=getattr(plane, "project_activity_service", None),
-                workspace_id=workspace_id,
-                project_id=project_id,
+                tool_call_id=tool_call_id,
+                checkpoint_ref=checkpoint_ref,
+                approval_id=payload.get("approval_id"),
+                snapshot=fresh_snapshot,
             )
-            return
+            if reject_block is not None:
+                logger.warning("rejected resume blocked run_id=%s: %s", run_id, reject_block)
+                await stream_mgr.emit(
+                    stream_repo,
+                    run_id=run_id,
+                    conversation_id=conversation_id,
+                    event_type="run.failed",
+                    payload={"error": "resume_verification_failed", "reason": reject_block},
+                    activity_service=getattr(plane, "project_activity_service", None),
+                    workspace_id=workspace_id,
+                    project_id=project_id,
+                )
+                return
+        else:
+            verify_result = await plane.approval_service.verify_and_prepare_resume(
+                run_id=run_id,
+                tool_call_id=tool_call_id,
+                checkpoint_ref=checkpoint_ref,
+                ambient_context={
+                    "tenant_status": fresh_snapshot.workspace_status,
+                    "principal_status": fresh_snapshot.principal_status,
+                    # emergency_lock: không có ambient signal wired production nào
+                    # khác cho field này hiện nay — gap đã biết, không phải
+                    # regression từ fix này.
+                    "emergency_lock": False,
+                },
+            )
+            if not verify_result.can_resume:
+                logger.warning(
+                    "resume blocked by verify_and_prepare_resume run_id=%s tool_call_id=%s reason=%s",
+                    run_id,
+                    tool_call_id,
+                    verify_result.reason,
+                )
+                await stream_mgr.emit(
+                    stream_repo,
+                    run_id=run_id,
+                    conversation_id=conversation_id,
+                    event_type="run.failed",
+                    payload={"error": "resume_verification_failed", "reason": verify_result.reason},
+                    activity_service=getattr(plane, "project_activity_service", None),
+                    workspace_id=workspace_id,
+                    project_id=project_id,
+                )
+                return
 
     _resume_start = time.monotonic()
     resume_route = None
@@ -1035,15 +1191,17 @@ async def execute_resume_task(
 
         # WGA #1 — nếu đây là resume của 1 task-execution run trong sweep,
         # đóng task tương ứng (advance done). No-op cho resume thường.
-        with contextlib.suppress(Exception):
-            _sub = str(payload.get("principal") or "0").split(":")[-1]
-            await advance_wga_task_after_resume(
-                plane,
-                run_id=run_id,
-                workspace_id=workspace_id,
-                sub=_sub,
-                output_text=output_text,
-            )
+        # Từ chối không bao giờ đóng task (chỉ run chat mới resume khi từ chối).
+        if not rejected:
+            with contextlib.suppress(Exception):
+                _sub = str(payload.get("principal") or "0").split(":")[-1]
+                await advance_wga_task_after_resume(
+                    plane,
+                    run_id=run_id,
+                    workspace_id=workspace_id,
+                    sub=_sub,
+                    output_text=output_text,
+                )
 
     elif res.status == RunStatus.WAITING_APPROVAL:
         # Bước kế tiếp sau khi resume lại cần duyệt: phát approval.required như
@@ -1055,11 +1213,12 @@ async def execute_resume_task(
             run_id=run_id,
             conversation_id=conversation_id,
             event_type="approval.required",
-            payload={
-                "approval_id": wait_desc.related_ref if wait_desc else None,
-                "checkpoint_ref": wait_desc.checkpoint_ref if wait_desc else None,
-                "reason": wait_desc.reason if wait_desc else "Approval required",
-            },
+            payload=await _approval_required_payload(
+                plane,
+                wait_desc,
+                locale=payload.get("locale"),
+                project_name=payload.get("project_name"),
+            ),
             activity_service=getattr(plane, "project_activity_service", None),
             workspace_id=workspace_id,
             project_id=project_id,

@@ -20,6 +20,7 @@ import '../services/project_activity_service.dart';
 import '../widgets/chat_panel_content.dart';
 import '../widgets/decision_modal_sheet.dart';
 import '../widgets/project_operating_week_card.dart';
+import '../widgets/hub_operations_card.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../../data/models/stage_model.dart';
 import '../../../shared/widgets/stage_badge.dart';
@@ -675,6 +676,17 @@ class _HologramHubViewState extends State<HologramHubView> {
                 }
               },
             )),
+            const SizedBox(height: 16),
+            // Card vận hành 4 tab (spec 2026-09-27-hub-operations-workspace-design): cột trái,
+            // dưới "Chu kỳ tuần"; widget cũ giữ tới khi card ổn định.
+            HubOperationsPanel(
+              projectId: controller.activeProjectId,
+              operatingLoop: controller.currentOperatingLoop,
+              onTasksChanged: () async {
+                final pid = controller.selectedProjectId;
+                if (pid != null) await controller.loadOperatingLoop(pid);
+              },
+            ),
           ] else ...[
             Container(
               padding: const EdgeInsets.all(20),

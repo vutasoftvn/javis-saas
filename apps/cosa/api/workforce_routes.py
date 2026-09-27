@@ -1059,7 +1059,10 @@ async def decide_approval(
     # 1 principal chưa từng sync qua platform (thiếu platform identity thật)
     # làm mất luôn bản ghi quyết định đã hợp lệ chỉ vì không mint được
     # delegation để tự động resume.
-    if approved_flag and decided.checkpoint_ref:
+    # Từ chối cũng resume (spec 2026-09-27-chat-business-actions §4.5): SDK trả kết quả
+    # "bị từ chối" cho model thay vì chạy tool, để agent chat trả lời tiếp thay vì treo.
+    # Worker chỉ resume-khi-từ-chối cho run chat; run nền (WGA/autopilot) giữ như cũ.
+    if decided.checkpoint_ref:
         try:
             control_plane_delegation_token = identity.mint_control_plane_delegation()
         except MissingPlatformIdentityError:
@@ -1101,6 +1104,7 @@ async def decide_approval(
                     # khác đang pending trong cùng checkpoint).
                     "tool_call_id": decided.tool_call_id,
                     "approval_id": approval_id,
+                    "decision": "approved" if approved_flag else "rejected",
                 },
             )
 

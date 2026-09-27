@@ -346,6 +346,8 @@ class LoopTask {
   final String timezone;
   final String? assigneeMemberId;
   final String? executionMode;
+  // Nguồn tạo task; "ai_agent_proposal" = agent soạn nháp (hub gắn nhãn "do agent tạo").
+  final String? source;
   final String createdAt;
   final String updatedAt;
 
@@ -365,9 +367,12 @@ class LoopTask {
     required this.timezone,
     this.assigneeMemberId,
     this.executionMode,
+    this.source,
     required this.createdAt,
     required this.updatedAt,
   });
+
+  bool get isAgentCreated => source == 'ai_agent_proposal' || executionMode == 'AGENT';
 
   factory LoopTask.fromJson(Map<String, dynamic> json) {
     return LoopTask(
@@ -386,6 +391,7 @@ class LoopTask {
       timezone: json['timezone'] as String? ?? 'UTC',
       assigneeMemberId: json['assigneeMemberId']?.toString(),
       executionMode: json['executionMode'] as String?,
+      source: json['source'] as String?,
       createdAt: json['createdAt']?.toString() ?? '',
       updatedAt: json['updatedAt']?.toString() ?? '',
     );
@@ -407,6 +413,7 @@ class LoopTask {
     'timezone': timezone,
     'assigneeMemberId': assigneeMemberId,
     'executionMode': executionMode,
+    'source': source,
     'createdAt': createdAt,
     'updatedAt': updatedAt,
   };

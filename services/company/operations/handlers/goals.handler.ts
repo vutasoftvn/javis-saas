@@ -148,7 +148,9 @@ export interface TriageProjectResponse {
 export const createGoal = api(
   { method: "POST", path: "/operations/goals", expose: true },
   async (params: WithAuth<CreateGoalParams>): Promise<CreateGoalResponse> => {
-    await requireWorkspaceWrite(params.authorization, params.workspaceId);
+    await requireWorkspaceWrite(params.authorization, params.workspaceId, {
+      agentCapabilities: [AGENT_CAP.STARTUP_OS_GOAL_CREATE],
+    });
     const { authorization: _auth, ...input } = params;
     return createGoalService(input);
   }
@@ -234,7 +236,9 @@ export const listPendingReviewProjects = api(
 export const triageProject = api(
   { method: "POST", path: "/operations/projects/triage", expose: true },
   async (params: WithAuth<TriageProjectParams>): Promise<TriageProjectResponse> => {
-    await requireWorkspaceWrite(params.authorization, params.workspaceId);
+    await requireWorkspaceWrite(params.authorization, params.workspaceId, {
+      agentCapabilities: [AGENT_CAP.STARTUP_OS_PROJECT_TRIAGE],
+    });
     const { authorization: _auth, ...input } = params;
     return triageProjectService(input);
   }

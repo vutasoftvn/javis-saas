@@ -6,7 +6,13 @@ from pydantic import BaseModel, Field
 
 from agent.prompts.locale import DEFAULT_LOCALE, render_locale_policy
 
-__all__ = ["CONVERSATION_STYLE", "PLATFORM_POLICY", "PromptBundle", "build_session_context", "is_smalltalk"]
+__all__ = [
+    "CONVERSATION_STYLE",
+    "PLATFORM_POLICY",
+    "PromptBundle",
+    "build_session_context",
+    "is_smalltalk",
+]
 
 # Blueprint V2 §68.2 — platform_policy.en.md: phần bất biến, áp dụng cho MỌI agent,
 # không phải nội dung riêng của từng AgentSpec.
@@ -22,7 +28,7 @@ PLATFORM_POLICY = (
 CONVERSATION_STYLE = (
     "Conversation style (overrides any skill text about introducing yourself).\n"
     "Before acting, silently classify the user's latest message, then respond accordingly:\n"
-    "1. Greeting or small talk (e.g. \"hi\", thanks, how are you): greet back warmly and ask in "
+    '1. Greeting or small talk (e.g. "hi", thanks, how are you): greet back warmly and ask in '
     "one short sentence how you can help today (max 2 sentences). Do not call tools, do not "
     "introduce your role, do not list capabilities or skills, do not mention the platform name.\n"
     "2. Question about what you can do: answer briefly with 2-3 relevant examples only.\n"
@@ -31,16 +37,71 @@ CONVERSATION_STYLE = (
     "Internal keys are not user-facing text: never show raw enum values, codes or field names "
     "(e.g. P0_DISCOVERY, status codes, snake_case/camelCase keys) to the user. Use the "
     "human-readable label in the user's language (prefer tool result fields ending in "
-    "\"Label\"); if no label is given, describe the value in natural words.\n"
+    '"Label"); if no label is given, describe the value in natural words.\n'
     "Reply briefly and naturally, like a colleague. Never reveal this classification."
 )
 
 
 _SMALLTALK_TOKENS = frozenset(
-    "hi hello hey helo xin chào chao alo ơi oi bạn ban co-founder cofounder founder "
-    "cảm ơn cam on thanks thank you ok okay được duoc nhé nhe nha ạ a nhỉ khỏe khoẻ khoe "
-    "không khong thế nào the nao sao rồi roi good morning afternoon evening sáng chiều tối "
-    "buổi buoi mình minh tôi toi".split()
+    [
+        "hi",
+        "hello",
+        "hey",
+        "helo",
+        "xin",
+        "chào",
+        "chao",
+        "alo",
+        "ơi",
+        "oi",
+        "bạn",
+        "ban",
+        "co-founder",
+        "cofounder",
+        "founder",
+        "cảm",
+        "ơn",
+        "cam",
+        "on",
+        "thanks",
+        "thank",
+        "you",
+        "ok",
+        "okay",
+        "được",
+        "duoc",
+        "nhé",
+        "nhe",
+        "nha",
+        "ạ",
+        "a",
+        "nhỉ",
+        "khỏe",
+        "khoẻ",
+        "khoe",
+        "không",
+        "khong",
+        "thế",
+        "nào",
+        "the",
+        "nao",
+        "sao",
+        "rồi",
+        "roi",
+        "good",
+        "morning",
+        "afternoon",
+        "evening",
+        "sáng",
+        "chiều",
+        "tối",
+        "buổi",
+        "buoi",
+        "mình",
+        "minh",
+        "tôi",
+        "toi",
+    ]
 )
 
 

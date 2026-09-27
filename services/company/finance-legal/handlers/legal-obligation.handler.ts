@@ -7,6 +7,7 @@ import {
   fulfillObligationService,
 } from "../services/legal-obligation.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { AGENT_CAP } from "../../shared/auth/agent-capabilities";
 
 export { LegalObligation };
 
@@ -110,7 +111,9 @@ export const getObligationInstances = api(
 export const postObligationInstance = api(
   { method: "POST", path: "/legal/obligation-instances", expose: true },
   async (params: CreateObligationInstanceParams): Promise<LegalObligationInstanceView> => {
-    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId, {
+      agentCapabilities: [AGENT_CAP.LEGAL_OBLIGATION_CREATE_DRAFT],
+    });
     return createObligationInstanceService({
       workspaceId: BigInt(ctx.workspaceId),
       templateId: params.templateId ? BigInt(params.templateId) : undefined,

@@ -19,6 +19,7 @@ import type { TenantContext } from "../types/tenant_context";
 
 // Capability id WGA dùng trong scope delegation (apps/cosa mint kèm đúng tập này).
 export const WGA_CAP_EXECUTION_PLAN_CREATE = "operations.execution_plan.create";
+// Trùng AGENT_CAP.OPERATIONS_TASK_ADVANCE (endpoint advance dùng AGENT_CAP).
 export const WGA_CAP_TASK_ADVANCE = "operations.task.advance";
 export const WGA_CAP_TASK_LIST = "operations.task.list";
 // IA02 phần 2 — capability nội bộ dùng để scope delegation JWT khi
