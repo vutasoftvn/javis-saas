@@ -5,8 +5,7 @@ from typing import Any
 
 from agent.artifacts import ArtifactRepository
 from agent.capabilities.approval_service import DurableApprovalService
-from agent.capabilities.gateway import CapabilityGateway, GatewayExecutionRequest
-from agent.capabilities.grants import ConnectorGrant
+from agent.capabilities.gateway import CapabilityGateway
 from agent.capabilities.registry import CapabilityRegistry
 from agent.capabilities.web_search import (
     WebSearchBudgetStore,
@@ -35,7 +34,10 @@ from agent.workflows.repository import (
 from agent.workforce.repository import WorkforceRepository
 
 from apps.cosa.capabilities.client import CompanyServiceClient
-from apps.cosa.capabilities.connector_grant_client import ConnectorGrantHttpClient
+from apps.cosa.capabilities.connector_grant_client import (
+    ConnectorGrantHttpClient,
+    build_connector_grant_resolver,
+)
 from apps.cosa.capabilities.workspace_settings_client import WorkspaceSettingsClient
 from apps.cosa.composition.capability_registration import register_cosa_capabilities
 from apps.cosa.composition.compliance_coordination import ComplianceCoordination
@@ -376,15 +378,9 @@ def build_cosa_agent_plane(
     # 4. Capability Gateway
     connector_grant_client = ConnectorGrantHttpClient(base_url=resolve_platform_control_plane_url())
 
-    async def _connector_grant_resolver(
-        connector_id: str, req: GatewayExecutionRequest
-    ) -> ConnectorGrant | None:
-        return await connector_grant_client.assert_usable(
-            connector_id,
-            workspace_id=req.workspace_id or "",
-            conversation_id=req.context.get("conversation_id", ""),
-            action=req.capability_id,
-        )
+    # action = capability id; requiredScope = spec.metadata["scope"] (vd. email.digest.read →
+    # mail:read); control plane từ chối kèm mã → ConnectorGrantDeniedError (gateway DENY có mã).
+    _connector_grant_resolver = build_connector_grant_resolver(connector_grant_client, cap_registry)
 
     from apps.cosa.authorization.live_authorizer import LiveAuthorizationAuthorizer
 

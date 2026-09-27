@@ -5,7 +5,24 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-__all__ = ["ConnectorGrant", "GrantVerificationResult", "verify_connector_grant"]
+__all__ = [
+    "ConnectorGrant",
+    "ConnectorGrantDeniedError",
+    "GrantVerificationResult",
+    "verify_connector_grant",
+]
+
+
+class ConnectorGrantDeniedError(Exception):
+    """Resolver grant raise khi nguồn grant (control plane) TỪ CHỐI rõ ràng kèm mã lý do máy-đọc
+    -được (vd. `connector_reauth_required`, `connector_scope_missing`). Khác lỗi hạ tầng
+    (timeout/HTTP 5xx → `resolver_error`): gateway coi đây là DENY bình thường, `deny_detail` =
+    `code`, và gắn exception vào `GatewayExecutionResult.failure` để caller (lịch nền B5) map
+    trạng thái (vd. `connector_reauth_required` → `blocked_reauth`)."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
 
 
 class ConnectorGrant(BaseModel):

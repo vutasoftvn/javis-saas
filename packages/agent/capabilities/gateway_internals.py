@@ -6,7 +6,11 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from agent.capabilities.enablements import EnablementStore, assert_enabled_for_invocation
-from agent.capabilities.grants import ConnectorGrant, verify_connector_grant
+from agent.capabilities.grants import (
+    ConnectorGrant,
+    ConnectorGrantDeniedError,
+    verify_connector_grant,
+)
 from agent.capabilities.idempotency import IdempotencyClaimService, IdempotencyOutcome
 from agent.contracts.capability import CapabilitySpec
 from agent.contracts.errors import TenancyUnresolvedError
@@ -576,6 +580,21 @@ class ConnectorGrantResolver:
 
         try:
             grant = await self._resolver(connector_id, req)
+        except ConnectorGrantDeniedError as denied:
+            # Nguồn grant từ chối rõ ràng kèm mã (vd. connector_reauth_required) — DENY thường,
+            # giữ mã trong deny_detail/error_message và exception ở `failure` để caller map.
+            return ConnectorGrantResolution(
+                allowed=False,
+                target_snapshot=target_snapshot,
+                deny_kind="denied",
+                deny_detail=denied.code,
+                deny_result=GatewayExecutionResult(
+                    tool_call_id=req.tool_call_id,
+                    status="denied",
+                    error_message=f"Execution of '{req.capability_id}' denied: {denied.code}",
+                    failure=denied,
+                ),
+            )
         except Exception as e:
             error_msg = str(e)
             return ConnectorGrantResolution(
