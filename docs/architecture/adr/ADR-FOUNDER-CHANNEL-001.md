@@ -68,8 +68,8 @@ nên cần ADR.
      Payload có field lạ (`chat_id`, `recipient`, …) bị **`invalidArgument`**, không bị lặng lẽ bỏ
      qua. Test sẽ khoá hành vi này.
    - Khi bỏ `channel_kind`: nếu founder có đúng một kênh dùng được thì gửi vào kênh đó. Có nhiều hơn
-     một thì trả `failedPrecondition` và yêu cầu nêu `channel_kind`. Không có kênh nào thì trả
-     `failedPrecondition` mã `founder_channel_unavailable`.
+     một thì trả `failedPrecondition` mã `founder_channel_ambiguous` và yêu cầu nêu `channel_kind`.
+     Không có kênh nào thì trả `failedPrecondition` mã `founder_channel_unavailable`.
 
 5. **"Founder sở hữu lịch/run" do server xác định, không phải agent.**
    - Chat run: founder là người dùng đã đăng nhập đang chat (danh tính trong delegation của run,
@@ -113,9 +113,9 @@ nên cần ADR.
      tiêu token) để lịch bị chặn ngay từ đầu, không phải chạy xong mới thất bại. Kiểm tra lúc gửi ở
      mục 5 vẫn là hàng rào cuối, kể cả khi preflight đã qua.
    - Execution bị chặn vì kênh không bao giờ ghi thành `failed`, cũng không im lặng bỏ bước gửi rồi
-     báo `succeeded`. Tab Lịch hiển thị
-     `blocked_reauth` kèm hướng dẫn "xác minh lại kênh nhận". Khi founder đã có kênh dùng được cùng
-     kind, các execution kế tiếp tự chạy lại được; execution đã bị chặn không được chạy bù.
+     báo `succeeded`. Tab Lịch hiển thị `blocked_reauth` kèm hướng dẫn "xác minh lại kênh nhận".
+     Khi founder đã có kênh dùng được cùng kind, các execution kế tiếp tự chạy lại được; execution
+     đã bị chặn không được chạy bù.
    - Phạm vi mục này chỉ là kênh bị thu hồi hoặc founder mất quyền. Trường hợp capability T2 ngoài
      snapshot phát sinh giữa lần chạy nền (B5) là một vấn đề khác và được quyết định ở B5, theo cùng
      ưu tiên tái dùng enum sẵn có.
@@ -133,15 +133,19 @@ nên cần ADR.
   và các endpoint founder-only `POST` tạo / `POST :id/verify` / `POST :id/revoke` / `GET`. Adapter
   Telegram đặt sau một interface để tiêm được. **Test phải mock adapter Telegram và secret resolver,
   không gọi mạng thật.** Test tối thiểu: kênh chưa xác minh không dùng được; xác minh thành công và
-  thất bại; revoke làm lịch đang dùng kênh đó bị `blocked_reauth`.
+  thất bại; revoke làm kênh không dùng được (lookup/preflight sau revoke trả lỗi
+  `founder_channel_unavailable`). B1 không gọi sang services/cosa và không ghi state lịch (mục 8).
 - **B2 (apps/cosa + company):** `founder.notify.send` là T2 trong `MATRIX` và `AGENT_CAP`. Endpoint
   nội bộ từ chối field người nhận (`invalidArgument`). Mẫu tóm tắt duyệt không lộ bí mật.
 - **B4:** `automation.plan.propose` chỉ tham chiếu kênh theo trạng thái/nhãn (đã xác minh hay chưa),
   không bao giờ đưa bí mật hay chat id vào context của model. Nếu thiếu kênh đã xác minh thì khoá nút
   Duyệt.
-- **B5 (services/cosa + worker):** lịch snapshot thêm `founder_member_id` và
-  `preAuthorizedCapabilityIds`. Worker preflight kênh và owner trước khi chạy, và map mã lỗi ở mục 8
-  sang `blocked_reauth`. Hiện chưa có đường code nào ghi `blocked_reauth` (enum và CHECK đã có nhưng
+- **B5 (services/cosa + worker):** bảng lịch `control_plane.organization_schedule_definitions` thêm
+  snapshot `founder_member_id` và `preAuthorizedCapabilityIds`. Worker preflight kênh và owner trước
+  khi chạy, và map các mã `founder_channel_unavailable` và `founder_owner_not_authorized` ở mục 8
+  sang `blocked_reauth` trên `control_plane.organization_schedule_executions`; revoke kênh thì
+  execution kế tiếp chuyển `blocked_reauth` (có test ở B5). `founder_channel_ambiguous` (mục 4) là lỗi
+  cấu hình của lần gọi; B2/B5 map nó nhất quán như một lỗi riêng, không lẫn với kênh bị thu hồi. Hiện chưa có đường code nào ghi `blocked_reauth` (enum và CHECK đã có nhưng
   chưa ai dùng), nên B5 là nơi đầu tiên ghi state này. Không cần migration đổi CHECK.
 - **B6 (Flutter):** thẻ kế hoạch hiện trạng thái kênh (đã xác minh hay chưa) và nút mở hồ sơ founder.
   Tab Lịch hiện `blocked_reauth` với hướng dẫn xác minh lại kênh.
