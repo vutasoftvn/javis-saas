@@ -50,6 +50,43 @@ class LoginView extends GetView<AuthController> {
                 )
               : const Text('Xác nhận', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
         ),
+        const SizedBox(height: 12),
+        if (challenge.step != 'otp_email')
+          TextButton.icon(
+            onPressed: controller.isLoading.value ? null : () => controller.switchLogin2faMethod('otp_email'),
+            icon: const Icon(Icons.email_outlined, size: 16, color: AppTheme.primary),
+            label: const Text(
+              'Xác thực bằng Email OTP',
+              style: TextStyle(color: AppTheme.primary, fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          ),
+        if (challenge.step != 'otp_phone')
+          TextButton.icon(
+            onPressed: controller.isLoading.value ? null : () => controller.switchLogin2faMethod('otp_phone'),
+            icon: const Icon(Icons.sms_outlined, size: 16, color: AppTheme.primary),
+            label: const Text(
+              'Xác thực bằng SMS OTP',
+              style: TextStyle(color: AppTheme.primary, fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          ),
+        if (challenge.step != 'totp_code')
+          TextButton.icon(
+            onPressed: controller.isLoading.value ? null : () => controller.switchLogin2faMethod('totp_code'),
+            icon: const Icon(Icons.security_outlined, size: 16, color: AppTheme.primary),
+            label: const Text(
+              'Dùng ứng dụng xác thực (TOTP)',
+              style: TextStyle(color: AppTheme.primary, fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          ),
+        if (challenge.step == 'otp_email' || challenge.step == 'otp_phone')
+          TextButton(
+            onPressed: controller.isLoading.value ? null : controller.resendLoginOtp,
+            child: const Text(
+              'Gửi lại mã OTP',
+              style: TextStyle(color: AppTheme.textMutedDark, fontSize: 12, decoration: TextDecoration.underline),
+            ),
+          ),
+        const SizedBox(height: 4),
         TextButton(
           onPressed: controller.cancelLoginOtp,
           child: const Text('Quay lại', style: TextStyle(color: AppTheme.textMutedDark, fontSize: 13)),

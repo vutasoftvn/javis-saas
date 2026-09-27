@@ -177,6 +177,11 @@ class AuthService {
     }
   }
 
+  /// Yêu cầu gửi lại/chuyển mã OTP cho bước xác thực (otp_email / otp_phone).
+  Future<void> requestSigninOtp(CoreSecondFactorRequired challenge) async {
+    await _coreAuth.requestSigninOtp(challenge);
+  }
+
   /// Bước 2 đăng nhập: xác minh mã 2FA của [challenge] (do [loginPlatform] trả về).
   Future<AuthResult> verifyLoginStep(CoreSecondFactorRequired challenge, String code) async {
     try {

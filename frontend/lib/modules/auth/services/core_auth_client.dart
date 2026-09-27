@@ -76,6 +76,22 @@ class CoreSecondFactorRequired extends CoreAuthException {
   final Object? userId;
 
   bool get needsOtpRequest => step == 'otp_email' || step == 'otp_phone';
+
+  CoreSecondFactorRequired copyWith({
+    String? sessionId,
+    String? step,
+    List<String>? availableSteps,
+    String? deviceId,
+    Object? userId,
+  }) {
+    return CoreSecondFactorRequired(
+      sessionId: sessionId ?? this.sessionId,
+      step: step ?? this.step,
+      availableSteps: availableSteps ?? this.availableSteps,
+      deviceId: deviceId ?? this.deviceId,
+      userId: userId ?? this.userId,
+    );
+  }
 }
 
 /// Đăng nhập/đăng ký trực tiếp với backend/core rồi đổi lấy access token OIDC của

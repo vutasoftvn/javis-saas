@@ -162,6 +162,58 @@ class AuthController extends GetxController {
     await _finishLogin(result, identifierController.text.trim());
   }
 
+  /// Chuyển đổi phương thức 2FA (TOTP <-> Email OTP <-> SMS OTP)
+  Future<void> switchLogin2faMethod(String targetStep) async {
+    final currentChallenge = loginChallenge.value;
+    if (currentChallenge == null || currentChallenge.step == targetStep) return;
+
+    isLoading.value = true;
+    errorMessage.value = '';
+    loginOtpController.clear();
+
+    try {
+      final updatedChallenge = currentChallenge.copyWith(step: targetStep);
+      if (updatedChallenge.needsOtpRequest) {
+        await _authService.requestSigninOtp(updatedChallenge);
+      }
+      loginChallenge.value = updatedChallenge;
+    } catch (e) {
+      errorMessage.value = e is CoreAuthException
+          ? e.message
+          : 'Không thể chuyển phương thức xác thực: $e';
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  /// Gửi lại mã OTP qua Email hoặc SMS
+  Future<void> resendLoginOtp() async {
+    final currentChallenge = loginChallenge.value;
+    if (currentChallenge == null || !currentChallenge.needsOtpRequest) return;
+
+    isLoading.value = true;
+    errorMessage.value = '';
+
+    try {
+      await _authService.requestSigninOtp(currentChallenge);
+      Get.snackbar(
+        'Thông báo',
+        currentChallenge.step == 'otp_email'
+            ? 'Mã xác thực mới đã được gửi tới email của bạn'
+            : 'Mã xác thực mới đã được gửi tới số điện thoại của bạn',
+        backgroundColor: Colors.black87,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } catch (e) {
+      errorMessage.value = e is CoreAuthException
+          ? e.message
+          : 'Không thể gửi lại mã xác thực: $e';
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   /// Quay lại form mật khẩu (bỏ phiên 2FA đang chờ).
   void cancelLoginOtp() {
     loginChallenge.value = null;
