@@ -11,7 +11,7 @@ import { generateSnowflake } from "../../shared/services/snowflake.service";
 import type { TenantContext } from "../../shared/types/tenant_context";
 import { mvpItem, mvpList, type MvpSuccess } from "../../shared/contracts/mvp-response";
 import { requireFounderCommand } from "./command-authority.service";
-import { validateFounderChannelSecretRef, resolveFounderChannelSecret } from "./founder-channel-secret";
+import { FOUNDER_CHANNEL_SECRET_NAMESPACE, resolveFounderChannelSecret } from "./founder-channel-secret";
 import { getFounderChannelAdapter } from "./telegram-channel-adapter";
 
 const { founderNotificationChannels } = schema;
@@ -20,11 +20,45 @@ export type FounderNotificationChannelKind = "telegram";
 
 const SUPPORTED_KINDS: readonly FounderNotificationChannelKind[] = ["telegram"];
 
+// Fix review (Task 2, "Needs fixes" #1) — `secretRef` KHÔNG còn nhận qua
+// input. Client gửi secretRef tự chọn cho phép founder B trỏ vào secret của
+// kênh founder A rồi verify bằng bot token của A (phá cô lập bí mật). Server
+// tự sinh secretRef từ id snowflake vừa tạo, founder không bao giờ chọn được
+// giá trị này.
 export interface CreateFounderNotificationChannelInput {
   kind: FounderNotificationChannelKind;
-  secretRef: string;
   chatId: string;
   label?: string;
+}
+
+function isUniqueViolation(err: unknown): boolean {
+  // Cùng mẫu `isUniqueViolation` ở slug-reservation.service.ts — dò cả chuỗi
+  // `.cause` vì drizzle/pg có thể bọc lỗi qua nhiều lớp.
+  let cur: unknown = err;
+  for (let depth = 0; depth < 5 && cur; depth++) {
+    if (typeof cur === "object" && cur !== null) {
+      const obj = cur as { code?: string; message?: string; cause?: unknown };
+      if (obj.code === "23505") return true;
+      if (typeof obj.message === "string" && obj.message.includes("duplicate key value")) {
+        return true;
+      }
+      cur = obj.cause;
+    } else {
+      break;
+    }
+  }
+  return false;
+}
+
+function parseChannelId(channelId: string): bigint {
+  if (!/^\d+$/.test(channelId)) {
+    throw APIError.invalidArgument("channelId phải là số nguyên hợp lệ");
+  }
+  try {
+    return BigInt(channelId);
+  } catch {
+    throw APIError.invalidArgument("channelId phải là số nguyên hợp lệ");
+  }
 }
 
 /**
@@ -82,7 +116,7 @@ async function loadOwnedChannel(
     .from(founderNotificationChannels)
     .where(
       and(
-        eq(founderNotificationChannels.id, BigInt(channelId)),
+        eq(founderNotificationChannels.id, parseChannelId(channelId)),
         eq(founderNotificationChannels.workspaceId, workspaceId)
       )
     );
@@ -106,7 +140,6 @@ export async function createFounderNotificationChannel(
   if (!SUPPORTED_KINDS.includes(input.kind)) {
     throw APIError.invalidArgument(`unsupported channel kind: ${input.kind}`);
   }
-  validateFounderChannelSecretRef(input.secretRef);
   if (!input.chatId) {
     throw APIError.invalidArgument("chatId is required");
   }
@@ -114,21 +147,37 @@ export async function createFounderNotificationChannel(
   const founderMemberId = requireFounderMemberId(ctx);
   const workspaceId = BigInt(ctx.workspaceId);
   const id = generateSnowflake();
+  // Fix review #1 — secretRef LUÔN do server sinh từ id snowflake vừa tạo,
+  // không bao giờ nhận từ client. Founder không thể trỏ secretRef tới kênh
+  // của người khác vì không còn tham số nào cho phép chọn giá trị này.
+  const secretRef = `${FOUNDER_CHANNEL_SECRET_NAMESPACE}${input.kind}/${id.toString()}`;
 
-  const [row] = await db
-    .insert(founderNotificationChannels)
-    .values({
-      id,
-      workspaceId,
-      founderMemberId,
-      kind: input.kind,
-      secretRef: input.secretRef,
-      chatId: input.chatId,
-      label: input.label ?? null,
-      verifiedAt: null,
-      revokedAt: null,
-    })
-    .returning();
+  let row: typeof founderNotificationChannels.$inferSelect;
+  try {
+    [row] = await db
+      .insert(founderNotificationChannels)
+      .values({
+        id,
+        workspaceId,
+        founderMemberId,
+        kind: input.kind,
+        secretRef,
+        chatId: input.chatId,
+        label: input.label ?? null,
+        verifiedAt: null,
+        revokedAt: null,
+      })
+      .returning();
+  } catch (err) {
+    // Fix review #2 — vi phạm unique index một phần (còn kênh cùng kind chưa
+    // thu hồi) trước đây rơi thẳng lỗi Postgres 23505 thô ra ngoài (500).
+    if (isUniqueViolation(err)) {
+      throw APIError.alreadyExists(
+        "founder_channel_exists: đã có kênh cùng loại chưa thu hồi — thu hồi kênh hiện tại trước khi tạo kênh mới"
+      );
+    }
+    throw err;
+  }
 
   return mvpItem(toDto(row), [{ kind: "company_db", ref: "core.founder_notification_channels" }]);
 }
@@ -141,6 +190,13 @@ export async function verifyFounderNotificationChannel(
 
   const row = await loadOwnedChannel(ctx, channelId);
 
+  // Fix review #3 — kênh đã thu hồi không verify lại được im lặng.
+  if (row.revokedAt !== null) {
+    throw APIError.failedPrecondition(
+      "founder_channel_revoked: kênh đã thu hồi, không thể xác minh — tạo kênh mới"
+    );
+  }
+
   const secret = await resolveFounderChannelSecret(row.secretRef);
   const adapter = getFounderChannelAdapter();
   const result = await adapter.sendVerificationProbe(row.chatId, secret, row.label ?? undefined);
@@ -151,11 +207,19 @@ export async function verifyFounderNotificationChannel(
     );
   }
 
+  // isNull(revokedAt) trong WHERE để tránh race: nếu kênh bị revoke ngay giữa
+  // lúc gọi adapter và lúc UPDATE này, verify không được "thắng" thầm lặng.
   const [updated] = await db
     .update(founderNotificationChannels)
     .set({ verifiedAt: new Date() })
-    .where(eq(founderNotificationChannels.id, row.id))
+    .where(and(eq(founderNotificationChannels.id, row.id), isNull(founderNotificationChannels.revokedAt)))
     .returning();
+
+  if (!updated) {
+    throw APIError.failedPrecondition(
+      "founder_channel_revoked: kênh đã thu hồi, không thể xác minh — tạo kênh mới"
+    );
+  }
 
   return mvpItem(toDto(updated), [{ kind: "company_db", ref: "core.founder_notification_channels" }]);
 }
@@ -168,11 +232,21 @@ export async function revokeFounderNotificationChannel(
 
   const row = await loadOwnedChannel(ctx, channelId);
 
+  // Fix review #3 — kênh đã thu hồi rồi thì revoke lại là no-op báo lỗi rõ,
+  // không âm thầm trả "thành công" lần hai.
+  if (row.revokedAt !== null) {
+    throw APIError.failedPrecondition("founder_channel_revoked: kênh đã thu hồi trước đó");
+  }
+
   const [updated] = await db
     .update(founderNotificationChannels)
     .set({ revokedAt: new Date() })
-    .where(eq(founderNotificationChannels.id, row.id))
+    .where(and(eq(founderNotificationChannels.id, row.id), isNull(founderNotificationChannels.revokedAt)))
     .returning();
+
+  if (!updated) {
+    throw APIError.failedPrecondition("founder_channel_revoked: kênh đã thu hồi trước đó");
+  }
 
   // Decision 8 — chỉ set revoked_at. KHÔNG gọi sang services/cosa, KHÔNG ghi
   // ScheduleExecutionState (B5 làm việc đó).

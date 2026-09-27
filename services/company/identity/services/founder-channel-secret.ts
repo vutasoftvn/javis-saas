@@ -53,5 +53,7 @@ export async function resolveFounderChannelSecret(secretRef: string): Promise<st
     return envVal;
   }
 
-  throw APIError.failedPrecondition(`secret not resolvable: ${secretRef}`);
+  // Không đưa secretRef vào message trả cho client (dù chỉ là tham chiếu,
+  // không phải token thô, vẫn không nên lộ ra ngoài). Log nội bộ nếu cần debug.
+  throw APIError.failedPrecondition("founder_channel_secret_unresolvable: không đọc được bí mật của kênh");
 }

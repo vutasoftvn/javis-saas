@@ -17,11 +17,14 @@ import {
 } from "../services/founder-notification-channel.service";
 import type { MvpSuccess } from "../../shared/contracts/mvp-response";
 
+// Fix review #1 — `secretRef` KHÔNG còn là tham số của request: client
+// không được chọn giá trị này (server tự sinh trong service từ id snowflake
+// vừa tạo), nên không có field nào cho phép founder trỏ tới secret của kênh
+// khác.
 export interface CreateFounderNotificationChannelParams {
   authorization?: Header<"Authorization">;
   workspaceId: Header<"X-Workspace-Id">;
   kind: FounderNotificationChannelKind;
-  secretRef: string;
   chatId: string;
   label?: string;
 }
@@ -34,7 +37,6 @@ export const createFounderNotificationChannelApi = api(
     const tenantCtx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
     return createFounderNotificationChannel(tenantCtx, {
       kind: params.kind,
-      secretRef: params.secretRef,
       chatId: params.chatId,
       label: params.label,
     });

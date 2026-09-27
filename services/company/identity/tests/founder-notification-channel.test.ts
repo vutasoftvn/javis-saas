@@ -3,8 +3,9 @@
 // tiêm test double qua `setCustomFounderChannelAdapter` /
 // `setCustomFounderChannelSecretResolver`, reset lại ở `afterEach`.
 import { afterEach, describe, expect, it } from "vitest";
+import { eq } from "drizzle-orm";
 import { createTestWorkspaceWithMember } from "../../operations/tests/_helpers";
-import { db } from "../models/db";
+import { db, schema } from "../models/db";
 import { identityWorkforceMembers, identityUserProjections } from "../../shared/db/schema/identity";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import type { TenantContext } from "../../shared/types/tenant_context";
@@ -20,9 +21,12 @@ import {
   type FounderChannelAdapter,
   type FounderChannelSendResult,
 } from "../services/telegram-channel-adapter";
-import { setCustomFounderChannelSecretResolver } from "../services/founder-channel-secret";
+import {
+  FOUNDER_CHANNEL_SECRET_NAMESPACE,
+  setCustomFounderChannelSecretResolver,
+} from "../services/founder-channel-secret";
 
-const TEST_SECRET_REF_PREFIX = "secret://cosa-connectors/founder-channels/telegram/";
+const { founderNotificationChannels } = schema;
 
 function makeMockAdapter(result: FounderChannelSendResult): FounderChannelAdapter {
   return {
@@ -88,8 +92,13 @@ async function seedWorkspaceWithTwoFounders() {
   };
 }
 
-function uniqueSecretRef(): string {
-  return `${TEST_SECRET_REF_PREFIX}${Date.now()}-${Math.random().toString(36).slice(2)}`;
+async function getErrorCode(promise: Promise<unknown>): Promise<string | undefined> {
+  try {
+    await promise;
+    return undefined;
+  } catch (err) {
+    return (err as { code?: string }).code;
+  }
 }
 
 describe("founder notification channels (B1)", () => {
@@ -104,7 +113,6 @@ describe("founder notification channels (B1)", () => {
 
     const created = await createFounderNotificationChannel(founderACtx, {
       kind: "telegram",
-      secretRef: uniqueSecretRef(),
       chatId: "123456789",
       label: "My phone",
     });
@@ -124,7 +132,6 @@ describe("founder notification channels (B1)", () => {
 
     const created = await createFounderNotificationChannel(founderACtx, {
       kind: "telegram",
-      secretRef: uniqueSecretRef(),
       chatId: "123456789",
     });
 
@@ -143,7 +150,6 @@ describe("founder notification channels (B1)", () => {
 
     const created = await createFounderNotificationChannel(founderACtx, {
       kind: "telegram",
-      secretRef: uniqueSecretRef(),
       chatId: "bad-chat-id",
     });
 
@@ -163,7 +169,6 @@ describe("founder notification channels (B1)", () => {
 
     const created = await createFounderNotificationChannel(founderACtx, {
       kind: "telegram",
-      secretRef: uniqueSecretRef(),
       chatId: "123456789",
     });
     await verifyFounderNotificationChannel(founderACtx, created.data.id);
@@ -178,19 +183,25 @@ describe("founder notification channels (B1)", () => {
     ).rejects.toThrow(/founder_channel_unavailable/);
   });
 
-  it("founder khác không revoke/verify được kênh không phải của mình", async () => {
+  it("founder khác không revoke/verify được kênh không phải của mình (mã lỗi not_found)", async () => {
     setCustomFounderChannelSecretResolver(async () => "fake-bot-token");
     setCustomFounderChannelAdapter(makeMockAdapter({ ok: true }));
     const { founderACtx, founderBCtx } = await seedWorkspaceWithTwoFounders();
 
     const created = await createFounderNotificationChannel(founderACtx, {
       kind: "telegram",
-      secretRef: uniqueSecretRef(),
       chatId: "123456789",
     });
 
-    await expect(verifyFounderNotificationChannel(founderBCtx, created.data.id)).rejects.toThrow();
-    await expect(revokeFounderNotificationChannel(founderBCtx, created.data.id)).rejects.toThrow();
+    // Fix review #6 — khẳng định đúng mã lỗi machine-readable (`not_found`),
+    // không chỉ `rejects.toThrow()` trống (test đó có thể pass ngay cả khi
+    // lỗi là một 500 không liên quan).
+    expect(await getErrorCode(verifyFounderNotificationChannel(founderBCtx, created.data.id))).toBe(
+      "not_found"
+    );
+    expect(await getErrorCode(revokeFounderNotificationChannel(founderBCtx, created.data.id))).toBe(
+      "not_found"
+    );
 
     // Founder A vẫn thao tác được bình thường trên kênh của chính mình.
     const verified = await verifyFounderNotificationChannel(founderACtx, created.data.id);
@@ -200,14 +211,18 @@ describe("founder notification channels (B1)", () => {
   it("GET không trả secretRef trong response JSON", async () => {
     setCustomFounderChannelSecretResolver(async () => "fake-bot-token");
     const { founderACtx } = await seedWorkspaceWithTwoFounders();
-    const secretRef = uniqueSecretRef();
 
-    await createFounderNotificationChannel(founderACtx, {
+    const created = await createFounderNotificationChannel(founderACtx, {
       kind: "telegram",
-      secretRef,
       chatId: "123456789",
       label: "My phone",
     });
+
+    const [row] = await db
+      .select()
+      .from(founderNotificationChannels)
+      .where(eq(founderNotificationChannels.id, BigInt(created.data.id)));
+    const secretRef = row.secretRef;
 
     const list = await listFounderNotificationChannels(founderACtx);
     expect(list.data).toHaveLength(1);
@@ -221,24 +236,108 @@ describe("founder notification channels (B1)", () => {
     expect(list.data[0].chatIdMasked).toBe("***6789");
   });
 
-  it("từ chối kind chưa hỗ trợ và secretRef ngoài namespace vault", async () => {
+  it("từ chối kind chưa hỗ trợ", async () => {
     const { founderACtx } = await seedWorkspaceWithTwoFounders();
 
     await expect(
       createFounderNotificationChannel(founderACtx, {
         // @ts-expect-error kind không hợp lệ dùng để test validate
         kind: "zalo",
-        secretRef: uniqueSecretRef(),
         chatId: "123456789",
       })
     ).rejects.toThrow();
+  });
 
-    await expect(
+  it("Fix review #1 — secretRef luôn do server sinh, không nhận qua input, không trỏ được tới kênh khác", async () => {
+    setCustomFounderChannelSecretResolver(async () => "fake-bot-token");
+    const { founderACtx } = await seedWorkspaceWithTwoFounders();
+
+    const created = await createFounderNotificationChannel(founderACtx, {
+      kind: "telegram",
+      chatId: "123456789",
+    });
+
+    // Input không còn field secretRef (lỗi biên dịch nếu ai đó thêm lại field
+    // này mà không cập nhật test). Kiểm tra thật trong DB: secretRef được
+    // server sinh đúng namespace + kind + đúng id vừa tạo, founder không thể
+    // truyền secretRef tuỳ ý để trỏ sang kênh của người khác.
+    const [row] = await db
+      .select()
+      .from(founderNotificationChannels)
+      .where(eq(founderNotificationChannels.id, BigInt(created.data.id)));
+
+    expect(row.secretRef).toBe(`${FOUNDER_CHANNEL_SECRET_NAMESPACE}telegram/${created.data.id}`);
+  });
+
+  it("Fix review #2 — tạo kênh khi đã có kênh cùng kind chưa thu hồi -> alreadyExists, không phải lỗi 500 thô", async () => {
+    const { founderACtx } = await seedWorkspaceWithTwoFounders();
+
+    await createFounderNotificationChannel(founderACtx, {
+      kind: "telegram",
+      chatId: "123456789",
+    });
+
+    const code = await getErrorCode(
       createFounderNotificationChannel(founderACtx, {
         kind: "telegram",
-        secretRef: "secret://some-other-namespace/x",
-        chatId: "123456789",
+        chatId: "987654321",
       })
-    ).rejects.toThrow();
+    );
+    expect(code).toBe("already_exists");
+  });
+
+  it("Fix review #3 — verify/revoke kênh đã thu hồi trả failedPrecondition, không âm thầm thành công", async () => {
+    setCustomFounderChannelSecretResolver(async () => "fake-bot-token");
+    setCustomFounderChannelAdapter(makeMockAdapter({ ok: true }));
+    const { founderACtx } = await seedWorkspaceWithTwoFounders();
+
+    const created = await createFounderNotificationChannel(founderACtx, {
+      kind: "telegram",
+      chatId: "123456789",
+    });
+    await revokeFounderNotificationChannel(founderACtx, created.data.id);
+
+    await expect(verifyFounderNotificationChannel(founderACtx, created.data.id)).rejects.toThrow(
+      /founder_channel_revoked/
+    );
+    await expect(revokeFounderNotificationChannel(founderACtx, created.data.id)).rejects.toThrow(
+      /founder_channel_revoked/
+    );
+  });
+
+  it("Fix review #4 — channelId không phải số nguyên hợp lệ -> invalidArgument", async () => {
+    const { founderACtx } = await seedWorkspaceWithTwoFounders();
+
+    expect(await getErrorCode(verifyFounderNotificationChannel(founderACtx, "not-a-number"))).toBe(
+      "invalid_argument"
+    );
+    expect(await getErrorCode(revokeFounderNotificationChannel(founderACtx, "abc123"))).toBe(
+      "invalid_argument"
+    );
+  });
+
+  it("Fix review #5 — lỗi secret không resolve được không lộ secretRef trong message", async () => {
+    // Không set resolver custom -> rơi về nhánh env lookup, luôn miss trong test -> throw.
+    const { founderACtx } = await seedWorkspaceWithTwoFounders();
+    setCustomFounderChannelAdapter(makeMockAdapter({ ok: true }));
+
+    const created = await createFounderNotificationChannel(founderACtx, {
+      kind: "telegram",
+      chatId: "123456789",
+    });
+
+    const [row] = await db
+      .select()
+      .from(founderNotificationChannels)
+      .where(eq(founderNotificationChannels.id, BigInt(created.data.id)));
+
+    let message = "";
+    try {
+      await verifyFounderNotificationChannel(founderACtx, created.data.id);
+    } catch (err) {
+      message = (err as Error).message;
+    }
+    expect(message).not.toContain(row.secretRef);
+    expect(message).not.toContain(FOUNDER_CHANNEL_SECRET_NAMESPACE);
   });
 });
