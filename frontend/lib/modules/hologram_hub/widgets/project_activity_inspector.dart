@@ -39,6 +39,11 @@ class ProjectActivityInspector extends StatelessWidget {
       );
     }
 
+    final e = event!;
+    final agentName = e.agentProfile != null
+        ? ProjectActivityEvent.formatAgentProfile(e.agentProfile, isEn: isEn)
+        : null;
+
     return SingleChildScrollView(
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -49,13 +54,30 @@ class ProjectActivityInspector extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  isEn ? 'Activity Details' : 'Chi tiết Hoạt động',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Icon(
+                        Icons.receipt_long_rounded,
+                        color: Color(0xFF818CF8),
+                        size: 16,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      isEn ? 'Activity Details' : 'Chi tiết Hoạt động',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
                 if (onClose != null)
                   IconButton(
@@ -65,97 +87,168 @@ class ProjectActivityInspector extends StatelessWidget {
               ],
             ),
             const Divider(color: Color(0x226366F1)),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+
+            // Main summary banner
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B).withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: const Color(0xFF334155),
+                  width: 1,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isEn ? 'Title / Action' : 'Tiêu đề / Hành động',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.5),
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    e.getFormattedTitle(isEn: isEn),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Key metadata
+            if (agentName != null)
+              _buildField(
+                label: isEn ? 'Agent Role' : 'Vai trò Trợ lý',
+                value: agentName,
+              ),
 
             // Event ID
             _buildField(
-              label: 'Event ID',
-              value: event!.eventId,
+              label: isEn ? 'Event ID' : 'Mã sự kiện',
+              value: e.eventId,
             ),
 
             // Correlation ID
-            if (event!.correlationId != null)
+            if (e.correlationId != null)
               _buildField(
-                label: 'Correlation ID',
-                value: event!.correlationId!,
+                label: isEn ? 'Correlation ID' : 'Mã tương quan',
+                value: e.correlationId!,
               ),
 
             // Source Reference
-            if (event!.sourceType != null)
+            if (e.sourceType != null)
               _buildField(
-                label: 'Source Type',
-                value: event!.sourceType!.toUpperCase(),
+                label: isEn ? 'Source Type' : 'Loại nguồn',
+                value: e.sourceType!.toUpperCase(),
               ),
-            if (event!.sourceId != null)
+            if (e.sourceId != null)
               _buildField(
-                label: 'Source ID',
-                value: event!.sourceId!,
+                label: isEn ? 'Source ID' : 'Mã nguồn',
+                value: e.sourceId!,
               ),
 
             // Status
-            if (event!.status != null)
+            if (e.status != null)
               _buildField(
-                label: 'Status',
-                value: event!.status!.toUpperCase(),
+                label: isEn ? 'Status' : 'Trạng thái',
+                value: e.formatStatus(isEn: isEn) ?? e.status!.toUpperCase(),
               ),
 
             // Kind
             _buildField(
-              label: 'Kind',
-              value: event!.kind,
+              label: isEn ? 'Event Kind' : 'Loại sự kiện',
+              value: '${e.kind} (${e.formatKind(isEn: isEn)})',
             ),
 
             // Phase
-            if (event!.phase != null)
+            if (e.phase != null)
               _buildField(
-                label: 'Phase',
-                value: event!.phase!,
+                label: isEn ? 'Phase' : 'Giai đoạn',
+                value: e.phase!,
               ),
 
             // Actor
-            if (event!.actorKind != null || event!.actorId != null)
-              _buildField(
-                label: 'Actor',
-                value: '${event!.actorKind ?? '?'}: ${event!.actorId ?? '?'}',
-              ),
+            _buildField(
+              label: isEn ? 'Actor' : 'Tác nhân thực hiện',
+              value: e.formatActor(isEn: isEn),
+            ),
 
             // Safety Level
-            if (event!.classification != null && event!.classification!.isNotEmpty)
+            if (e.classification != null && e.classification!.isNotEmpty)
               _buildField(
-                label: 'Classification',
-                value: event!.classification!,
+                label: isEn ? 'Classification' : 'Phân loại bảo mật',
+                value: e.classification!,
               ),
 
-            // Summary (safe content)
-            const SizedBox(height: 16),
-            const Text(
-              'Summary (Redacted)',
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFF334155)),
-              ),
-              child: Text(
-                event!.displaySummary,
+            // Structured Summary parameters if present
+            if (e.summaryData.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                isEn ? 'Event Parameters (Allowlisted)' : 'Thông số sự kiện (Đã lọc an toàn)',
                 style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  height: 1.5,
+                  color: Colors.white70,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-            ),
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFF334155)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: e.summaryData.entries.map((entry) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${entry.key}: ',
+                            style: const TextStyle(
+                              color: Color(0xFF93C5FD),
+                              fontSize: 11.5,
+                              fontFamily: 'monospace',
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              '${entry.value}',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 11.5,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
 
-            const SizedBox(height: 16),
-            if (event!.classification == 'restricted')
+            const SizedBox(height: 14),
+            if (e.classification == 'restricted')
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -163,14 +256,16 @@ class ProjectActivityInspector extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.info_outline, color: Colors.orange, size: 20),
-                    SizedBox(width: 8),
+                    const Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Restricted: nội dung đã được ẩn để bảo mật.',
-                        style: TextStyle(
+                        isEn
+                            ? 'Restricted: Content has been hidden for security.'
+                            : 'Restricted: Nội dung đã được ẩn để bảo mật.',
+                        style: const TextStyle(
                           color: Colors.orange,
                           fontSize: 12,
                         ),
@@ -180,10 +275,12 @@ class ProjectActivityInspector extends StatelessWidget {
                 ),
               ),
 
-            const SizedBox(height: 24),
-            const Text(
-              'Note: Raw prompts, tokens, secrets, and sensitive payloads are not displayed for security.',
-              style: TextStyle(
+            const SizedBox(height: 20),
+            Text(
+              isEn
+                  ? 'Note: Raw prompts, tokens, secrets, and sensitive payloads are not displayed for security.'
+                  : 'Ghi chú: Token, prompt thô, bí mật và dữ liệu nhạy cảm được ẩn để đảm bảo an toàn.',
+              style: const TextStyle(
                 color: Colors.white54,
                 fontSize: 11,
               ),
@@ -196,35 +293,35 @@ class ProjectActivityInspector extends StatelessWidget {
 
   Widget _buildField({required String label, required String value}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.6),
-              fontSize: 11,
+              color: Colors.white.withValues(alpha: 0.55),
+              fontSize: 10.5,
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 3),
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
             decoration: BoxDecoration(
               color: const Color(0xFF1E293B).withValues(alpha: 0.8),
               borderRadius: BorderRadius.circular(6),
               border: Border.all(
                 color: const Color(0xFF334155),
-                width: 1,
+                width: 0.8,
               ),
             ),
             child: Text(
               value,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 12,
+                fontSize: 11.5,
                 fontFamily: 'monospace',
               ),
               maxLines: 3,

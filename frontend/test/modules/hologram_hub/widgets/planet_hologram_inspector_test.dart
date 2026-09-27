@@ -207,11 +207,10 @@ void main() {
     });
   });
 
-  group('CyberCircuitBackground Planet Tap & Hitbox Tests', () {
-    testWidgets('triggers onPlanetTap callback when tapped near a moving planet', (tester) async {
+  group('CyberCircuitBackground Clean Hub View Tests (Planets Removed)', () {
+    testWidgets('renders cleanly without planet celestial bodies and does not intercept taps', (tester) async {
       PlanetHologramData? tappedPlanet;
 
-      // Set fixed screen size 800x800
       tester.view.physicalSize = const Size(800, 800);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
@@ -232,64 +231,15 @@ void main() {
 
       await tester.pump(const Duration(milliseconds: 100));
 
-      const center = Offset(400, 400);
-      const drumRadius = 190.0;
-
-      // Pick Saturn: orbitRatio = 0.89, startAngle = alignmentAxis (-pi / 3.8)
-      final saturn = PlanetHologramData.findById('saturn')!;
-      final saturnOrbit = drumRadius * saturn.orbitRatio;
-      final saturnX = center.dx + math.cos(saturn.startAngle) * saturnOrbit;
-      final saturnY = center.dy + math.sin(saturn.startAngle) * saturnOrbit;
-      final saturnPos = Offset(saturnX, saturnY);
-
-      // Tap within the generous hitbox (~36px) of Saturn
-      final gesture = await tester.startGesture(saturnPos + const Offset(2, 2));
+      // Tap on canvas where planets used to be
+      final gesture = await tester.startGesture(const Offset(400, 300));
       await tester.pump(const Duration(milliseconds: 50));
       await gesture.up();
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(tappedPlanet, isNotNull);
-      expect(tappedPlanet!.id, equals('saturn'));
-    });
-
-    testWidgets('opens PlanetHologramInspectorDialog on default tap when no callback is provided', (tester) async {
-      tester.view.physicalSize = const Size(800, 800);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() => tester.view.resetPhysicalSize());
-
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(
-            body: CyberCircuitBackground(
-              isEn: false,
-              child: SizedBox.expand(),
-            ),
-          ),
-        ),
-      );
-
-      await tester.pump(const Duration(milliseconds: 100));
-
-      const center = Offset(400, 400);
-      const drumRadius = 190.0;
-
-      // Pick Jupiter: orbitRatio = 0.76
-      final jupiter = PlanetHologramData.findById('jupiter')!;
-      final jupiterOrbit = drumRadius * jupiter.orbitRatio;
-      final jupiterX = center.dx + math.cos(jupiter.startAngle) * jupiterOrbit;
-      final jupiterY = center.dy + math.sin(jupiter.startAngle) * jupiterOrbit;
-      final jupiterPos = Offset(jupiterX, jupiterY);
-
-      // Tap Jupiter within hitbox
-      final gesture = await tester.startGesture(jupiterPos);
-      await tester.pump(const Duration(milliseconds: 50));
-      await gesture.up();
-      await tester.pump(const Duration(milliseconds: 350));
-
-      // Verify that PlanetHologramInspectorDialog was opened in Vietnamese
-      expect(find.byType(PlanetHologramInspectorDialog), findsOneWidget);
-      expect(find.textContaining('MỘC TINH'), findsWidgets);
-      expect(find.text('TĂNG TRƯỞNG & VỐN'), findsOneWidget);
+      // Planets have been removed, so no planet tap event or dialog is triggered
+      expect(tappedPlanet, isNull);
+      expect(find.byType(PlanetHologramInspectorDialog), findsNothing);
     });
   });
 }
