@@ -202,6 +202,16 @@ class ManualToolLoopKernel:
             locale=request.locale,
         ).render()
         messages = [{"role": "system", "content": system_prompt}]
+        # Lịch sử hội thoại (ADR-CONV-002) — đã lọc/giới hạn ở tầng composition.
+        history = request.input.get("history") if isinstance(request.input, dict) else None
+        if isinstance(history, list):
+            messages.extend(
+                {"role": str(h["role"]), "content": str(h["content"])}
+                for h in history
+                if isinstance(h, dict)
+                and h.get("role") in ("user", "assistant")
+                and h.get("content")
+            )
         if request.input:
             prompt_content = (
                 request.input.get("prompt")

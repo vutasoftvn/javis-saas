@@ -23,6 +23,7 @@ from apps.cosa.agents.goal_intent import (
 from apps.cosa.api.event_stream import CosaEventStreamManager
 from apps.cosa.composition.agent_plane import CosaAgentPlane
 from apps.cosa.config.planes import resolve_platform_control_plane_url
+from apps.cosa.conversations.history import build_history, history_limits
 from apps.cosa.observability.logging import log_context
 from apps.cosa.observability.metrics import record_model_tokens, record_run_outcome
 from apps.cosa.observability.otel import inject_trace_carrier, trace_span
@@ -114,6 +115,25 @@ async def _weekly_goal_suggestion(plane: CosaAgentPlane, user_prompt: str) -> Go
             logger.debug("goal-intent LLM classify failed, falling back to heuristic")
 
     return detect_weekly_goal_suggestion(user_prompt)
+
+
+async def _load_chat_history(
+    plane: CosaAgentPlane, *, conversation_id: str, run_id: str
+) -> list[dict[str, str]]:
+    """ADR-CONV-002 — các lượt trước của conversation (trừ lượt hiện tại) trong
+    ngân sách COSA_CHAT_HISTORY_MESSAGES / COSA_CHAT_HISTORY_MAX_CHARS. Lỗi đọc
+    không làm hỏng run: chạy như single-turn và ghi log."""
+    max_messages, max_chars = history_limits()
+    if max_messages <= 0 or max_chars <= 0:
+        return []
+    try:
+        messages = await plane.conversation_repository.list_messages(conversation_id)
+    except Exception:
+        logger.warning("run_id=%s load chat history failed", run_id, exc_info=True)
+        return []
+    return build_history(
+        messages, exclude_run_id=run_id, max_messages=max_messages, max_chars=max_chars
+    )
 
 
 async def _append_message(
@@ -471,6 +491,8 @@ async def _execute_run_task_inner(
     if locale_source:
         extra_md["locale_source"] = locale_source
 
+    history = await _load_chat_history(plane, conversation_id=conversation_id, run_id=run_id)
+
     try:
         prep = await prepare_request(
             plane,
@@ -483,6 +505,7 @@ async def _execute_run_task_inner(
             policy_snapshot=snapshot,
             locale=locale,
             extra_metadata=extra_md or None,
+            history=history,
         )
     except RunCoreError as exc:
         if exc.reason_code == "compliance_resolver_unavailable":

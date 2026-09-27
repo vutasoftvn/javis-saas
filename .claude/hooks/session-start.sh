@@ -70,7 +70,7 @@ if command -v pg_ctl >/dev/null 2>&1 || [ -x /usr/lib/postgresql/16/bin/pg_ctl ]
     || log "migrate agent thất bại (bỏ qua)"
   (cd services/company && WORKSPACE_MIGRATOR_DATABASE_URL=postgresql://postgres@127.0.0.1:55432/company_test \
     node scripts/migrate.mjs >/dev/null 2>&1) || log "migrate company thất bại (bỏ qua)"
-  echo 'export AGENT_TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:55432/agent_test' >> "${CLAUDE_ENV_FILE:-/dev/null}"
+  echo 'export AGENT_TEST_DATABASE_URL=postgresql+asyncpg://postgres@127.0.0.1:55432/agent_test' >> "${CLAUDE_ENV_FILE:-/dev/null}"
 fi
 
 # ── Encore CLI (services-test-*, e2e): thường bị proxy chặn github.com ─────

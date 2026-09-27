@@ -1,4 +1,5 @@
-from apps.cosa.conversations.ports import ConversationHistoryPort
-from apps.cosa.conversations.stub import StubConversationHistoryPort
+"""Lịch sử hội thoại cho prompt (ADR-CONV-002)."""
 
-__all__ = ["ConversationHistoryPort", "StubConversationHistoryPort"]
+from apps.cosa.conversations.history import build_history, history_limits
+
+__all__ = ["build_history", "history_limits"]

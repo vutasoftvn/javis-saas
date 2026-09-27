@@ -1,6 +1,8 @@
 # ADR-CONV-001: Single-turn conversation context cho launch
 
 ## Status
+SUPERSEDED 2026-09-27 bởi `ADR-CONV-002-conversation-history-in-prompt.md`.
+
 ACCEPTED 2026-08-28 (Lưu ý: ACCEPTED ≠ IMPLEMENTED ≠ WIRED ≠ VERIFIED ≠ PRODUCTION).
 
 ## Context

@@ -89,6 +89,7 @@ async def prepare_request(
     locale: str = "vi-VN",
     extra_metadata: dict[str, Any] | None = None,
     project_id: str | None = None,
+    history: list[dict[str, str]] | None = None,
 ) -> RunCorePrep:
     """Dựng RunRequest + resolve compliance (mint company delegation).
 
@@ -111,7 +112,7 @@ async def prepare_request(
         run_id=run_id,
         principal=principal,
         root_executable_ref=spec.to_pinned_identity(),
-        input={"prompt": prompt},
+        input={"prompt": prompt, **({"history": history} if history else {})},
         workspace_id=workspace_id,
         conversation_id=conversation_id,
         locale=locale,
