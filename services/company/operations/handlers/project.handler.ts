@@ -1,5 +1,6 @@
 import { api, Header } from "encore.dev/api";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { AGENT_CAP } from "../../shared/auth/agent-capabilities";
 import {
   Project,
   CreateProjectRequest,
@@ -63,7 +64,9 @@ export const createProject = api(
 export const getProject = api(
   { expose: true, method: "GET", path: "/operations/projects/:id" },
   async (params: GetProjectParams): Promise<Project> => {
-    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId, {
+      agentCapabilities: [AGENT_CAP.STRATEGY_PROJECT_GET],
+    });
     return getProjectService(ctx, params.id);
   }
 );

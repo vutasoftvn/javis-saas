@@ -1,5 +1,6 @@
 import { api, Header, Query } from "encore.dev/api";
 import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
+import { AGENT_CAP } from "../../../shared/auth/agent-capabilities";
 import {
   assembleActionContextService,
   createActionProposalService,
@@ -70,7 +71,9 @@ export interface NextBestActionsResultView {
 export const getNextBestActions = api(
   { method: "GET", path: "/operations/strategy/projects/:id/next-best-actions", expose: true },
   async (params: GetNextBestActionsParams): Promise<NextBestActionsResultView> => {
-    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId, {
+      agentCapabilities: [AGENT_CAP.STRATEGY_NEXT_BEST_ACTION_GET],
+    });
     const pId = params.id || params.projectId || "0";
     const { proposeNextActions } = await import("../services/project-action-context.service");
     const result = await proposeNextActions(ctx, pId);

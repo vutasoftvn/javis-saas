@@ -437,6 +437,9 @@ async def create_message(
             "user_prompt": req.content,
             "agent_profile": agent_profile,
             "project_id": resolved_project_id,
+            # Tên Project đã verify — chỉ để model gọi tên thay vì đọc ID cho người dùng.
+            "project_name": verified_project.title,
+            "workspace_name": verified_project.workspace_name,
             "principal": identity.principal_id,
             # Task 10 (plan local-first-enterprise-knowledge) — cần role_id
             # tới capability workspace.context.read (qua run context.metadata,

@@ -17,6 +17,7 @@ hồi có cấu trúc từ chính endpoint đọc Project đã cross-check works
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -33,6 +34,11 @@ __all__ = [
     "require_project_context_match",
     "verify_project_context",
 ]
+
+_WORKSPACE_NAME_TTL_S = 300.0
+_WORKSPACE_NAME_CACHE_MAX = 512
+# workspace_id -> (hạn dùng theo monotonic, tên)
+_WORKSPACE_NAME_CACHE: dict[str, tuple[float, str]] = {}
 
 PROJECT_CONTEXT_REQUIRED = "PROJECT_CONTEXT_REQUIRED"
 PROJECT_CONTEXT_MISMATCH = "PROJECT_CONTEXT_MISMATCH"
@@ -57,6 +63,8 @@ class VerifiedProjectContext:
     project_id: str
     workspace_id: str
     title: str | None = None
+    # Chỉ để hiển thị/gọi tên trong hội thoại — không phải bằng chứng authorization.
+    workspace_name: str | None = None
 
 
 async def verify_project_context(
@@ -121,7 +129,33 @@ async def verify_project_context(
         project_id=str(resolved_id),
         workspace_id=identity.workspace_id,
         title=resp.get("title"),
+        workspace_name=await _read_workspace_name(company_client, identity),
     )
+
+
+async def _read_workspace_name(company_client: Any, identity: Any) -> str | None:
+    """Best-effort: lỗi/thiếu tên -> None, không bao giờ làm hỏng request chat.
+
+    Chỉ cache tên (hiển thị) — quyền truy cập Project luôn verify lại mỗi request."""
+    workspace_id = str(identity.workspace_id)
+    cached = _WORKSPACE_NAME_CACHE.get(workspace_id)
+    if cached is not None and cached[0] > time.monotonic():
+        return cached[1]
+    try:
+        resp = await company_client.get(
+            f"/identity/workspaces/{workspace_id}",
+            headers={"Authorization": f"Bearer {identity.mint_delegation()}"},
+        )
+    except Exception:
+        return None
+    name = resp.get("name") if isinstance(resp, dict) else None
+    if not (isinstance(name, str) and name.strip()):
+        return None
+    name = name.strip()
+    if len(_WORKSPACE_NAME_CACHE) >= _WORKSPACE_NAME_CACHE_MAX:
+        _WORKSPACE_NAME_CACHE.clear()
+    _WORKSPACE_NAME_CACHE[workspace_id] = (time.monotonic() + _WORKSPACE_NAME_TTL_S, name)
+    return name
 
 
 def require_project_context_match(

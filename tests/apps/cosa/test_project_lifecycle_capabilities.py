@@ -22,9 +22,7 @@ pytestmark = pytest.mark.integration
 @pytest.mark.asyncio
 async def test_strategy_project_get_handler():
     client = AsyncMock()
-    client.get.return_value = {
-        "project": {"id": "100", "title": "Test Proj", "lifecycleStage": "P0_DISCOVERY"}
-    }
+    client.get.return_value = {"id": "100", "title": "Test Proj", "lifecycleStage": "P0_DISCOVERY"}
 
     handler = create_strategy_project_get_handler(client)
 
@@ -39,11 +37,10 @@ async def test_strategy_project_get_handler():
     res = await handler({"project_id": "100"}, context={"workspace_id": "ws-123"})
 
     client.get.assert_awaited_once_with(
-        "/operations/strategy/stage-context",
-        params={"projectId": "100"},
+        "/operations/projects/100",
         headers={"X-Workspace-Id": "ws-123"},
     )
-    assert res["project"]["project"]["lifecycleStage"] == "P0_DISCOVERY"
+    assert res["project"]["lifecycleStage"] == "P0_DISCOVERY"
     assert res["advisory"]["label"] == "insight"
 
 

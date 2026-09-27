@@ -12,6 +12,9 @@ export const AGENT_CAP = Object.freeze({
   // WGA G8 — agent chat đọc kế hoạch triển khai + tiến độ task (chỉ đọc).
   OPERATIONS_EXECUTION_PLAN_READ: "operations.execution_plan.read",
   STRATEGY_EVIDENCE_LIST: "strategy.evidence.list",
+  // Agent chat đọc thông tin Project (lifecycle stage) và Next Best Actions (chỉ đọc).
+  STRATEGY_PROJECT_GET: "strategy.project.get",
+  STRATEGY_NEXT_BEST_ACTION_GET: "strategy.next_best_action.get",
   FINANCE_CONNECTION_READ: "finance.connection.read",
   FINANCE_TRANSACTION_READ: "finance.transaction.read",
   FINANCE_TRANSACTION_RECORD: "finance.transaction.record",

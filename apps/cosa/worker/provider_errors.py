@@ -5,6 +5,7 @@ dùng theo locale. Đây là bộ dịch Ở BIÊN (chỉ dùng để hiển th�
 
 from __future__ import annotations
 
+import re
 from typing import NamedTuple
 
 __all__ = ["ClassifiedError", "classify_run_error", "user_message_for_code"]
@@ -17,20 +18,23 @@ class ClassifiedError(NamedTuple):
 
 # (code, các mẫu nhận diện — so khớp lowercase, theo thứ tự ưu tiên)
 _RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    # Lỗi từ backend của tool (vd. "Company Service Error (401): ...") KHÔNG phải lỗi nhà cung
+    # cấp model — phải xét trước, nếu không mã 401/429/503 trong đó bị nhận nhầm là provider.
+    ("tool_backend_error", ("company service error",)),
     (
         "provider_insufficient_balance",
         ("insufficient balance", "insufficient_quota", "quota exceeded"),
     ),
-    ("provider_auth", ("authenticationerror", "invalid api key", "incorrect api key", "401")),
-    ("provider_rate_limited", ("ratelimiterror", "rate limit", "429", "too many requests")),
+    ("provider_auth", ("authenticationerror", "invalid api key", "incorrect api key", r"\b401\b")),
+    ("provider_rate_limited", ("ratelimiterror", "rate limit", r"\b429\b", "too many requests")),
     (
         "provider_unavailable",
         (
             "serviceunavailable",
             "timeout",
             "timed out",
-            "503",
-            "502",
+            r"\b503\b",
+            r"\b502\b",
             "connection error",
             "apiconnectionerror",
         ),
@@ -46,6 +50,7 @@ _MESSAGES: dict[str, dict[str, str]] = {
         "provider_rate_limited": "Nhà cung cấp model đang giới hạn tốc độ. Vui lòng thử lại sau ít phút.",
         "provider_unavailable": "Nhà cung cấp model tạm thời không phản hồi. Vui lòng thử lại sau.",
         "tool_input_invalid": "Agent gọi công cụ với tham số không hợp lệ. Vui lòng thử lại.",
+        "tool_backend_error": "Một công cụ dữ liệu của agent không truy cập được (lỗi từ dịch vụ nội bộ, không phải model). Vui lòng thử lại; nếu lặp lại hãy báo quản trị viên.",
         "agent_max_turns": "Agent đã vượt quá số bước xử lý cho phép. Vui lòng chia nhỏ yêu cầu và thử lại.",
         "usage_budget_exceeded": "Workspace đã dùng hết hạn mức AI của tháng này (quota token hoặc ngân sách của model profile). Vui lòng liên hệ quản trị viên để nâng hạn mức.",
         "model_provider_misconfigured": "Model provider của workspace chưa được cấu hình đúng. Vui lòng kiểm tra trong Cài đặt → Model Providers.",
@@ -57,6 +62,7 @@ _MESSAGES: dict[str, dict[str, str]] = {
         "provider_rate_limited": "The model provider is rate limiting requests. Please try again in a few minutes.",
         "provider_unavailable": "The model provider is temporarily not responding. Please try again later.",
         "tool_input_invalid": "The agent called a tool with invalid parameters. Please try again.",
+        "tool_backend_error": "A data tool used by the agent could not be reached (internal service error, not the model). Please try again; if it keeps happening, tell an administrator.",
         "agent_max_turns": "The agent exceeded the allowed number of steps. Please split the request and try again.",
         "usage_budget_exceeded": "This workspace has used up its AI allowance for the month (token quota or model profile budget). Please ask an administrator to raise the limit.",
         "model_provider_misconfigured": "The workspace model provider is not configured correctly. Please check Settings → Model Providers.",
@@ -69,7 +75,7 @@ def classify_run_error(message: str, locale: str = "vi-VN") -> ClassifiedError:
     lowered = (message or "").lower()
     code = "unknown"
     for rule_code, patterns in _RULES:
-        if any(p in lowered for p in patterns):
+        if any(re.search(p, lowered) for p in patterns):
             code = rule_code
             break
     lang = "en" if (locale or "").lower().startswith("en") else "vi"

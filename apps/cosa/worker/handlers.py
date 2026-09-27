@@ -514,6 +514,9 @@ async def _execute_run_task_inner(
         extra_md["company_workforce_member_id"] = str(company_workforce_member_id)
     if assignment_id:
         extra_md["assignment_id"] = str(assignment_id)
+    for name_key in ("project_name", "workspace_name"):
+        if payload.get(name_key):
+            extra_md[name_key] = str(payload[name_key])
     # project_id do conversation_routes đặt từ project đã verify, không lấy từ client.
     if project_id:
         extra_md["project_id"] = str(project_id)

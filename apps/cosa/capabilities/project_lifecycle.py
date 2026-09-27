@@ -7,6 +7,7 @@ from agent.governance.contracts import CapabilityRisk
 
 from apps.cosa.capabilities._advisory_envelope import wrap_advisory
 from apps.cosa.capabilities.client import CompanyServiceClient
+from apps.cosa.capabilities.lifecycle_labels import lifecycle_stage_label
 
 __all__ = [
     "ANALYTICS_METRIC_CONTRACT_GET_SPEC",
@@ -209,11 +210,9 @@ def create_strategy_project_get_handler(client: CompanyServiceClient):
         headers = {"X-Workspace-Id": ws_id}
         project_id = str(payload["project_id"])
 
-        res = await client.get(
-            "/operations/strategy/stage-context",
-            params={"projectId": project_id},
-            headers=headers,
-        )
+        # Endpoint `/operations/strategy/stage-context` chưa từng tồn tại ở services/company
+        # (luôn 404) — Project + lifecycleStage đọc từ endpoint thật.
+        res = await client.get(f"/operations/projects/{project_id}", headers=headers)
 
         advisory = wrap_advisory(
             layer="CURRENT_LAW",
@@ -223,6 +222,14 @@ def create_strategy_project_get_handler(client: CompanyServiceClient):
             confidence=1.0,
             next_actions=["Xem xét bằng chứng và các yêu cầu gate của giai đoạn hiện tại"],
         )
+
+        # `lifecycleStage` là KEY nội bộ; trả kèm nhãn đúng ngôn ngữ để model nói với người dùng.
+        locale = context.get("locale") if isinstance(context, dict) else None
+        label = lifecycle_stage_label(
+            res.get("lifecycleStage") if isinstance(res, dict) else None, locale
+        )
+        if label and isinstance(res, dict):
+            res = {**res, "lifecycleStageLabel": label}
 
         return {"project": res, "advisory": advisory}
 

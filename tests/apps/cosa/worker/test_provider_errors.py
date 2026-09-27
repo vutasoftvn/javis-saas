@@ -37,6 +37,26 @@ def test_codes(msg: str, code: str) -> None:
     assert classify_run_error(msg, "vi-VN").code == code
 
 
+@pytest.mark.parametrize(
+    "msg",
+    [
+        "Error running tool strategy.next_best_action.get: Company Service Error (401): "
+        "invalid or expired token",
+        "Company Service Error (404): endpoint not found",
+        "Company Service Error (429): busy",
+    ],
+)
+def test_company_tool_errors_are_not_blamed_on_model_provider(msg: str) -> None:
+    r = classify_run_error(msg, "vi-VN")
+    assert r.code == "tool_backend_error"
+    assert "API key" not in r.user_message
+
+
+@pytest.mark.parametrize("msg", ["ids 7244014419641 and 5030012", "run_4013abc failed"])
+def test_status_numbers_inside_other_numbers_do_not_match(msg: str) -> None:
+    assert classify_run_error(msg, "vi-VN").code == "unknown"
+
+
 def test_unknown_locale_defaults_to_vi() -> None:
     assert "hết hạn mức" in classify_run_error(DEEPSEEK_MSG, "").user_message
 

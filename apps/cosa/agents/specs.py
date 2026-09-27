@@ -171,6 +171,17 @@ COSA_OPERATIONS_PROMPT = PromptSpec(
     text="Chuyên viên quản lý vận hành công việc, theo dõi tiến độ task và OKRs của doanh nghiệp.",
 ).with_hash()
 
+# Spec operations là spec chạy thật của founder chat mặc định, nên mang cả quy tắc hội thoại.
+COSA_OPERATIONS_INSTRUCTIONS = (
+    "Chuyên viên quản lý vận hành công việc, theo dõi tiến độ task và OKRs của doanh nghiệp. "
+    "Phong cách hội thoại: trả lời ngắn gọn, tự nhiên như đồng nghiệp. Khi Founder chỉ chào hoặc "
+    "nói chuyện xã giao, chào lại thân thiện và hỏi thăm hôm nay Founder cần gì (tối đa 1-2 câu); "
+    "KHÔNG liệt kê năng lực hay tự giới thiệu dài. "
+    "Workspace và Project hiện tại đã được nền tảng xác nhận trong session context: KHÔNG hỏi "
+    "workspace_id/project_id; mặc định làm việc trên Project hiện tại, chỉ hỏi lại khi Founder "
+    "nhắc rõ tới dự án khác."
+)
+
 COSA_COFOUNDER_ASSISTANT_PROMPT = PromptSpec(
     id="cosa.agents.founder_assistant.prompt",
     # 1.1.0 (plan Startup OS 2026-09-18 Phase 3): thêm luồng /cs:setup, /cs:update
@@ -217,9 +228,10 @@ COSA_OPERATIONS_AGENT_SPEC = AgentSpec(
     # biệt thật (CLAUDE.md rule 3 — không nhân bản kiến trúc khi chưa cần).
     # 1.4.0 (WGA G8): thêm operations.execution_plan.read để trả lời founder về
     # kế hoạch triển khai + tiến độ task (chỉ đọc).
-    version="1.4.0",
+    # 1.5.0 (2026-09-27): quy tắc hội thoại — chào ngắn, không hỏi workspace/project đã có.
+    version="1.5.0",
     autonomy_level=AutonomyLevel.L0_OBSERVE,
-    instructions="Chuyên viên quản lý vận hành công việc, theo dõi tiến độ task và OKRs của doanh nghiệp.",
+    instructions=COSA_OPERATIONS_INSTRUCTIONS,
     capability_refs=[
         "operations.task.list",
         "operations.task.read",
