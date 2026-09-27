@@ -91,6 +91,8 @@ def create_venture_profile_propose_update_handler(client: CompanyServiceClient):
             "founderGoal": payload.get("founder_goal"),
             "initialRunwayMonths": payload.get("initial_runway_months"),
         }
+        # Chỉ gửi trường model thực sự đề xuất — gửi None sẽ xoá dữ liệu founder đã nhập.
+        body = {k: v for k, v in body.items() if v is not None}
 
         profile = await client.put(
             "/operations/strategy/venture-profile", json=body, headers=headers

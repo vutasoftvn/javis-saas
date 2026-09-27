@@ -3,6 +3,7 @@ import { eq, and, desc, isNull } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspaceRecord } from "../../identity/services/workspace.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { AGENT_CAP } from "../../shared/auth/agent-capabilities";
 import { computeKeyResultProgress, computeObjectiveScore, KrScoringType } from "./okr-scoring.service";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { mvpList, mvpItem, MvpSuccess } from "../../shared/contracts/mvp-response";
@@ -316,7 +317,11 @@ export async function addKeyResultService(params: AddKeyResultParams): Promise<K
     .limit(1);
 
   if (!objective) throw APIError.notFound(`objective ${params.objectiveId} not found`);
-  await requireWorkspaceAccess(params.authorization, objective.workspaceId.toString());
+  // Agent chat chỉ gọi được sau khi founder duyệt (T2, apps/cosa access_matrix);
+  // delegation phải đúng workspace của chính Objective này.
+  await requireWorkspaceAccess(params.authorization, objective.workspaceId.toString(), {
+    agentCapabilities: [AGENT_CAP.OKR_KEY_RESULT_CREATE],
+  });
 
   const existingKeyResults = await db
     .select({ id: keyResults.id })
@@ -370,7 +375,9 @@ export async function checkinService(
     .where(and(eq(keyResults.id, BigInt(id)), isNull(keyResults.deletedAt)))
     .limit(1);
   if (!kr) throw APIError.notFound(`key result ${id} not found`);
-  await requireWorkspaceAccess(authorization, kr.workspaceId.toString());
+  await requireWorkspaceAccess(authorization, kr.workspaceId.toString(), {
+    agentCapabilities: [AGENT_CAP.OKR_KEY_RESULT_CHECKIN],
+  });
 
   const [row] = await db
     .update(keyResults)

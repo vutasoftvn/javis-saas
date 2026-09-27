@@ -166,3 +166,26 @@ def project_id_with_activity(db_session_factory, monkeypatch):
 
     asyncio.run(_insert_data())
     return project_id
+
+
+@pytest.fixture
+def registered_capability_ids() -> set[str]:
+    """Tập capability id đăng ký thật qua `register_cosa_capabilities` (dependency giả,
+    không gọi mạng) — dùng cho test parity spec↔registry (spec 2026-09-27-chat-business-actions)."""
+    from unittest.mock import MagicMock
+
+    from agent.capabilities.registry import CapabilityRegistry
+
+    from apps.cosa.composition.capability_registration import register_cosa_capabilities
+
+    registry = CapabilityRegistry()
+    register_cosa_capabilities(
+        registry,
+        client=MagicMock(),
+        tenant_policy=MagicMock(),
+        search_budget=MagicMock(),
+        artifact_repo=MagicMock(),
+        web_search_provider=MagicMock(),
+        knowledge_ingestion_service=MagicMock(),
+    )
+    return {spec.id for spec in registry.list_specs()}

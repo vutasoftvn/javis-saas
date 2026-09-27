@@ -18,8 +18,20 @@ def test_spec_shape():
     assert set(OPERATIONS_TASK_ADVANCE_SPEC.input_schema["required"]) == {
         "task_id",
         "to_status",
-        "run_id",
     }
+
+
+@pytest.mark.asyncio
+async def test_advance_uses_run_id_of_current_run_over_model_argument():
+    client = AsyncMock(spec=CompanyServiceClient)
+    client.post.return_value = {"id": "task-1", "status": "in_progress"}
+    handler = create_operations_task_advance_handler(client)
+
+    await handler(
+        {"task_id": "task-1", "to_status": "in_progress", "run_id": "run_bịa"},
+        context={"workspace_id": "ws-9", "run_id": "run_that"},
+    )
+    assert client.post.call_args[1]["json"]["runId"] == "run_that"
 
 
 @pytest.mark.asyncio

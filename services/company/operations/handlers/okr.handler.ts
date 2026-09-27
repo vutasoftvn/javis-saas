@@ -28,6 +28,7 @@ import {
   deleteKeyResultService,
 } from "../services/okr.service";
 import { requireWorkspaceAccess } from "../../shared/auth/workspace-access";
+import { AGENT_CAP } from "../../shared/auth/agent-capabilities";
 
 export {
   OkrCycle,
@@ -134,7 +135,9 @@ export const listObjectives = api(
     authorization?: Header<"Authorization">;
     workspaceId: Header<"X-Workspace-Id">;
   }): Promise<MvpSuccess<readonly Objective[]>> => {
-    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId, {
+      agentCapabilities: [AGENT_CAP.OKR_OBJECTIVE_LIST],
+    });
     return listObjectivesService(ctx);
   }
 );
@@ -148,7 +151,9 @@ export const listKeyResults = api(
     authorization?: Header<"Authorization">;
     workspaceId: Header<"X-Workspace-Id">;
   }): Promise<MvpSuccess<readonly KeyResult[]>> => {
-    const ctx = await requireWorkspaceAccess(authorization, workspaceId);
+    const ctx = await requireWorkspaceAccess(authorization, workspaceId, {
+      agentCapabilities: [AGENT_CAP.OKR_OBJECTIVE_LIST],
+    });
     return listKeyResultsService(ctx);
   },
 );

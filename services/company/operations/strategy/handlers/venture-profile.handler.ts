@@ -47,7 +47,9 @@ export const getVentureProfile = api(
 export const updateVentureProfile = api(
   { method: "PUT", path: "/operations/strategy/venture-profile", expose: true },
   async (params: UpdateVentureProfileParams): Promise<VentureProfileResponse> => {
-    const ctx = await requireWorkspaceWrite(params.authorization, params.workspaceId);
+    const ctx = await requireWorkspaceWrite(params.authorization, params.workspaceId, {
+      agentCapabilities: [AGENT_CAP.VENTURE_PROFILE_PROPOSE_UPDATE],
+    });
     const { authorization: _authorization, workspaceId: _workspaceId, ...input } = params;
     return { profile: await updateVentureProfileService(BigInt(ctx.workspaceId), input) };
   }

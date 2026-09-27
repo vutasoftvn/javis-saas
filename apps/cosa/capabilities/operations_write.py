@@ -123,7 +123,9 @@ OPERATIONS_TASK_ADVANCE_SPEC = CapabilitySpec(
     metadata={"action_class": "B"},
     input_schema={
         "type": "object",
-        "required": ["task_id", "to_status", "run_id"],
+        # run_id lấy từ run hiện tại (InvocationContext) — model không biết/không được chép
+        # run_id; company đòi runId khớp delegation token của chính run này.
+        "required": ["task_id", "to_status"],
         "properties": {
             "workspace_id": {"type": "string"},
             "task_id": {"type": "string", "minLength": 1},
@@ -159,7 +161,9 @@ def create_operations_task_advance_handler(client: CompanyServiceClient):
         if to_status not in ("in_progress", "done", "blocked"):
             raise ValueError("operations.task.advance: to_status must be in_progress|done|blocked")
 
-        run_id = payload.get("run_id")
+        run_id = (
+            context.get("run_id") if isinstance(context, dict) else getattr(context, "run_id", None)
+        ) or payload.get("run_id")
         if not run_id or not str(run_id).strip():
             raise ValueError("operations.task.advance: run_id is required")
 

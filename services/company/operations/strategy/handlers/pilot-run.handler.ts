@@ -1,5 +1,6 @@
 import { api, APIError, Header } from "encore.dev/api";
 import { requireWorkspaceAccess } from "../../../shared/auth/workspace-access";
+import { AGENT_CAP } from "../../../shared/auth/agent-capabilities";
 import {
   createPilotDraft,
   approvePilot as approvePilotService,
@@ -65,7 +66,9 @@ export interface GetPilotParams {
 export const createPilot = api(
   { method: "POST", path: "/operations/strategy/pilots", expose: true },
   async (params: CreatePilotParams): Promise<PilotRunDto> => {
-    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId, {
+      agentCapabilities: [AGENT_CAP.STRATEGY_PILOT_CREATE_DRAFT],
+    });
     const wsId = BigInt(ctx.workspaceId);
 
     if (!params.releaseOwnerMemberId) {
@@ -148,7 +151,9 @@ export const closePilot = api(
 export const getPilot = api(
   { method: "GET", path: "/operations/strategy/pilots/:id", expose: true },
   async (params: GetPilotParams): Promise<PilotRunDto> => {
-    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId, {
+      agentCapabilities: [AGENT_CAP.STRATEGY_PILOT_GET],
+    });
     const wsId = BigInt(ctx.workspaceId);
 
     const row = await getPilotInWorkspace(wsId, BigInt(params.id));
@@ -159,7 +164,9 @@ export const getPilot = api(
 export const listPilots = api(
   { method: "GET", path: "/operations/strategy/pilots", expose: true },
   async (params: ListPilotsParams): Promise<{ items: PilotRunDto[] }> => {
-    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId, {
+      agentCapabilities: [AGENT_CAP.STRATEGY_PILOT_GET],
+    });
     const wsId = BigInt(ctx.workspaceId);
 
     const rows = await listPilotsInWorkspace(
