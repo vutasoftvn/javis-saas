@@ -1,7 +1,7 @@
 # Hub: card vận hành nhiều tab và tự động hoá do founder duyệt
 
 Ngày: 2026-09-27. Tiếp nối `2026-09-27-chat-business-actions-design.md` (PR #14, ADR-CHAT-ACTIONS-001).
-Trạng thái: DRAFT chờ founder duyệt. Quyết định founder đã chốt ngày 2026-09-27:
+Trạng thái: APPROVED (founder, 2026-09-27) — chưa triển khai. Quyết định founder đã chốt ngày 2026-09-27:
 
 - Chat giữ ở giữa hub (tương tác trực tiếp; sau này voice LiveKit cũng hiển thị text ở đây).
 - Chia 3 đợt như mục 3.
@@ -100,8 +100,7 @@ Thành phần mới:
 - Sửa/xoá built-in agent.
 - Voice LiveKit (chỉ bảo đảm luồng text dùng chung).
 
-## 6. Câu hỏi còn mở
+## 6. Quyết định đã chốt (founder, 2026-09-27)
 
-1. Card đặt ở cột trái dưới "Chu kỳ tuần" hay thay cột số liệu bên phải? (Plan đợt 1 mặc định: cột
-   trái, không bỏ widget cũ cho tới khi founder xác nhận.)
-2. Giới hạn nháp agent/ngày mặc định (đề xuất 20/Project).
+1. Card đặt ở **cột trái**, dưới "Chu kỳ tuần"; widget cũ giữ tới khi card ổn định.
+2. Giới hạn nháp/đề xuất do agent tạo: **20 mỗi Project mỗi ngày**, cấu hình ở company.
