@@ -161,6 +161,78 @@ void main() {
     expect(find.byType(AppMarkdownBody), findsOneWidget);
   });
 
+  Future<void> pumpPanel(WidgetTester tester, FounderCommandCenterController c) async {
+    await tester.pumpWidget(
+      GetMaterialApp(
+        home: Scaffold(body: ChatPanelContent(controller: c, onClose: () {})),
+      ),
+    );
+    await tester.pump();
+  }
+
+  testWidgets('loading: shows "..." bubble instead of a progress bar right after send', (
+    tester,
+  ) async {
+    final controller = Get.put(FounderCommandCenterController());
+    controller.chatMessages.add({'role': 'user', 'content': 'hi'});
+    controller.isChatLoading.value = true;
+    await pumpPanel(tester, controller);
+
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+    expect(find.bySemanticsLabel('AI is typing'), findsOneWidget);
+    expect(find.byIcon(Icons.smart_toy_outlined), findsOneWidget);
+  });
+
+  testWidgets('loading: empty AI bubble shows "..." and no duplicate bubble', (tester) async {
+    final controller = Get.put(FounderCommandCenterController());
+    controller.chatMessages.add({'role': 'user', 'content': 'hi'});
+    controller.chatMessages.add({'role': 'cosa', 'content': ''});
+    controller.isChatLoading.value = true;
+    await pumpPanel(tester, controller);
+
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+    expect(find.bySemanticsLabel('AI is typing'), findsOneWidget);
+    expect(find.byIcon(Icons.smart_toy_outlined), findsOneWidget);
+  });
+
+  testWidgets('bounded parent + long chat: no RenderFlex overflow (input stays visible)', (
+    tester,
+  ) async {
+    final controller = Get.put(FounderCommandCenterController());
+    for (var i = 0; i < 12; i++) {
+      controller.chatMessages.add({'role': 'user', 'content': 'câu hỏi $i'});
+      controller.chatMessages.add({
+        'role': 'cosa',
+        'content': List.generate(8, (j) => '- dòng trả lời dài số $j').join('\n'),
+      });
+    }
+    await tester.binding.setSurfaceSize(const Size(900, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      GetMaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 700,
+            child: ChatPanelContent(controller: controller, onClose: () {}),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(TextField), findsOneWidget);
+  });
+
+  testWidgets('not loading: no "..." bubble', (tester) async {
+    final controller = Get.put(FounderCommandCenterController());
+    controller.chatMessages.add({'role': 'user', 'content': 'hi'});
+    await pumpPanel(tester, controller);
+
+    expect(find.bySemanticsLabel('AI is typing'), findsNothing);
+  });
+
   testWidgets('renders a plan_progress JSON message as a progress card', (tester) async {
     final controller = Get.put(FounderCommandCenterController());
     controller.chatMessages.add({
