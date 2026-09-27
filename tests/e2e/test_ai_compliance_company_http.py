@@ -54,6 +54,7 @@ from apps.cosa.agents.seed import seed_cosa_runtime_specs
 from apps.cosa.agents.specs import COSA_OPERATIONS_AGENT_SPEC
 from apps.cosa.api.app import create_cosa_app
 from apps.cosa.auth.jwt import mint_company_delegation
+from apps.cosa.capabilities.business_read import delegated_capability_ids
 from apps.cosa.capabilities.client import CompanyServiceClient
 from apps.cosa.company.project_team_client import ProjectTeamClient
 from apps.cosa.compliance import AiComplianceClient, ComplianceResolver
@@ -85,8 +86,17 @@ _PRODUCTION_OPERATIONS_SYSTEM_KEY = "cosa.agents.operations"
 # `operations.task.read`, viết 2026-08-30) đã mục khi spec lên 1.3.0 và thêm
 # `strategy.*` / `analytics.*` / `knowledge.profile.read` / `workspace.context.read`,
 # khiến 2 test round-trip HTTP âm thầm dừng ở NOT_READY thay vì chạy hết pipeline.
+# `business.read` (spec 2026-09-27-chat-business-actions) còn kéo theo các capability đọc nó
+# dispatch tới — ComplianceResolver xin cả chúng, nên seed cũng phải bind.
 _PRODUCTION_OPERATIONS_EXTRA_CAPABILITIES = [
-    ref for ref in COSA_OPERATIONS_AGENT_SPEC.capability_refs if ref != "operations.task.list"
+    ref
+    for ref in dict.fromkeys(
+        [
+            *COSA_OPERATIONS_AGENT_SPEC.capability_refs,
+            *delegated_capability_ids(COSA_OPERATIONS_AGENT_SPEC.capability_refs),
+        ]
+    )
+    if ref != "operations.task.list"
 ]
 
 # Cùng dev-default secret với
@@ -134,7 +144,10 @@ async def _seed_for_direct_message_pipeline(
         session = (
             await client.post(
                 f"{handle.base_url}/identity/_e2e/session",
-                json={"email": f"compliance-{_time.time()}@example.com", "displayName": "Compliance"},
+                json={
+                    "email": f"compliance-{_time.time()}@example.com",
+                    "displayName": "Compliance",
+                },
             )
         ).json()
         workspace_id = str(session["workspaceId"])
@@ -143,7 +156,9 @@ async def _seed_for_direct_message_pipeline(
             "X-Workspace-Id": workspace_id,
         }
         project = await client.post(
-            f"{handle.base_url}/operations/projects", json={"title": "Compliance Project"}, headers=headers
+            f"{handle.base_url}/operations/projects",
+            json={"title": "Compliance Project"},
+            headers=headers,
         )
         project.raise_for_status()
         project_id = str(project.json()["id"])
@@ -229,7 +244,9 @@ async def _build_real_pipeline_plane(base_url: str, fake_model: FakeSDKModel) ->
     # `real_company_service`, đối xứng với `compliance_resolver` ngay trên.
     # Production KHÔNG đi nhánh này (model=None → client thật), nên đây là lỗi
     # wiring của test harness, không phải fail-open sản xuất.
-    plane.kernel._model_input_guard = CosaDataModelGate(client=AiComplianceClient(base_url=base_url))
+    plane.kernel._model_input_guard = CosaDataModelGate(
+        client=AiComplianceClient(base_url=base_url)
+    )
     await seed_cosa_runtime_specs(
         spec_registry=plane.spec_registry,
         capability_registry=plane.capability_registry,
