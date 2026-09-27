@@ -33,10 +33,12 @@ from apps.cosa.worker.autopilot_run import (
     run_customer_support_autopilot,
 )
 from apps.cosa.worker.copilot_run import run_customer_support_copilot
-from apps.cosa.worker.provider_errors import classify_run_error
+from apps.cosa.worker.provider_errors import classify_run_error, user_message_for_code
 from apps.cosa.worker.run_core import (
     RunCoreError,
+    kernel_for_resume,
     prepare_request,
+    record_route_usage,
     resolve_spec,
     run_kernel,
 )
@@ -504,13 +506,7 @@ async def _execute_run_task_inner(
 
         _run_duration = time.monotonic() - _run_start
 
-        if getattr(run_result, "usage", None):
-            usage = run_result.usage
-            p_tok = usage.get("prompt_tokens") or usage.get("input_tokens") or 0
-            c_tok = usage.get("completion_tokens") or usage.get("output_tokens") or 0
-            model_name = getattr(spec, "model_policy", {}).get("model", "deepseek-chat")
-            with contextlib.suppress(Exception):
-                record_model_tokens(model_name, p_tok, c_tok)
+        # Token/usage được ghi tập trung trong run_core.run_kernel (theo route thật).
 
         if run_result.status == RunStatus.COMPLETED:
             record_run_outcome("completed", duration_sec=_run_duration)
@@ -713,6 +709,21 @@ async def _execute_run_task_inner(
                 project_id=project_id,
             )
 
+    except RunCoreError as exc:
+        # Lỗi có mã ổn định lúc bind route (hết quota/ngân sách, profile sai):
+        # báo đúng nguyên nhân thay vì "lỗi không mong muốn".
+        _run_duration = time.monotonic() - _run_start
+        record_run_outcome("failed", duration_sec=_run_duration)
+        logger.warning("run_id=%s blocked: %s (%s)", run_id, exc.reason_code, exc.compliance_code)
+        friendly = user_message_for_code(exc.reason_code, payload.get("locale") or "vi-VN")
+        await _reject(
+            friendly,
+            {
+                "error": exc.reason_code,
+                "error_code": exc.compliance_code or exc.reason_code,
+                "user_message": friendly,
+            },
+        )
     except Exception:
         # Task 6 — exception thô (message, traceback) có thể chứa nội dung
         # nhạy cảm (pinned skill detail, secret trong context, đường dẫn nội
@@ -841,7 +852,12 @@ async def execute_resume_task(
             return
 
     _resume_start = time.monotonic()
+    resume_route = None
+    resume_model = None
     try:
+        resume_kernel, resume_route, resume_model = await kernel_for_resume(
+            plane, workspace_id=workspace_id, run_id=run_id
+        )
         async with trace_span(
             "kernel.resume",
             attributes={
@@ -850,7 +866,7 @@ async def execute_resume_task(
                 "workspace_id": workspace_id,
             },
         ):
-            res = await plane.kernel.resume(
+            res = await resume_kernel.resume(
                 run_id=run_id,
                 checkpoint_ref=checkpoint_ref,
                 updates=resume_updates,
@@ -884,7 +900,18 @@ async def execute_resume_task(
         return
     _resume_duration = time.monotonic() - _resume_start
 
-    if getattr(res, "usage", None):
+    if resume_route is not None:
+        await record_route_usage(
+            plane,
+            route=resume_route,
+            model_client=resume_model,
+            result=res,
+            run_id=run_id,
+            workspace_id=resume_route.workspace_id,
+            project_id=project_id,
+            agent_spec_id=resume_route.agent_spec_id,
+        )
+    elif getattr(res, "usage", None):
         usage = res.usage
         p_tok = usage.get("prompt_tokens") or usage.get("input_tokens") or 0
         c_tok = usage.get("completion_tokens") or usage.get("output_tokens") or 0

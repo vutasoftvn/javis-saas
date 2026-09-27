@@ -106,6 +106,7 @@ class CosaAgentPlane:
         model_provider_factory: Any | None = None,
         model_routing_session_factory: Any | None = None,
         model_routing_repository: Any | None = None,
+        usage_ledger: Any | None = None,
         project_activity_repository: ProjectActivityRepository | None = None,
         project_activity_service: ProjectActivityService | None = None,
         skill_candidate_store: SkillCandidateStore | None = None,
@@ -182,6 +183,8 @@ class CosaAgentPlane:
         self.model_provider_factory = model_provider_factory
         self.model_routing_session_factory = model_routing_session_factory
         self.model_routing_repository = model_routing_repository
+        # Review 2026-09-27 G-3 — sổ cái usage/ngân sách (run_core.run_kernel).
+        self.usage_ledger = usage_ledger
 
         # Task 3 (plan 2026-09-11-project-scoped-founder-hub) — durable
         # Project Activity repository, dùng bởi project_activity_routes.py
@@ -253,6 +256,16 @@ async def close_cosa_agent_plane(plane: CosaAgentPlane) -> None:
             await aclose()
     for engine in plane.engines:
         await engine.dispose()
+
+
+def _build_usage_ledger(session_factory: Any | None) -> Any:
+    """Postgres khi có DB (cùng session factory của model routing), InMemory
+    cho test/dev — cùng nguyên tắc soft-wire với artifact/workforce."""
+    from apps.cosa.models.usage import InMemoryUsageLedger, PostgresUsageLedger
+
+    if session_factory is not None:
+        return PostgresUsageLedger(session_factory)
+    return InMemoryUsageLedger()
 
 
 def build_cosa_agent_plane(
@@ -557,6 +570,7 @@ def build_cosa_agent_plane(
         model_route_resolver=resolved_model_route_resolver,
         model_routing_session_factory=storage.model_routing_session_factory,
         model_routing_repository=storage.model_routing_repository,
+        usage_ledger=_build_usage_ledger(storage.model_routing_session_factory),
         project_activity_repository=storage.project_activity_repository,
         project_activity_service=resolved_project_activity_service,
         skill_candidate_store=storage.skill_candidate_store,

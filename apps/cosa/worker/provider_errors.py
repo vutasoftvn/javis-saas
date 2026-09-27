@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import NamedTuple
 
-__all__ = ["ClassifiedError", "classify_run_error"]
+__all__ = ["ClassifiedError", "classify_run_error", "user_message_for_code"]
 
 
 class ClassifiedError(NamedTuple):
@@ -47,6 +47,8 @@ _MESSAGES: dict[str, dict[str, str]] = {
         "provider_unavailable": "Nhà cung cấp model tạm thời không phản hồi. Vui lòng thử lại sau.",
         "tool_input_invalid": "Agent gọi công cụ với tham số không hợp lệ. Vui lòng thử lại.",
         "agent_max_turns": "Agent đã vượt quá số bước xử lý cho phép. Vui lòng chia nhỏ yêu cầu và thử lại.",
+        "usage_budget_exceeded": "Workspace đã dùng hết hạn mức AI của tháng này (quota token hoặc ngân sách của model profile). Vui lòng liên hệ quản trị viên để nâng hạn mức.",
+        "model_provider_misconfigured": "Model provider của workspace chưa được cấu hình đúng. Vui lòng kiểm tra trong Cài đặt → Model Providers.",
         "unknown": "Đã xảy ra lỗi khi xử lý yêu cầu. Vui lòng thử lại hoặc liên hệ hỗ trợ.",
     },
     "en": {
@@ -56,6 +58,8 @@ _MESSAGES: dict[str, dict[str, str]] = {
         "provider_unavailable": "The model provider is temporarily not responding. Please try again later.",
         "tool_input_invalid": "The agent called a tool with invalid parameters. Please try again.",
         "agent_max_turns": "The agent exceeded the allowed number of steps. Please split the request and try again.",
+        "usage_budget_exceeded": "This workspace has used up its AI allowance for the month (token quota or model profile budget). Please ask an administrator to raise the limit.",
+        "model_provider_misconfigured": "The workspace model provider is not configured correctly. Please check Settings → Model Providers.",
         "unknown": "An error occurred while processing your request. Please try again or contact support.",
     },
 }
@@ -70,3 +74,9 @@ def classify_run_error(message: str, locale: str = "vi-VN") -> ClassifiedError:
             break
     lang = "en" if (locale or "").lower().startswith("en") else "vi"
     return ClassifiedError(code, _MESSAGES[lang][code])
+
+
+def user_message_for_code(code: str, locale: str = "vi-VN") -> str:
+    """Thông báo cho mã lỗi đã biết trước (không cần phân loại chuỗi thô)."""
+    lang = "en" if (locale or "").lower().startswith("en") else "vi"
+    return _MESSAGES[lang].get(code, _MESSAGES[lang]["unknown"])
