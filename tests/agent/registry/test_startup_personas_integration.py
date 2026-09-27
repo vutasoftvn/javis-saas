@@ -33,7 +33,9 @@ def test_cofounder_assistant_spec_properties():
     assert spec.id == "cosa.agents.founder_assistant"
     # 1.1.0: thêm capability startup_os.* (onboarding /cs:setup, /cs:update, tư vấn Goal).
     # 1.2.0: thêm operations.execution_plan.read (đọc kế hoạch + tiến độ, WGA G8).
-    assert spec.version == "1.2.0"
+    # 1.3.0: thêm agent.consult (hỏi agent chuyên môn, child run chỉ đọc).
+    assert spec.version == "1.3.0"
+    assert "agent.consult" in spec.capability_refs
     assert "operations.execution_plan.read" in spec.capability_refs
     assert spec.autonomy_level == AutonomyLevel.L0_OBSERVE
     assert "1 goal/week" in spec.instructions

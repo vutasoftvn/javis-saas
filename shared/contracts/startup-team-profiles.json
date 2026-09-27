@@ -39,7 +39,7 @@
     },
     {
       "key": "crm",
-      "label": "CRM",
+      "label": "CRM (merged into Sales)",
       "defaultMode": "TEMPLATE",
       "runtimeReadiness": "PENDING_CRM_FOUNDATION"
     },

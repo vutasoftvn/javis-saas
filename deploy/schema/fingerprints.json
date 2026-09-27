@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "generated_at": "2026-09-26T22:45:40.774Z",
+  "generated_at": "2026-09-27T00:37:01.096Z",
   "groups": {
     "agent": {
-      "fingerprint": "a9eac3da0e8443571f984a49c02b3f12ad157a752ee42a9b25a3eb6d3be3dc7e",
+      "fingerprint": "879b37d556712097fced2b6ba62733db06d83b8aefd7f1c09e168595a45d8437",
       "schemas": [
         "agent",
         "agent_artifact",
@@ -13,7 +13,7 @@
         "knowledge",
         "models"
       ],
-      "tables_count": 56,
+      "tables_count": 57,
       "enums": [],
       "tables": {
         "agent.agent_skill_candidates": {
@@ -8407,6 +8407,169 @@
             {
               "name": "model_provider_profiles_pkey",
               "definition": "CREATE UNIQUE INDEX model_provider_profiles_pkey ON models.model_provider_profiles USING btree (workspace_id, profile_id)"
+            }
+          ]
+        },
+        "models.run_usage": {
+          "schema": "models",
+          "name": "run_usage",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "usage_id",
+              "type": "uuid",
+              "udt": "uuid",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "workspace_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "project_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "run_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "agent_spec_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "profile_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "provider_type",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "model_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "prompt_tokens",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": "0",
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "completion_tokens",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": "0",
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "cost_usd",
+              "type": "numeric",
+              "udt": "numeric",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 14,
+              "scale": 6
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "run_usage_pkey",
+            "columns": [
+              "usage_id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [],
+          "check_constraints": [
+            {
+              "name": "run_usage_completion_tokens_check",
+              "clause": "((completion_tokens >= 0))"
+            },
+            {
+              "name": "run_usage_cost_usd_check",
+              "clause": "(((cost_usd IS NULL) OR (cost_usd >= (0)::numeric)))"
+            },
+            {
+              "name": "run_usage_prompt_tokens_check",
+              "clause": "((prompt_tokens >= 0))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_run_usage_workspace_profile_time",
+              "definition": "CREATE INDEX idx_run_usage_workspace_profile_time ON models.run_usage USING btree (workspace_id, profile_id, created_at DESC)"
+            },
+            {
+              "name": "idx_run_usage_workspace_time",
+              "definition": "CREATE INDEX idx_run_usage_workspace_time ON models.run_usage USING btree (workspace_id, created_at DESC)"
+            },
+            {
+              "name": "run_usage_pkey",
+              "definition": "CREATE UNIQUE INDEX run_usage_pkey ON models.run_usage USING btree (usage_id)"
             }
           ]
         },

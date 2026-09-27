@@ -60,6 +60,13 @@ class FallbackModel(SdkModel):
         # đi thẳng tới profile đã hoạt động thay vì thử lại primary hỏng.
         self._active_index = 0
         self.fallback_events: list[dict[str, str]] = []
+        # Route của các profile fallback (run_core gán) — ghi usage đúng model.
+        self.fallback_routes: list[Any] = []
+
+    @property
+    def active_profile_id(self) -> str:
+        """Profile đang phục vụ (sau fallback) — để ghi usage đúng profile."""
+        return self._chain[self._active_index][0]
 
     @staticmethod
     def _const(model: SdkModel) -> ModelFactory:

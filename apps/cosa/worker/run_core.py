@@ -89,6 +89,7 @@ async def prepare_request(
     locale: str = "vi-VN",
     extra_metadata: dict[str, Any] | None = None,
     project_id: str | None = None,
+    history: list[dict[str, str]] | None = None,
 ) -> RunCorePrep:
     """Dựng RunRequest + resolve compliance (mint company delegation).
 
@@ -111,7 +112,7 @@ async def prepare_request(
         run_id=run_id,
         principal=principal,
         root_executable_ref=spec.to_pinned_identity(),
-        input={"prompt": prompt},
+        input={"prompt": prompt, **({"history": history} if history else {})},
         workspace_id=workspace_id,
         conversation_id=conversation_id,
         locale=locale,
@@ -231,6 +232,13 @@ def _route_provenance(route: ResolvedModelRoute) -> dict[str, Any]:
 
 
 async def _build_routed_kernel(plane: CosaAgentPlane, route: ResolvedModelRoute) -> Any:
+    kernel, _model = await _build_routed_kernel_with_model(plane, route)
+    return kernel
+
+
+async def _build_routed_kernel_with_model(
+    plane: CosaAgentPlane, route: ResolvedModelRoute
+) -> tuple[Any, Any]:
     """Dựng lại 1 `ExecutionKernel` PER-RUN với model client của
     `route` — tái dùng repository/spec_registry/capability_registry/gateway/
     policy_engine/company_client/compliance_resolver ĐÃ có trên `plane` (rẻ,
@@ -280,6 +288,8 @@ async def _build_routed_kernel(plane: CosaAgentPlane, route: ResolvedModelRoute)
                     (r.profile_id, functools.partial(factory.create, r)) for r in fallback_routes
                 ],
             )
+            # Để record_route_usage ghi đúng provider/model của profile fallback.
+            model_client.fallback_routes = fallback_routes
 
     from apps.cosa.composition.kernel_factory import build_execution_kernel
 
@@ -294,7 +304,7 @@ async def _build_routed_kernel(plane: CosaAgentPlane, route: ResolvedModelRoute)
         model=model_client,
         compliance_resolver_override=plane.compliance_resolver,
     )
-    return kernel
+    return kernel, model_client
 
 
 async def run_kernel(
@@ -327,11 +337,14 @@ async def run_kernel(
     """
     kernel = plane.kernel
     resolver = getattr(plane, "model_route_resolver", None)
+    route: ResolvedModelRoute | None = None
+    model_client: Any = None
     if resolver is not None:
         route = await bind_route_to_run(resolver, prep.req, prep.spec)
         prep.req.model_policy = _route_provenance(route)
+        await _enforce_usage_budget(plane, route)
         if not route.is_system_default:
-            kernel = await _build_routed_kernel(plane, route)
+            kernel, model_client = await _build_routed_kernel_with_model(plane, route)
 
     _start = time.monotonic()
     async with trace_span(
@@ -343,4 +356,104 @@ async def run_kernel(
         },
     ):
         run_result = await kernel.run(prep.req, prep.spec)
+    if route is not None:
+        await record_route_usage(
+            plane,
+            route=route,
+            model_client=model_client,
+            result=run_result,
+            run_id=run_id,
+            workspace_id=workspace_id,
+            project_id=(getattr(prep.req, "metadata", None) or {}).get("project_id"),
+            agent_spec_id=getattr(prep.spec, "id", None),
+        )
     return run_result, time.monotonic() - _start
+
+
+async def _enforce_usage_budget(plane: CosaAgentPlane, route: ResolvedModelRoute) -> None:
+    """Quota token tháng của workspace + budget_usd_limit của profile, TRƯỚC khi
+    dựng client (review 2026-09-27 G-3)."""
+    from apps.cosa.models.usage import UsageBudgetExceeded, check_usage_budget
+
+    budget: float | None = None
+    repo = getattr(plane, "model_routing_repository", None)
+    if not route.is_system_default and repo is not None:
+        profile = await repo.get_profile(route.workspace_id, route.profile_id)
+        budget = getattr(profile, "budget_usd_limit", None) if profile is not None else None
+    try:
+        await check_usage_budget(
+            getattr(plane, "usage_ledger", None), route, profile_budget_usd=budget
+        )
+    except UsageBudgetExceeded as exc:
+        logger.warning("usage budget blocked run: %s", exc.detail)
+        raise RunCoreError("usage_budget_exceeded", compliance_code=exc.code) from exc
+
+
+async def record_route_usage(
+    plane: Any,
+    *,
+    route: ResolvedModelRoute,
+    model_client: Any,
+    result: Any,
+    run_id: str,
+    workspace_id: str,
+    project_id: str | None,
+    agent_spec_id: str | None,
+) -> None:
+    """Ghi 1 dòng usage theo profile THẬT đã phục vụ (fallback nếu có) + metric
+    token theo model của route. Lỗi ghi không được làm hỏng run đã xong."""
+    from apps.cosa.models.usage import UsageEntry, estimate_cost_usd, usage_from_result
+    from apps.cosa.observability.metrics import record_model_tokens
+
+    p_tok, c_tok = usage_from_result(result)
+    served = route
+    active = getattr(model_client, "active_profile_id", None)
+    if isinstance(active, str) and active != route.profile_id:
+        for r in getattr(model_client, "fallback_routes", []) or []:
+            if r.profile_id == active:
+                served = r
+                break
+    try:
+        record_model_tokens(served.model_id, p_tok, c_tok)
+    except Exception:
+        logger.debug("record_model_tokens failed", exc_info=True)
+    ledger = getattr(plane, "usage_ledger", None)
+    if ledger is None or (p_tok == 0 and c_tok == 0):
+        return
+    try:
+        await ledger.record(
+            UsageEntry(
+                workspace_id=workspace_id,
+                project_id=str(project_id) if project_id else None,
+                run_id=run_id,
+                agent_spec_id=agent_spec_id,
+                profile_id=served.profile_id,
+                provider_type=str(served.provider_type.value),
+                model_id=served.model_id,
+                prompt_tokens=p_tok,
+                completion_tokens=c_tok,
+                cost_usd=estimate_cost_usd(served.provider_type, served.model_id, p_tok, c_tok),
+            )
+        )
+    except Exception:
+        logger.warning("usage ledger record failed run=%s", run_id, exc_info=True)
+
+
+async def kernel_for_resume(
+    plane: Any, *, workspace_id: str | None, run_id: str
+) -> tuple[Any, ResolvedModelRoute | None, Any]:
+    """Kernel cho resume cùng route với lúc chạy (trước đây resume luôn dùng
+    `plane.kernel` = model mặc định hệ thống, bỏ qua profile của workspace).
+    Không enforce ngân sách: resume là phần việc founder đã duyệt."""
+    resolver = getattr(plane, "model_route_resolver", None)
+    if resolver is None or not workspace_id:
+        return plane.kernel, None, None
+    run = await plane.repository.get_run(run_id)
+    spec_id = getattr(run, "root_executable_id", None) if run is not None else None
+    if not spec_id:
+        return plane.kernel, None, None
+    route = await resolver.resolve_route(workspace_id, spec_id)
+    if route.is_system_default:
+        return plane.kernel, route, None
+    kernel, model_client = await _build_routed_kernel_with_model(plane, route)
+    return kernel, route, model_client

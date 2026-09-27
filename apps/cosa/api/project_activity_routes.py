@@ -97,7 +97,12 @@ async def _fetch_and_verify_source_visibility(
         repo: Any = plane.conversation_repository
         if hasattr(repo, "get_message"):
             msg = await repo.get_message(source_id)
-            if msg is None or getattr(msg, "workspace_id", None) != identity.workspace_id:
+            if msg is None:
+                return False, None
+            # MessageRecord không mang workspace_id — tenant kiểm qua conversation
+            # (trước đây so msg.workspace_id luôn None nên message không bao giờ visible).
+            conv = await repo.get_conversation(msg.conversation_id)
+            if conv is None or conv.workspace_id != identity.workspace_id:
                 return False, None
             return True, {
                 "type": "message",

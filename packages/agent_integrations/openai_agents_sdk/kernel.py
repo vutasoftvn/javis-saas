@@ -58,6 +58,24 @@ class _RunCancelled(Exception):
     dừng nào chi tiết hơn giữa các turn cho caller ngoài)."""
 
 
+def _with_history(run_input: Any, prompt_content: str) -> Any:
+    """Ghép lịch sử hội thoại (`input["history"]` — list {role, content} đã
+    lọc/giới hạn ở tầng composition) trước lượt hiện tại. Không có lịch sử thì
+    giữ nguyên input chuỗi như trước."""
+    history = run_input.get("history") if isinstance(run_input, dict) else None
+    if not isinstance(history, list) or not history:
+        return prompt_content
+    items: list[dict[str, str]] = [
+        {"role": str(h["role"]), "content": str(h["content"])}
+        for h in history
+        if isinstance(h, dict) and h.get("role") in ("user", "assistant") and h.get("content")
+    ]
+    if not items:
+        return prompt_content
+    items.append({"role": "user", "content": prompt_content})
+    return items
+
+
 class _CancellationHooks(RunHooks):
     def __init__(
         self,
@@ -457,6 +475,9 @@ class RealOpenAIAgentsSDKKernel:
                 "workspace_id": str(request.workspace_id or ""),
                 "project_id": str((request.metadata or {}).get("project_id") or ""),
             },
+            project_facts=[
+                str(f) for f in ((request.metadata or {}).get("project_facts") or []) if f
+            ],
             locale=request.locale,
         ).render()
 
@@ -575,7 +596,7 @@ class RealOpenAIAgentsSDKKernel:
             return await self._invoke_and_translate(
                 run_id=run_id,
                 agent=agent,
-                sdk_input=str(prompt_content),
+                sdk_input=_with_history(request.input, str(prompt_content)),
                 correlation_id=correlation_id,
                 spec=spec,
                 context=context,

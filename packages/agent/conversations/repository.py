@@ -56,6 +56,8 @@ class ConversationRepository(Protocol):
     ) -> MessageRecord: ...
     async def list_messages(self, conversation_id: str) -> list[MessageRecord]: ...
 
+    async def get_message(self, message_id: str) -> MessageRecord | None: ...
+
 
 class InMemoryConversationRepository:
     """In-memory implementation dùng cho unit test và local dev nhanh — không dùng production."""
@@ -146,6 +148,13 @@ class InMemoryConversationRepository:
     async def list_messages(self, conversation_id: str) -> list[MessageRecord]:
         msgs = self._messages.get(conversation_id, [])
         return [m.model_copy(deep=True) for m in msgs]
+
+    async def get_message(self, message_id: str) -> MessageRecord | None:
+        for msgs in self._messages.values():
+            for m in msgs:
+                if m.message_id == message_id:
+                    return m.model_copy(deep=True)
+        return None
 
 
 class PostgresConversationRepository(BasePostgresRepository):
@@ -387,6 +396,38 @@ class PostgresConversationRepository(BasePostgresRepository):
         stored.sequence_no = int(sequence_no)
         stored.attachments = list(attachments or [])
         return stored
+
+    async def get_message(self, message_id: str) -> MessageRecord | None:
+        """1 message theo id (không kèm attachment) — dùng để kiểm tra nguồn của
+        Project Activity kind message; caller tự kiểm workspace qua conversation."""
+        async with self._session_factory() as session:
+            res = await self._execute(
+                session,
+                text(
+                    """
+                    SELECT message_id, conversation_id, project_id, sequence_no, role, content, run_id,
+                           parent_message_id, status, created_at
+                    FROM agent_conversation.messages
+                    WHERE message_id = :message_id
+                    """
+                ),
+                {"message_id": message_id},
+            )
+            r = res.mappings().first()
+        if r is None:
+            return None
+        return MessageRecord(
+            message_id=r["message_id"],
+            conversation_id=r["conversation_id"],
+            project_id=r["project_id"],
+            sequence_no=r["sequence_no"],
+            role=r["role"],
+            content=r["content"],
+            run_id=r["run_id"],
+            parent_message_id=r["parent_message_id"],
+            status=r["status"],
+            created_at=r["created_at"],
+        )
 
     async def list_messages(self, conversation_id: str) -> list[MessageRecord]:
         async with self._session_factory() as session:

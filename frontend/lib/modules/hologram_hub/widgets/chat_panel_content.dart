@@ -203,6 +203,19 @@ class _ChatPanelContentState extends State<ChatPanelContent> {
                             child: _PlanProgressCard(progress: progress),
                           );
                         }
+                        // G-8 — agent đề xuất lưu fact; founder xác nhận mới ghi.
+                        final memoryFact = !isUser && !isError
+                            ? memoryConfirmFact(content)
+                            : null;
+                        if (memoryFact != null) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: _MemoryConfirmCard(
+                              fact: memoryFact,
+                              onConfirm: () => controller.confirmProjectFact(memoryFact),
+                            ),
+                          );
+                        }
                         if (!isUser &&
                             !isError &&
                             content.startsWith('{') &&
@@ -530,6 +543,104 @@ class _ChatPanelContentState extends State<ChatPanelContent> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// G-8 — fact trong thẻ `{"kind":"memory_confirm","fact":...}`; null nếu không phải.
+String? memoryConfirmFact(String content) {
+  if (!content.startsWith('{') || !content.contains('"memory_confirm"')) return null;
+  try {
+    final j = jsonDecode(content);
+    if (j is Map<String, dynamic> && j['kind'] == 'memory_confirm') {
+      final fact = '${j['fact'] ?? ''}'.trim();
+      return fact.isEmpty ? null : fact;
+    }
+  } on FormatException {
+    return null;
+  }
+  return null;
+}
+
+class _MemoryConfirmCard extends StatefulWidget {
+  final String fact;
+  final Future<bool> Function() onConfirm;
+
+  const _MemoryConfirmCard({required this.fact, required this.onConfirm});
+
+  @override
+  State<_MemoryConfirmCard> createState() => _MemoryConfirmCardState();
+}
+
+class _MemoryConfirmCardState extends State<_MemoryConfirmCard> {
+  bool _saved = false;
+  bool _dismissed = false;
+  bool _busy = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_dismissed) return const SizedBox.shrink();
+    final isEn = Get.isRegistered<LocaleController>()
+        ? Get.find<LocaleController>().current.value == SupportedLocale.enUS
+        : Get.locale?.languageCode == 'en';
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A).withValues(alpha: 0.22),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.22)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            isEn ? 'Save this to the project memory?' : 'Lưu điều này vào trí nhớ dự án?',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.82), fontSize: 13),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '“${widget.fact}”',
+            style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 12),
+          ),
+          const SizedBox(height: 10),
+          if (_saved)
+            Text(
+              isEn ? 'Saved' : 'Đã lưu',
+              style: const TextStyle(color: Colors.greenAccent, fontSize: 12),
+            )
+          else
+            Row(
+              children: [
+                ElevatedButton(
+                  onPressed: _busy
+                      ? null
+                      : () async {
+                          setState(() => _busy = true);
+                          final ok = await widget.onConfirm();
+                          if (!mounted) return;
+                          setState(() {
+                            _busy = false;
+                            _saved = ok;
+                          });
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primary,
+                    foregroundColor: const Color(0xFF04070E),
+                  ),
+                  child: Text(isEn ? 'Save' : 'Lưu'),
+                ),
+                const SizedBox(width: 8),
+                TextButton(
+                  onPressed: () => setState(() => _dismissed = true),
+                  child: Text(
+                    isEn ? 'No' : 'Không',
+                    style: const TextStyle(color: Color(0xFF94A3B8)),
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
     );
   }
 }

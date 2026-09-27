@@ -274,7 +274,10 @@ COSA_COFOUNDER_ASSISTANT_AGENT_SPEC = AgentSpec(
     # 1.1.0 (plan Startup OS 2026-09-18 Phase 3): capability onboarding hội thoại và
     # tư vấn Goal. Không có startup_os.goal.create / project.triage — Founder quyết định.
     # 1.2.0 (WGA G8): operations.execution_plan.read — đọc kế hoạch + tiến độ.
-    version="1.2.0",
+    # 1.3.0 (review 2026-09-27 G-7, G-8): agent.consult — hỏi agent chuyên môn
+    # (child run chỉ đọc, quyền của agent đích); memory.fact.propose — đề xuất
+    # fact dự án để founder xác nhận (không tự ghi memory).
+    version="1.3.0",
     autonomy_level=AutonomyLevel.L0_OBSERVE,
     instructions=COSA_COFOUNDER_ASSISTANT_PROMPT.text,
     capability_refs=[
@@ -298,6 +301,8 @@ COSA_COFOUNDER_ASSISTANT_AGENT_SPEC = AgentSpec(
         "startup_os.goal.needing_review",
         "startup_os.goal.advisory",
         "operations.execution_plan.read",
+        "agent.consult",
+        "memory.fact.propose",
     ],
     model_input_capability_ref="model.input.direct-user-message",
     pinned_skills=[
@@ -561,13 +566,15 @@ COSA_RESEARCH_INTELLIGENCE_PROMPT = PromptSpec(
 
 COSA_RESEARCH_INTELLIGENCE_AGENT_SPEC = AgentSpec(
     id="cosa.agents.research_intelligence",
-    version="1.0.0",
+    # 1.1.0 (review 2026-09-27, G-5): thêm capability nháp `research.intelligence.brief.draft`.
+    version="1.1.0",
     autonomy_level=AutonomyLevel.L0_OBSERVE,
     instructions=COSA_RESEARCH_INTELLIGENCE_PROMPT.text,
     capability_refs=[
         "strategy.evidence.list",
         "knowledge.profile.read",
         "workspace.context.read",
+        "research.intelligence.brief.draft",
     ],
     model_input_capability_ref="model.input.direct-user-message",
     pinned_skills=[],
@@ -584,7 +591,8 @@ COSA_STRATEGY_PROMPT = PromptSpec(
 
 COSA_STRATEGY_AGENT_SPEC = AgentSpec(
     id="cosa.agents.strategy",
-    version="1.0.0",
+    # 1.1.0 (review 2026-09-27, G-5): thêm capability nháp `strategy.plan.draft`.
+    version="1.1.0",
     autonomy_level=AutonomyLevel.L0_OBSERVE,
     instructions=COSA_STRATEGY_PROMPT.text,
     capability_refs=[
@@ -592,6 +600,7 @@ COSA_STRATEGY_AGENT_SPEC = AgentSpec(
         "strategy.next_best_action.get",
         "strategy.evidence.list",
         "workspace.context.read",
+        "strategy.plan.draft",
     ],
     model_input_capability_ref="model.input.direct-user-message",
     pinned_skills=[],
@@ -613,13 +622,15 @@ COSA_SALES_PROMPT = PromptSpec(
 
 COSA_SALES_AGENT_SPEC = AgentSpec(
     id="cosa.agents.sales",
-    version="1.0.0",
+    # 1.1.0 (review 2026-09-27, G-5): thêm capability nháp `project.crm.lead.draft`.
+    version="1.1.0",
     autonomy_level=AutonomyLevel.L1_PROPOSE,
     instructions=COSA_SALES_PROMPT.text,
     capability_refs=[
         "project.crm.read",
         "knowledge.profile.read",
         "workspace.context.read",
+        "project.crm.lead.draft",
     ],
     model_input_capability_ref="model.input.direct-user-message",
     pinned_skills=[],
@@ -669,13 +680,15 @@ COSA_CODING_PROMPT = PromptSpec(
 
 COSA_CODING_AGENT_SPEC = AgentSpec(
     id="cosa.agents.coding",
-    version="1.0.0",
+    # 1.1.0 (review 2026-09-27, G-5): thêm capability nháp `engineering.plan.draft`.
+    version="1.1.0",
     autonomy_level=AutonomyLevel.L1_PROPOSE,
     instructions=COSA_CODING_PROMPT.text,
     capability_refs=[
         "engineering.evidence.read",
         "knowledge.profile.read",
         "workspace.context.read",
+        "engineering.plan.draft",
     ],
     model_input_capability_ref="model.input.direct-user-message",
     pinned_skills=[],
@@ -702,13 +715,15 @@ COSA_PRODUCT_PROMPT = PromptSpec(
 
 COSA_PRODUCT_AGENT_SPEC = AgentSpec(
     id="cosa.agents.product",
-    version="1.1.0",
+    # 1.2.0 (review 2026-09-27, G-5): thêm capability nháp `product.decision.draft`.
+    version="1.2.0",
     autonomy_level=AutonomyLevel.L1_PROPOSE,
     instructions=COSA_PRODUCT_PROMPT.text,
     capability_refs=[
         "product.decision.read",
         "knowledge.profile.read",
         "workspace.context.read",
+        "product.decision.draft",
     ],
     model_input_capability_ref="model.input.direct-user-message",
     pinned_skills=[],
@@ -786,13 +801,15 @@ COSA_PEOPLE_PROMPT = PromptSpec(
 
 COSA_PEOPLE_AGENT_SPEC = AgentSpec(
     id="cosa.agents.people",
-    version="1.0.0",
+    # 1.1.0 (review 2026-09-27, G-5): thêm capability nháp `people.plan.draft`.
+    version="1.1.0",
     autonomy_level=AutonomyLevel.L1_PROPOSE,
     instructions=COSA_PEOPLE_PROMPT.text,
     capability_refs=[
         "people.risk.read",
         "knowledge.profile.read",
         "workspace.context.read",
+        "people.plan.draft",
     ],
     model_input_capability_ref="model.input.direct-user-message",
     pinned_skills=[],
@@ -848,13 +865,15 @@ COSA_SECURITY_PROMPT = PromptSpec(
 
 COSA_SECURITY_AGENT_SPEC = AgentSpec(
     id="cosa.agents.security",
-    version="1.0.0",
+    # 1.1.0 (review 2026-09-27, G-5): thêm capability nháp `security.remediation.draft`.
+    version="1.1.0",
     autonomy_level=AutonomyLevel.L1_PROPOSE,
     instructions=COSA_SECURITY_PROMPT.text,
     capability_refs=[
         "security.posture.read",
         "knowledge.profile.read",
         "workspace.context.read",
+        "security.remediation.draft",
     ],
     model_input_capability_ref="model.input.direct-user-message",
     pinned_skills=[],
@@ -913,13 +932,15 @@ COSA_LEGAL_PROMPT = PromptSpec(
 
 COSA_LEGAL_AGENT_SPEC = AgentSpec(
     id="cosa.agents.legal",
-    version="1.0.0",
+    # 1.1.0 (review 2026-09-27, G-5): thêm capability nháp `legal.issue.draft`.
+    version="1.1.0",
     autonomy_level=AutonomyLevel.L1_PROPOSE,
     instructions=COSA_LEGAL_PROMPT.text,
     capability_refs=[
         "legal.issue.read",
         "knowledge.profile.read",
         "workspace.context.read",
+        "legal.issue.draft",
     ],
     model_input_capability_ref="model.input.direct-user-message",
     pinned_skills=[],
@@ -979,13 +1000,15 @@ COSA_DATA_PROMPT = PromptSpec(
 
 COSA_DATA_AGENT_SPEC = AgentSpec(
     id="cosa.agents.data",
-    version="1.0.0",
+    # 1.1.0 (review 2026-09-27, G-5): thêm capability nháp `data.quality.draft`.
+    version="1.1.0",
     autonomy_level=AutonomyLevel.L1_PROPOSE,
     instructions=COSA_DATA_PROMPT.text,
     capability_refs=[
         "data.governance.read",
         "knowledge.profile.read",
         "workspace.context.read",
+        "data.quality.draft",
     ],
     model_input_capability_ref="model.input.direct-user-message",
     pinned_skills=[],

@@ -327,7 +327,9 @@ async def test_get_run_events_rejects_mismatched_project_id(test_app) -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("profile", ["cto", "ceo", "chief_of_staff", "kickoff_suggestion", "xyz"])
-async def test_create_conversation_rejects_profile_without_chat_authority(test_app, profile) -> None:
+async def test_create_conversation_rejects_profile_without_chat_authority(
+    test_app, profile
+) -> None:
     """Chỉ profile của startup team mới chat được; executive/overlay/system không
     có authority Project cho chat — 422 trước mọi side effect."""
     app, plane, _ = test_app
@@ -354,7 +356,11 @@ async def test_update_conversation_rejects_profile_without_chat_authority(test_a
     ) as ac:
         created = await ac.post(
             "/agent/conversations",
-            json={"title": "t", "project_id": "proj_a", "active_agent_profile": "founder_assistant"},
+            json={
+                "title": "t",
+                "project_id": "proj_a",
+                "active_agent_profile": "founder_assistant",
+            },
         )
         assert created.status_code in (200, 201)
         conv_id = created.json()["id"]
@@ -395,7 +401,9 @@ async def test_get_run_events_for_run_not_yet_picked_up_by_worker(test_app) -> N
                 },
             )
         ).json()["run_id"]
-        assert await plane.repository.get_scoped_run(run_id=run_id, workspace_id=WORKSPACE_A) is None
+        assert (
+            await plane.repository.get_scoped_run(run_id=run_id, workspace_id=WORKSPACE_A) is None
+        )
 
         # Worker (tiến trình khác) sau đó ghi event terminal vào durable store.
         await plane.stream_event_repository.append(
@@ -418,8 +426,49 @@ async def test_get_run_events_for_run_not_yet_picked_up_by_worker(test_app) -> N
         other_conv = (
             await ac.post(
                 "/agent/conversations",
-                json={"title": "Other", "active_agent_profile": "operations", "project_id": "proj_a"},
+                json={
+                    "title": "Other",
+                    "active_agent_profile": "operations",
+                    "project_id": "proj_a",
+                },
             )
         ).json()["id"]
         wrong = await ac.get(f"/agent/runs/{run_id}/events", params={"conversation_id": other_conv})
         assert wrong.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_run_creation_rate_limited_before_any_side_effect(test_app, monkeypatch) -> None:
+    """Review 2026-09-27 G-4 — vượt COSA_RUN_CREATE_PER_MINUTE -> 429 +
+    Retry-After, message không được lưu, run không được schedule."""
+    from apps.cosa.api.middleware import SlidingWindowLimiter
+
+    app, plane, _ = test_app
+    app.state.run_create_limiter = SlidingWindowLimiter(1)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        create_res = await ac.post(
+            "/agent/conversations",
+            json={
+                "title": "Founder Hub",
+                "active_agent_profile": "operations",
+                "project_id": "proj_a",
+            },
+        )
+        conv_id = create_res.json()["id"]
+        body = {
+            "content": "ship it",
+            "project_id": "proj_a",
+            "data_access": {"categories": ["NON_PERSONAL"]},
+        }
+        first = await ac.post(f"/agent/conversations/{conv_id}/messages", json=body)
+        assert first.status_code == 202
+        second = await ac.post(f"/agent/conversations/{conv_id}/messages", json=body)
+        assert second.status_code == 429
+        assert second.json()["detail"]["code"] == "RATE_LIMITED"
+        assert int(second.headers["retry-after"]) >= 1
+
+        messages = await plane.conversation_repository.list_messages(conv_id)
+        assert len(messages) == 1
+        assert len(await plane.scheduler.poll_due_tasks()) == 1

@@ -8,10 +8,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-import httpx
 from agent.artifacts import WorkspaceArtifact
 from agent.contracts.run import RunStatus
-from agent.conversations.models import ConversationRecord, MessageRecord
+from agent.contracts.spec import AgentSpec
+from agent.conversations.models import MessageRecord
 
 from apps.cosa.agents.agent_profile_specs import AGENT_PROFILE_SPECS
 from apps.cosa.agents.goal_intent import (
@@ -22,10 +22,11 @@ from apps.cosa.agents.goal_intent import (
 )
 from apps.cosa.api.event_stream import CosaEventStreamManager
 from apps.cosa.composition.agent_plane import CosaAgentPlane
-from apps.cosa.config.planes import resolve_platform_control_plane_url
+from apps.cosa.conversations.history import build_history, history_limits
+from apps.cosa.memory.project_facts import list_project_facts
 from apps.cosa.observability.logging import log_context
 from apps.cosa.observability.metrics import record_model_tokens, record_run_outcome
-from apps.cosa.observability.otel import inject_trace_carrier, trace_span
+from apps.cosa.observability.otel import trace_span
 from apps.cosa.policies.company_policy_client import CosaTenantPolicyError
 from apps.cosa.policies.snapshot import AgentAuthorizationSnapshot
 from apps.cosa.worker.autopilot_run import (
@@ -33,10 +34,12 @@ from apps.cosa.worker.autopilot_run import (
     run_customer_support_autopilot,
 )
 from apps.cosa.worker.copilot_run import run_customer_support_copilot
-from apps.cosa.worker.provider_errors import classify_run_error
+from apps.cosa.worker.provider_errors import classify_run_error, user_message_for_code
 from apps.cosa.worker.run_core import (
     RunCoreError,
+    kernel_for_resume,
     prepare_request,
+    record_route_usage,
     resolve_spec,
     run_kernel,
 )
@@ -112,6 +115,83 @@ async def _weekly_goal_suggestion(plane: CosaAgentPlane, user_prompt: str) -> Go
             logger.debug("goal-intent LLM classify failed, falling back to heuristic")
 
     return detect_weekly_goal_suggestion(user_prompt)
+
+
+async def _spec_for_authority(plane: Any, local_spec: Any, pin: Any, *, run_id: str) -> Any | None:
+    """Spec đúng như authority của Project pin (id + version + hash).
+
+    Khớp spec đang import -> dùng luôn. Lệch (built-in đã nâng version sau khi
+    workspace kích hoạt) -> chạy ĐÚNG version đã pin lấy từ registry bất biến,
+    không tự nâng quyền lên version mới (quy tắc 13: không floating latest,
+    không tự tăng authority). Không tìm thấy bản pin -> None (fail closed)."""
+    if (
+        local_spec.id == pin.id
+        and local_spec.version == pin.version
+        and local_spec.compute_hash() == pin.hash
+    ):
+        return local_spec
+    registry = getattr(plane, "spec_registry", None)
+    record = None
+    if registry is not None:
+        with contextlib.suppress(Exception):
+            record = await registry.get(spec_kind="agent", spec_id=pin.id, version=pin.version)
+    if record is not None and getattr(record, "definition_hash", None) == pin.hash:
+        logger.info(
+            "run_id=%s running pinned %s@%s (current built-in is %s)",
+            run_id,
+            pin.id,
+            pin.version,
+            local_spec.version,
+        )
+        return AgentSpec(**record.content)
+    logger.error(
+        "run_id=%s spec mismatch: local=(%s, %s, %s) authority=(%s, %s, %s), pinned version "
+        "not in registry",
+        run_id,
+        local_spec.id,
+        local_spec.version,
+        local_spec.compute_hash(),
+        pin.id,
+        pin.version,
+        pin.hash,
+    )
+    return None
+
+
+async def _load_chat_history(
+    plane: CosaAgentPlane, *, conversation_id: str, run_id: str
+) -> list[dict[str, str]]:
+    """ADR-CONV-002 — các lượt trước của conversation (trừ lượt hiện tại) trong
+    ngân sách COSA_CHAT_HISTORY_MESSAGES / COSA_CHAT_HISTORY_MAX_CHARS. Lỗi đọc
+    không làm hỏng run: chạy như single-turn và ghi log."""
+    max_messages, max_chars = history_limits()
+    if max_messages <= 0 or max_chars <= 0:
+        return []
+    try:
+        messages = await plane.conversation_repository.list_messages(conversation_id)
+    except Exception:
+        logger.warning("run_id=%s load chat history failed", run_id, exc_info=True)
+        return []
+    return build_history(
+        messages, exclude_run_id=run_id, max_messages=max_messages, max_chars=max_chars
+    )
+
+
+async def _load_project_facts(
+    plane: CosaAgentPlane, *, workspace_id: str, project_id: str | None
+) -> list[str]:
+    """Fact dự án founder đã xác nhận (G-8), cũ -> mới. Lỗi đọc -> [] + log."""
+    service = getattr(plane, "memory_service", None)
+    if service is None or not project_id:
+        return []
+    try:
+        items = await list_project_facts(
+            service, workspace_id=workspace_id, project_id=str(project_id)
+        )
+    except Exception:
+        logger.warning("load project facts failed ws=%s", workspace_id, exc_info=True)
+        return []
+    return [i.content for i in reversed(items)]
 
 
 async def _append_message(
@@ -239,23 +319,10 @@ async def execute_run_task(
             # phải phát run.failed, nếu không client chờ stream mãi.
             return await _fail("unknown_agent_profile")
 
-        if (
-            local_spec.id != authority.spec.id
-            or local_spec.version != authority.spec.version
-            or local_spec.compute_hash() != authority.spec.hash
-        ):
-            logger.error(
-                "run_id=%s spec mismatch for %s: local=(%s, %s, %s) authority=(%s, %s, %s)",
-                run_id,
-                agent_profile,
-                local_spec.id,
-                local_spec.version,
-                local_spec.compute_hash(),
-                authority.spec.id,
-                authority.spec.version,
-                authority.spec.hash,
-            )
+        pinned_spec = await _spec_for_authority(plane, local_spec, authority.spec, run_id=run_id)
+        if pinned_spec is None:
             return await _fail("spec_hash_mismatch")
+        local_spec = pinned_spec
 
         if agent_profile == "customer_support" and not authority.policy_snapshot.get(
             "knowledge_gate_passed", False
@@ -469,6 +536,11 @@ async def _execute_run_task_inner(
     if locale_source:
         extra_md["locale_source"] = locale_source
 
+    history = await _load_chat_history(plane, conversation_id=conversation_id, run_id=run_id)
+    facts = await _load_project_facts(plane, workspace_id=workspace_id, project_id=project_id)
+    if facts:
+        extra_md["project_facts"] = facts
+
     try:
         prep = await prepare_request(
             plane,
@@ -481,6 +553,7 @@ async def _execute_run_task_inner(
             policy_snapshot=snapshot,
             locale=locale,
             extra_metadata=extra_md or None,
+            history=history,
         )
     except RunCoreError as exc:
         if exc.reason_code == "compliance_resolver_unavailable":
@@ -504,13 +577,7 @@ async def _execute_run_task_inner(
 
         _run_duration = time.monotonic() - _run_start
 
-        if getattr(run_result, "usage", None):
-            usage = run_result.usage
-            p_tok = usage.get("prompt_tokens") or usage.get("input_tokens") or 0
-            c_tok = usage.get("completion_tokens") or usage.get("output_tokens") or 0
-            model_name = getattr(spec, "model_policy", {}).get("model", "deepseek-chat")
-            with contextlib.suppress(Exception):
-                record_model_tokens(model_name, p_tok, c_tok)
+        # Token/usage được ghi tập trung trong run_core.run_kernel (theo route thật).
 
         if run_result.status == RunStatus.COMPLETED:
             record_run_outcome("completed", duration_sec=_run_duration)
@@ -713,6 +780,21 @@ async def _execute_run_task_inner(
                 project_id=project_id,
             )
 
+    except RunCoreError as exc:
+        # Lỗi có mã ổn định lúc bind route (hết quota/ngân sách, profile sai):
+        # báo đúng nguyên nhân thay vì "lỗi không mong muốn".
+        _run_duration = time.monotonic() - _run_start
+        record_run_outcome("failed", duration_sec=_run_duration)
+        logger.warning("run_id=%s blocked: %s (%s)", run_id, exc.reason_code, exc.compliance_code)
+        friendly = user_message_for_code(exc.reason_code, payload.get("locale") or "vi-VN")
+        await _reject(
+            friendly,
+            {
+                "error": exc.reason_code,
+                "error_code": exc.compliance_code or exc.reason_code,
+                "user_message": friendly,
+            },
+        )
     except Exception:
         # Task 6 — exception thô (message, traceback) có thể chứa nội dung
         # nhạy cảm (pinned skill detail, secret trong context, đường dẫn nội
@@ -841,7 +923,12 @@ async def execute_resume_task(
             return
 
     _resume_start = time.monotonic()
+    resume_route = None
+    resume_model = None
     try:
+        resume_kernel, resume_route, resume_model = await kernel_for_resume(
+            plane, workspace_id=workspace_id, run_id=run_id
+        )
         async with trace_span(
             "kernel.resume",
             attributes={
@@ -850,7 +937,7 @@ async def execute_resume_task(
                 "workspace_id": workspace_id,
             },
         ):
-            res = await plane.kernel.resume(
+            res = await resume_kernel.resume(
                 run_id=run_id,
                 checkpoint_ref=checkpoint_ref,
                 updates=resume_updates,
@@ -884,7 +971,18 @@ async def execute_resume_task(
         return
     _resume_duration = time.monotonic() - _resume_start
 
-    if getattr(res, "usage", None):
+    if resume_route is not None:
+        await record_route_usage(
+            plane,
+            route=resume_route,
+            model_client=resume_model,
+            result=res,
+            run_id=run_id,
+            workspace_id=resume_route.workspace_id,
+            project_id=project_id,
+            agent_spec_id=resume_route.agent_spec_id,
+        )
+    elif getattr(res, "usage", None):
         usage = res.usage
         p_tok = usage.get("prompt_tokens") or usage.get("input_tokens") or 0
         c_tok = usage.get("completion_tokens") or usage.get("output_tokens") or 0
@@ -998,433 +1096,8 @@ async def execute_resume_task(
         )
 
 
-async def _report_schedule_execution_complete(
-    schedule_exec_id: str | None,
-    *,
-    state: str,
-    error: str | None,
-    conversation_id: str | None,
-    run_id: str,
-) -> None:
-    """Báo hoàn thành (succeeded/failed) 1 schedule execution về control plane.
-
-    Dùng chung cho cả đường thành công/thất bại bình thường (finally block)
-    lẫn đường fail-closed sớm khi thiếu project_id snapshot (Finding 1,
-    2026-09-14 whole-branch review) — tránh execution kẹt state='queued'
-    vĩnh viễn vì không ai báo control plane biết worker đã bỏ chạy.
-    """
-    if not schedule_exec_id:
-        return
-    try:
-        control_plane_url = resolve_platform_control_plane_url()
-        token = os.environ.get("COSA_WORKER_SERVICE_TOKEN")
-        headers: dict[str, str] = inject_trace_carrier({})
-        if token:
-            headers["Authorization"] = f"Bearer {token}"
-        complete_payload: dict[str, Any] = {
-            "executionId": schedule_exec_id,
-            "state": state,
-            "runId": run_id,
-        }
-        if conversation_id is not None:
-            complete_payload["conversationId"] = conversation_id
-        if error is not None:
-            complete_payload["error"] = error
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            await client.post(
-                f"{control_plane_url}/cosa/schedules/executions/complete",
-                json=complete_payload,
-                headers=headers,
-            )
-    except Exception as e:
-        logger.warning("Failed to report complete schedule execution %s: %s", schedule_exec_id, e)
-
-
-async def execute_scheduled_session_task(
-    plane: CosaAgentPlane,
-    stream_mgr: CosaEventStreamManager,
-    payload: dict[str, Any],
-    run_id: str,
-) -> None:
-    """Xử lý task schedule_execution được dispatch bởi scheduler cron/run_now.
-
-    1. Lấy thông tin schedule execution.
-    2. Tạo ConversationRecord mới scoped đúng company_id / workspace_id với created_by_principal='service:scheduler'.
-    3. Thực thi run_task với prompt template snapshot và agent profile snapshot.
-    4. Cập nhật trạng thái hoàn thành (succeeded/failed) cho schedule execution.
-    """
-    schedule_exec_id = payload.get("schedule_execution_id")
-    workspace_id = payload.get("workspace_id")
-    prompt_template = payload.get("prompt_template")
-    agent_profile = payload.get("agent_profile") or "operations"
-    # Task 5 (spec #1 schedule-project-scope): project_id giờ luôn đọc từ
-    # payload/snapshot thật (được services/cosa gán từ `project_id` bắt buộc
-    # lúc tạo schedule — Task 1-4), KHÔNG còn tự "đoán" project đầu tiên của
-    # workspace qua Company nữa (đã xoá `_resolve_workspace_project_id` —
-    # đó chính là bug: rủi ro chạy nhầm project).
-    project_id = payload.get("project_id")
-
-    # If schedule_exec_id is provided, check or fetch execution snapshot from control plane
-    if schedule_exec_id:
-        control_plane_url = resolve_platform_control_plane_url()
-        token = os.environ.get("COSA_WORKER_SERVICE_TOKEN")
-        fetch_headers: dict[str, str] = inject_trace_carrier({})
-        if token:
-            fetch_headers["Authorization"] = f"Bearer {token}"
-        try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.get(
-                    f"{control_plane_url}/cosa/schedules/executions/{schedule_exec_id}",
-                    headers=fetch_headers,
-                )
-                if resp.status_code == 200:
-                    data = resp.json()
-                    workspace_id = (
-                        workspace_id
-                        or data.get("organizationId")
-                        or data.get("workspaceId")
-                        or data.get("workspace_id")
-                    )
-                    prompt_template = (
-                        prompt_template
-                        or data.get("promptTemplateSnapshot")
-                        or data.get("prompt_template_snapshot")
-                    )
-                    agent_profile = (
-                        agent_profile
-                        or data.get("agentProfileSnapshot")
-                        or data.get("agent_profile_snapshot")
-                        or "operations"
-                    )
-                    snapshot_project_id = data.get("projectIdSnapshot") or data.get(
-                        "project_id_snapshot"
-                    )
-                    if project_id and snapshot_project_id and project_id != snapshot_project_id:
-                        error_mismatch = "PROJECT_CONTEXT_MISMATCH"
-                        logger.error(
-                            "schedule_execution_id=%s project mismatch: payload=%s snapshot=%s",
-                            schedule_exec_id,
-                            project_id,
-                            snapshot_project_id,
-                        )
-                        await _report_schedule_execution_complete(
-                            schedule_exec_id,
-                            state="failed",
-                            error=error_mismatch,
-                            conversation_id=None,
-                            run_id=run_id,
-                        )
-                        raise ValueError(error_mismatch)
-                    project_id = snapshot_project_id or project_id
-        except ValueError:
-            raise
-        except Exception as exc:
-            logger.warning("Could not fetch execution snapshot from control plane: %s", exc)
-
-    if not (workspace_id and prompt_template):
-        raise ValueError(f"Incomplete schedule execution data for {schedule_exec_id}")
-
-    if not project_id:
-        # Fail closed: KHÔNG tự chọn project đầu tiên của workspace nữa.
-        # Thiếu project_id snapshot nghĩa là schedule execution này đã được
-        # tạo/lưu sai (Task 1-4 đã bắt buộc projectId lúc tạo schedule) —
-        # từ chối chạy thay vì đoán, tránh chạy nhầm project.
-        logger.error(
-            "schedule_execution_id=%s missing project_id snapshot — refusing to guess a project",
-            schedule_exec_id,
-        )
-        missing_project_error = (
-            f"PROJECT_CONTEXT_REQUIRED: schedule_project_context_missing: {schedule_exec_id}"
-        )
-        await _report_schedule_execution_complete(
-            schedule_exec_id,
-            state="failed",
-            error=missing_project_error,
-            conversation_id=None,
-            run_id=run_id,
-        )
-        raise ValueError(missing_project_error)
-
-    conversation_id = f"conv_sched_{uuid.uuid4().hex[:8]}"
-    conv = ConversationRecord(
-        conversation_id=conversation_id,
-        workspace_id=workspace_id,
-        project_id=project_id,
-        scope_state="PROJECT_SCOPED",
-        created_by_principal="service:scheduler",
-        active_agent_profile=agent_profile,
-        title=f"Scheduled execution: {prompt_template[:30]}",
-    )
-    await plane.conversation_repository.create_conversation(conv)
-
-    user_msg = MessageRecord(
-        conversation_id=conversation_id,
-        project_id=project_id,
-        role="user",
-        content=prompt_template,
-    )
-    await plane.conversation_repository.add_message(user_msg)
-
-    run_payload = {
-        "run_id": run_id,
-        "conversation_id": conversation_id,
-        "user_prompt": prompt_template,
-        "principal": "service:scheduler",
-        "workspace_id": workspace_id,
-        "agent_name": agent_profile,
-        "agent_profile": agent_profile,
-        "project_id": project_id,
-        "delegation_token": payload.get("delegation_token") or "scheduled_worker_service_token",
-    }
-
-    error_msg = None
-    state = "succeeded"
-    try:
-        run_res = await execute_run_task(plane, stream_mgr, run_payload)
-        if run_res and run_res.status == "failed":
-            state = "failed"
-            error_msg = run_res.error
-    except Exception as exc:
-        state = "failed"
-        error_msg = str(exc)
-        raise
-    finally:
-        await _report_schedule_execution_complete(
-            schedule_exec_id,
-            state=state,
-            error=error_msg,
-            conversation_id=conversation_id,
-            run_id=run_id,
-        )
-
-
-# ---------------------------------------------------------------------------
-# COSA Automation MVP (Task 5) — curated automation run
-# ---------------------------------------------------------------------------
-
-
-async def execute_automation_run_task(
-    plane: CosaAgentPlane,
-    stream_mgr: CosaEventStreamManager,
-    payload: dict[str, Any],
-) -> None:
-    """Run one curated automation blueprint.
-
-    The manifest is resolved once, hash-verified and persisted insert-once; a
-    worker restart reloads it by run_id rather than re-reading a mutable
-    definition. Effects go only through the Capability Gateway and only for the
-    manifest's declared read/draft/evidence capabilities. A local-only blueprint
-    with no eligible local node BLOCKS with LOCAL_RUNTIME_UNAVAILABLE and never
-    falls back to cloud.
-    """
-    from agent.runs.models import RunCheckpointRecord, RunEventRecord, RunRecord
-    from agent.workflows.automation_blueprints import (
-        BlueprintContext,
-        get_blueprint_metadata,
-        get_blueprint_spec,
-        get_blueprint_step_fn,
-    )
-    from agent.workflows.automation_manifest import (
-        AutomationManifestError,
-        resolve_automation_manifest,
-    )
-    from agent.workflows.models import WorkflowStatus
-    from agent.workflows.steps import DeterministicStep
-
-    run_id = str(payload["run_id"])
-    workspace_id = str(payload.get("workspace_id", ""))
-    # Task 3 — curated automation runs don't currently carry a Project
-    # (payload has no "project_id" key yet); kept for forward-compat and
-    # consistency with every other stream_mgr.emit() call site in this
-    # module — emit() itself no-ops the projection when falsy.
-    project_id = payload.get("project_id")
-    invocation_id = str(payload.get("invocation_id", ""))
-    automation_key = str(payload.get("automation_key", ""))
-    correlation_id = str(payload.get("correlation_id", "")) or None
-    conversation_id = f"auto:{invocation_id}"
-
-    outcome_client = getattr(plane, "automation_outcome_client", None)
-    _seq = {"n": 0}
-
-    async def _emit(event_type: str, body: dict[str, Any]) -> None:
-        await plane.run_repository.append_event(
-            RunEventRecord(
-                run_id=run_id, event_type=event_type, payload=body, correlation_id=correlation_id
-            )
-        )
-        repo = getattr(plane, "stream_event_repository", None)
-        if repo is not None:
-            with contextlib.suppress(Exception):
-                await stream_mgr.emit(
-                    repo,
-                    run_id=run_id,
-                    conversation_id=conversation_id,
-                    event_type=event_type,
-                    payload=body,
-                    correlation_id=correlation_id,
-                    activity_service=getattr(plane, "project_activity_service", None),
-                    workspace_id=workspace_id,
-                    project_id=project_id,
-                )
-
-    _mh = {"v": ""}  # manifest hash, set once resolved
-
-    async def _report_state(state: str) -> None:
-        if outcome_client is None:
-            return
-        _seq["n"] += 1
-        with contextlib.suppress(Exception):
-            await outcome_client.report_state_changed(
-                invocation_id=invocation_id,
-                run_id=run_id,
-                workspace_id=workspace_id,
-                state=state,
-                sequence=_seq["n"],
-                manifest_hash=_mh["v"],
-                correlation_id=correlation_id or "",
-                observed_at=datetime.now(UTC).isoformat(),
-            )
-
-    async def _report_outcome(outcome: str, **kw: Any) -> None:
-        if outcome_client is None:
-            return
-        _seq["n"] += 1
-        with contextlib.suppress(Exception):
-            await outcome_client.report_outcome(
-                invocation_id=invocation_id,
-                run_id=run_id,
-                workspace_id=workspace_id,
-                outcome=outcome,
-                sequence=_seq["n"],
-                manifest_hash=_mh["v"],
-                correlation_id=correlation_id or "",
-                observed_at=datetime.now(UTC).isoformat(),
-                **kw,
-            )
-
-    # 1. Resolve the manifest (no persist yet — its table FKs to agent.runs).
-    try:
-        spec = get_blueprint_spec(automation_key)
-        metadata = get_blueprint_metadata(automation_key)
-        manifest = resolve_automation_manifest(
-            dispatch_payload=payload, blueprint_spec=spec, blueprint_metadata=metadata
-        )
-    except (KeyError, AutomationManifestError) as exc:
-        await _emit("run.failed", {"error": "automation_manifest_unresolved", "detail": str(exc)})
-        raise
-
-    manifest_hash = manifest.compute_hash()
-    _mh["v"] = manifest_hash
-
-    def _new_run(status: RunStatus) -> RunRecord:
-        return RunRecord(
-            run_id=run_id,
-            workspace_id=workspace_id,
-            principal=f"system:automation:{workspace_id}",
-            root_executable_id=automation_key,
-            root_executable_kind="workflow",
-            root_executable_version=manifest.blueprint_version,
-            root_definition_hash=manifest.blueprint_hash,
-            correlation_id=correlation_id,
-            status=status,
-        )
-
-    # 2. Runtime gate — local-only blueprint with no local node BLOCKS.
-    if manifest.runtime_requirement == "local_only" and not payload.get(
-        "local_runtime_available", False
-    ):
-        if await plane.run_repository.get_run(run_id) is None:
-            await plane.run_repository.create_run(_new_run(RunStatus.FAILED))
-        await _emit("run.blocked", {"cause": "LOCAL_RUNTIME_UNAVAILABLE"})
-        await _report_outcome("BLOCKED", blocked_cause="LOCAL_RUNTIME_UNAVAILABLE")
-        await plane.run_repository.update_run_status(
-            run_id, RunStatus.FAILED, error_details={"cause": "LOCAL_RUNTIME_UNAVAILABLE"}
-        )
-        return
-
-    # 3. Create / load the run FIRST (the manifest table references agent.runs).
-    run = await plane.run_repository.get_run(run_id)
-    if run is None:
-        run = await plane.run_repository.create_run(_new_run(RunStatus.RUNNING))
-        await _emit("run.started", {"run_id": run_id, "automation_key": automation_key})
-        await _report_state("RUNNING")
-    else:
-        await plane.run_repository.update_run_status(run_id, RunStatus.RUNNING)
-
-    # 3b. Persist the manifest insert-once (the run row now exists for the FK).
-    #     A restart / reclaim runs the persisted manifest, not the current spec.
-    persisted = await plane.run_repository.save_automation_manifest(
-        run_id, manifest_hash, manifest.model_dump(mode="json")
-    )
-    if persisted["manifest_hash"] != manifest_hash:
-        await _emit(
-            "run.failed",
-            {
-                "error": "automation_manifest_drift",
-                "persisted": persisted["manifest_hash"],
-                "resolved": manifest_hash,
-            },
-        )
-        await _report_outcome("FAILED", failure_reason="automation_manifest_drift")
-        await plane.run_repository.update_run_status(
-            run_id, RunStatus.FAILED, error_details={"cause": "manifest_drift"}
-        )
-        return
-
-    # 4. Execute the pinned blueprint through the WorkflowEngine.
-    ctx = BlueprintContext(
-        manifest=manifest,
-        gateway=plane.gateway,
-        run_id=run_id,
-        config=dict(payload.get("configuration", {})),
-    )
-
-    def _builder(step_spec):
-        fn = get_blueprint_step_fn(automation_key, step_spec.id)
-
-        async def _run(state: dict[str, Any]) -> dict[str, Any]:
-            return await fn(ctx, state)
-
-        return DeterministicStep(name=step_spec.id, fn=_run)
-
-    custom_builders = {s.id: _builder for s in spec.steps}
-    try:
-        workflow = await plane.workflow_orchestration.execute_spec(
-            spec, initial_state={"config": ctx.config}, custom_step_builders=custom_builders
-        )
-    except Exception as exc:
-        await _emit("run.failed", {"error": "automation_blueprint_error", "detail": str(exc)})
-        await plane.run_repository.update_run_status(
-            run_id, RunStatus.FAILED, error_details={"detail": str(exc)}
-        )
-        await _report_outcome("FAILED", failure_reason="automation_blueprint_error")
-        raise
-
-    if workflow.status != WorkflowStatus.COMPLETED:
-        await _emit(
-            "run.failed",
-            {"error": "automation_blueprint_not_completed", "status": str(workflow.status)},
-        )
-        await plane.run_repository.update_run_status(
-            run_id, RunStatus.FAILED, error_details={"status": str(workflow.status)}
-        )
-        await _report_outcome("FAILED", failure_reason="automation_blueprint_not_completed")
-        return
-
-    evidence = workflow.state.get("evidence", {})
-    # 5. Persist the evidence + manifest snapshot as a checkpoint, then complete.
-    await plane.run_repository.save_checkpoint(
-        RunCheckpointRecord(
-            run_id=run_id,
-            sequence_no=1,
-            step_name="automation.evidence",
-            state_kind="automation",
-            serialized_state={"evidence": evidence},
-            manifest_snapshot=manifest.model_dump(mode="json"),
-        )
-    )
-    await plane.run_repository.update_run_status(
-        run_id, RunStatus.COMPLETED, final_output={"evidence": evidence}
-    )
-    await _emit("run.completed", {"run_id": run_id, "evidence_keys": sorted(evidence.keys())})
-    await _report_outcome("COMPLETED", evidence_refs=sorted(evidence.keys()))
+# Re-export: task lịch/automation nằm ở scheduled_tasks.py (G-11).
+from apps.cosa.worker.scheduled_tasks import (
+    execute_automation_run_task,
+    execute_scheduled_session_task,
+)

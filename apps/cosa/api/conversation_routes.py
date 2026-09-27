@@ -15,6 +15,7 @@ from apps.cosa.api.event_stream import (
     get_cosa_event_stream_manager,
     redact_ux_event_payload,
 )
+from apps.cosa.api.middleware import SlidingWindowLimiter, resolve_rate_limit
 from apps.cosa.api.project_context import require_project_context_match, verify_project_context
 from apps.cosa.api.schemas import (
     ConversationCreate,
@@ -47,6 +48,18 @@ logger = logging.getLogger("cosa.api.conversation_routes")
 
 
 router = APIRouter(prefix="/agent", tags=["agent-chat"])
+
+
+# Review 2026-09-27 G-4 — tạo run là điểm tốn tiền nhất: giới hạn theo
+# workspace + principal (`COSA_RUN_CREATE_PER_MINUTE`, mặc định 20, 0 = tắt).
+# Limiter gắn vào app.state (mỗi app 1 limiter, per-process); quota tháng nằm
+# ở sổ cái usage (apps/cosa/models/usage.py).
+def _get_run_create_limiter(request: Request) -> SlidingWindowLimiter:
+    limiter = getattr(request.app.state, "run_create_limiter", None)
+    if limiter is None:
+        limiter = SlidingWindowLimiter(resolve_rate_limit("COSA_RUN_CREATE_PER_MINUTE", 20))
+        request.app.state.run_create_limiter = limiter
+    return limiter
 
 
 def get_cosa_plane(request: Request) -> CosaAgentPlane:
@@ -276,6 +289,18 @@ async def create_message(
     conv = await plane.conversation_repository.get_conversation(conversation_id)
     if conv is None or conv.workspace_id != identity.workspace_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+
+    # Rate limit tạo run TRƯỚC mọi side effect (lưu message, schedule).
+    wait = _get_run_create_limiter(request).hit(f"{identity.workspace_id}:{identity.principal_id}")
+    if wait is not None:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={
+                "code": "RATE_LIMITED",
+                "message": "Bạn gửi quá nhiều yêu cầu cho agent trong thời gian ngắn. Vui lòng thử lại sau ít giây.",
+            },
+            headers={"Retry-After": str(max(1, int(wait) + 1))},
+        )
 
     # Project-scoped Founder Hub — bắt buộc + verify Project qua Company
     # TRƯỚC bất kỳ side effect nào, rồi enforce đúng chuỗi bất biến: request

@@ -64,7 +64,7 @@ export const STARTUP_TEAM_PROFILES: readonly StartupTeamProfileDef[] = Object.fr
   {"key":"strategy","label":"Strategy","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
   {"key":"marketing","label":"Marketing","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
   {"key":"finance","label":"Finance","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
-  {"key":"crm","label":"CRM","defaultMode":"TEMPLATE","runtimeReadiness":"PENDING_CRM_FOUNDATION"},
+  {"key":"crm","label":"CRM (merged into Sales)","defaultMode":"TEMPLATE","runtimeReadiness":"PENDING_CRM_FOUNDATION"},
   {"key":"sales","label":"Sales","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
   {"key":"coding","label":"Coding","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
   {"key":"product","label":"Product","defaultMode":"TEMPLATE","runtimeReadiness":"READY"},
