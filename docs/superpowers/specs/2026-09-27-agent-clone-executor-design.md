@@ -91,7 +91,7 @@ Company lưu vào metadata của sự kiện PUBLISH (`metadata.agentManifest`) 
 ## 5. Company: workspace agent, grant, compliance
 
 - `createWorkspaceAgent({originKind: "WORKSPACE_CLONE", agentAssetId, agentAssetVersion,
-  agentDefinitionHash})` **bắt buộc** có biên nhận PUBLISH SUCCESS khớp tuyệt đối (như
+  agentDefinitionHash})` (HTTP: `POST /operations/founder/assets/workspace-agents`) **bắt buộc** có biên nhận PUBLISH SUCCESS khớp tuyệt đối (như
   `bindWorkflowToProject`). Nếu pin trùng một biên nhận AGENT thì luôn bị coi là `WORKSPACE_CLONE`
   (không lách bằng originKind khác). `workforceMemberId` cho clone do server tạo: một AI member riêng
   cho (asset, version) qua `ensureAiWorkforceMemberForAsset` — grant của agent gốc **không** dùng chung.
@@ -125,6 +125,10 @@ mang thêm `project_agent_deployment_id` (tuỳ chọn) → payload run. Worker 
 5. `agent_workforce_member_id` = AI member của workspace agent (từ deployment authority) → live
    authorization ticket chỉ qua được grant đã thu hẹp. REQUIRE_APPROVAL cho T2 trong chat giữ nguyên
    (theo capability, không theo agent).
+6. Resume sau khi founder duyệt T2: context resume dựng lại từ updates, nên run ghi
+   `RunRecord.session_ref = "project_agent_deployment:<id>"`; resume resolve lại authority từ company
+   (còn ACTIVE, pin khớp đúng spec/version/hash của run) rồi mới trả AI member. Tạm dừng giữa lúc duyệt
+   và resume → không có member → ticket fail closed.
 
 Agent custom vì vậy **không bao giờ ít kiểm soát hơn** agent gốc: tập tool ⊆ gốc, grant ⊆ gốc,
 tier/approval/compliance theo capability và spec gốc.
