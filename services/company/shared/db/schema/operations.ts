@@ -1461,3 +1461,114 @@ export const automationPlanProposals = operatingSchema.table("automation_plan_pr
 }, (t) => ({
   ixProjCreated: index("idx_automation_plan_proposals_project_created").on(t.projectId, t.createdAt),
 }));
+
+
+export const aiInitiativeValueContracts = strategySchema.table("ai_initiative_value_contracts", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  initiativeId: bigint("initiative_id", { mode: "bigint" }).notNull().references(() => initiatives.id, { onDelete: "cascade" }),
+  revision: integer("revision").default(1).notNull(),
+  metricContractId: text("metric_contract_id").notNull(),
+  baselineValue: numeric("baseline_value", { precision: 18, scale: 4 }).notNull(),
+  baselineObservedAt: timestamp("baseline_observed_at", { withTimezone: true }).notNull(),
+  baselineSourceRef: text("baseline_source_ref").notNull(),
+  targetValue: numeric("target_value", { precision: 18, scale: 4 }).notNull(),
+  targetBy: timestamp("target_by", { withTimezone: true }).notNull(),
+  measurementWindow: text("measurement_window").notNull(),
+  unit: text("unit").notNull(),
+  scoringDirection: text("scoring_direction").default("ASC").notNull(),
+  expectedValueMethod: text("expected_value_method").notNull(),
+  expectedValueAmount: numeric("expected_value_amount", { precision: 18, scale: 4 }),
+  currency: text("currency").default("VND").notNull(),
+  adoptionTarget: numeric("adoption_target", { precision: 18, scale: 4 }),
+  adoptionWindow: text("adoption_window"),
+  measurementOwnerMemberId: bigint("measurement_owner_member_id", { mode: "bigint" }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uixInitRev: uniqueIndex("uix_ai_val_contract_init_rev").on(t.initiativeId, t.revision),
+  idxLookup: index("idx_ai_val_contract_lookup").on(t.workspaceId, t.projectId, t.initiativeId, t.createdAt),
+  idxOwner: index("idx_ai_val_contract_owner").on(t.measurementOwnerMemberId),
+}));
+
+export const aiInitiativeDataReadinessAssessments = strategySchema.table("ai_initiative_data_readiness_assessments", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  initiativeId: bigint("initiative_id", { mode: "bigint" }).notNull().references(() => initiatives.id, { onDelete: "cascade" }),
+  revision: integer("revision").default(1).notNull(),
+  sourceRefs: jsonb("source_refs").default([]).notNull(),
+  classification: text("classification").notNull(),
+  accessAuthorityRef: text("access_authority_ref").notNull(),
+  freshnessSlo: text("freshness_slo").notNull(),
+  qualityDimensions: jsonb("quality_dimensions").default({}).notNull(),
+  metadataOwnerMemberId: bigint("metadata_owner_member_id", { mode: "bigint" }).notNull(),
+  retrievalMode: text("retrieval_mode").default("none").notNull(),
+  knowledgeSnapshotRef: text("knowledge_snapshot_ref"),
+  assessmentStatus: text("assessment_status").notNull(),
+  evidenceRefs: jsonb("evidence_refs").default([]).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uixInitRev: uniqueIndex("uix_ai_dra_init_rev").on(t.initiativeId, t.revision),
+  idxLookup: index("idx_ai_dra_lookup").on(t.workspaceId, t.projectId, t.initiativeId, t.createdAt),
+  idxOwner: index("idx_ai_dra_owner").on(t.metadataOwnerMemberId),
+}));
+
+export const aiInitiativeBudgetPolicies = strategySchema.table("ai_initiative_budget_policies", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  initiativeId: bigint("initiative_id", { mode: "bigint" }).notNull().references(() => initiatives.id, { onDelete: "cascade" }),
+  revision: integer("revision").default(1).notNull(),
+  period: text("period").default("MONTHLY").notNull(),
+  currency: text("currency").default("USD").notNull(),
+  softCostThreshold: numeric("soft_cost_threshold", { precision: 18, scale: 4 }).notNull(),
+  hardCostThreshold: numeric("hard_cost_threshold", { precision: 18, scale: 4 }).notNull(),
+  actionOnBreach: text("action_on_breach").default("WARN").notNull(),
+  allowedModels: jsonb("allowed_models").default([]).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  uixInitRev: uniqueIndex("uix_ai_budget_init_rev").on(t.initiativeId, t.revision),
+  idxLookup: index("idx_ai_budget_lookup").on(t.workspaceId, t.projectId, t.initiativeId, t.createdAt),
+}));
+
+export const aiInitiativeDecisions = strategySchema.table("ai_initiative_decisions", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  initiativeId: bigint("initiative_id", { mode: "bigint" }).notNull().references(() => initiatives.id, { onDelete: "cascade" }),
+  revision: integer("revision").notNull(),
+  decision: text("decision").notNull(),
+  fromState: text("from_state").notNull(),
+  toState: text("to_state").notNull(),
+  actorMemberId: bigint("actor_member_id", { mode: "bigint" }),
+  reasonCode: text("reason_code").notNull(),
+  reason: text("reason"),
+  gateSnapshot: jsonb("gate_snapshot").default({}).notNull(),
+  idempotencyKey: text("idempotency_key"),
+  decidedAt: timestamp("decided_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  idxLookup: index("idx_ai_decisions_lookup").on(t.workspaceId, t.projectId, t.initiativeId, t.decidedAt),
+  idxActor: index("idx_ai_decisions_actor").on(t.actorMemberId),
+  uixInitIdem: uniqueIndex("uix_ai_decisions_init_idem").on(t.initiativeId, t.idempotencyKey),
+}));
+
+export const aiInitiativeValueMeasurements = strategySchema.table("ai_initiative_value_measurements", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  initiativeId: bigint("initiative_id", { mode: "bigint" }).notNull().references(() => initiatives.id, { onDelete: "cascade" }),
+  metricContractId: text("metric_contract_id").notNull(),
+  observedValue: numeric("observed_value", { precision: 18, scale: 4 }),
+  state: text("state").default("PRESENT").notNull(),
+  observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
+  windowStart: timestamp("window_start", { withTimezone: true }).notNull(),
+  windowEnd: timestamp("window_end", { withTimezone: true }).notNull(),
+  qualityState: text("quality_state").default("GOOD").notNull(),
+  missingDataState: text("missing_data_state"),
+  measurementOwnerMemberId: bigint("measurement_owner_member_id", { mode: "bigint" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  idxLookup: index("idx_ai_measurements_lookup").on(t.workspaceId, t.projectId, t.initiativeId, t.observedAt),
+  idxOwner: index("idx_ai_measurements_owner").on(t.measurementOwnerMemberId),
+}));
