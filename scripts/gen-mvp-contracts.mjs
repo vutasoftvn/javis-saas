@@ -48,6 +48,22 @@ for (const cap of manifest.capabilities) {
     console.error(`Capability '${cap.id}' declared requires_project: true without :projectId in path '${cap.path}'`);
     process.exit(1);
   }
+
+  if (cap.id.startsWith("ai.initiative.")) {
+    if (!cap.requires_workspace) {
+      console.error(`AI Initiative capability '${cap.id}' must declare requires_workspace: true`);
+      process.exit(1);
+    }
+    if (!cap.requires_project || !cap.path.includes(":projectId")) {
+      console.error(`AI Initiative capability '${cap.id}' must declare requires_project: true with :projectId in path`);
+      process.exit(1);
+    }
+    if (!cap.backend_test || !cap.flutter_test || !cap.integration_test) {
+      console.error(`AI Initiative capability '${cap.id}' must declare backend_test, flutter_test, and integration_test`);
+      process.exit(1);
+    }
+  }
+
 }
 
 // Sort capabilities deterministically by id
@@ -258,6 +274,21 @@ function genDart() {
   return out.join("\n");
 }
 
+
+function genInventory() {
+  const aiCaps = capabilities.filter((c) => c.id.startsWith("ai.initiative."));
+  return JSON.stringify(
+    {
+      generator: "scripts/gen-mvp-contracts.mjs",
+      source: "shared/contracts/mvp-surface.json",
+      slice: "ai-initiative",
+      capabilities: aiCaps,
+    },
+    null,
+    2
+  ) + "\n";
+}
+
 // ---- Output Targets ---------------------------------------------------------
 
 const TARGETS = [
@@ -272,6 +303,10 @@ const TARGETS = [
   {
     path: join(ROOT, "frontend/lib/core/network/mvp_endpoints.g.dart"),
     content: genDart(),
+  },
+  {
+    path: join(ROOT, "docs/architecture/generated/ai-initiative-capability-inventory.json"),
+    content: genInventory(),
   },
 ];
 
