@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "generated_at": "2026-09-28T11:11:21.833Z",
+  "generated_at": "2026-09-28T12:47:51.786Z",
   "groups": {
     "agent": {
-      "fingerprint": "879b37d556712097fced2b6ba62733db06d83b8aefd7f1c09e168595a45d8437",
+      "fingerprint": "a0c2d2cd22cef284647631ba1ea8826a9c4475e752316d27dff3e8e644f8d6ec",
       "schemas": [
         "agent",
         "agent_artifact",
@@ -8534,6 +8534,16 @@
               "max_length": null,
               "precision": null,
               "scale": null
+            },
+            {
+              "name": "initiative_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
             }
           ],
           "primary_key": {
@@ -8566,6 +8576,10 @@
             {
               "name": "idx_run_usage_workspace_time",
               "definition": "CREATE INDEX idx_run_usage_workspace_time ON models.run_usage USING btree (workspace_id, created_at DESC)"
+            },
+            {
+              "name": "idx_run_usage_ws_proj_init_time",
+              "definition": "CREATE INDEX idx_run_usage_ws_proj_init_time ON models.run_usage USING btree (workspace_id, project_id, initiative_id, created_at DESC)"
             },
             {
               "name": "run_usage_pkey",
@@ -14550,7 +14564,7 @@
       }
     },
     "workspace": {
-      "fingerprint": "99d2925cdb620bf70d972704fed265853b4f8e3eabfcc69863a7a9f5ea90934b",
+      "fingerprint": "d3a9a36c9f3abbb4b82841376a0aa01f755dda6858bc88c7fc419434288a557a",
       "schemas": [
         "commercial",
         "core",
@@ -14562,7 +14576,7 @@
         "sales",
         "strategy"
       ],
-      "tables_count": 246,
+      "tables_count": 251,
       "enums": [
         {
           "schema": "operating",
@@ -49140,6 +49154,1094 @@
             }
           ]
         },
+        "strategy.ai_initiative_budget_policies": {
+          "schema": "strategy",
+          "name": "ai_initiative_budget_policies",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "project_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "initiative_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "revision",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": "1",
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "period",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'MONTHLY'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "currency",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'USD'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "soft_cost_threshold",
+              "type": "numeric",
+              "udt": "numeric",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 18,
+              "scale": 4
+            },
+            {
+              "name": "hard_cost_threshold",
+              "type": "numeric",
+              "udt": "numeric",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 18,
+              "scale": 4
+            },
+            {
+              "name": "action_on_breach",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'WARN'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "allowed_models",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "ai_initiative_budget_policies_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "uix_ai_budget_init_rev",
+              "columns": [
+                "initiative_id",
+                "revision"
+              ]
+            }
+          ],
+          "foreign_keys": [
+            {
+              "name": "ai_initiative_budget_policies_initiative_id_fkey",
+              "columns": [
+                "initiative_id"
+              ],
+              "foreign_table": "strategy.initiatives",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [
+            {
+              "name": "chk_ai_budget_action",
+              "clause": "((action_on_breach = ANY (ARRAY['WARN'::text, 'REQUIRE_APPROVAL'::text, 'PAUSE_INITIATIVE'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ai_initiative_budget_policies_pkey",
+              "definition": "CREATE UNIQUE INDEX ai_initiative_budget_policies_pkey ON strategy.ai_initiative_budget_policies USING btree (id)"
+            },
+            {
+              "name": "idx_ai_budget_lookup",
+              "definition": "CREATE INDEX idx_ai_budget_lookup ON strategy.ai_initiative_budget_policies USING btree (workspace_id, project_id, initiative_id, created_at DESC)"
+            },
+            {
+              "name": "uix_ai_budget_init_rev",
+              "definition": "CREATE UNIQUE INDEX uix_ai_budget_init_rev ON strategy.ai_initiative_budget_policies USING btree (initiative_id, revision)"
+            }
+          ]
+        },
+        "strategy.ai_initiative_data_readiness_assessments": {
+          "schema": "strategy",
+          "name": "ai_initiative_data_readiness_assessments",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "project_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "initiative_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "revision",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": "1",
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "source_refs",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "classification",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "access_authority_ref",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "freshness_slo",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "quality_dimensions",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'{}'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "metadata_owner_member_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "retrieval_mode",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'none'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "knowledge_snapshot_ref",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "assessment_status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "evidence_refs",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "ai_initiative_data_readiness_assessments_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "uix_ai_dra_init_rev",
+              "columns": [
+                "initiative_id",
+                "revision"
+              ]
+            }
+          ],
+          "foreign_keys": [
+            {
+              "name": "ai_initiative_data_readiness_asse_metadata_owner_member_id_fkey",
+              "columns": [
+                "metadata_owner_member_id"
+              ],
+              "foreign_table": "core.workforce_members",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "NO ACTION"
+            },
+            {
+              "name": "ai_initiative_data_readiness_assessments_initiative_id_fkey",
+              "columns": [
+                "initiative_id"
+              ],
+              "foreign_table": "strategy.initiatives",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [
+            {
+              "name": "chk_ai_dra_retrieval_mode",
+              "clause": "((retrieval_mode = ANY (ARRAY['none'::text, 'lexical'::text, 'semantic'::text])))"
+            },
+            {
+              "name": "chk_ai_dra_status",
+              "clause": "((assessment_status = ANY (ARRAY['NOT_READY'::text, 'CONDITIONAL'::text, 'READY'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ai_initiative_data_readiness_assessments_pkey",
+              "definition": "CREATE UNIQUE INDEX ai_initiative_data_readiness_assessments_pkey ON strategy.ai_initiative_data_readiness_assessments USING btree (id)"
+            },
+            {
+              "name": "idx_ai_dra_lookup",
+              "definition": "CREATE INDEX idx_ai_dra_lookup ON strategy.ai_initiative_data_readiness_assessments USING btree (workspace_id, project_id, initiative_id, created_at DESC)"
+            },
+            {
+              "name": "idx_ai_dra_owner",
+              "definition": "CREATE INDEX idx_ai_dra_owner ON strategy.ai_initiative_data_readiness_assessments USING btree (metadata_owner_member_id)"
+            },
+            {
+              "name": "uix_ai_dra_init_rev",
+              "definition": "CREATE UNIQUE INDEX uix_ai_dra_init_rev ON strategy.ai_initiative_data_readiness_assessments USING btree (initiative_id, revision)"
+            }
+          ]
+        },
+        "strategy.ai_initiative_decisions": {
+          "schema": "strategy",
+          "name": "ai_initiative_decisions",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "project_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "initiative_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "revision",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "decision",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "from_state",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "to_state",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "actor_member_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "reason_code",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "reason",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "gate_snapshot",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'{}'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "idempotency_key",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "decided_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "ai_initiative_decisions_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "ai_initiative_decisions_actor_member_id_fkey",
+              "columns": [
+                "actor_member_id"
+              ],
+              "foreign_table": "core.workforce_members",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "NO ACTION"
+            },
+            {
+              "name": "ai_initiative_decisions_initiative_id_fkey",
+              "columns": [
+                "initiative_id"
+              ],
+              "foreign_table": "strategy.initiatives",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "ai_initiative_decisions_pkey",
+              "definition": "CREATE UNIQUE INDEX ai_initiative_decisions_pkey ON strategy.ai_initiative_decisions USING btree (id)"
+            },
+            {
+              "name": "idx_ai_decisions_actor",
+              "definition": "CREATE INDEX idx_ai_decisions_actor ON strategy.ai_initiative_decisions USING btree (actor_member_id)"
+            },
+            {
+              "name": "idx_ai_decisions_lookup",
+              "definition": "CREATE INDEX idx_ai_decisions_lookup ON strategy.ai_initiative_decisions USING btree (workspace_id, project_id, initiative_id, decided_at DESC)"
+            },
+            {
+              "name": "uix_ai_decisions_init_idem",
+              "definition": "CREATE UNIQUE INDEX uix_ai_decisions_init_idem ON strategy.ai_initiative_decisions USING btree (initiative_id, idempotency_key) WHERE (idempotency_key IS NOT NULL)"
+            }
+          ]
+        },
+        "strategy.ai_initiative_value_contracts": {
+          "schema": "strategy",
+          "name": "ai_initiative_value_contracts",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "project_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "initiative_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "revision",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": "1",
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "metric_contract_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "baseline_value",
+              "type": "numeric",
+              "udt": "numeric",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 18,
+              "scale": 4
+            },
+            {
+              "name": "baseline_observed_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "baseline_source_ref",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "target_value",
+              "type": "numeric",
+              "udt": "numeric",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 18,
+              "scale": 4
+            },
+            {
+              "name": "target_by",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "measurement_window",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "unit",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "scoring_direction",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'ASC'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "expected_value_method",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "expected_value_amount",
+              "type": "numeric",
+              "udt": "numeric",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 18,
+              "scale": 4
+            },
+            {
+              "name": "currency",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'VND'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "adoption_target",
+              "type": "numeric",
+              "udt": "numeric",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 18,
+              "scale": 4
+            },
+            {
+              "name": "adoption_window",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "measurement_owner_member_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "ai_initiative_value_contracts_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "uix_ai_val_contract_init_rev",
+              "columns": [
+                "initiative_id",
+                "revision"
+              ]
+            }
+          ],
+          "foreign_keys": [
+            {
+              "name": "ai_initiative_value_contracts_initiative_id_fkey",
+              "columns": [
+                "initiative_id"
+              ],
+              "foreign_table": "strategy.initiatives",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            },
+            {
+              "name": "ai_initiative_value_contracts_measurement_owner_member_id_fkey",
+              "columns": [
+                "measurement_owner_member_id"
+              ],
+              "foreign_table": "core.workforce_members",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "NO ACTION"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "ai_initiative_value_contracts_pkey",
+              "definition": "CREATE UNIQUE INDEX ai_initiative_value_contracts_pkey ON strategy.ai_initiative_value_contracts USING btree (id)"
+            },
+            {
+              "name": "idx_ai_val_contract_lookup",
+              "definition": "CREATE INDEX idx_ai_val_contract_lookup ON strategy.ai_initiative_value_contracts USING btree (workspace_id, project_id, initiative_id, created_at DESC)"
+            },
+            {
+              "name": "idx_ai_val_contract_owner",
+              "definition": "CREATE INDEX idx_ai_val_contract_owner ON strategy.ai_initiative_value_contracts USING btree (measurement_owner_member_id)"
+            },
+            {
+              "name": "uix_ai_val_contract_init_rev",
+              "definition": "CREATE UNIQUE INDEX uix_ai_val_contract_init_rev ON strategy.ai_initiative_value_contracts USING btree (initiative_id, revision)"
+            }
+          ]
+        },
+        "strategy.ai_initiative_value_measurements": {
+          "schema": "strategy",
+          "name": "ai_initiative_value_measurements",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "project_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "initiative_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "metric_contract_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "observed_value",
+              "type": "numeric",
+              "udt": "numeric",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 18,
+              "scale": 4
+            },
+            {
+              "name": "state",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'PRESENT'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "observed_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "window_start",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "window_end",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "quality_state",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'GOOD'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "missing_data_state",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "measurement_owner_member_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "ai_initiative_value_measurements_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "ai_initiative_value_measuremen_measurement_owner_member_id_fkey",
+              "columns": [
+                "measurement_owner_member_id"
+              ],
+              "foreign_table": "core.workforce_members",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "NO ACTION"
+            },
+            {
+              "name": "ai_initiative_value_measurements_initiative_id_fkey",
+              "columns": [
+                "initiative_id"
+              ],
+              "foreign_table": "strategy.initiatives",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [
+            {
+              "name": "chk_ai_measurement_state",
+              "clause": "((state = ANY (ARRAY['PRESENT'::text, 'UNAVAILABLE'::text, 'INVALID'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ai_initiative_value_measurements_pkey",
+              "definition": "CREATE UNIQUE INDEX ai_initiative_value_measurements_pkey ON strategy.ai_initiative_value_measurements USING btree (id)"
+            },
+            {
+              "name": "idx_ai_measurements_lookup",
+              "definition": "CREATE INDEX idx_ai_measurements_lookup ON strategy.ai_initiative_value_measurements USING btree (workspace_id, project_id, initiative_id, observed_at DESC)"
+            },
+            {
+              "name": "idx_ai_measurements_owner",
+              "definition": "CREATE INDEX idx_ai_measurements_owner ON strategy.ai_initiative_value_measurements USING btree (measurement_owner_member_id)"
+            }
+          ]
+        },
         "strategy.assumptions": {
           "schema": "strategy",
           "name": "assumptions",
@@ -51062,6 +52164,86 @@
               "max_length": null,
               "precision": null,
               "scale": null
+            },
+            {
+              "name": "initiative_kind",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'GENERIC'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "lifecycle_state",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'DISCOVER'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "risk_tier",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'LOW'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "autonomy_tier",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'A0'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "business_problem",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "technical_owner_member_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "risk_owner_member_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "legacy_remediation_state",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'CLEAN'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
             }
           ],
           "primary_key": {
@@ -51107,9 +52289,53 @@
               ],
               "on_update": "NO ACTION",
               "on_delete": "CASCADE"
+            },
+            {
+              "name": "fk_initiatives_risk_owner",
+              "columns": [
+                "risk_owner_member_id"
+              ],
+              "foreign_table": "core.workforce_members",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "SET NULL"
+            },
+            {
+              "name": "fk_initiatives_technical_owner",
+              "columns": [
+                "technical_owner_member_id"
+              ],
+              "foreign_table": "core.workforce_members",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "SET NULL"
             }
           ],
           "check_constraints": [
+            {
+              "name": "chk_initiatives_autonomy_tier",
+              "clause": "((autonomy_tier = ANY (ARRAY['A0'::text, 'A1'::text, 'A2'::text, 'A3'::text])))"
+            },
+            {
+              "name": "chk_initiatives_initiative_kind",
+              "clause": "((initiative_kind = ANY (ARRAY['GENERIC'::text, 'AI'::text])))"
+            },
+            {
+              "name": "chk_initiatives_legacy_remediation_state",
+              "clause": "((legacy_remediation_state = ANY (ARRAY['CLEAN'::text, 'NEEDS_REBIND'::text])))"
+            },
+            {
+              "name": "chk_initiatives_lifecycle_state",
+              "clause": "((lifecycle_state = ANY (ARRAY['DISCOVER'::text, 'PILOT'::text, 'VALIDATE'::text, 'SCALE_CANDIDATE'::text, 'SCALED'::text, 'PAUSED'::text, 'RETIRED'::text])))"
+            },
+            {
+              "name": "chk_initiatives_risk_tier",
+              "clause": "((risk_tier = ANY (ARRAY['LOW'::text, 'MEDIUM'::text, 'HIGH'::text, 'CRITICAL'::text])))"
+            },
             {
               "name": "initiatives_approval_status_check",
               "clause": "((approval_status = ANY (ARRAY['DRAFT'::text, 'PENDING_APPROVAL'::text, 'APPROVED'::text, 'REJECTED'::text, 'CLOSED'::text])))"
@@ -51123,6 +52349,18 @@
             {
               "name": "idx_initiatives_project",
               "definition": "CREATE INDEX idx_initiatives_project ON strategy.initiatives USING btree (workspace_id, project_id)"
+            },
+            {
+              "name": "idx_initiatives_risk_owner",
+              "definition": "CREATE INDEX idx_initiatives_risk_owner ON strategy.initiatives USING btree (risk_owner_member_id)"
+            },
+            {
+              "name": "idx_initiatives_technical_owner",
+              "definition": "CREATE INDEX idx_initiatives_technical_owner ON strategy.initiatives USING btree (technical_owner_member_id)"
+            },
+            {
+              "name": "idx_initiatives_ws_proj_lifecycle_updated",
+              "definition": "CREATE INDEX idx_initiatives_ws_proj_lifecycle_updated ON strategy.initiatives USING btree (workspace_id, project_id, lifecycle_state, updated_at DESC)"
             },
             {
               "name": "initiatives_pkey",
