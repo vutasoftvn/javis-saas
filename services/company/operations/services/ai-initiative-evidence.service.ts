@@ -41,21 +41,21 @@ export interface RecordValueContractParams {
   workspaceId: string;
   projectId: string;
   initiativeId: string;
-  metricContractId: string;
+  metricContractId?: string;
   baselineValue: string;
-  baselineObservedAt: string;
+  baselineObservedAt?: string;
   baselineSourceRef: string;
   targetValue: string;
-  targetBy: string;
-  measurementWindow: string;
-  unit: string;
+  targetBy?: string;
+  measurementWindow?: string;
+  unit?: string;
   scoringDirection?: "ASC" | "DESC";
-  expectedValueMethod: string;
+  expectedValueMethod?: string;
   expectedValueAmount?: string | null;
   currency?: string;
   adoptionTarget?: string | null;
   adoptionWindow?: string | null;
-  measurementOwnerMemberId: string;
+  measurementOwnerMemberId?: string;
 }
 
 export interface AiDataReadinessAssessment {
@@ -81,12 +81,13 @@ export interface RecordDataReadinessAssessmentParams {
   workspaceId: string;
   projectId: string;
   initiativeId: string;
-  sourceRefs: string[];
-  classification: string;
-  accessAuthorityRef: string;
-  freshnessSlo: string;
+  sourceRefs?: string[];
+  classification?: string;
+  accessAuthorityRef?: string;
+  freshnessSlo?: string;
   qualityDimensions?: Record<string, unknown>;
-  metadataOwnerMemberId: string;
+  metadataOwnerMemberId?: string;
+  assessedByMemberId?: string;
   retrievalMode?: "none" | "lexical" | "semantic";
   knowledgeSnapshotRef?: string | null;
   assessmentStatus: "NOT_READY" | "CONDITIONAL" | "READY";
@@ -219,21 +220,25 @@ export async function recordValueContract(
       projectId: projId,
       initiativeId: initId,
       revision: nextRev,
-      metricContractId: params.metricContractId,
+      metricContractId: params.metricContractId || "metric-default",
       baselineValue: params.baselineValue,
-      baselineObservedAt: new Date(params.baselineObservedAt),
+      baselineObservedAt: params.baselineObservedAt ? new Date(params.baselineObservedAt) : new Date(),
       baselineSourceRef: params.baselineSourceRef.trim(),
       targetValue: params.targetValue,
-      targetBy: new Date(params.targetBy),
-      measurementWindow: params.measurementWindow,
-      unit: params.unit,
+      targetBy: params.targetBy ? new Date(params.targetBy) : new Date(Date.now() + 30 * 86400000),
+      measurementWindow: params.measurementWindow || "MONTHLY",
+      unit: params.unit || "HOURS",
       scoringDirection: params.scoringDirection || "ASC",
-      expectedValueMethod: params.expectedValueMethod,
+      expectedValueMethod: params.expectedValueMethod || "BENCHMARK",
       expectedValueAmount: params.expectedValueAmount || null,
       currency: params.currency || "VND",
       adoptionTarget: params.adoptionTarget || null,
       adoptionWindow: params.adoptionWindow || null,
-      measurementOwnerMemberId: BigInt(params.measurementOwnerMemberId),
+      measurementOwnerMemberId: params.measurementOwnerMemberId
+        ? BigInt(params.measurementOwnerMemberId)
+        : ctx.workforceMemberId
+        ? BigInt(ctx.workforceMemberId)
+        : BigInt(0),
     })
     .returning();
 
@@ -339,11 +344,17 @@ export async function recordDataReadinessAssessment(
       initiativeId: initId,
       revision: nextRev,
       sourceRefs: params.sourceRefs || [],
-      classification: params.classification,
-      accessAuthorityRef: params.accessAuthorityRef,
-      freshnessSlo: params.freshnessSlo,
+      classification: params.classification || "INTERNAL",
+      accessAuthorityRef: params.accessAuthorityRef || "iam://workspace-owner",
+      freshnessSlo: params.freshnessSlo || "DAILY",
       qualityDimensions: params.qualityDimensions || {},
-      metadataOwnerMemberId: BigInt(params.metadataOwnerMemberId),
+      metadataOwnerMemberId: params.metadataOwnerMemberId
+        ? BigInt(params.metadataOwnerMemberId)
+        : params.assessedByMemberId
+        ? BigInt(params.assessedByMemberId)
+        : ctx.workforceMemberId
+        ? BigInt(ctx.workforceMemberId)
+        : BigInt(0),
       retrievalMode: params.retrievalMode || "none",
       knowledgeSnapshotRef: params.knowledgeSnapshotRef || null,
       assessmentStatus: params.assessmentStatus,
@@ -557,8 +568,6 @@ export async function recordInitiativeDecision(
     ? BigInt(params.actorMemberId)
     : ctx.workforceMemberId
     ? BigInt(ctx.workforceMemberId)
-    : ctx.userId
-    ? BigInt(ctx.userId)
     : null;
 
   const [row] = await db

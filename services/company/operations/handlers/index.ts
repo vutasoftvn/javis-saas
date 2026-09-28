@@ -35,3 +35,4 @@ export * from "./onboard.handler";
 export * from "./goals.handler";
 export * from "./organization-overview.handler";
 export * from "./ai-workforce.handler";
+export * from "./ai-initiative.handler";

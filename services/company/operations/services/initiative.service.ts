@@ -790,3 +790,44 @@ export async function getInitiativeGateStatus(
 
   return gates;
 }
+
+export async function getAiInitiativeInWorkspace(
+  ctx: TenantContext,
+  params: { workspaceId: string; projectId: string; initiativeId: string }
+): Promise<AiInitiative> {
+  if (ctx.workspaceId !== params.workspaceId) {
+    throw APIError.permissionDenied(
+      "workspace context does not match initiative workspace"
+    );
+  }
+
+  const row = await assertInitiativeInWorkspace(params.initiativeId, params.workspaceId);
+
+  if (!row.projectId || row.projectId.toString() !== params.projectId) {
+    throw APIError.notFound(
+      `Initiative ${params.initiativeId} not found in project ${params.projectId}`
+    );
+  }
+
+  const linkedKrs = await db
+    .select({ keyResultId: initiativeKeyResults.keyResultId })
+    .from(initiativeKeyResults)
+    .where(
+      and(
+        eq(initiativeKeyResults.workspaceId, row.workspaceId),
+        eq(initiativeKeyResults.initiativeId, row.id)
+      )
+    );
+
+  const base = toInitiative(
+    row,
+    linkedKrs.map((l) => l.keyResultId.toString())
+  );
+
+  return {
+    ...base,
+    initiativeKind: "AI",
+    projectId: params.projectId,
+    businessOwnerMemberId: row.ownerMemberId ? row.ownerMemberId.toString() : "",
+  };
+}
