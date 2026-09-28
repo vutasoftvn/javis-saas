@@ -214,6 +214,22 @@ def test_system_default_model_configured_deepseek_default(monkeypatch):
     assert system_default_model_configured() is True
 
 
+def test_system_default_model_configured_unknown_provider_raises(monkeypatch):
+    """Trước fix: giá trị lạ ở COSA_DEFAULT_MODEL_PROVIDER khiến
+    system_default_model_configured() trả False (không raise) trong khi
+    build_system_default_model()/system_default_model_identity() raise —
+    invariant ngầm bị vi phạm, caller `if not system_default_model_configured():
+    use FakeSDKModel` (worker/main.py, api/test_main.py) sẽ âm thầm rơi về
+    FakeSDKModel thay vì fail-closed. Cả ba hàm giờ dùng chung
+    _resolve_system_default_provider() -> phải cùng raise RuntimeError."""
+    _clear_default_provider_env(monkeypatch)
+    monkeypatch.setenv("COSA_DEFAULT_MODEL_PROVIDER", "bogus-provider")
+    from apps.cosa.composition.model_provider import system_default_model_configured
+
+    with pytest.raises(RuntimeError, match="bogus-provider"):
+        system_default_model_configured()
+
+
 def test_system_default_model_identity_openrouter(monkeypatch):
     _clear_default_provider_env(monkeypatch)
     monkeypatch.setenv("COSA_DEFAULT_MODEL_PROVIDER", "openrouter")
