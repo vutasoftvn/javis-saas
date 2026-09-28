@@ -16,6 +16,19 @@ const {
   decisionRecords,
 } = schema;
 
+export type InitiativeKind = "GENERIC" | "AI";
+export type InitiativeLifecycleState =
+  | "DISCOVER"
+  | "PILOT"
+  | "VALIDATE"
+  | "SCALE_CANDIDATE"
+  | "SCALED"
+  | "PAUSED"
+  | "RETIRED";
+export type InitiativeRiskTier = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+export type InitiativeAutonomyTier = "A0" | "A1" | "A2" | "A3";
+export type LegacyRemediationState = "CLEAN" | "NEEDS_REBIND";
+
 export interface InitiativeMilestone {
   id?: string;
   title: string;
@@ -30,6 +43,7 @@ export interface Initiative {
   title: string;
   description: string | null;
   intendedOutcome: string | null;
+  businessProblem?: string | null;
   startDate: string | null;
   targetDate: string | null;
   milestones: InitiativeMilestone[];
@@ -42,8 +56,40 @@ export interface Initiative {
   ownerMemberId: string | null;
   revision: number;
   keyResultIds: string[];
+  initiativeKind: InitiativeKind;
+  lifecycleState: InitiativeLifecycleState;
+  riskTier: InitiativeRiskTier;
+  autonomyTier: InitiativeAutonomyTier;
+  technicalOwnerMemberId: string | null;
+  riskOwnerMemberId: string | null;
+  legacyRemediationState: LegacyRemediationState;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface AiInitiative extends Initiative {
+  initiativeKind: "AI";
+  projectId: string;
+  businessOwnerMemberId: string;
+}
+
+export interface CreateAiInitiativeParams {
+  workspaceId: string;
+  projectId: string;
+  title: string;
+  description?: string;
+  intendedOutcome?: string;
+  businessProblem?: string;
+  startDate?: string;
+  targetDate?: string;
+  milestones?: InitiativeMilestone[];
+  businessOwnerMemberId: string;
+  technicalOwnerMemberId?: string;
+  riskOwnerMemberId?: string;
+  keyResultIds: string[];
+  initiativeKind?: InitiativeKind;
+  riskTier?: InitiativeRiskTier;
+  autonomyTier?: InitiativeAutonomyTier;
 }
 
 export interface CreateInitiativeParams {
@@ -99,6 +145,7 @@ function toInitiative(
     title: row.title,
     description: row.description,
     intendedOutcome: row.intendedOutcome,
+    businessProblem: row.businessProblem ?? null,
     startDate: row.startDate ? row.startDate.toISOString() : null,
     targetDate: row.targetDate ? row.targetDate.toISOString() : null,
     milestones: (row.milestones as any[]) || [],
@@ -113,6 +160,13 @@ function toInitiative(
     ownerMemberId: row.ownerMemberId ? row.ownerMemberId.toString() : null,
     revision: row.revision,
     keyResultIds: keyResultIds.length > 0 ? keyResultIds : [row.keyResultId.toString()],
+    initiativeKind: (row.initiativeKind as InitiativeKind) || "GENERIC",
+    lifecycleState: (row.lifecycleState as InitiativeLifecycleState) || "DISCOVER",
+    riskTier: (row.riskTier as InitiativeRiskTier) || "LOW",
+    autonomyTier: (row.autonomyTier as InitiativeAutonomyTier) || "A0",
+    technicalOwnerMemberId: row.technicalOwnerMemberId ? row.technicalOwnerMemberId.toString() : null,
+    riskOwnerMemberId: row.riskOwnerMemberId ? row.riskOwnerMemberId.toString() : null,
+    legacyRemediationState: (row.legacyRemediationState as LegacyRemediationState) || "CLEAN",
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -227,35 +281,15 @@ async function createInitiativeAuthorized(
     }
   }
 
-  let resolvedProjId: bigint;
-  if (projId) {
-    resolvedProjId = projId;
-  } else {
-    const [firstProj] = await db
-      .select({ id: projects.id })
-      .from(projects)
-      .where(and(eq(projects.workspaceId, wsId), isNull(projects.deletedAt)))
-      .limit(1);
-    if (!firstProj) {
-      throw APIError.invalidArgument("projectId is required or project must exist");
-    }
-    resolvedProjId = firstProj.id;
+  if (!projId) {
+    throw APIError.invalidArgument("projectId is required");
   }
+  const resolvedProjId: bigint = projId;
 
-  let resolvedKeyResultId: bigint;
-  if (krIds.length > 0) {
-    resolvedKeyResultId = BigInt(krIds[0]);
-  } else {
-    const [firstKr] = await db
-      .select({ id: keyResults.id })
-      .from(keyResults)
-      .where(and(eq(keyResults.workspaceId, wsId), isNull(keyResults.deletedAt)))
-      .limit(1);
-    if (!firstKr) {
-      throw APIError.invalidArgument("keyResultId is required or key result must exist");
-    }
-    resolvedKeyResultId = firstKr.id;
+  if (krIds.length === 0) {
+    throw APIError.invalidArgument("keyResultId is required");
   }
+  const resolvedKeyResultId: bigint = BigInt(krIds[0]);
 
   const id = generateSnowflake();
 
@@ -275,6 +309,11 @@ async function createInitiativeAuthorized(
       status: params.status || "active",
       approvalStatus: "DRAFT",
       ownerMemberId: params.ownerMemberId ? BigInt(params.ownerMemberId) : null,
+      initiativeKind: "GENERIC",
+      lifecycleState: "DISCOVER",
+      riskTier: "LOW",
+      autonomyTier: "A0",
+      legacyRemediationState: "CLEAN",
       revision: 1,
     })
     .returning();
@@ -605,4 +644,149 @@ export async function listInitiativesService(
       toInitiative(r, krsByInitId.get(r.id.toString()) || [])
     ),
   };
+}
+
+export async function createAiInitiativeInWorkspace(
+  ctx: TenantContext,
+  params: CreateAiInitiativeParams
+): Promise<AiInitiative> {
+  if (ctx.workspaceId !== params.workspaceId) {
+    throw APIError.permissionDenied(
+      "workspace context does not match initiative workspace"
+    );
+  }
+
+  if (!params.title || params.title.trim().length === 0) {
+    throw APIError.invalidArgument("title is required");
+  }
+
+  if (!params.projectId) {
+    throw APIError.invalidArgument("projectId is required");
+  }
+
+  if (!params.keyResultIds || params.keyResultIds.length === 0) {
+    throw APIError.invalidArgument("keyResultIds is required");
+  }
+
+  if (!params.businessOwnerMemberId) {
+    throw APIError.invalidArgument("businessOwnerMemberId is required");
+  }
+
+  const wsId = BigInt(params.workspaceId);
+  const projId = BigInt(params.projectId);
+
+  const [proj] = await db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(and(eq(projects.id, projId), eq(projects.workspaceId, wsId), isNull(projects.deletedAt)))
+    .limit(1);
+
+  if (!proj) {
+    throw APIError.notFound(`Project ${params.projectId} not found in workspace`);
+  }
+
+  const krBigInts = params.keyResultIds.map((k) => BigInt(k));
+  const krRows = await db
+    .select({ id: keyResults.id })
+    .from(keyResults)
+    .where(
+      and(
+        eq(keyResults.workspaceId, wsId),
+        inArray(keyResults.id, krBigInts),
+        isNull(keyResults.deletedAt)
+      )
+    );
+
+  if (krRows.length !== params.keyResultIds.length) {
+    throw APIError.invalidArgument(
+      "One or more Key Results do not belong to caller workspace"
+    );
+  }
+
+  const ownerMemberId = BigInt(params.businessOwnerMemberId);
+  const techOwnerId = params.technicalOwnerMemberId ? BigInt(params.technicalOwnerMemberId) : null;
+  const riskOwnerId = params.riskOwnerMemberId ? BigInt(params.riskOwnerMemberId) : null;
+
+  const id = generateSnowflake();
+  const primaryKrId = krBigInts[0];
+
+  const [row] = await db
+    .insert(initiatives)
+    .values({
+      id,
+      workspaceId: wsId,
+      projectId: projId,
+      keyResultId: primaryKrId,
+      title: params.title.trim(),
+      description: params.description || null,
+      intendedOutcome: params.intendedOutcome || null,
+      businessProblem: params.businessProblem || null,
+      startDate: params.startDate ? new Date(params.startDate) : null,
+      targetDate: params.targetDate ? new Date(params.targetDate) : null,
+      milestones: (params.milestones as any) || [],
+      ownerMemberId,
+      technicalOwnerMemberId: techOwnerId,
+      riskOwnerMemberId: riskOwnerId,
+      initiativeKind: params.initiativeKind || "AI",
+      lifecycleState: "DISCOVER",
+      riskTier: params.riskTier || "LOW",
+      autonomyTier: params.autonomyTier || "A0",
+      legacyRemediationState: "CLEAN",
+      status: "active",
+      approvalStatus: "DRAFT",
+    })
+    .returning();
+
+  for (const krId of krBigInts) {
+    await db
+      .insert(initiativeKeyResults)
+      .values({
+        workspaceId: wsId,
+        initiativeId: id,
+        keyResultId: krId,
+      })
+      .onConflictDoNothing();
+  }
+
+  const base = toInitiative(row, params.keyResultIds);
+  return {
+    ...base,
+    initiativeKind: "AI",
+    projectId: params.projectId,
+    businessOwnerMemberId: params.businessOwnerMemberId,
+  };
+}
+
+export async function getInitiativeGateStatus(
+  initiativeId: string,
+  workspaceId: string
+): Promise<string[]> {
+  const wsId = BigInt(workspaceId);
+  const id = BigInt(initiativeId);
+
+  const [row] = await db
+    .select()
+    .from(initiatives)
+    .where(and(eq(initiatives.id, id), eq(initiatives.workspaceId, wsId)))
+    .limit(1);
+
+  if (!row) {
+    throw APIError.notFound(`Initiative ${initiativeId} not found`);
+  }
+
+  const gates: string[] = [];
+
+  if (row.legacyRemediationState === "NEEDS_REBIND") {
+    gates.push("PROJECT_CONTEXT_REQUIRED");
+  }
+
+  if (!row.projectId) {
+    gates.push("PROJECT_CONTEXT_REQUIRED");
+  }
+
+  if (row.approvalStatus !== "APPROVED") {
+    gates.push("APPROVAL_STATUS_REQUIRED");
+  }
+
+  return gates;
 }

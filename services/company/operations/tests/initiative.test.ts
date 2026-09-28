@@ -19,6 +19,7 @@ async function makeAuthedWorkspace(displayName: string) {
   const okr = await seedObjectiveWithKeyResult(user.workspaceId, user.projectId);
   return {
     workspaceId: user.workspaceId,
+    projectId: user.projectId,
     authorization: `Bearer ${user.accessToken}`,
     objectiveId: okr.objectiveId,
     keyResultId: okr.keyResultId,
@@ -27,8 +28,8 @@ async function makeAuthedWorkspace(displayName: string) {
 
 describe("createInitiative", () => {
   it("creates an initiative with the default active status", async () => {
-    const { workspaceId, authorization } = await makeAuthedWorkspace("Initiative Test Inc");
-    const initiative = await createInitiative({ workspaceId, title: "Launch v1", authorization });
+    const { workspaceId, projectId, keyResultId, authorization } = await makeAuthedWorkspace("Initiative Test Inc");
+    const initiative = await createInitiative({ workspaceId, projectId, keyResultIds: [keyResultId], title: "Launch v1", authorization });
     expect(initiative.id).toBeTruthy();
     expect(typeof initiative.id).toBe("string");
     expect(initiative.status).toBe("active");
@@ -50,9 +51,11 @@ describe("createInitiative", () => {
 
 describe("initiative approval transition", () => {
   it("rejects approvalStatus changes through the general update endpoint", async () => {
-    const { workspaceId, authorization } = await makeAuthedWorkspace("Protected Initiative Approval");
+    const { workspaceId, projectId, keyResultId, authorization } = await makeAuthedWorkspace("Protected Initiative Approval");
     const initiative = await createInitiative({
       workspaceId,
+      projectId,
+      keyResultIds: [keyResultId],
       title: "Approval must use governed command",
       authorization,
     });
@@ -70,8 +73,8 @@ describe("initiative approval transition", () => {
 
 describe("getInitiative", () => {
   it("fetches a previously created initiative", async () => {
-    const { workspaceId, authorization } = await makeAuthedWorkspace("Fetch Initiative Inc");
-    const created = await createInitiative({ workspaceId, title: "Fetch me", authorization });
+    const { workspaceId, projectId, keyResultId, authorization } = await makeAuthedWorkspace("Fetch Initiative Inc");
+    const created = await createInitiative({ workspaceId, projectId, keyResultIds: [keyResultId], title: "Fetch me", authorization });
     const fetched = await getInitiative({ id: created.id, authorization });
     expect(fetched).toEqual(created);
   });
@@ -84,15 +87,15 @@ describe("getInitiative", () => {
 
 describe("Task.initiativeId FK", () => {
   it("accepts a task linked to a real initiative", async () => {
-    const { workspaceId, authorization } = await makeAuthedWorkspace("Task Initiative Link Inc");
-    const initiative = await createInitiative({ workspaceId, title: "Linked initiative", authorization });
+    const { workspaceId, projectId, keyResultId, authorization } = await makeAuthedWorkspace("Task Initiative Link Inc");
+    const initiative = await createInitiative({ workspaceId, projectId, keyResultIds: [keyResultId], title: "Linked initiative", authorization });
     await approveInitiative({ id: initiative.id, workspaceId, authorization });
-    const task = await createTask({ workspaceId, projectId: workspaceId, title: "Linked task", initiativeId: initiative.id, authorization });
+    const task = await createTask({ workspaceId, projectId, title: "Linked task", initiativeId: initiative.id, authorization });
     expect(task.initiativeId).toBe(initiative.id);
   });
 
   it("rejects a task linked to a non-existent initiative (real DB FK)", async () => {
-    const { workspaceId, authorization } = await makeAuthedWorkspace("Bad Initiative Link Inc");
+    const { workspaceId, projectId, keyResultId, authorization } = await makeAuthedWorkspace("Bad Initiative Link Inc");
     await expect(
       createTask({ workspaceId, projectId: workspaceId, title: "Bad link", initiativeId: "999999999", authorization })
     ).rejects.toThrow();

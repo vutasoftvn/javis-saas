@@ -25,8 +25,19 @@ export const initiatives = strategySchema.table("initiatives", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  initiativeKind: text("initiative_kind").default("GENERIC").notNull(),
+  lifecycleState: text("lifecycle_state").default("DISCOVER").notNull(),
+  riskTier: text("risk_tier").default("LOW").notNull(),
+  autonomyTier: text("autonomy_tier").default("A0").notNull(),
+  businessProblem: text("business_problem"),
+  technicalOwnerMemberId: bigint("technical_owner_member_id", { mode: "bigint" }),
+  riskOwnerMemberId: bigint("risk_owner_member_id", { mode: "bigint" }),
+  legacyRemediationState: text("legacy_remediation_state").default("CLEAN").notNull(),
 }, (t) => ({
   uixIdWorkspace: uniqueIndex("uix_initiatives_id_workspace").on(t.id, t.workspaceId),
+  idxWsProjLifecycleUpdated: index("idx_initiatives_ws_proj_lifecycle_updated").on(t.workspaceId, t.projectId, t.lifecycleState, t.updatedAt),
+  idxTechOwner: index("idx_initiatives_technical_owner").on(t.technicalOwnerMemberId),
+  idxRiskOwner: index("idx_initiatives_risk_owner").on(t.riskOwnerMemberId),
 }));
 
 

@@ -111,6 +111,8 @@ describe("initiative workspace integrity & execution preservation", () => {
     const init = await createInitiativeService(
       {
         workspaceId: ctx.workspaceId,
+        projectId: ctx.projectId,
+        keyResultIds: [ctx.keyResultId],
         title: "Sáng kiến chiến lược tăng trưởng",
         intendedOutcome: "Tăng 30% doanh thu",
       },
@@ -193,6 +195,7 @@ describe("initiative workspace integrity & execution preservation", () => {
         // khiến commitment/task sau đó bị createTaskService từ chối vì lệch
         // Project dù cùng workspace.
         projectId: ctx.projectId,
+        keyResultIds: [ctx.keyResultId],
         title: "Sáng kiến trực tiếp",
         intendedOutcome: "Hoàn thiện hệ thống core",
       },
@@ -292,6 +295,8 @@ describe("initiative workspace integrity & execution preservation", () => {
     const initWs2 = await createInitiativeService(
       {
         workspaceId: ctx2.workspaceId,
+        projectId: ctx2.projectId,
+        keyResultIds: [ctx2.keyResultId],
         title: "Sáng kiến thuộc workspace 2",
       },
       ctx2.auth
@@ -357,6 +362,8 @@ describe("initiative workspace integrity & execution preservation", () => {
     const draftInit = await createInitiativeService(
       {
         workspaceId: ctx.workspaceId,
+        projectId: ctx.projectId,
+        keyResultIds: [ctx.keyResultId],
         title: "Sáng kiến chưa duyệt (DRAFT)",
       },
       ctx.auth

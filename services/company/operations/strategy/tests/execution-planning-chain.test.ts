@@ -29,7 +29,7 @@ async function makeAuthedWorkspace(displayName: string) {
 describe("Phase 2e: Execution & Planning Chain Integration Test", () => {
   it("executes the full chain: project → initiative → OKR cycle → 12-week plan → weekly plan without linkage error", async () => {
     // 1. Setup Workspace
-    const { workspaceId, authorization } = await makeAuthedWorkspace("COSA Execution Inc");
+    const { workspaceId, authorization, keyResultId } = await makeAuthedWorkspace("COSA Execution Inc");
 
     // 2. Project
     const project = await createProject({
@@ -48,6 +48,8 @@ describe("Phase 2e: Execution & Planning Chain Integration Test", () => {
     // 3. Initiative (NOT guarded by Task 3 - keep original shape)
     const initiative = await createInitiative({
       workspaceId,
+      projectId: project.id,
+      keyResultIds: [keyResultId],
       title: "Self-Serve Billing & Onboarding",
       authorization,
     });
