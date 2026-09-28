@@ -121,9 +121,11 @@ from apps.cosa.capabilities.mcp_connectors import (
 from apps.cosa.capabilities.okr_write import (
     OKR_KEY_RESULT_CHECKIN_SPEC,
     OKR_KEY_RESULT_CREATE_SPEC,
+    OKR_KEY_RESULT_UPDATE_SPEC,
     OKR_OBJECTIVE_LIST_SPEC,
     create_okr_key_result_checkin_handler,
     create_okr_key_result_create_handler,
+    create_okr_key_result_update_handler,
     create_okr_objective_list_handler,
 )
 from apps.cosa.capabilities.operations_read import (
@@ -252,6 +254,9 @@ def register_cosa_capabilities(
     cap_registry.register(OKR_KEY_RESULT_CREATE_SPEC, create_okr_key_result_create_handler(client))
     cap_registry.register(
         OKR_KEY_RESULT_CHECKIN_SPEC, create_okr_key_result_checkin_handler(client)
+    )
+    cap_registry.register(
+        OKR_KEY_RESULT_UPDATE_SPEC, create_okr_key_result_update_handler(client)
     )
 
     # Finance

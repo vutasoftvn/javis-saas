@@ -73,6 +73,7 @@ MATRIX: dict[str, AccessEntry] = {
     "okr.objective.list": _r("okr", "okr.objective.list"),
     "okr.key_result.create": _c("okr", "okr.key_result.create"),
     "okr.key_result.checkin": _c("okr", "okr.key_result.checkin"),
+    "okr.key_result.update": _c("okr", "okr.key_result.update"),
     # --- onboarding
     "startup_os.onboard.context_read": _r("onboard", "startup_os.onboard.context_read"),
     "startup_os.onboard.cadence_status": _r("onboard", "startup_os.onboard.cadence_status"),

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-09-27T00:37:01.096Z",
+  "generated_at": "2026-09-28T11:11:21.833Z",
   "groups": {
     "agent": {
       "fingerprint": "879b37d556712097fced2b6ba62733db06d83b8aefd7f1c09e168595a45d8437",
@@ -8781,7 +8781,7 @@
       }
     },
     "cosa": {
-      "fingerprint": "8221011e4ee9c2f0367998ded18dde4def608c09e4464bc0f7c208abae9820c6",
+      "fingerprint": "498140cd5e9ab8ecd8a4222d6d2d2c9697858511aee252e265c7e0f70049778f",
       "schemas": [
         "control_plane",
         "cosa"
@@ -10714,6 +10714,56 @@
               "max_length": null,
               "precision": null,
               "scale": null
+            },
+            {
+              "name": "pre_authorized_capability_ids",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "founder_member_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "founder_user_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "automation_plan_proposal_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "token_budget_per_run",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
             }
           ],
           "primary_key": {
@@ -10738,6 +10788,10 @@
             {
               "name": "idx_workspace_schedules_due",
               "definition": "CREATE INDEX idx_workspace_schedules_due ON control_plane.organization_schedule_definitions USING btree (state, next_run_at)"
+            },
+            {
+              "name": "uq_organization_schedule_definitions_proposal",
+              "definition": "CREATE UNIQUE INDEX uq_organization_schedule_definitions_proposal ON control_plane.organization_schedule_definitions USING btree (automation_plan_proposal_id) WHERE (automation_plan_proposal_id IS NOT NULL)"
             },
             {
               "name": "workspace_schedule_definitions_pkey",
@@ -10919,6 +10973,46 @@
               "max_length": null,
               "precision": null,
               "scale": null
+            },
+            {
+              "name": "pre_authorized_capability_ids_snapshot",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "founder_member_id_snapshot",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "founder_user_id_snapshot",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "token_budget_per_run_snapshot",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
             }
           ],
           "primary_key": {
@@ -14456,7 +14550,7 @@
       }
     },
     "workspace": {
-      "fingerprint": "0b11dc316adea70bde95fc4021b2e83d0ce733b922a53a185ab5191e80653b59",
+      "fingerprint": "99d2925cdb620bf70d972704fed265853b4f8e3eabfcc69863a7a9f5ea90934b",
       "schemas": [
         "commercial",
         "core",
@@ -14468,7 +14562,7 @@
         "sales",
         "strategy"
       ],
-      "tables_count": 244,
+      "tables_count": 246,
       "enums": [
         {
           "schema": "operating",
@@ -18501,6 +18595,157 @@
             {
               "name": "cosa_delegation_replays_workspace_run_idx",
               "definition": "CREATE INDEX cosa_delegation_replays_workspace_run_idx ON core.cosa_delegation_replays USING btree (workspace_id, run_id)"
+            }
+          ]
+        },
+        "core.founder_notification_channels": {
+          "schema": "core",
+          "name": "founder_notification_channels",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "founder_member_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "kind",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "secret_ref",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "chat_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "label",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "verified_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "revoked_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "founder_notification_channels_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "founder_notification_channels_founder_member_id_fkey",
+              "columns": [
+                "founder_member_id"
+              ],
+              "foreign_table": "core.workforce_members",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            },
+            {
+              "name": "founder_notification_channels_workspace_id_fkey",
+              "columns": [
+                "workspace_id"
+              ],
+              "foreign_table": "core.workspaces",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "founder_notification_channels_pkey",
+              "definition": "CREATE UNIQUE INDEX founder_notification_channels_pkey ON core.founder_notification_channels USING btree (id)"
+            },
+            {
+              "name": "uq_founder_notification_channels_active",
+              "definition": "CREATE UNIQUE INDEX uq_founder_notification_channels_active ON core.founder_notification_channels USING btree (workspace_id, founder_member_id, kind) WHERE (revoked_at IS NULL)"
             }
           ]
         },
@@ -35798,6 +36043,206 @@
             {
               "name": "automation_invocations_pkey",
               "definition": "CREATE UNIQUE INDEX automation_invocations_pkey ON operating.automation_invocations USING btree (id)"
+            }
+          ]
+        },
+        "operating.automation_plan_proposals": {
+          "schema": "operating",
+          "name": "automation_plan_proposals",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "workspace_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "project_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "proposed_by_member_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "run_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "plan",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "readiness",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "status",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'DRAFT'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "approved_schedule_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "decided_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "decided_by_member_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "decided_by_user_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "automation_plan_proposals_pkey",
+            "columns": [
+              "id"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "automation_plan_proposals_decided_by_member_id_fkey",
+              "columns": [
+                "decided_by_member_id"
+              ],
+              "foreign_table": "core.workforce_members",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "SET NULL"
+            },
+            {
+              "name": "fk_automation_plan_proposals_member",
+              "columns": [
+                "proposed_by_member_id"
+              ],
+              "foreign_table": "core.workforce_members",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            },
+            {
+              "name": "fk_automation_plan_proposals_proj_ws",
+              "columns": [
+                "project_id",
+                "workspace_id"
+              ],
+              "foreign_table": "strategy.projects",
+              "foreign_columns": [
+                "id",
+                "workspace_id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [
+            {
+              "name": "chk_automation_plan_proposals_status",
+              "clause": "((status = ANY (ARRAY['DRAFT'::text, 'APPROVED'::text, 'DISCARDED'::text])))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "automation_plan_proposals_pkey",
+              "definition": "CREATE UNIQUE INDEX automation_plan_proposals_pkey ON operating.automation_plan_proposals USING btree (id)"
+            },
+            {
+              "name": "idx_automation_plan_proposals_project_created",
+              "definition": "CREATE INDEX idx_automation_plan_proposals_project_created ON operating.automation_plan_proposals USING btree (project_id, created_at)"
             }
           ]
         },

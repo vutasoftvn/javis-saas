@@ -216,6 +216,35 @@ class HubOperationsController extends GetxController {
     }
   }
 
+  Future<HubActionOutcome> createSchedule({
+    required String promptTemplate,
+    String scheduleKind = "daily",
+    int? hour,
+    int? minute,
+    List<int> weekdays = const [],
+    String agentProfile = "operations",
+  }) async {
+    final pid = projectId.value;
+    if (pid == null) return const HubActionOutcome(false, "Chưa chọn dự án");
+    schedulesLoading.value = true;
+    try {
+      final res = await _operations.createSchedule(
+        projectId: pid,
+        promptTemplate: promptTemplate,
+        scheduleKind: scheduleKind,
+        hour: hour,
+        minute: minute,
+        weekdays: weekdays,
+        agentProfile: agentProfile,
+      );
+      if (res is ApiFailure) return HubActionOutcome(false, _failureMessage(res));
+      await loadSchedules();
+      return const HubActionOutcome(true);
+    } finally {
+      schedulesLoading.value = false;
+    }
+  }
+
   // ── Công cụ ────────────────────────────────────────────────────────────
 
   Future<void> loadTools() async {
@@ -241,6 +270,20 @@ class HubOperationsController extends GetxController {
         toolsError.value = _failureMessage(grantRes);
     }
     toolsLoading.value = false;
+  }
+
+  Future<HubActionOutcome> installConnector(String connectorKey) async {
+    busy.add("connector_$connectorKey");
+    try {
+      final res = await _settings.installConnector(connectorKey);
+      if (res is ApiFailure) return HubActionOutcome(false, _failureMessage(res));
+      await loadTools();
+      return const HubActionOutcome(true);
+    } catch (e) {
+      return HubActionOutcome(false, e.toString());
+    } finally {
+      busy.remove("connector_$connectorKey");
+    }
   }
 
   Future<HubActionOutcome> revokeGrant(HubAgentGrant grant, {required String reason}) async {

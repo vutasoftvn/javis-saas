@@ -22,6 +22,10 @@ _TEMPLATES: dict[str, dict[str, tuple[str, str]]] = {
         "vi": ("Ghi nhận tiến độ Key Result cho {project}", "Giá trị mới: {value}"),
         "en": ("Record Key Result progress for {project}", "New value: {value}"),
     },
+    "okr.key_result.update": {
+        "vi": ("Cập nhật Key Result cho {project}", "Trạng thái mới: {status_label}"),
+        "en": ("Update Key Result for {project}", "New status: {status_label}"),
+    },
     "startup_os.goal.create": {
         "vi": ("Tạo mục tiêu mới cho {project}", "{title} ({goal_type_label})"),
         "en": ("Create a new goal for {project}", "{title} ({goal_type_label})"),
@@ -102,6 +106,28 @@ _ENUM_LABELS: dict[str, dict[str, dict[str, str]]] = {
     "to_status": {
         "vi": {"in_progress": "đang làm", "done": "hoàn thành", "blocked": "bị chặn"},
         "en": {"in_progress": "in progress", "done": "done", "blocked": "blocked"},
+    },
+    "status": {
+        "vi": {
+            "draft": "nháp",
+            "published": "đã công bố",
+            "active": "đang thực hiện",
+            "on_track": "đúng tiến độ",
+            "at_risk": "có rủi ro",
+            "off_track": "chậm tiến độ",
+            "completed": "hoàn thành",
+            "archived": "đã lưu trữ",
+        },
+        "en": {
+            "draft": "draft",
+            "published": "published",
+            "active": "active",
+            "on_track": "on track",
+            "at_risk": "at risk",
+            "off_track": "off track",
+            "completed": "completed",
+            "archived": "archived",
+        },
     },
     "direction": {
         "vi": {"IN": "thu", "OUT": "chi", "inbound": "thu", "outbound": "chi"},

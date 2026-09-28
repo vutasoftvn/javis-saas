@@ -17,12 +17,18 @@ class ProjectOperatingWeekCard extends StatelessWidget {
     this.isLoading = false,
     this.errorMessage,
     this.onRetry,
+    this.isExpanded = true,
+    this.isFullHeight = false,
+    this.onToggleExpand,
   });
 
   final ProjectOperatingLoop? operatingLoop;
   final bool isLoading;
   final String? errorMessage;
   final VoidCallback? onRetry;
+  final bool isExpanded;
+  final bool isFullHeight;
+  final VoidCallback? onToggleExpand;
 
   bool _isEnglish() {
     if (Get.isRegistered<LocaleController>()) {
@@ -187,40 +193,39 @@ class ProjectOperatingWeekCard extends StatelessWidget {
       }
     }
 
-    return Container(
-      key: const Key('operating_week_card'),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.38),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    if (!isExpanded) {
+      return Container(
+        key: const Key('operating_week_card'),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0F172A).withValues(alpha: 0.38),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppTheme.primary.withValues(alpha: 0.2)),
+        ),
+        child: InkWell(
+          onTap: onToggleExpand,
+          borderRadius: BorderRadius.circular(8),
+          child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
                 child: Row(
                   children: [
-                    Icon(Icons.calendar_today,
-                        size: 20, color: theme.colorScheme.primary),
+                    Icon(Icons.calendar_today, size: 18, color: theme.colorScheme.primary),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         isEn
                             ? 'Cycle: ${cycle.durationWeeks} weeks — Week $currentWeekNo'
                             : 'Chu kỳ ${cycle.durationWeeks} tuần — Tuần $currentWeekNo',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
@@ -237,8 +242,19 @@ class ProjectOperatingWeekCard extends StatelessWidget {
                   ),
                 ),
               ),
+              if (onToggleExpand != null) ...[
+                const SizedBox(width: 4),
+                Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white70, size: 20),
+              ],
             ],
           ),
+        ),
+      );
+    }
+
+    Widget contentBody() => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           if (phaseTitle != null && phaseTitle.isNotEmpty) ...[
             const SizedBox(height: 10),
             Row(
@@ -418,8 +434,8 @@ class ProjectOperatingWeekCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 8.0),
               child: Text(
                 isEn
-                    ? 'No commitments scheduled for this week.'
-                    : 'Chưa có cam kết công việc nào trong tuần này.',
+                    ? "No commitments scheduled for this week."
+                    : "Chưa có cam kết công việc nào trong tuần này.",
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
@@ -427,7 +443,7 @@ class ProjectOperatingWeekCard extends StatelessWidget {
             )
           else ...[
             Text(
-              isEn ? 'Commitments this week:' : 'Cam kết tuần này:',
+              isEn ? "Commitments this week:" : "Cam kết tuần này:",
               style: theme.textTheme.labelMedium?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                 fontWeight: FontWeight.w600,
@@ -439,7 +455,7 @@ class ProjectOperatingWeekCard extends StatelessWidget {
                   tasks.where((t) => t.weeklyCommitmentId == commitment.id).toList();
               final totalTasks = commitmentTasks.length;
               final incompleteTasks = commitmentTasks
-                  .where((t) => t.status != 'done' && t.status != 'completed')
+                  .where((t) => t.status != "done" && t.status != "completed")
                   .length;
 
               return Padding(
@@ -466,8 +482,8 @@ class ProjectOperatingWeekCard extends StatelessWidget {
                       const SizedBox(width: 8),
                       Text(
                         isEn
-                            ? '$incompleteTasks/$totalTasks tasks'
-                            : '$incompleteTasks/$totalTasks việc',
+                            ? "$incompleteTasks/$totalTasks tasks"
+                            : "$incompleteTasks/$totalTasks việc",
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: incompleteTasks > 0
                               ? theme.colorScheme.primary
@@ -481,6 +497,84 @@ class ProjectOperatingWeekCard extends StatelessWidget {
               );
             }),
           ],
+        ],
+      );
+
+    Widget headerRow() => Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Row(
+                children: [
+                  Icon(Icons.calendar_today,
+                      size: 20, color: theme.colorScheme.primary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      isEn
+                          ? "Cycle: ${cycle.durationWeeks} weeks — Week $currentWeekNo"
+                          : "Chu kỳ ${cycle.durationWeeks} tuần — Tuần $currentWeekNo",
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                isEn
+                    ? "Week $currentWeekNo / ${cycle.durationWeeks}"
+                    : "Tuần $currentWeekNo / ${cycle.durationWeeks}",
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            if (onToggleExpand != null) ...[
+              const SizedBox(width: 4),
+              IconButton(
+                key: const Key("operating_week_toggle_collapse"),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                tooltip: isEn ? "Collapse" : "Đóng lại",
+                icon: const Icon(Icons.keyboard_arrow_up_rounded, color: Colors.white70, size: 20),
+                onPressed: onToggleExpand,
+              ),
+            ],
+          ],
+        );
+
+    return Container(
+      key: const Key("operating_week_card"),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A).withValues(alpha: 0.38),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          headerRow(),
+          const SizedBox(height: 10),
+          if (isFullHeight)
+            Expanded(
+              child: SingleChildScrollView(
+                child: contentBody(),
+              ),
+            )
+          else
+            contentBody(),
         ],
       ),
     );

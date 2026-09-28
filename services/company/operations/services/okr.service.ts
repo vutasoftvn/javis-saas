@@ -437,7 +437,9 @@ export async function updateKeyResultService(params: UpdateKeyResultParams): Pro
     .limit(1);
 
   if (!existing) throw APIError.notFound(`key result ${params.id} not found`);
-  await requireWorkspaceAccess(params.authorization, existing.workspaceId.toString());
+  await requireWorkspaceAccess(params.authorization, existing.workspaceId.toString(), {
+    agentCapabilities: [AGENT_CAP.OKR_KEY_RESULT_UPDATE],
+  });
 
   for (const [field, value] of Object.entries({
     currentValue: params.currentValue,

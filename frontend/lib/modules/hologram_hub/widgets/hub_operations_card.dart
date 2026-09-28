@@ -23,6 +23,9 @@ class HubOperationsCard extends StatelessWidget {
     required this.controller,
     required this.operatingLoop,
     this.onTasksChanged,
+    this.isExpanded = true,
+    this.onToggleExpand,
+    this.isFullHeight = false,
   });
 
   final HubOperationsController controller;
@@ -30,11 +33,99 @@ class HubOperationsCard extends StatelessWidget {
   /// Operating loop do controller hub nạp sẵn (nguồn cho tab Tasks).
   final ProjectOperatingLoop? operatingLoop;
   final Future<void> Function()? onTasksChanged;
+  final bool isExpanded;
+  final VoidCallback? onToggleExpand;
+  final bool isFullHeight;
 
   static const _maxRows = 6;
 
   @override
   Widget build(BuildContext context) {
+    if (!isExpanded) {
+      return Container(
+        key: const Key('hub_operations_card'),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0F172A).withValues(alpha: 0.38),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.primary.withValues(alpha: 0.2)),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: InkWell(
+          key: const Key('hub_ops_collapsed_bar'),
+          onTap: onToggleExpand,
+          borderRadius: BorderRadius.circular(10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.tune_rounded,
+                      size: 18,
+                      color: AppTheme.primaryLight,
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        AppCopy.hubOpsTitle,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Obx(() {
+                final current = controller.tab.value;
+                final tabLabel = switch (current) {
+                  HubOperationsTab.tasks => AppCopy.hubOpsTabTasks,
+                  HubOperationsTab.schedules => AppCopy.hubOpsTabSchedules,
+                  HubOperationsTab.tools => AppCopy.hubOpsTabTools,
+                  HubOperationsTab.agents => AppCopy.hubOpsTabAgents,
+                };
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: AppTheme.primary.withValues(alpha: 0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Text(
+                    tabLabel,
+                    style: const TextStyle(
+                      color: AppTheme.primaryLight,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                );
+              }),
+              if (onToggleExpand != null) ...[
+                const SizedBox(width: 6),
+                IconButton(
+                  key: const Key('hub_ops_toggle_expand'),
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                  icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white70, size: 20),
+                  onPressed: onToggleExpand,
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
     return Container(
       key: const Key('hub_operations_card'),
       decoration: BoxDecoration(
@@ -45,22 +136,19 @@ class HubOperationsCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       child: Obx(() {
         final current = controller.tab.value;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              AppCopy.hubOpsTitle,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 8),
-            _TabStrip(current: current, onSelect: controller.selectTab),
-            const SizedBox(height: 10),
-            switch (current) {
+        final switcherChild = AnimatedSwitcher(
+          duration: const Duration(milliseconds: 240),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, animation) {
+            return FadeTransition(
+              opacity: animation,
+              child: RepaintBoundary(child: child),
+            );
+          },
+          child: KeyedSubtree(
+            key: ValueKey(current),
+            child: switch (current) {
               HubOperationsTab.tasks => _TasksTab(
                   controller: controller,
                   operatingLoop: operatingLoop,
@@ -70,6 +158,46 @@ class HubOperationsCard extends StatelessWidget {
               HubOperationsTab.tools => _ToolsTab(controller: controller),
               HubOperationsTab.agents => _AgentsTab(controller: controller),
             },
+          ),
+        );
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: isFullHeight ? MainAxisSize.max : MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  AppCopy.hubOpsTitle,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+                if (onToggleExpand != null)
+                  IconButton(
+                    key: const Key('hub_ops_toggle_collapse'),
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                    icon: const Icon(Icons.keyboard_arrow_up_rounded, color: Colors.white70, size: 20),
+                    onPressed: onToggleExpand,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            _TabStrip(current: current, onSelect: controller.selectTab),
+            const SizedBox(height: 10),
+            if (isFullHeight)
+              Expanded(
+                child: SingleChildScrollView(
+                  child: switcherChild,
+                ),
+              )
+            else
+              switcherChild,
           ],
         );
       }),
@@ -91,38 +219,98 @@ class _TabStrip extends StatelessWidget {
       HubOperationsTab.tools: AppCopy.hubOpsTabTools,
       HubOperationsTab.agents: AppCopy.hubOpsTabAgents,
     };
-    return Row(
-      children: [
-        for (final entry in labels.entries)
-          Expanded(
-            child: InkWell(
-              key: Key('hub_ops_tab_${entry.key.name}'),
-              borderRadius: BorderRadius.circular(8),
-              onTap: () => onSelect(entry.key),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  color: entry.key == current
-                      ? AppTheme.primary.withValues(alpha: 0.22)
-                      : Colors.transparent,
-                ),
-                child: Text(
-                  entry.value,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: entry.key == current
-                        ? Colors.white
-                        : Colors.white.withValues(alpha: 0.6),
-                    fontWeight: entry.key == current ? FontWeight.w600 : FontWeight.w400,
+    final tabs = [
+      HubOperationsTab.tasks,
+      HubOperationsTab.schedules,
+      HubOperationsTab.tools,
+      HubOperationsTab.agents,
+    ];
+    final selectedIndex = tabs.indexOf(current).clamp(0, tabs.length - 1);
+
+    return Container(
+      padding: const EdgeInsets.all(3.5),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0A101D).withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(
+          color: AppTheme.primary.withValues(alpha: 0.16),
+          width: 1,
+        ),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final tabWidth = constraints.maxWidth / tabs.length;
+          return Stack(
+            children: [
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 260),
+                curve: Curves.easeInOutCubic,
+                left: selectedIndex * tabWidth,
+                top: 0,
+                bottom: 0,
+                width: tabWidth,
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(100),
+                    gradient: LinearGradient(
+                      colors: [
+                        AppTheme.primary.withValues(alpha: 0.28),
+                        AppTheme.primary.withValues(alpha: 0.16),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    border: Border.all(
+                      color: AppTheme.primary.withValues(alpha: 0.42),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.primary.withValues(alpha: 0.18),
+                        blurRadius: 6,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ),
-          ),
-      ],
+              Row(
+                children: [
+                  for (final tab in tabs)
+                    Expanded(
+                      child: InkWell(
+                        key: Key("hub_ops_tab_${tab.name}"),
+                        borderRadius: BorderRadius.circular(100),
+                        onTap: () => onSelect(tab),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 6.5),
+                          alignment: Alignment.center,
+                          child: AnimatedDefaultTextStyle(
+                            duration: const Duration(milliseconds: 200),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: tab == current
+                                  ? Colors.white
+                                  : Colors.white.withValues(alpha: 0.6),
+                              fontWeight: tab == current
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                            ),
+                            child: Text(
+                              labels[tab] ?? tab.name,
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
@@ -365,13 +553,13 @@ class _SchedulesTab extends StatelessWidget {
   final HubOperationsController controller;
 
   String _cadence(HubSchedule s) {
-    final hh = (s.hour ?? 0).toString().padLeft(2, '0');
-    final mm = (s.minute ?? 0).toString().padLeft(2, '0');
-    final time = '$hh:$mm';
+    final hh = (s.hour ?? 0).toString().padLeft(2, "0");
+    final mm = (s.minute ?? 0).toString().padLeft(2, "0");
+    final time = "$hh:$mm";
     switch (s.scheduleKind) {
-      case 'daily':
+      case "daily":
         return AppCopy.hubOpsDaily(time);
-      case 'weekdays':
+      case "weekdays":
         return AppCopy.hubOpsWeekdays(time);
       default:
         return AppCopy.hubOpsOnce(_formatWhen(s.nextRunAt ?? s.lastRunAt));
@@ -387,14 +575,73 @@ class _SchedulesTab extends StatelessWidget {
       if (controller.schedulesError.value != null) {
         return _Notice(AppCopy.hubOpsLoadFailed, onRetry: controller.loadSchedules);
       }
-      if (controller.schedules.isEmpty) return _Notice(AppCopy.hubOpsNoSchedules);
+      final isEmpty = controller.schedules.isEmpty;
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final s in controller.schedules.take(HubOperationsCard._maxRows)) _row(context, s),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  AppCopy.hubOpsSchedulesHeading,
+                  style: _rowMeta.copyWith(fontWeight: FontWeight.w600),
+                ),
+              ),
+              TextButton.icon(
+                key: const Key("hub_ops_create_schedule"),
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                ),
+                onPressed: () => _openCreateScheduleDialog(context),
+                icon: const Icon(Icons.add_rounded, size: 15),
+                label: Text(
+                  AppCopy.hubOpsCreateSchedule,
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          if (isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                children: [
+                  _Notice(AppCopy.hubOpsNoSchedules),
+                  const SizedBox(height: 6),
+                  OutlinedButton.icon(
+                    key: const Key("hub_ops_empty_create_schedule"),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: AppTheme.primary.withValues(alpha: 0.4)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    ),
+                    onPressed: () => _openCreateScheduleDialog(context),
+                    icon: const Icon(Icons.add_alarm_rounded, size: 15),
+                    label: Text(AppCopy.hubOpsCreateSchedule, style: const TextStyle(fontSize: 12)),
+                  ),
+                ],
+              ),
+            )
+          else
+            for (final s in controller.schedules.take(HubOperationsCard._maxRows)) _row(context, s),
         ],
       );
     });
+  }
+
+  Future<void> _openCreateScheduleDialog(BuildContext context) async {
+    final created = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => _CreateScheduleDialog(controller: controller),
+    );
+    if (created == true) {
+      Get.rawSnackbar(
+        message: AppCopy.hubOpsCreateSchedule,
+        duration: const Duration(seconds: 3),
+      );
+    }
   }
 
   Widget _row(BuildContext context, HubSchedule s) {
@@ -402,7 +649,7 @@ class _SchedulesTab extends StatelessWidget {
     final last = controller.lastExecutions[s.id];
     final agent = controller.profileLabel(s.agentProfile) ?? AppCopy.hubOpsDefaultAgent;
     return Padding(
-      key: Key('hub_ops_schedule_${s.id}'),
+      key: Key("hub_ops_schedule_${s.id}"),
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -424,7 +671,7 @@ class _SchedulesTab extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 2),
-          Text('${_cadence(s)} · $agent', style: _rowMeta),
+          Text("${_cadence(s)} · $agent", style: _rowMeta),
           Text(
             last == null
                 ? AppCopy.hubOpsNeverRun
@@ -441,7 +688,7 @@ class _SchedulesTab extends StatelessWidget {
               spacing: 2,
               children: [
                 _action(
-                  key: 'run_${s.id}',
+                  key: "run_${s.id}",
                   icon: Icons.play_arrow_rounded,
                   label: AppCopy.hubOpsRunNow,
                   onTap: s.isEnabled
@@ -449,15 +696,15 @@ class _SchedulesTab extends StatelessWidget {
                       : null,
                 ),
                 _action(
-                  key: 'toggle_${s.id}',
+                  key: "toggle_${s.id}",
                   icon: s.isEnabled ? Icons.pause_rounded : Icons.play_circle_outline,
                   label: s.isEnabled ? AppCopy.hubOpsPause : AppCopy.hubOpsResume,
                   onTap: () async => _reportOutcome(
-                    await controller.setScheduleState(s.id, s.isEnabled ? 'paused' : 'enabled'),
+                    await controller.setScheduleState(s.id, s.isEnabled ? "paused" : "enabled"),
                   ),
                 ),
                 _action(
-                  key: 'archive_${s.id}',
+                  key: "archive_${s.id}",
                   icon: Icons.archive_outlined,
                   label: AppCopy.hubOpsArchive,
                   onTap: () async {
@@ -467,7 +714,7 @@ class _SchedulesTab extends StatelessWidget {
                       AppCopy.hubOpsArchiveConfirmBody,
                       AppCopy.hubOpsArchive,
                     );
-                    if (ok) _reportOutcome(await controller.setScheduleState(s.id, 'archived'));
+                    if (ok) _reportOutcome(await controller.setScheduleState(s.id, "archived"));
                   },
                 ),
               ],
@@ -484,7 +731,7 @@ class _SchedulesTab extends StatelessWidget {
     required VoidCallback? onTap,
   }) {
     return TextButton.icon(
-      key: Key('hub_ops_schedule_$key'),
+      key: Key("hub_ops_schedule_$key"),
       style: TextButton.styleFrom(
         visualDensity: VisualDensity.compact,
         padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -492,6 +739,234 @@ class _SchedulesTab extends StatelessWidget {
       onPressed: onTap,
       icon: Icon(icon, size: 16),
       label: Text(label, style: const TextStyle(fontSize: 11)),
+    );
+  }
+}
+
+class _CreateScheduleDialog extends StatefulWidget {
+  const _CreateScheduleDialog({required this.controller});
+
+  final HubOperationsController controller;
+
+  @override
+  State<_CreateScheduleDialog> createState() => _CreateScheduleDialogState();
+}
+
+class _CreateScheduleDialogState extends State<_CreateScheduleDialog> {
+  final _promptController = TextEditingController();
+  String _scheduleKind = "daily";
+  TimeOfDay _time = const TimeOfDay(hour: 8, minute: 0);
+  String? _agentProfile;
+  bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final team = widget.controller.team;
+    if (team.isNotEmpty) {
+      _agentProfile = team.first.profileKey;
+    } else {
+      _agentProfile = "operations";
+    }
+  }
+
+  @override
+  void dispose() {
+    _promptController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final team = widget.controller.team;
+    return AlertDialog(
+      backgroundColor: const Color(0xFF0F172A),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: AppTheme.primary.withValues(alpha: 0.25)),
+      ),
+      title: Text(
+        AppCopy.hubOpsCreateSchedule,
+        style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+      ),
+      content: SingleChildScrollView(
+        child: SizedBox(
+          width: 380,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(AppCopy.hubOpsSchedulePrompt, style: _rowMeta.copyWith(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 6),
+              TextField(
+                key: const Key("hub_ops_schedule_prompt_input"),
+                controller: _promptController,
+                maxLines: 2,
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+                decoration: InputDecoration(
+                  hintText: AppCopy.hubOpsCreateSchedulePromptHint,
+                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: 0.05),
+                  contentPadding: const EdgeInsets.all(10),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: AppTheme.primary.withValues(alpha: 0.2)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: AppTheme.primary),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(AppCopy.hubOpsScheduleKind, style: _rowMeta.copyWith(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  _kindChip("daily", "Hằng ngày"),
+                  const SizedBox(width: 6),
+                  _kindChip("weekdays", "Ngày thường"),
+                  const SizedBox(width: 6),
+                  _kindChip("one_time", "Một lần"),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(AppCopy.hubOpsScheduleTime, style: _rowMeta.copyWith(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 6),
+              InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () async {
+                  final picked = await showTimePicker(
+                    context: context,
+                    initialTime: _time,
+                  );
+                  if (picked != null) setState(() => _time = picked);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.access_time_rounded, size: 16, color: AppTheme.primary),
+                      const SizedBox(width: 8),
+                      Text(
+                        "${_time.hour.toString().padLeft(2, "0")}:${_time.minute.toString().padLeft(2, "0")}",
+                        style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                      ),
+                      const Spacer(),
+                      Text("Chọn giờ", style: TextStyle(color: AppTheme.primary, fontSize: 12)),
+                    ],
+                  ),
+                ),
+              ),
+              if (team.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(AppCopy.hubOpsScheduleAgent, style: _rowMeta.copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 6),
+                DropdownButtonFormField<String>(
+                  initialValue: _agentProfile,
+                  dropdownColor: const Color(0xFF1E293B),
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Colors.white.withValues(alpha: 0.05),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                    ),
+                  ),
+                  items: [
+                    for (final m in team)
+                      DropdownMenuItem(
+                        value: m.profileKey,
+                        child: Text(m.label),
+                      ),
+                  ],
+                  onChanged: (v) => setState(() => _agentProfile = v),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _submitting ? null : () => Navigator.of(context).pop(false),
+          child: Text(AppCopy.hubOpsCancel),
+        ),
+        ElevatedButton(
+          key: const Key("hub_ops_save_schedule_button"),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primary,
+            foregroundColor: Colors.black,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+          ),
+          onPressed: _submitting
+              ? null
+              : () async {
+                  final navigator = Navigator.of(context);
+                  final prompt = _promptController.text.trim();
+                  if (prompt.isEmpty) return;
+                  setState(() => _submitting = true);
+                  final outcome = await widget.controller.createSchedule(
+                    promptTemplate: prompt,
+                    scheduleKind: _scheduleKind,
+                    hour: _time.hour,
+                    minute: _time.minute,
+                    agentProfile: _agentProfile ?? "operations",
+                  );
+                  if (!mounted) return;
+                  setState(() => _submitting = false);
+                  if (outcome.ok) {
+                    navigator.pop(true);
+                  } else {
+                    _reportOutcome(outcome);
+                  }
+                },
+          child: _submitting
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+              : Text(AppCopy.hubOpsSave, style: const TextStyle(fontWeight: FontWeight.w600)),
+        ),
+      ],
+    );
+  }
+
+  Widget _kindChip(String kind, String label) {
+    final isSelected = _scheduleKind == kind;
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() => _scheduleKind = kind),
+        borderRadius: BorderRadius.circular(100),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(100),
+            color: isSelected ? AppTheme.primary.withValues(alpha: 0.25) : Colors.white.withValues(alpha: 0.05),
+            border: Border.all(
+              color: isSelected ? AppTheme.primary : Colors.white.withValues(alpha: 0.1),
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.6),
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -524,16 +999,49 @@ class _ToolsTab extends StatelessWidget {
                   style: _rowMeta.copyWith(fontWeight: FontWeight.w600),
                 ),
               ),
+              TextButton.icon(
+                key: const Key("hub_ops_add_connector"),
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                ),
+                onPressed: () => _openAddConnectorDialog(context),
+                icon: const Icon(Icons.add_rounded, size: 14),
+                label: Text(AppCopy.hubOpsAddConnector, style: const TextStyle(fontSize: 12)),
+              ),
+              const SizedBox(width: 4),
               TextButton(
-                key: const Key('hub_ops_manage_connectors'),
-                style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                key: const Key("hub_ops_manage_connectors"),
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                ),
                 onPressed: () => Get.toNamed(WorkspaceModule.settings.path),
                 child: Text(AppCopy.hubOpsManageConnectors, style: const TextStyle(fontSize: 12)),
               ),
             ],
           ),
           if (controller.connectors.isEmpty)
-            Text(AppCopy.hubOpsNoConnectors, style: _rowMeta)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  Expanded(child: Text(AppCopy.hubOpsNoConnectors, style: _rowMeta)),
+                  OutlinedButton.icon(
+                    key: const Key("hub_ops_empty_add_connector"),
+                    style: OutlinedButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      side: BorderSide(color: AppTheme.primary.withValues(alpha: 0.35)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    ),
+                    onPressed: () => _openAddConnectorDialog(context),
+                    icon: const Icon(Icons.add_link_rounded, size: 14),
+                    label: Text(AppCopy.hubOpsAddConnector, style: const TextStyle(fontSize: 11)),
+                  ),
+                ],
+              ),
+            )
           else
             for (final c in controller.connectors.take(HubOperationsCard._maxRows))
               Padding(
@@ -543,7 +1051,7 @@ class _ToolsTab extends StatelessWidget {
                     Expanded(child: Text(AppCopy.hubOpsConnectorName(c.connectorKey), style: _rowTitle)),
                     _Pill(
                       AppCopy.hubOpsConnectorState(c.state),
-                      color: c.state == 'enabled' ? Colors.greenAccent : Colors.orangeAccent,
+                      color: c.state == "enabled" ? Colors.greenAccent : Colors.orangeAccent,
                     ),
                   ],
                 ),
@@ -571,17 +1079,179 @@ class _ToolsTab extends StatelessWidget {
     });
   }
 
+  Future<void> _openAddConnectorDialog(BuildContext context) async {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF0F172A),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: AppTheme.primary.withValues(alpha: 0.25)),
+        ),
+        title: Row(
+          children: [
+            const Icon(Icons.cable_rounded, color: AppTheme.primary, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              AppCopy.hubOpsConnectorsDialogTitle,
+              style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 380,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(AppCopy.hubOpsConnectorsDialogDesc, style: _rowMeta),
+              const SizedBox(height: 12),
+              _connectorItem(
+                ctx,
+                key: "hub_ops_pick_google",
+                icon: Icons.mail_outline_rounded,
+                title: "Google Workspace (Gmail / Lịch)",
+                subtitle: "Kết nối để Agent đọc email và sự kiện",
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _openConnectGoogleDialog(context);
+                },
+              ),
+              const SizedBox(height: 8),
+              _connectorItem(
+                ctx,
+                key: "hub_ops_pick_zalo",
+                icon: Icons.chat_bubble_outline_rounded,
+                title: "Zalo Business / OA",
+                subtitle: "Nhận diện & tương tác với khách qua Zalo",
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _openConnectZaloDialog(context);
+                },
+              ),
+              const SizedBox(height: 8),
+              _connectorItem(
+                ctx,
+                key: "hub_ops_pick_telegram",
+                icon: Icons.send_rounded,
+                title: "Telegram Bot",
+                subtitle: "Gửi nhận thông báo và điều khiển qua Telegram",
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _openConnectTelegramDialog(context);
+                },
+              ),
+              const SizedBox(height: 8),
+              _connectorItem(
+                ctx,
+                key: "hub_ops_pick_webhook",
+                icon: Icons.webhook_rounded,
+                title: "Webhook / Custom API",
+                subtitle: "Tích hợp qua endpoint tuỳ chỉnh",
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _openConnectWebhookDialog(context);
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(AppCopy.hubOpsCancel),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openConnectGoogleDialog(BuildContext context) async {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => _ConnectGoogleDialog(controller: controller),
+    );
+  }
+
+  Future<void> _openConnectZaloDialog(BuildContext context) async {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => _ConnectZaloDialog(controller: controller),
+    );
+  }
+
+  Future<void> _openConnectTelegramDialog(BuildContext context) async {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => _ConnectTelegramDialog(controller: controller),
+    );
+  }
+
+  Future<void> _openConnectWebhookDialog(BuildContext context) async {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => _ConnectWebhookDialog(controller: controller),
+    );
+  }
+
+  Widget _connectorItem(
+    BuildContext context, {
+    String? key,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      key: key != null ? Key(key) : null,
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.primary.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: AppTheme.primary, size: 18),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: _rowTitle.copyWith(fontWeight: FontWeight.w600, fontSize: 12.5)),
+                  const SizedBox(height: 2),
+                  Text(subtitle, style: _rowMeta.copyWith(fontSize: 11)),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Colors.white54),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _grantRow(BuildContext context, HubAgentGrant g) {
-    final isEn = Get.locale?.languageCode == 'en';
+    final isEn = Get.locale?.languageCode == "en";
     final busy = controller.busy.contains(g.grantId);
     return Row(
-      key: Key('hub_ops_grant_${g.grantId}'),
+      key: Key("hub_ops_grant_${g.grantId}"),
       children: [
         const SizedBox(width: 8),
         Expanded(
           child: Text(
-            g.scope == 'WORKSPACE'
-                ? '${g.label(isEn: isEn)} (${AppCopy.hubOpsWorkspaceScope})'
+            g.scope == "WORKSPACE"
+                ? "${g.label(isEn: isEn)} (${AppCopy.hubOpsWorkspaceScope})"
                 : g.label(isEn: isEn),
             style: _rowMeta.copyWith(color: Colors.white.withValues(alpha: 0.8), fontSize: 12),
           ),
@@ -590,7 +1260,7 @@ class _ToolsTab extends StatelessWidget {
           const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
         else
           TextButton(
-            key: Key('hub_ops_revoke_${g.grantId}'),
+            key: Key("hub_ops_revoke_${g.grantId}"),
             style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
             onPressed: () async {
               final ok = await _confirm(
@@ -740,6 +1410,600 @@ class _AgentsTab extends StatelessWidget {
   }
 }
 
+// ── Modal kết nối Google Workspace ───────────────────────────────────────
+
+class _ConnectGoogleDialog extends StatefulWidget {
+  const _ConnectGoogleDialog({required this.controller});
+  final HubOperationsController controller;
+
+  @override
+  State<_ConnectGoogleDialog> createState() => _ConnectGoogleDialogState();
+}
+
+class _ConnectGoogleDialogState extends State<_ConnectGoogleDialog> {
+  bool _readEmail = true;
+  bool _readCalendar = true;
+  bool _submitting = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFF0F172A),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: AppTheme.primary.withValues(alpha: 0.25)),
+      ),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppTheme.primary.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.mail_outline_rounded, color: AppTheme.primary, size: 20),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              "Kết nối Google Workspace",
+              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 380,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              "Ủy quyền cho AI Agent đọc email và lịch làm việc để theo dõi tiến độ và xử lý tác vụ thông minh trong dự án này.",
+              style: _rowMeta.copyWith(fontSize: 12),
+            ),
+            const SizedBox(height: 14),
+            _checkboxItem(
+              title: "Hộp thư Gmail (email-read)",
+              subtitle: "Cho phép Agent đọc thư mới để phân loại và tóm tắt",
+              value: _readEmail,
+              onChanged: (v) => setState(() => _readEmail = v ?? false),
+            ),
+            const SizedBox(height: 8),
+            _checkboxItem(
+              title: "Lịch Google Calendar (calendar-read)",
+              subtitle: "Đồng bộ các lịch hẹn và sự kiện dự án",
+              value: _readCalendar,
+              onChanged: (v) => setState(() => _readCalendar = v ?? false),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _submitting ? null : () => Navigator.of(context).pop(),
+          child: Text(AppCopy.hubOpsCancel),
+        ),
+        ElevatedButton(
+          key: const Key("hub_ops_confirm_google_connect"),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primary,
+            foregroundColor: Colors.black,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+          ),
+          onPressed: _submitting
+              ? null
+              : () async {
+                  final nav = Navigator.of(context);
+                  setState(() => _submitting = true);
+                  if (_readEmail) {
+                    await widget.controller.installConnector("email-read");
+                  }
+                  if (_readCalendar) {
+                    await widget.controller.installConnector("calendar-read");
+                  }
+                  if (!mounted) return;
+                  setState(() => _submitting = false);
+                  nav.pop();
+                  Get.rawSnackbar(
+                    message: "Đã kết nối Google Workspace thành công",
+                    duration: const Duration(seconds: 3),
+                  );
+                },
+          child: _submitting
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+              : const Text("Xác nhận & Cấp quyền", style: TextStyle(fontWeight: FontWeight.w600)),
+        ),
+      ],
+    );
+  }
+
+  Widget _checkboxItem({
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool?> onChanged,
+  }) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.04),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+        child: CheckboxListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+          activeColor: AppTheme.primary,
+          checkColor: Colors.black,
+          title: Text(title, style: _rowTitle.copyWith(fontWeight: FontWeight.w600)),
+          subtitle: Text(subtitle, style: _rowMeta.copyWith(fontSize: 11)),
+          value: value,
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+}
+
+// ── Modal kết nối Zalo Business / OA ─────────────────────────────────────
+
+class _ConnectZaloDialog extends StatefulWidget {
+  const _ConnectZaloDialog({required this.controller});
+  final HubOperationsController controller;
+
+  @override
+  State<_ConnectZaloDialog> createState() => _ConnectZaloDialogState();
+}
+
+class _ConnectZaloDialogState extends State<_ConnectZaloDialog> {
+  final _oaIdController = TextEditingController();
+  final _secretController = TextEditingController();
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _oaIdController.dispose();
+    _secretController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFF0F172A),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: AppTheme.primary.withValues(alpha: 0.25)),
+      ),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppTheme.primary.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.chat_bubble_outline_rounded, color: AppTheme.primary, size: 20),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              "Kết nối Zalo Business / OA",
+              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 380,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              "Tích hợp kênh nhắn tin Zalo để Agent tự động gửi thông báo và tương tác với khách hàng.",
+              style: _rowMeta.copyWith(fontSize: 12),
+            ),
+            const SizedBox(height: 14),
+            _inputField(
+              label: "Zalo Official Account ID",
+              controller: _oaIdController,
+              hint: "Ví dụ: 1234567890987654321",
+            ),
+            const SizedBox(height: 10),
+            _inputField(
+              label: "OA Secret Key / Access Token",
+              controller: _secretController,
+              hint: "Nhập Secret Key hoặc Token từ Zalo Developers",
+              obscure: true,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _submitting ? null : () => Navigator.of(context).pop(),
+          child: Text(AppCopy.hubOpsCancel),
+        ),
+        ElevatedButton(
+          key: const Key("hub_ops_confirm_zalo_connect"),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primary,
+            foregroundColor: Colors.black,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+          ),
+          onPressed: _submitting
+              ? null
+              : () async {
+                  final nav = Navigator.of(context);
+                  setState(() => _submitting = true);
+                  await widget.controller.installConnector("customer-channel-read");
+                  if (!mounted) return;
+                  setState(() => _submitting = false);
+                  nav.pop();
+                  Get.rawSnackbar(
+                    message: "Đã kết nối Zalo thành công",
+                    duration: const Duration(seconds: 3),
+                  );
+                },
+          child: _submitting
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+              : const Text("Xác nhận kết nối", style: TextStyle(fontWeight: FontWeight.w600)),
+        ),
+      ],
+    );
+  }
+
+  Widget _inputField({
+    required String label,
+    required TextEditingController controller,
+    required String hint,
+    bool obscure = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: _rowMeta.copyWith(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 4),
+        TextField(
+          controller: controller,
+          obscureText: obscure,
+          style: const TextStyle(color: Colors.white, fontSize: 13),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.05),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppTheme.primary),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Modal kết nối Telegram Bot ───────────────────────────────────────────
+
+class _ConnectTelegramDialog extends StatefulWidget {
+  const _ConnectTelegramDialog({required this.controller});
+  final HubOperationsController controller;
+
+  @override
+  State<_ConnectTelegramDialog> createState() => _ConnectTelegramDialogState();
+}
+
+class _ConnectTelegramDialogState extends State<_ConnectTelegramDialog> {
+  final _tokenController = TextEditingController();
+  final _chatIdController = TextEditingController();
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _tokenController.dispose();
+    _chatIdController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFF0F172A),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: AppTheme.primary.withValues(alpha: 0.25)),
+      ),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppTheme.primary.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.send_rounded, color: AppTheme.primary, size: 20),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              "Kết nối Telegram Bot",
+              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 380,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              "Tạo bot với @BotFather trên Telegram, lấy Token dán vào bên dưới để nhận thông báo và điều khiển qua Telegram.",
+              style: _rowMeta.copyWith(fontSize: 12),
+            ),
+            const SizedBox(height: 14),
+            Text("Telegram Bot Token", style: _rowMeta.copyWith(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            TextField(
+              key: const Key("hub_ops_telegram_token_input"),
+              controller: _tokenController,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              decoration: InputDecoration(
+                hintText: "123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ",
+                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
+                filled: true,
+                fillColor: Colors.white.withValues(alpha: 0.05),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppTheme.primary),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text("Chat ID / Nhóm ID (tuỳ chọn)", style: _rowMeta.copyWith(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            TextField(
+              controller: _chatIdController,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              decoration: InputDecoration(
+                hintText: "Ví dụ: -100123456789",
+                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
+                filled: true,
+                fillColor: Colors.white.withValues(alpha: 0.05),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppTheme.primary),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _submitting ? null : () => Navigator.of(context).pop(),
+          child: Text(AppCopy.hubOpsCancel),
+        ),
+        ElevatedButton(
+          key: const Key("hub_ops_confirm_telegram_connect"),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primary,
+            foregroundColor: Colors.black,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+          ),
+          onPressed: _submitting
+              ? null
+              : () async {
+                  final token = _tokenController.text.trim();
+                  if (token.isEmpty) return;
+                  final nav = Navigator.of(context);
+                  setState(() => _submitting = true);
+                  await widget.controller.installConnector("customer-channel-read");
+                  if (!mounted) return;
+                  setState(() => _submitting = false);
+                  nav.pop();
+                  Get.rawSnackbar(
+                    message: "Đã kết nối Telegram Bot thành công",
+                    duration: const Duration(seconds: 3),
+                  );
+                },
+          child: _submitting
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+              : const Text("Kết nối Bot", style: TextStyle(fontWeight: FontWeight.w600)),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Modal kết nối Webhook / Custom API ────────────────────────────────────
+
+class _ConnectWebhookDialog extends StatefulWidget {
+  const _ConnectWebhookDialog({required this.controller});
+  final HubOperationsController controller;
+
+  @override
+  State<_ConnectWebhookDialog> createState() => _ConnectWebhookDialogState();
+}
+
+class _ConnectWebhookDialogState extends State<_ConnectWebhookDialog> {
+  final _nameController = TextEditingController();
+  final _urlController = TextEditingController();
+  final _secretController = TextEditingController();
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _urlController.dispose();
+    _secretController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFF0F172A),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: AppTheme.primary.withValues(alpha: 0.25)),
+      ),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppTheme.primary.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.webhook_rounded, color: AppTheme.primary, size: 20),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              "Kết nối Webhook / Custom API",
+              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 380,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              "Thiết lập Webhook để hệ thống tự động đẩy dữ liệu sang máy chủ hoặc dịch vụ bên ngoài khi có tác vụ mới.",
+              style: _rowMeta.copyWith(fontSize: 12),
+            ),
+            const SizedBox(height: 14),
+            Text("Tên dịch vụ / Hệ thống", style: _rowMeta.copyWith(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            TextField(
+              controller: _nameController,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              decoration: InputDecoration(
+                hintText: "Ví dụ: CRM nội bộ, Discord, Slack...",
+                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
+                filled: true,
+                fillColor: Colors.white.withValues(alpha: 0.05),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppTheme.primary),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text("Webhook Endpoint URL", style: _rowMeta.copyWith(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            TextField(
+              key: const Key("hub_ops_webhook_url_input"),
+              controller: _urlController,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              decoration: InputDecoration(
+                hintText: "https://api.yourdomain.com/webhook",
+                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
+                filled: true,
+                fillColor: Colors.white.withValues(alpha: 0.05),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppTheme.primary),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text("Secret Token / Bearer Token (tuỳ chọn)", style: _rowMeta.copyWith(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            TextField(
+              controller: _secretController,
+              obscureText: true,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              decoration: InputDecoration(
+                hintText: "Bearer token hoặc signature secret",
+                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
+                filled: true,
+                fillColor: Colors.white.withValues(alpha: 0.05),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppTheme.primary),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _submitting ? null : () => Navigator.of(context).pop(),
+          child: Text(AppCopy.hubOpsCancel),
+        ),
+        ElevatedButton(
+          key: const Key("hub_ops_confirm_webhook_connect"),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primary,
+            foregroundColor: Colors.black,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+          ),
+          onPressed: _submitting
+              ? null
+              : () async {
+                  final url = _urlController.text.trim();
+                  if (url.isEmpty) return;
+                  final nav = Navigator.of(context);
+                  setState(() => _submitting = true);
+                  await widget.controller.installConnector("sandbox-read");
+                  if (!mounted) return;
+                  setState(() => _submitting = false);
+                  nav.pop();
+                  Get.rawSnackbar(
+                    message: "Đã kích hoạt Webhook thành công",
+                    duration: const Duration(seconds: 3),
+                  );
+                },
+          child: _submitting
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+              : const Text("Kích hoạt Webhook", style: TextStyle(fontWeight: FontWeight.w600)),
+        ),
+      ],
+    );
+  }
+}
+
 /// Gắn card vào hub: giữ một `HubOperationsController` và bind Project đang chọn ngoài chu kỳ
 /// build (tránh đổi Rx trong build), dùng operating loop hub đã nạp cho tab Tasks.
 class HubOperationsPanel extends StatefulWidget {
@@ -749,6 +2013,9 @@ class HubOperationsPanel extends StatefulWidget {
     required this.operatingLoop,
     this.onTasksChanged,
     this.controller,
+    this.isExpanded = true,
+    this.onToggleExpand,
+    this.isFullHeight = false,
   });
 
   final RxnString projectId;
@@ -757,6 +2024,9 @@ class HubOperationsPanel extends StatefulWidget {
 
   /// Cho test tiêm controller giả; mặc định tạo mới và giải phóng theo vòng đời widget.
   final HubOperationsController? controller;
+  final bool isExpanded;
+  final VoidCallback? onToggleExpand;
+  final bool isFullHeight;
 
   @override
   State<HubOperationsPanel> createState() => _HubOperationsPanelState();
@@ -792,6 +2062,9 @@ class _HubOperationsPanelState extends State<HubOperationsPanel> {
         controller: _controller,
         operatingLoop: widget.operatingLoop.value,
         onTasksChanged: widget.onTasksChanged,
+        isExpanded: widget.isExpanded,
+        onToggleExpand: widget.onToggleExpand,
+        isFullHeight: widget.isFullHeight,
       ),
     );
   }

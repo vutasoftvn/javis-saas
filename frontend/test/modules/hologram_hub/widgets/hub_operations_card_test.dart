@@ -287,4 +287,81 @@ void main() {
     expect(find.byKey(const Key('hub_ops_schedule_s1')), findsNothing);
     expect(find.byKey(const Key('hub_ops_schedule_s_other')), findsOneWidget);
   });
+  testWidgets("schedules tab has create schedule button and opens create dialog", (tester) async {
+    await pump(tester);
+    await tester.tap(find.byKey(const Key("hub_ops_tab_schedules")));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key("hub_ops_create_schedule")), findsOneWidget);
+    await tester.tap(find.byKey(const Key("hub_ops_create_schedule")));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key("hub_ops_schedule_prompt_input")), findsOneWidget);
+    expect(find.byKey(const Key("hub_ops_save_schedule_button")), findsOneWidget);
+    await tester.tap(find.text("Huỷ"));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets("tools tab opens specific connector modals on item tap", (tester) async {
+    await pump(tester);
+    await tester.tap(find.byKey(const Key("hub_ops_tab_tools")));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key("hub_ops_add_connector")), findsOneWidget);
+    await tester.tap(find.byKey(const Key("hub_ops_add_connector")));
+    await tester.pumpAndSettle();
+
+    expect(find.text("Google Workspace (Gmail / Lịch)"), findsOneWidget);
+    // Click vào item Google Workspace mở modal cấu hình chi tiết
+    await tester.tap(find.text("Google Workspace (Gmail / Lịch)"));
+    await tester.pumpAndSettle();
+
+    expect(find.text("Kết nối Google Workspace"), findsOneWidget);
+    expect(find.byKey(const Key("hub_ops_confirm_google_connect")), findsOneWidget);
+    await tester.tap(find.text("Huỷ"));
+    await tester.pumpAndSettle();
+  });
+  testWidgets("card can toggle between expanded and collapsed states", (tester) async {
+    controller.bindProject("p1");
+    var toggleCount = 0;
+
+    // 1. Collapsed state
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HubOperationsCard(
+            controller: controller,
+            operatingLoop: null,
+            isExpanded: false,
+            onToggleExpand: () => toggleCount++,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byKey(const Key("hub_ops_collapsed_bar")), findsOneWidget);
+    expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsOneWidget);
+    await tester.tap(find.byKey(const Key("hub_ops_collapsed_bar")));
+    await tester.pump();
+    expect(toggleCount, 1);
+
+    // 2. Expanded state
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HubOperationsCard(
+            controller: controller,
+            operatingLoop: null,
+            isExpanded: true,
+            onToggleExpand: () => toggleCount++,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byKey(const Key("hub_ops_toggle_collapse")), findsOneWidget);
+    await tester.tap(find.byKey(const Key("hub_ops_toggle_collapse")));
+    await tester.pump();
+    expect(toggleCount, 2);
+  });
 }

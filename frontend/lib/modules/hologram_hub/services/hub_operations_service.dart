@@ -74,6 +74,52 @@ class HubOperationsService {
     );
   }
 
+  Future<ApiResult<HubSchedule>> createSchedule({
+    required String projectId,
+    required String promptTemplate,
+    String scheduleKind = "daily",
+    int? hour,
+    int? minute,
+    List<int> weekdays = const [],
+    String agentProfile = "operations",
+  }) async {
+    try {
+      final res = await ApiClient.post(
+        "/agent/schedules",
+        body: {
+          "schedule_kind": scheduleKind,
+          "timezone": "Asia/Ho_Chi_Minh",
+          "hour": hour,
+          "minute": minute,
+          "weekdays": weekdays,
+          "prompt_template": promptTemplate,
+          "agent_profile": agentProfile,
+          "project_id": projectId,
+        },
+      );
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+        return ApiSuccess(
+          data: HubSchedule.fromJson(data),
+          meta: ApiResponseMeta(
+            dataState: ApiDataState.populated,
+            observedAt: DateTime.now().toUtc(),
+          ),
+        );
+      }
+      return ApiFailure(ApiFailureDetail(
+        code: ApiFailureCode.unknown,
+        statusCode: res.statusCode,
+        message: "Failed to create schedule (${res.statusCode})",
+      ));
+    } catch (e) {
+      return ApiFailure(ApiFailureDetail(
+        code: ApiFailureCode.unknown,
+        message: e.toString(),
+      ));
+    }
+  }
+
   /// Task 6 (B5) / Task 7 (B6) — founder bấm Duyệt thẻ kế hoạch tự động hoá trong chat.
   /// `ApiClient.post` tự gắn `Authorization`/`X-Workspace-Id` từ phiên đăng nhập founder đang
   /// lưu (KHÔNG phải delegation agent — đúng yêu cầu route, xem task-6-report.md mục ROUTE

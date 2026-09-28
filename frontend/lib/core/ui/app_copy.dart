@@ -107,6 +107,23 @@ class AppCopy {
     }
   }
 
+  static String get hubOpsSchedulesHeading =>
+      _l("Automated schedules", "Lịch trình tự động");
+  static String get hubOpsCreateSchedule => _l("Create schedule", "Tạo lịch");
+  static String get hubOpsCreateSchedulePromptHint =>
+      _l("What should the agent do on schedule?", "Nội dung chỉ thị thực hiện theo lịch...");
+  static String get hubOpsSchedulePrompt => _l("Prompt / Instructions", "Chỉ thị thực hiện");
+  static String get hubOpsScheduleKind => _l("Frequency", "Tần suất");
+  static String get hubOpsScheduleTime => _l("Execution time", "Thời gian chạy");
+  static String get hubOpsScheduleAgent => _l("Assigned agent", "Agent phụ trách");
+  static String get hubOpsSave => _l("Save", "Lưu");
+  static String get hubOpsAddConnector => _l("Add connection", "Thêm kết nối");
+  static String get hubOpsConnectorsDialogTitle =>
+      _l("Connect new service / tool", "Thêm kết nối công cụ mới");
+  static String get hubOpsConnectorsDialogDesc =>
+      _l("Select a third-party service to connect to this workspace.",
+         "Chọn dịch vụ bên thứ ba để kết nối với workspace này.");
+
   static String get hubOpsNoSchedules =>
       _l('No background schedules for this project.', 'Dự án chưa có lịch chạy nền.');
   static String get hubOpsScheduleEnabled => _l('On', 'Đang bật');

@@ -360,4 +360,74 @@ void main() {
     // 0 / 1 text must not appear
     expect(find.textContaining('0 / 1'), findsNothing);
   });
+  testWidgets("(g) can toggle between expanded and collapsed states", (tester) async {
+    final now = DateTime.now().toUtc().toIso8601String();
+    final loop = ProjectOperatingLoop(
+      project: testProjectSummary,
+      activeCycle: LoopActiveCycle(
+        id: "cycle-1",
+        workspaceId: "ws-1",
+        projectId: "proj-1",
+        currentWeek: 1,
+        durationWeeks: 2,
+        visionStatement: "Discovery phase",
+        status: "active",
+        timezone: "UTC",
+        startDate: now,
+        endDate: DateTime.now().toUtc().add(const Duration(days: 14)).toIso8601String(),
+        createdAt: now,
+        updatedAt: now,
+      ),
+      currentWeek: LoopWeek(
+        id: "week-1",
+        workspaceId: "ws-1",
+        projectId: "proj-1",
+        cycleId: "cycle-1",
+        weekNo: 1,
+        focus: "[P0 - Khám phá] Xác thực nhu cầu",
+        createdAt: now,
+        updatedAt: now,
+      ),
+      commitments: const [],
+    );
+
+    var toggleCount = 0;
+
+    // Test collapsed state
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ProjectOperatingWeekCard(
+            operatingLoop: loop,
+            isExpanded: false,
+            onToggleExpand: () => toggleCount++,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byKey(const Key("operating_week_card")), findsOneWidget);
+    expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsOneWidget);
+    await tester.tap(find.byKey(const Key("operating_week_card")));
+    await tester.pump();
+    expect(toggleCount, 1);
+
+    // Test expanded state
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ProjectOperatingWeekCard(
+            operatingLoop: loop,
+            isExpanded: true,
+            onToggleExpand: () => toggleCount++,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byKey(const Key("operating_week_toggle_collapse")), findsOneWidget);
+    await tester.tap(find.byKey(const Key("operating_week_toggle_collapse")));
+    await tester.pump();
+    expect(toggleCount, 2);
+  });
 }

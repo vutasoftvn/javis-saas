@@ -20,9 +20,11 @@ from apps.cosa.capabilities.startup_os_onboard import context_workspace_id
 __all__ = [
     "OKR_KEY_RESULT_CHECKIN_SPEC",
     "OKR_KEY_RESULT_CREATE_SPEC",
+    "OKR_KEY_RESULT_UPDATE_SPEC",
     "OKR_OBJECTIVE_LIST_SPEC",
     "create_okr_key_result_checkin_handler",
     "create_okr_key_result_create_handler",
+    "create_okr_key_result_update_handler",
     "create_okr_objective_list_handler",
 ]
 
@@ -89,6 +91,30 @@ OKR_KEY_RESULT_CHECKIN_SPEC = CapabilitySpec(
         "properties": {
             "key_result_id": {"type": "string", "minLength": 1},
             "value": {"type": "number"},
+        },
+    },
+    output_schema={"type": "object", "properties": {"key_result": {"type": "object"}}},
+)
+
+_STATUS_CHOICES = list(_STATUS_LABELS.keys())
+
+OKR_KEY_RESULT_UPDATE_SPEC = CapabilitySpec(
+    id="okr.key_result.update",
+    description=(
+        "Update an existing Key Result status, target value, current value, or unit (founder "
+        "must approve in chat before it runs). Take key_result_id from okr.objective.list."
+    ),
+    risk=CapabilityRisk.MEDIUM,
+    approval_policy=ApprovalPolicy.POLICY_DRIVEN,
+    input_schema={
+        "type": "object",
+        "required": ["key_result_id"],
+        "properties": {
+            "key_result_id": {"type": "string", "minLength": 1},
+            "status": {"type": "string", "enum": _STATUS_CHOICES},
+            "target_value": {"type": "number"},
+            "current_value": {"type": "number"},
+            "unit": {"type": "string", "maxLength": 40},
         },
     },
     output_schema={"type": "object", "properties": {"key_result": {"type": "object"}}},
@@ -194,3 +220,26 @@ def create_okr_key_result_checkin_handler(client: CompanyServiceClient):
         return {"key_result": _key_result_view(res, _context_value(context, "locale"))}
 
     return handler
+
+def create_okr_key_result_update_handler(client: CompanyServiceClient):
+    async def handler(payload: dict[str, Any], context: Any = None) -> dict[str, Any]:
+        headers = {"X-Workspace-Id": context_workspace_id(context, OKR_KEY_RESULT_UPDATE_SPEC.id)}
+        key_result_id = str(payload["key_result_id"]).strip()
+        body: dict[str, Any] = {}
+        if payload.get("status"):
+            body["status"] = str(payload["status"]).strip()
+        if payload.get("target_value") is not None:
+            body["targetValue"] = payload["target_value"]
+        if payload.get("current_value") is not None:
+            body["currentValue"] = payload["current_value"]
+        if payload.get("unit"):
+            body["unit"] = str(payload["unit"]).strip()
+        res = await client.put(
+            f"/operations/key-results/{key_result_id}",
+            json=body,
+            headers=headers,
+        )
+        return {"key_result": _key_result_view(res, _context_value(context, "locale"))}
+
+    return handler
+

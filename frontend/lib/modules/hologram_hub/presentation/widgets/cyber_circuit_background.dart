@@ -198,21 +198,23 @@ class _CyberCircuitBackgroundState extends State<CyberCircuitBackground>
                       scale: scale,
                       child: Opacity(
                         opacity: opacity,
-                        child: Container(
-                          width: drumSize,
-                          height: drumSize,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              // Subtle, elegant rim illumination without large cyan/green halo
-                              BoxShadow(
-                                color: const Color(0xFFE5A93C).withValues(alpha: 0.12 + pulse * 0.06),
-                                blurRadius: 18,
-                                spreadRadius: 0,
-                              ),
-                            ],
+                        child: RepaintBoundary(
+                          child: Container(
+                            width: drumSize,
+                            height: drumSize,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                // Subtle, elegant rim illumination without large cyan/green halo
+                                BoxShadow(
+                                  color: const Color(0xFFE5A93C).withValues(alpha: 0.12 + pulse * 0.06),
+                                  blurRadius: 18,
+                                  spreadRadius: 0,
+                                ),
+                              ],
+                            ),
+                            child: _buildTrongDongImage(),
                           ),
-                          child: _buildTrongDongImage(),
                         ),
                       ),
                     ),

@@ -34,6 +34,7 @@ export const AGENT_CAP = Object.freeze({
   OKR_OBJECTIVE_LIST: "okr.objective.list",
   OKR_KEY_RESULT_CREATE: "okr.key_result.create",
   OKR_KEY_RESULT_CHECKIN: "okr.key_result.checkin",
+  OKR_KEY_RESULT_UPDATE: "okr.key_result.update",
   FINANCE_CONNECTION_READ: "finance.connection.read",
   FINANCE_TRANSACTION_READ: "finance.transaction.read",
   FINANCE_TRANSACTION_RECORD: "finance.transaction.record",

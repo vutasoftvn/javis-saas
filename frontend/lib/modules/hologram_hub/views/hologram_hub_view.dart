@@ -611,52 +611,71 @@ class _HologramHubViewState extends State<HologramHubView> {
           ),
         );
 
-    Widget statsColumn() => Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (controller.hasProjects.value && controller.activeProjectId.value != null) ...[
-              PulseStatBarWidget(pulse: controller.pulse.value),
-              const SizedBox(height: 16),
-              top3Widget(),
-              const SizedBox(height: 16),
-              WaitingForYouWidget(
-                decisions: controller.pendingDecisions.toList(),
-                approvals: const [],
-                onResolveDecision: (decId, optKey, notes) =>
-                    controller.resolveDecision(
-                  decisionId: decId,
-                  optionKey: optKey,
-                  founderNotes: notes,
-                ),
+    Widget statsColumn() {
+      final availableHeight = isDesktop ? math.max(680.0, constraints.maxHeight - 48.0) : null;
+      final content = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (controller.hasProjects.value && controller.activeProjectId.value != null) ...[
+            PulseStatBarWidget(pulse: controller.pulse.value),
+            const SizedBox(height: 16),
+            top3Widget(),
+            const SizedBox(height: 16),
+            WaitingForYouWidget(
+              decisions: controller.pendingDecisions.toList(),
+              approvals: const [],
+              onResolveDecision: (decId, optKey, notes) =>
+                  controller.resolveDecision(
+                decisionId: decId,
+                optionKey: optKey,
+                founderNotes: notes,
               ),
+            ),
+            if (isDesktop)
+              Expanded(
+                child: _ProjectActivityFeed(
+                  projectId: controller.activeProjectId.value!,
+                  isFullHeight: true,
+                ),
+              )
+            else
               _ProjectActivityFeed(
                 projectId: controller.activeProjectId.value!,
               ),
-            ] else if (!controller.hasProjects.value) ...[
-              Center(
-                child: _LocalizedText(
-                  en: 'No projects available',
-                  vi: 'Chưa có dự án nào',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.5),
-                  ),
+          ] else if (!controller.hasProjects.value) ...[
+            Center(
+              child: _LocalizedText(
+                en: 'No projects available',
+                vi: 'Chưa có dự án nào',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.5),
                 ),
               ),
-            ] else ...[
-              top3Widget(),
-              const SizedBox(height: 16),
-              Center(
-                child: _LocalizedText(
-                  en: 'Select a project to view activity',
-                  vi: 'Chọn dự án để xem hoạt động',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.5),
-                  ),
+            ),
+          ] else ...[
+            top3Widget(),
+            const SizedBox(height: 16),
+            Center(
+              child: _LocalizedText(
+                en: 'Select a project to view activity',
+                vi: 'Chọn dự án để xem hoạt động',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.5),
                 ),
               ),
-            ],
+            ),
           ],
+        ],
+      );
+
+      if (isDesktop && availableHeight != null) {
+        return SizedBox(
+          height: availableHeight,
+          child: content,
         );
+      }
+      return content;
+    }
 
     final projectSelected = controller.activeProjectId.value != null;
 
@@ -665,27 +684,10 @@ class _HologramHubViewState extends State<HologramHubView> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (controller.selectedProjectId != null) ...[
-            Obx(() => ProjectOperatingWeekCard(
-              operatingLoop: controller.currentOperatingLoop.value,
-              isLoading: controller.isOperatingLoopLoading.value,
-              errorMessage: controller.operatingLoopError.value,
-              onRetry: () {
-                final pid = controller.selectedProjectId;
-                if (pid != null) {
-                  controller.loadOperatingLoop(pid);
-                }
-              },
-            )),
-            const SizedBox(height: 16),
-            // Card vận hành 4 tab (spec 2026-09-27-hub-operations-workspace-design): cột trái,
-            // dưới "Chu kỳ tuần"; widget cũ giữ tới khi card ổn định.
-            HubOperationsPanel(
-              projectId: controller.activeProjectId,
-              operatingLoop: controller.currentOperatingLoop,
-              onTasksChanged: () async {
-                final pid = controller.selectedProjectId;
-                if (pid != null) await controller.loadOperatingLoop(pid);
-              },
+            _HubLeftPanels(
+              controller: controller,
+              isDesktop: isDesktop,
+              availableHeight: isDesktop ? math.max(680.0, constraints.maxHeight - 48.0) : null,
             ),
           ] else ...[
             Container(
@@ -748,7 +750,7 @@ class _HologramHubViewState extends State<HologramHubView> {
         children: [
           Positioned.fill(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 110),
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1367,8 +1369,12 @@ class _WgaSurfacesState extends State<_WgaSurfaces> {
 /// phiên làm việc, không bền vững). Fetch lại mỗi khi đổi Project.
 class _ProjectActivityFeed extends StatefulWidget {
   final String projectId;
+  final bool isFullHeight;
 
-  const _ProjectActivityFeed({required this.projectId});
+  const _ProjectActivityFeed({
+    required this.projectId,
+    this.isFullHeight = false,
+  });
 
   @override
   State<_ProjectActivityFeed> createState() => _ProjectActivityFeedState();
@@ -1411,15 +1417,24 @@ class _ProjectActivityFeedState extends State<_ProjectActivityFeed> {
           // Không có dữ liệu thì ẩn, chỉ khi có dữ liệu mới hiển thị
           return const SizedBox.shrink();
         }
+        final child = ProjectActivityTimeline(
+          events: events,
+          loading: false,
+          unavailable: false,
+          onSelectEvent: (_) {},
+        );
+
+        if (widget.isFullHeight) {
+          return Container(
+            margin: const EdgeInsets.only(top: 16),
+            child: child,
+          );
+        }
+
         return Container(
           margin: const EdgeInsets.only(top: 16),
           height: 420,
-          child: ProjectActivityTimeline(
-            events: events,
-            loading: false,
-            unavailable: false,
-            onSelectEvent: (_) {},
-          ),
+          child: child,
         );
       },
     );
@@ -1450,5 +1465,130 @@ class _LocalizedText extends StatelessWidget {
     }
     final isEn = Get.locale?.languageCode == 'en';
     return Text(isEn ? en : vi, style: style, textAlign: textAlign);
+  }
+}
+
+
+class _HubLeftPanels extends StatefulWidget {
+  const _HubLeftPanels({
+    required this.controller,
+    required this.isDesktop,
+    this.availableHeight,
+  });
+
+  final FounderCommandCenterController controller;
+  final bool isDesktop;
+  final double? availableHeight;
+
+  @override
+  State<_HubLeftPanels> createState() => _HubLeftPanelsState();
+}
+
+class _HubLeftPanelsState extends State<_HubLeftPanels> {
+  bool _isWeekExpanded = true;
+  bool _isOpsExpanded = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasBoundedHeight = widget.isDesktop && widget.availableHeight != null && widget.availableHeight! > 0;
+
+    final weekCard = Obx(
+      () => ProjectOperatingWeekCard(
+        operatingLoop: widget.controller.currentOperatingLoop.value,
+        isLoading: widget.controller.isOperatingLoopLoading.value,
+        errorMessage: widget.controller.operatingLoopError.value,
+        onRetry: () {
+          final pid = widget.controller.selectedProjectId;
+          if (pid != null) {
+            widget.controller.loadOperatingLoop(pid);
+          }
+        },
+        isExpanded: _isWeekExpanded,
+        onToggleExpand: () {
+          setState(() {
+            _isWeekExpanded = !_isWeekExpanded;
+          });
+        },
+        isFullHeight: hasBoundedHeight && _isWeekExpanded,
+      ),
+    );
+
+    final opsCard = HubOperationsPanel(
+      projectId: widget.controller.activeProjectId,
+      operatingLoop: widget.controller.currentOperatingLoop,
+      onTasksChanged: () async {
+        final pid = widget.controller.selectedProjectId;
+        if (pid != null) await widget.controller.loadOperatingLoop(pid);
+      },
+      isExpanded: _isOpsExpanded,
+      onToggleExpand: () {
+        setState(() {
+          _isOpsExpanded = !_isOpsExpanded;
+        });
+      },
+      isFullHeight: hasBoundedHeight && !_isWeekExpanded && _isOpsExpanded,
+    );
+
+    if (hasBoundedHeight) {
+      if (_isWeekExpanded && _isOpsExpanded) {
+        return SizedBox(
+          height: widget.availableHeight,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: weekCard,
+              ),
+              const SizedBox(height: 12),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: widget.availableHeight! * 0.46,
+                ),
+                child: SingleChildScrollView(
+                  child: opsCard,
+                ),
+              ),
+            ],
+          ),
+        );
+      } else if (_isWeekExpanded && !_isOpsExpanded) {
+        return SizedBox(
+          height: widget.availableHeight,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: weekCard,
+              ),
+              const SizedBox(height: 12),
+              opsCard,
+            ],
+          ),
+        );
+      } else if (!_isWeekExpanded && _isOpsExpanded) {
+        return SizedBox(
+          height: widget.availableHeight,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              weekCard,
+              const SizedBox(height: 12),
+              Expanded(
+                child: opsCard,
+              ),
+            ],
+          ),
+        );
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        weekCard,
+        const SizedBox(height: 12),
+        opsCard,
+      ],
+    );
   }
 }

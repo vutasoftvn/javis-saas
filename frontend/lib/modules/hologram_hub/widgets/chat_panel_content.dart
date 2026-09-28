@@ -40,9 +40,21 @@ class ChatPanelContent extends StatefulWidget {
 class _ChatPanelContentState extends State<ChatPanelContent> {
   final ScrollController _scrollController = ScrollController();
   int _lastMessageCount = 0;
+  Worker? _messagesWorker;
+  Worker? _loadingWorker;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollToBottom(animate: false);
+    _messagesWorker = ever(widget.controller.chatMessages, (_) => _scrollToBottom(animate: true));
+    _loadingWorker = ever(widget.controller.isChatLoading, (_) => _scrollToBottom(animate: true));
+  }
 
   @override
   void dispose() {
+    _messagesWorker?.dispose();
+    _loadingWorker?.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -50,19 +62,43 @@ class _ChatPanelContentState extends State<ChatPanelContent> {
   static Widget _flexibleIf(bool flexible, Widget child) =>
       flexible ? Flexible(child: child) : child;
 
+  void _scrollToBottom({bool animate = true}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      final max = _scrollController.position.maxScrollExtent;
+      if (animate) {
+        _scrollController.animateTo(
+          max,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      } else {
+        _scrollController.jumpTo(max);
+      }
+      // Khung hình kế tiếp để đón markdown render xong nếu có
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_scrollController.hasClients) return;
+        final newMax = _scrollController.position.maxScrollExtent;
+        if ((_scrollController.offset - newMax).abs() > 4.0) {
+          if (animate) {
+            _scrollController.animateTo(
+              newMax,
+              duration: const Duration(milliseconds: 150),
+              curve: Curves.easeOut,
+            );
+          } else {
+            _scrollController.jumpTo(newMax);
+          }
+        }
+      });
+    });
+  }
+
   void _scrollToBottomIfNeeded() {
     final count = widget.controller.chatMessages.length;
     if (count != _lastMessageCount) {
       _lastMessageCount = count;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeOut,
-          );
-        }
-      });
+      _scrollToBottom(animate: true);
     }
   }
 

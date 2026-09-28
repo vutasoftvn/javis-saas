@@ -30,6 +30,7 @@ export const AGENT_PROFILE_GRANTED_CAPABILITIES: Readonly<Record<string, readonl
       "operations.task.advance",
       "okr.key_result.create",
       "okr.key_result.checkin",
+      "okr.key_result.update",
       "startup_os.goal.create",
       "startup_os.project.triage",
       "venture.profile.propose_update",
@@ -51,6 +52,7 @@ export const CAPABILITY_LABELS: Readonly<Record<string, { vi: string; en: string
   "operations.task.advance": { vi: "Chuyển trạng thái công việc", en: "Update task status" },
   "okr.key_result.create": { vi: "Tạo Key Result", en: "Create Key Results" },
   "okr.key_result.checkin": { vi: "Ghi nhận tiến độ Key Result", en: "Check in Key Results" },
+  "okr.key_result.update": { vi: "Cập nhật Key Result", en: "Update Key Results" },
   "startup_os.goal.create": { vi: "Tạo mục tiêu", en: "Create goals" },
   "startup_os.project.triage": { vi: "Phân loại dự án", en: "Triage projects" },
   "venture.profile.propose_update": {

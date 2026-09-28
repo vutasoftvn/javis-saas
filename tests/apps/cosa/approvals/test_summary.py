@@ -92,3 +92,16 @@ def test_founder_notify_send_truncates_long_content_and_never_shows_raw_kind() -
     assert "telegram" not in s["title"]  # nhãn đã dịch, không phải enum thô
     short = summarize_action("founder.notify.send", {"content": "y" * 120}, "vi", project_name=None)
     assert short["detail"] == "y" * 120
+
+def test_key_result_update_summary() -> None:
+    s = summarize_action(
+        "okr.key_result.update",
+        {"key_result_id": "kr1", "status": "active"},
+        "vi-VN",
+        project_name="COSA",
+    )
+    assert s["title"] == "Cập nhật Key Result cho COSA"
+    assert s["detail"] == "Trạng thái mới: đang thực hiện"
+    assert "kr1" not in s["title"] + s["detail"]
+    assert "active" not in s["detail"]
+

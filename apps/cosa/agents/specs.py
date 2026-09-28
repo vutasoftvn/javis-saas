@@ -283,6 +283,7 @@ COSA_OPERATIONS_AGENT_SPEC = AgentSpec(
         "okr.objective.list",
         "okr.key_result.create",
         "okr.key_result.checkin",
+        "okr.key_result.update",
         "startup_os.goal.create",
         "startup_os.project.triage",
         "operations.task.advance",

@@ -72,12 +72,13 @@ def test_every_company_write_capability_has_a_permission_binding() -> None:
 
 
 # Backfill grant cho assignment ACTIVE có sẵn: 030 (spec 2026-09-27-chat-business-actions),
-# 031 (founder.notify.send, ADR-FOUNDER-CHANNEL-001) và 033 (automation.plan.propose, plan hub
-# đợt 2 B4). Hợp các file phải khớp bảng TS.
+# 031 (founder.notify.send, ADR-FOUNDER-CHANNEL-001), 033 (automation.plan.propose, plan hub
+# đợt 2 B4) và 035 (okr.key_result.update). Hợp các file phải khớp bảng TS.
 BACKFILL_MIGRATIONS = (
     "030_backfill_agent_capability_grants.up.sql",
     "031_backfill_founder_notify_send_grant.up.sql",
     "033_backfill_automation_plan_propose_grant.up.sql",
+    "035_backfill_okr_key_result_update_grant.up.sql",
 )
 
 
