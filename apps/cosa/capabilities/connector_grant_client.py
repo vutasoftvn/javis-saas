@@ -153,6 +153,22 @@ def build_connector_grant_resolver(
     `action` = capability id (hợp đồng với `allowedActions` của session grant);
     `required_scope` = `spec.metadata["scope"]` nếu capability khai báo (vd. `email.digest.read`
     → `mail:read`), để control plane kiểm scope của authorization (`connector_scope_missing`).
+
+    B5 (Task 6b, fix review "Important #2") — lịch nền uỷ quyền trước KHÔNG BAO GIỜ có session
+    grant theo `conversation_id` (mỗi `execute_scheduled_session_task` tạo 1 conversation mới
+    `conv_sched_<uuid>` mỗi lần chạy — xem worker/scheduled_tasks.py). Trước fix này, resolver
+    LUÔN gọi `assert_usable(..., conversation_id=...)` bất kể nguồn gốc run, nên
+    `email.digest.read` giữa lúc chạy lịch nền uỷ quyền trước LUÔN bị DENY (100%, không phải
+    edge case) dù preflight (`assert_usable_for_execution`, chạy TRƯỚC khi tạo run) đã pass và
+    connector/snapshot hoàn toàn hợp lệ — preflight và lần verify thật của gateway đi hai đường
+    khác nhau. `_execute_run_task_inner` (handlers.py) giờ đặt `schedule_execution_id` vào
+    `extra_md`/`RunRequest.metadata` cho đúng lịch nền uỷ quyền trước (giống hệt cách
+    `project_id` đã được set) — metadata này được kernel copy nguyên vào `context`
+    (`packages/agent_integrations/openai_agents_sdk/kernel.py`), nên `meta.get(
+    "schedule_execution_id")` đọc được ở đây. Có field này → dùng đường
+    `assert_usable_for_execution` (executionId + snapshot `connectorGrantIds` đã chốt), KHÔNG
+    dùng đường `conversation_id` nữa cho đúng run đó. Không có field này (chat/lịch cũ) → hành
+    vi hệt cũ.
     """
 
     async def resolver(connector_id: str, req: Any) -> ConnectorGrant | None:
@@ -160,12 +176,35 @@ def build_connector_grant_resolver(
         scope = (reg.spec.metadata or {}).get("scope") if reg else None
         ctx = req.context
         meta = ctx if isinstance(ctx, dict) else (getattr(ctx, "metadata", None) or {})
+        required_scope = scope if isinstance(scope, str) and scope else None
+
+        schedule_execution_id = meta.get("schedule_execution_id")
+        if schedule_execution_id:
+            result = await client.assert_usable_for_execution(
+                connector_id,
+                workspace_id=req.workspace_id or "",
+                execution_id=str(schedule_execution_id),
+                action=req.capability_id,
+                required_scope=required_scope,
+            )
+            if not result.get("ok"):
+                raise ConnectorGrantDeniedError(str(result.get("error") or _GENERIC_DENY_CODE))
+            return ConnectorGrant(
+                grant_id=f"{connector_id}:{schedule_execution_id}",
+                tenant_id=req.workspace_id or "",
+                principal="*",
+                connector_id=connector_id,
+                allowed_actions=(req.capability_id,),
+                is_revoked=False,
+                metadata={"secret_ref": result.get("secretRef") or ""},
+            )
+
         return await client.assert_usable(
             connector_id,
             workspace_id=req.workspace_id or "",
             conversation_id=str(meta.get("conversation_id", "") or ""),
             action=req.capability_id,
-            required_scope=scope if isinstance(scope, str) and scope else None,
+            required_scope=required_scope,
         )
 
     return resolver

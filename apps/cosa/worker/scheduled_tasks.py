@@ -402,6 +402,11 @@ async def execute_scheduled_session_task(
     if pre_authorized_capability_ids:
         run_payload["_scheduler_dispatch"] = True
         run_payload["pre_authorized_capability_ids"] = pre_authorized_capability_ids
+        # Fix review (Important #2) — handlers.py đưa field này vào
+        # metadata/context của run để build_connector_grant_resolver assert
+        # connector theo executionId thay vì conversationId (lịch nền không
+        # bao giờ có session grant theo conversation).
+        run_payload["schedule_execution_id"] = schedule_exec_id
     # Agent workspace (C1): worker kiểm lại deployment với company trước khi chạy.
     if payload.get("project_agent_deployment_id"):
         run_payload["project_agent_deployment_id"] = str(payload["project_agent_deployment_id"])

@@ -237,3 +237,139 @@ async def test_assert_usable_for_execution_raises_on_http_error() -> None:
         await client.assert_usable_for_execution(
             "email-read", workspace_id="ws_1", execution_id="exec_1", action="email.digest.read"
         )
+
+
+# B5 (Task 6b, fix review "Important #2") — build_connector_grant_resolver PHẢI đi đường
+# executionId (không phải conversationId) khi context của run mang schedule_execution_id (lịch
+# nền uỷ quyền trước). Trước fix: resolver LUÔN gọi assert_usable(conversation_id=...) bất kể
+# nguồn gốc run -> email.digest.read giữa lúc chạy lịch nền uỷ quyền trước LUÔN bị DENY (100%),
+# vì mỗi execution tạo 1 conversation MỚI, không bao giờ có session grant. Test này chạy qua
+# CapabilityGateway thật (như test_real_client_grant_passes_gateway_for_real_run_principals ở
+# trên) để khoá đúng hành vi end-to-end, không chỉ đơn vị hàm resolver.
+
+
+def _scheduled_request(execution_id: str = "exec_sched_1") -> GatewayExecutionRequest:
+    return GatewayExecutionRequest(
+        run_id="run_sched_1",
+        capability_id="email.digest.read",
+        input_payload={"max_results": 3},
+        workspace_id="ws_1",
+        principal="user:founder_1",
+        # `conversation_id` cũng có mặt (như run lịch thật luôn có, xem
+        # execute_scheduled_session_task) — khẳng định resolver ưu tiên
+        # executionId khi có, không lẫn lộn cả hai.
+        context={"conversation_id": "conv_sched_abcd1234", "schedule_execution_id": execution_id},
+    )
+
+
+@pytest.mark.asyncio
+async def test_resolver_uses_execution_id_not_conversation_id_for_scheduled_run() -> None:
+    assert_calls: list[dict] = []
+
+    def control_plane(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/cosa/connectors/assert"
+        assert_calls.append(json.loads(request.content))
+        return httpx.Response(200, json={"ok": True, "secretRef": SECRET_REF})
+
+    client = ConnectorGrantHttpClient(
+        base_url="http://control-plane.test",
+        worker_token_provider=lambda: "worker-token",
+        transport=httpx.MockTransport(control_plane),
+    )
+    registry = CapabilityRegistry()
+    registry.register(
+        EMAIL_DIGEST_READ_SPEC,
+        create_email_digest_read_handler(GmailReadAdapter(transport=httpx.MockTransport(_gmail))),
+    )
+    gateway = CapabilityGateway(
+        registry=registry,
+        repository=InMemoryRunRepository(),
+        connector_grant_resolver=build_connector_grant_resolver(client, registry),
+    )
+
+    res = await gateway.execute(_scheduled_request())
+
+    assert res.status == "completed", res.error_message
+    assert res.output_payload["count"] == 1
+    assert assert_calls == [
+        {
+            "organizationId": "ws_1",
+            "executionId": "exec_sched_1",
+            "connectorKey": "email-read",
+            "action": "email.digest.read",
+            "requiredScope": "mail:read",
+        }
+    ]
+    # Khẳng định KHÔNG có field conversationId nào lọt vào body gửi control plane.
+    assert "conversationId" not in assert_calls[0]
+
+
+@pytest.mark.asyncio
+async def test_resolver_denies_scheduled_run_when_execution_snapshot_grant_invalid() -> None:
+    def control_plane(request: httpx.Request) -> httpx.Response:
+        assert json.loads(request.content)["executionId"] == "exec_sched_1"
+        return httpx.Response(200, json={"ok": False, "error": "connector_reauth_required"})
+
+    client = ConnectorGrantHttpClient(
+        base_url="http://control-plane.test",
+        worker_token_provider=lambda: "worker-token",
+        transport=httpx.MockTransport(control_plane),
+    )
+    registry = CapabilityRegistry()
+    registry.register(
+        EMAIL_DIGEST_READ_SPEC,
+        create_email_digest_read_handler(GmailReadAdapter(transport=httpx.MockTransport(_gmail))),
+    )
+    gateway = CapabilityGateway(
+        registry=registry,
+        repository=InMemoryRunRepository(),
+        connector_grant_resolver=build_connector_grant_resolver(client, registry),
+    )
+
+    res = await gateway.execute(_scheduled_request())
+
+    assert res.status == "denied"
+    assert isinstance(res.failure, ConnectorGrantDeniedError)
+    assert res.failure.code == "connector_reauth_required"
+
+
+@pytest.mark.asyncio
+async def test_resolver_still_uses_conversation_id_when_no_schedule_execution_id() -> None:
+    """Chat/API thường (không có schedule_execution_id trong context) giữ nguyên đường cũ —
+    không regress hành vi conversation-grant hiện có."""
+    assert_calls: list[dict] = []
+
+    def control_plane(request: httpx.Request) -> httpx.Response:
+        assert_calls.append(json.loads(request.content))
+        return httpx.Response(200, json={"ok": True, "secretRef": SECRET_REF})
+
+    client = ConnectorGrantHttpClient(
+        base_url="http://control-plane.test",
+        worker_token_provider=lambda: "worker-token",
+        transport=httpx.MockTransport(control_plane),
+    )
+    registry = CapabilityRegistry()
+    registry.register(
+        EMAIL_DIGEST_READ_SPEC,
+        create_email_digest_read_handler(GmailReadAdapter(transport=httpx.MockTransport(_gmail))),
+    )
+    gateway = CapabilityGateway(
+        registry=registry,
+        repository=InMemoryRunRepository(),
+        connector_grant_resolver=build_connector_grant_resolver(client, registry),
+    )
+
+    res = await gateway.execute(
+        _request()
+    )  # context chỉ có conversation_id, không có schedule_execution_id
+
+    assert res.status == "completed", res.error_message
+    assert assert_calls == [
+        {
+            "organizationId": "ws_1",
+            "conversationId": "conv_1",
+            "connectorKey": "email-read",
+            "action": "email.digest.read",
+            "requiredScope": "mail:read",
+        }
+    ]

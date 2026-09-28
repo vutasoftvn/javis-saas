@@ -927,6 +927,17 @@ async def _execute_run_task_inner(
     # engine này. Lịch cũ (snapshot rỗng) hoặc chat/API khác giữ nguyên: mọi
     # T2 đều REQUIRE_APPROVAL.
     extra_md[REQUIRE_APPROVAL_CAPABILITIES_KEY] = sorted(CHAT_T2_CAPABILITIES - pre_authorized_ids)
+    # B5 (Task 6b, fix review "Important #2") — lịch nền uỷ quyền trước: đưa
+    # schedule_execution_id vào metadata/context của run để
+    # `build_connector_grant_resolver` (connector_grant_client.py) biết
+    # dùng đường assert theo executionId thay vì conversationId khi
+    # capability connector (vd. email.digest.read) thật sự execute giữa lúc
+    # chạy — lịch nền không bao giờ có session grant theo conversation (mỗi
+    # execution tạo conversation mới). CHỈ đặt cho đúng lịch nền uỷ quyền
+    # trước (is_preauthorized_schedule_run) — chat/lịch cũ không có field
+    # này trong metadata, giữ nguyên đường conversation_id cũ.
+    if is_preauthorized_schedule_run and payload.get("schedule_execution_id"):
+        extra_md["schedule_execution_id"] = str(payload["schedule_execution_id"])
     direct_message_data_access = payload.get("direct_message_data_access")
     if direct_message_data_access is not None:
         extra_md["direct_message_data_access"] = direct_message_data_access

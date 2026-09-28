@@ -280,3 +280,73 @@ async def test_provider_unavailable_error_stays_failed_for_preauthorized_schedul
         result = await execute_run_task(plane, CosaEventStreamManager(), _scheduler_payload())
 
     assert result.status == "failed"
+
+
+@pytest.mark.asyncio
+async def test_schedule_execution_id_reaches_run_metadata_for_scheduled_run() -> None:
+    """Fix review (Important #2) — `build_connector_grant_resolver` chỉ đi đúng đường
+    executionId khi đọc được `schedule_execution_id` từ metadata/context của run. Test này
+    khoá phần wiring ở `_execute_run_task_inner`: payload lịch nền uỷ quyền trước có
+    `schedule_execution_id` -> metadata gửi cho kernel (`prep.req.metadata`, cùng field
+    `build_connector_grant_resolver` đọc qua `req.context`/`InvocationContext.metadata`)
+    PHẢI mang đúng giá trị này."""
+    plane = _plane()
+    await seed_cosa_runtime_specs(
+        spec_registry=plane.spec_registry, capability_registry=plane.capability_registry
+    )
+    captured: dict = {}
+
+    async def fake_run_kernel(_plane, prep, **_kw):
+        captured["metadata"] = dict(prep.req.metadata or {})
+        return (
+            SimpleNamespace(
+                run_id=prep.req.run_id,
+                status=RunStatus.COMPLETED,
+                final_output={"response": "ok"},
+                errors=[],
+                usage=None,
+                interruptions_waits=[],
+            ),
+            0.0,
+        )
+
+    payload = _scheduler_payload(schedule_execution_id="exec_sched_999")
+
+    with patch("apps.cosa.worker.handlers.run_kernel", fake_run_kernel):
+        await execute_run_task(plane, CosaEventStreamManager(), payload)
+
+    assert captured["metadata"]["schedule_execution_id"] == "exec_sched_999"
+
+
+@pytest.mark.asyncio
+async def test_schedule_execution_id_absent_from_metadata_for_non_scheduler_dispatch() -> None:
+    """Payload chat/API (không có `_scheduler_dispatch`) không được để lọt
+    `schedule_execution_id` vào metadata dù tự set field này — chỉ scheduled dispatch thật mới
+    có quyền chọn đường executionId cho connector resolver."""
+    plane = _plane()
+    await seed_cosa_runtime_specs(
+        spec_registry=plane.spec_registry, capability_registry=plane.capability_registry
+    )
+    captured: dict = {}
+
+    async def fake_run_kernel(_plane, prep, **_kw):
+        captured["metadata"] = dict(prep.req.metadata or {})
+        return (
+            SimpleNamespace(
+                run_id=prep.req.run_id,
+                status=RunStatus.COMPLETED,
+                final_output={"response": "ok"},
+                errors=[],
+                usage=None,
+                interruptions_waits=[],
+            ),
+            0.0,
+        )
+
+    payload = _payload(schedule_execution_id="exec_sched_999")
+    assert "_scheduler_dispatch" not in payload
+
+    with patch("apps.cosa.worker.handlers.run_kernel", fake_run_kernel):
+        await execute_run_task(plane, CosaEventStreamManager(), payload)
+
+    assert "schedule_execution_id" not in captured["metadata"]
