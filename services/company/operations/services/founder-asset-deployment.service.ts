@@ -5,6 +5,15 @@ import { identityWorkforceMembers } from "../../shared/db/schema/identity";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { TenantContext } from "../../shared/types/tenant_context";
 import { requireFounderCommand } from "../../identity/services/command-authority.service";
+import {
+  parseAgentPublishManifest,
+  type AgentPublishManifest,
+} from "./founder-asset-authoring.service";
+import { ensureAiWorkforceMemberForAsset, resolveFounderMemberId } from "./ai-member.service";
+import {
+  ensureProfileCapabilityGrants,
+  revokeProfileCapabilityGrants,
+} from "./agent-profile-grants.service";
 
 const {
   projects,
@@ -167,6 +176,55 @@ function isSuccessfulPublishedWorkflowReceipt(
     );
 }
 
+/** Workspace agent là bản clone bị ràng buộc của agent built-in, đã publish qua lệnh founder. */
+export const WORKSPACE_CLONE_ORIGIN = "WORKSPACE_CLONE";
+
+type DeploymentTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * Biên nhận PUBLISH SUCCESS của AGENT khớp tuyệt đối (id, version, hash) kèm agentManifest do
+ * worker gửi. Không có → null (agent không được coi là clone đã publish).
+ */
+async function findAgentPublishReceipt(
+  tx: DeploymentTx,
+  wsId: bigint,
+  ref: { agentAssetId: string; agentAssetVersion: string; agentDefinitionHash: string }
+): Promise<AgentPublishManifest | null> {
+  const rows = await tx
+    .select()
+    .from(founderAssetEvents)
+    .where(
+      and(
+        eq(founderAssetEvents.workspaceId, wsId),
+        eq(founderAssetEvents.command, "PUBLISH"),
+        eq(founderAssetEvents.targetKind, "AGENT"),
+        eq(founderAssetEvents.afterHash, ref.agentDefinitionHash)
+      )
+    );
+  for (const event of rows) {
+    const metadata = isRecord(event.metadata) ? event.metadata : {};
+    if (
+      metadata.status === "SUCCESS"
+      && isExactWorkflowAssetReference(
+        event.targetRef,
+        ref.agentAssetId,
+        ref.agentAssetVersion,
+        ref.agentDefinitionHash
+      )
+      && isExactWorkflowAssetReference(
+        metadata.updatedAssetRef,
+        ref.agentAssetId,
+        ref.agentAssetVersion,
+        ref.agentDefinitionHash
+      )
+    ) {
+      const manifest = parseAgentPublishManifest(metadata.agentManifest);
+      if (manifest) return manifest;
+    }
+  }
+  return null;
+}
+
 export async function createOperatingRole(
   ctx: TenantContext,
   input: {
@@ -243,7 +301,8 @@ export async function createWorkspaceAgent(
     agentAssetId: string;
     agentAssetVersion: string;
     agentDefinitionHash: string;
-    workforceMemberId: string;
+    /** Bắt buộc với agent không phải clone; clone do server tạo AI member riêng. */
+    workforceMemberId?: string;
     originKind: string;
     reason: string;
     idempotencyKey?: string;
@@ -252,22 +311,48 @@ export async function createWorkspaceAgent(
   assertHumanFounder(ctx, "createWorkspaceAgent");
   const wsId = BigInt(ctx.workspaceId);
   const actorId = BigInt(ctx.userId);
-  const memberId = BigInt(input.workforceMemberId);
 
   return db.transaction(async (tx) => {
-    const [member] = await tx
-      .select({ id: identityWorkforceMembers.id })
-      .from(identityWorkforceMembers)
-      .where(
-        and(
-          eq(identityWorkforceMembers.id, memberId),
-          eq(identityWorkforceMembers.workspaceId, wsId)
-        )
-      )
-      .limit(1);
+    // Agent workspace (C1): pin phải có biên nhận publish chính xác. Pin trùng một biên nhận
+    // AGENT luôn là clone — không lách bằng originKind khác để tự chọn AI member/grant.
+    const receipt = await findAgentPublishReceipt(tx, wsId, input);
+    if (!receipt && input.originKind === WORKSPACE_CLONE_ORIGIN) {
+      throw APIError.invalidArgument(
+        "Workspace clone agent requires an exact successful agent publish receipt"
+      );
+    }
+    const originKind = receipt ? WORKSPACE_CLONE_ORIGIN : input.originKind;
 
-    if (!member) {
-      throw APIError.notFound("Workforce member not found in workspace");
+    let memberId: bigint;
+    if (receipt) {
+      // AI member riêng cho (asset, version): grant của agent gốc không dùng chung.
+      memberId = BigInt(
+        await ensureAiWorkforceMemberForAsset(tx, ctx.workspaceId, {
+          specId: input.agentAssetId,
+          specVersion: input.agentAssetVersion,
+          definitionHash: input.agentDefinitionHash,
+          title: receipt.displayName,
+        })
+      );
+    } else {
+      if (!input.workforceMemberId) {
+        throw APIError.invalidArgument("workforceMemberId is required");
+      }
+      memberId = BigInt(input.workforceMemberId);
+      const [member] = await tx
+        .select({ id: identityWorkforceMembers.id })
+        .from(identityWorkforceMembers)
+        .where(
+          and(
+            eq(identityWorkforceMembers.id, memberId),
+            eq(identityWorkforceMembers.workspaceId, wsId)
+          )
+        )
+        .limit(1);
+
+      if (!member) {
+        throw APIError.notFound("Workforce member not found in workspace");
+      }
     }
 
     const [existing] = await tx
@@ -299,7 +384,7 @@ export async function createWorkspaceAgent(
       agentDefinitionHash: input.agentDefinitionHash,
       workforceMemberId: memberId,
       state: "ACTIVE",
-      originKind: input.originKind,
+      originKind,
       createdBy: actorId,
       version: 1,
     });
@@ -326,7 +411,7 @@ export async function createWorkspaceAgent(
       agentDefinitionHash: input.agentDefinitionHash,
       workforceMemberId: memberId.toString(),
       state: "ACTIVE",
-      originKind: input.originKind,
+      originKind,
       version: 1,
     };
   });
@@ -641,6 +726,31 @@ export async function deployAgentToProject(
 
     if (!agent || agent.state !== "ACTIVE") {
       throw APIError.invalidArgument("Active workspace agent required");
+    }
+
+    // Agent workspace (C1): cấp grant scope Project theo profile agent gốc ∩ capability đã thu
+    // hẹp, cho AI member riêng của clone (spec 2026-09-27-agent-clone-executor-design §5).
+    if (agent.originKind === WORKSPACE_CLONE_ORIGIN) {
+      const manifest = await findAgentPublishReceipt(tx, wsId, agent);
+      if (!manifest) {
+        throw APIError.failedPrecondition("Workspace clone agent has no publish receipt");
+      }
+      const founderMemberId = await resolveFounderMemberId(
+        tx,
+        ctx.workspaceId,
+        ctx.workforceMemberId
+      );
+      if (founderMemberId) {
+        await ensureProfileCapabilityGrants(tx, {
+          workspaceId: ctx.workspaceId,
+          projectId: input.projectId,
+          profileKey: manifest.originProfileKey,
+          agentWorkforceMemberId: agent.workforceMemberId.toString(),
+          founderMemberId,
+          correlationId: ctx.correlationId,
+          capabilityFilter: manifest.capabilityRefs,
+        });
+      }
     }
 
     let roleDepId: bigint | null = null;
@@ -985,6 +1095,27 @@ export async function pauseProjectDeployment(
         .update(projectAgentDeployments)
         .set({ state: "PAUSED", version: currentVersion + 1, updatedAt: new Date() })
         .where(eq(projectAgentDeployments.id, depId));
+
+      // Agent workspace (C1): tạm dừng thu hồi grant đã cấp lúc deploy cho đúng Project này.
+      const [agent] = await tx
+        .select()
+        .from(workspaceAgents)
+        .where(and(eq(workspaceAgents.id, agentDep.workspaceAgentId), eq(workspaceAgents.workspaceId, wsId)))
+        .limit(1);
+      if (agent && agent.originKind === WORKSPACE_CLONE_ORIGIN) {
+        const manifest = await findAgentPublishReceipt(tx, wsId, agent);
+        if (manifest) {
+          await revokeProfileCapabilityGrants(tx, {
+            workspaceId: ctx.workspaceId,
+            projectId: agentDep.projectId.toString(),
+            profileKey: manifest.originProfileKey,
+            agentWorkforceMemberId: agent.workforceMemberId.toString(),
+            actorMemberId: ctx.workforceMemberId,
+            correlationId: ctx.correlationId,
+            reason: input.reason,
+          });
+        }
+      }
     } else {
       const [wfBinding] = await tx
         .select()

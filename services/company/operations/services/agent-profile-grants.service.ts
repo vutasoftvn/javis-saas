@@ -93,6 +93,18 @@ export interface ProfileGrantInput {
   agentWorkforceMemberId: string;
   founderMemberId: string;
   correlationId?: string;
+  /**
+   * Agent workspace (clone của built-in): chỉ cấp phần giao với capability_refs đã thu hẹp —
+   * không bao giờ nhiều hơn bảng grant của profile gốc.
+   */
+  capabilityFilter?: readonly string[];
+}
+
+function profileCapabilities(profileKey: string, filter?: readonly string[]): string[] {
+  const base = AGENT_PROFILE_GRANTED_CAPABILITIES[profileKey] ?? [];
+  if (!filter) return [...base];
+  const allowed = new Set(filter);
+  return base.filter((c) => allowed.has(c));
 }
 
 /**
@@ -104,7 +116,7 @@ export async function ensureProfileCapabilityGrants(
   tx: DbLike,
   input: ProfileGrantInput
 ): Promise<string[]> {
-  const capabilities = AGENT_PROFILE_GRANTED_CAPABILITIES[input.profileKey] ?? [];
+  const capabilities = profileCapabilities(input.profileKey, input.capabilityFilter);
   if (capabilities.length === 0) return [];
   const wsId = BigInt(input.workspaceId);
   const projectId = BigInt(input.projectId);

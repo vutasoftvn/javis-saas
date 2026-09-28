@@ -6,6 +6,9 @@ import {
   ProjectDeploymentAuthority,
   deployAgentToProject,
   ProjectAgentDeploymentDto,
+  createWorkspaceAgent,
+  WorkspaceAgentDto,
+  WORKSPACE_CLONE_ORIGIN,
 } from "../services/founder-asset-deployment.service";
 
 
@@ -126,5 +129,38 @@ export const getProjectDeploymentAuthorityByDeploymentApi = api(
         projectAgentDeploymentId: params.projectAgentDeploymentId,
       }
     );
+  }
+);
+
+interface CreateWorkspaceCloneAgentParams {
+  authorization?: Header<"Authorization">;
+  workspaceId: Header<"X-Workspace-Id">;
+  agentAssetId: string;
+  agentAssetVersion: string;
+  agentDefinitionHash: string;
+  idempotencyKey?: string;
+}
+
+/**
+ * Founder tạo Workspace Agent từ agent clone ĐÃ PUBLISH (C1). Server đòi biên nhận publish khớp
+ * tuyệt đối và tự tạo AI member riêng — client không chọn member, không chọn grant.
+ * Bước kế tiếp: POST /operations/projects/:projectId/agent-deployments.
+ */
+export const createWorkspaceCloneAgentApi = api(
+  {
+    expose: true,
+    method: "POST",
+    path: "/operations/founder/assets/workspace-agents",
+  },
+  async (params: CreateWorkspaceCloneAgentParams): Promise<WorkspaceAgentDto> => {
+    const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
+    return await createWorkspaceAgent(ctx, {
+      agentAssetId: params.agentAssetId,
+      agentAssetVersion: params.agentAssetVersion,
+      agentDefinitionHash: params.agentDefinitionHash,
+      originKind: WORKSPACE_CLONE_ORIGIN,
+      reason: "Create workspace agent from published clone",
+      idempotencyKey: params.idempotencyKey,
+    });
   }
 );

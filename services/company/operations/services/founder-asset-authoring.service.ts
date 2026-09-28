@@ -93,6 +93,43 @@ export interface FounderAssetCommandResult {
   idempotencyKey: string;
 }
 
+/**
+ * Biên nhận publish của agent workspace (clone bị ràng buộc của built-in) — do worker ký service
+ * token gửi kèm callback PUBLISH SUCCESS của AGENT. `createWorkspaceAgent`/`deployAgentToProject`
+ * dựa vào đây để cấp grant theo profile agent gốc ∩ capability đã thu hẹp
+ * (docs/superpowers/specs/2026-09-27-agent-clone-executor-design.md §4-§5).
+ */
+export interface AgentPublishManifest {
+  originProfileKey: string;
+  originSpec: { id: string; version: string; definitionHash: string };
+  capabilityRefs: string[];
+  displayName: string;
+}
+
+export function parseAgentPublishManifest(value: unknown): AgentPublishManifest | null {
+  if (!isRecord(value)) return null;
+  const origin = value.originSpec;
+  if (
+    typeof value.originProfileKey !== "string"
+    || !value.originProfileKey
+    || !isRecord(origin)
+    || typeof origin.id !== "string"
+    || typeof origin.version !== "string"
+    || typeof origin.definitionHash !== "string"
+    || !Array.isArray(value.capabilityRefs)
+    || !value.capabilityRefs.every((c) => typeof c === "string")
+    || typeof value.displayName !== "string"
+  ) {
+    return null;
+  }
+  return {
+    originProfileKey: value.originProfileKey,
+    originSpec: { id: origin.id, version: origin.version, definitionHash: origin.definitionHash },
+    capabilityRefs: [...(value.capabilityRefs as string[])],
+    displayName: value.displayName,
+  };
+}
+
 export interface AssetStatusCallbackPayload {
   commandId: string;
   workspaceId: string;
@@ -103,6 +140,7 @@ export interface AssetStatusCallbackPayload {
   assetRef?: AssetRef;
   evaluationSummary?: Record<string, any>;
   safeReasonCode?: string;
+  agentManifest?: AgentPublishManifest;
 }
 
 function assertHumanFounder(context: TenantContext): void {
@@ -300,12 +338,24 @@ export async function handleAssetStatusCallback(
     return;
   }
 
+  let agentManifest: AgentPublishManifest | undefined;
+  if (payload.assetKind === "AGENT" && payload.operation === "PUBLISH" && payload.status === "SUCCESS") {
+    if (payload.agentManifest !== undefined) {
+      const parsed = parseAgentPublishManifest(payload.agentManifest);
+      if (!parsed) {
+        throw APIError.invalidArgument("Agent publish callback carries a malformed agentManifest");
+      }
+      agentManifest = parsed;
+    }
+  }
+
   const updatedMeta = {
     ...currentMeta,
     status: payload.status,
     safeReasonCode: payload.safeReasonCode,
     evaluationSummary: payload.evaluationSummary,
     updatedAssetRef: payload.assetRef,
+    ...(agentManifest ? { agentManifest } : {}),
     resolvedAt: new Date().toISOString(),
   };
 
