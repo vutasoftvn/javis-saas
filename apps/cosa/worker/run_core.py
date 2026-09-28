@@ -91,6 +91,7 @@ async def prepare_request(
     project_id: str | None = None,
     history: list[dict[str, str]] | None = None,
     compliance_spec: AgentSpec | None = None,
+    session_ref: str | None = None,
 ) -> RunCorePrep:
     """Dựng RunRequest + resolve compliance (mint company delegation).
 
@@ -119,6 +120,7 @@ async def prepare_request(
         input={"prompt": prompt, **({"history": history} if history else {})},
         workspace_id=workspace_id,
         conversation_id=conversation_id,
+        session_ref=session_ref,
         locale=locale,
         metadata=run_metadata,
     )

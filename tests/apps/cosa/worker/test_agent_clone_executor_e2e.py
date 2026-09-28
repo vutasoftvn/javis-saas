@@ -442,3 +442,81 @@ async def test_model_route_of_custom_agent_is_the_origin_agent_route() -> None:
     )
     await bind_route_to_run(resolver, SimpleNamespace(workspace_id=WS), spec)
     resolver.resolve_route.assert_awaited_once_with(WS, OPS.id)
+
+
+KR_ARGS = '{"objective_id": "obj-42", "title": "MRR 1 tỷ", "target_value": 1000000000}'
+
+
+@pytest.mark.parametrize("paused_before_resume", [False, True])
+@pytest.mark.asyncio
+async def test_custom_agent_t2_waits_for_founder_and_runs_with_its_own_ai_member(
+    paused_before_resume: bool,
+) -> None:
+    from apps.cosa.worker.handlers import execute_resume_task
+
+    plane, repo = await _plane_with(
+        [
+            tool_call_response("call_kr", _tool("okr.key_result.create"), KR_ARGS),
+            text_response("Đã tạo Key Result MRR 1 tỷ."),
+        ]
+    )
+    plane.company_client.post.return_value = {"id": "kr-new", "title": "MRR 1 tỷ"}
+    ref = await _publish_custom_agent(repo, plane)
+    plane.company_client.get_project_agent_deployment_authority.return_value = _authority(ref)
+
+    await _run(plane, "run_custom_t2")
+    [required] = await _events(plane, "run_custom_t2", "approval.required")
+    assert required["capability_id"] == "okr.key_result.create"
+    kr_posts = [
+        c
+        for c in plane.company_client.post.await_args_list
+        if str(c.args[0]).endswith("/key-results")
+    ]
+    assert kr_posts == []
+
+    await plane.approval_service.submit_decision(
+        approval_id=required["approval_id"], reviewer="user_1", approved=True, reason=""
+    )
+    if paused_before_resume:
+        # Founder tạm dừng deployment giữa lúc duyệt và lúc resume: authority resolve lại →
+        # không có AI member → live authorization fail closed, không ghi gì.
+        plane.company_client.get_project_agent_deployment_authority.return_value = _authority(
+            ref, state="PAUSED"
+        )
+    await execute_resume_task(
+        plane,
+        CosaEventStreamManager(),
+        {
+            "run_id": "run_custom_t2",
+            "checkpoint_ref": required["checkpoint_ref"],
+            "conversation_id": "conv_1",
+            "workspace_id": WS,
+            "project_id": PROJECT,
+            "delegation_token": "fake-token",
+            "tool_call_id": "call_kr",
+            "approval_id": required["approval_id"],
+            "decision": "approved",
+        },
+    )
+
+    tickets = [
+        c
+        for c in plane.company_client.post.await_args_list
+        if c.args[0] == "/identity/agent-authorization/tickets"
+    ]
+    if paused_before_resume:
+        assert tickets == []
+        assert not [
+            c
+            for c in plane.company_client.post.await_args_list
+            if str(c.args[0]).endswith("/key-results")
+        ]
+        return
+    [ticket] = tickets
+    assert ticket.kwargs["json"]["agentWorkforceMemberId"] == MEMBER
+    assert [
+        c
+        for c in plane.company_client.post.await_args_list
+        if str(c.args[0]).endswith("/key-results")
+    ]
+    assert await _events(plane, "run_custom_t2", "run.completed")

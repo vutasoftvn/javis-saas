@@ -338,8 +338,42 @@ async def _verify_rejected_resume(
     return None
 
 
+WORKSPACE_AGENT_SESSION_PREFIX = "project_agent_deployment:"
+
+
+async def _resume_workspace_agent_member_id(
+    plane: Any, *, run: Any, workspace_id: Any, project_id: Any
+) -> str | None:
+    """Agent workspace: deployment id nằm trong `RunRecord.session_ref` (ghi lúc bắt đầu run);
+    authority được resolve lại từ company (deployment tạm dừng / asset lệch → None → live
+    authorization ticket fail closed)."""
+    session_ref = getattr(run, "session_ref", None) or ""
+    if not session_ref.startswith(WORKSPACE_AGENT_SESSION_PREFIX):
+        return None
+    deployment_id = session_ref[len(WORKSPACE_AGENT_SESSION_PREFIX) :]
+    if not deployment_id:
+        return None
+    resolved, authority = await _resolve_workspace_agent_run(
+        plane,
+        workspace_id=str(workspace_id),
+        project_id=str(project_id),
+        deployment_id=str(deployment_id),
+    )
+    if (
+        resolved.spec.id != run.root_executable_id
+        or resolved.spec.version != run.root_executable_version
+        or resolved.spec.definition_hash != run.root_definition_hash
+    ):
+        return None
+    return str(authority["workforceMemberId"])
+
+
 async def _resume_agent_member_id(
-    plane: Any, *, run_id: str, workspace_id: Any, project_id: Any
+    plane: Any,
+    *,
+    run_id: str,
+    workspace_id: Any,
+    project_id: Any,
 ) -> str | None:
     """AI member đang giữ profile của run trong Project team (None nếu không xác định được)."""
     if not workspace_id or not project_id:
@@ -347,6 +381,10 @@ async def _resume_agent_member_id(
     try:
         run = await plane.repository.get_run(run_id)
         spec_id = getattr(run, "root_executable_id", None) if run is not None else None
+        if isinstance(spec_id, str) and spec_id.startswith("workspace."):
+            return await _resume_workspace_agent_member_id(
+                plane, run=run, workspace_id=workspace_id, project_id=project_id
+            )
         profile_key = next(
             (key for key, spec in _AGENT_PROFILE_SPECS.items() if spec.id == spec_id), None
         )
@@ -781,6 +819,13 @@ async def _execute_run_task_inner(
             extra_metadata=extra_md or None,
             history=history,
             compliance_spec=compliance_spec,
+            # Agent workspace: RunRecord.session_ref giữ deployment để resume sau khi founder
+            # duyệt resolve lại authority của đúng deployment này.
+            session_ref=(
+                f"{WORKSPACE_AGENT_SESSION_PREFIX}{payload['project_agent_deployment_id']}"
+                if resolved_spec is not None and payload.get("project_agent_deployment_id")
+                else None
+            ),
         )
     except RunCoreError as exc:
         if exc.reason_code == "compliance_resolver_unavailable":
@@ -1099,7 +1144,10 @@ async def execute_resume_task(
     # AI member của Project team cho live authorization ticket khi tool đã duyệt chạy — resolve
     # lại từ authority hiện hành (member bị gỡ khỏi team thì ticket fail closed).
     agent_member_id = await _resume_agent_member_id(
-        plane, run_id=run_id, workspace_id=workspace_id, project_id=project_id
+        plane,
+        run_id=run_id,
+        workspace_id=workspace_id,
+        project_id=project_id,
     )
     if agent_member_id:
         resume_updates["agent_workforce_member_id"] = agent_member_id
