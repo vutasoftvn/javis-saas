@@ -211,5 +211,73 @@ class AppCopy {
         'Có phiên bản mới — tạm dừng rồi kích hoạt lại để cập nhật.',
       );
   static String get hubOpsDefaultAgent => _l('Agent', 'Agent');
+
+  // ── B6 (Task 7) — thẻ đề xuất kế hoạch tự động hoá trong chat ──────────
+  static String get automationPlanHeading =>
+      _l('Automation plan proposal', 'Đề xuất kế hoạch tự động hoá');
+  static String get automationPlanNewAgentLabel =>
+      _l('New agent (not created yet)', 'Agent mới (chưa tạo)');
+  static String get automationPlanNewAgentWarning => _l(
+        'This plan needs a new agent before it can run.',
+        'Kế hoạch cần tạo agent mới trước khi chạy được.',
+      );
+  static String get automationPlanSkillLabel => _l('Skill', 'Kỹ năng');
+  static String automationPlanConnectorConnected(String key) =>
+      _l('$key: connected', '$key: đã kết nối');
+  static String automationPlanConnectorMissing(String key) =>
+      _l('$key: not connected', '$key: chưa kết nối');
+  static String automationPlanChannelVerified(String label) =>
+      _l('Channel: $label (verified)', 'Kênh nhận: $label (đã xác minh)');
+  static String automationPlanChannelUnverified(String label) =>
+      _l('Channel: $label (not verified)', 'Kênh nhận: $label (chưa xác minh)');
+  static String get automationPlanScheduleLabel => _l('Schedule', 'Lịch chạy');
+  static String get automationPlanBudgetLabel =>
+      _l('Token budget per run', 'Ngân sách token mỗi lượt chạy');
+  static String get automationPlanApprove => _l('Approve', 'Duyệt');
+  static String get automationPlanApproved => _l('Schedule created', 'Đã tạo lịch');
+  static String get automationPlanOpenFounderProfile =>
+      _l('Open founder profile', 'Mở hồ sơ founder');
+  static String get automationPlanOpenToolsTab =>
+      _l('Open Tools tab', 'Mở tab Công cụ');
+  static String get automationPlanOpenAgentsTab =>
+      _l('Open Agents tab', 'Mở tab Agent');
+
+  /// Rút gọn mã lỗi backend (task-5/6-report.md) thành thông báo thân thiện — không lộ
+  /// message kỹ thuật thô (correlation id, tên bảng, v.v.) ra UI.
+  static String automationPlanErrorFor(String? backendCode) {
+    switch (backendCode) {
+      case 'unauthenticated':
+        return _l(
+          'Your session has expired. Please sign in again.',
+          'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.',
+        );
+      case 'permission_denied':
+      case 'founder_owner_not_authorized':
+        return _l(
+          'Only the founder can approve this plan.',
+          'Chỉ founder mới duyệt được kế hoạch này.',
+        );
+      case 'not_found':
+        return _l(
+          'This proposal no longer exists.',
+          'Đề xuất này không còn tồn tại.',
+        );
+      case 'failed_precondition':
+        return _l(
+          'This plan is not ready yet — check the conditions above.',
+          'Kế hoạch chưa đủ điều kiện — kiểm tra lại các mục ở trên.',
+        );
+      case 'unavailable':
+        return _l(
+          'Service is temporarily unavailable. Please try again.',
+          'Dịch vụ đang tạm gián đoạn, thử lại sau.',
+        );
+      default:
+        return _l(
+          'Something went wrong. Please try again.',
+          'Có lỗi xảy ra, vui lòng thử lại.',
+        );
+    }
+  }
 }
 

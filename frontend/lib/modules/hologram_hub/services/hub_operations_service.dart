@@ -1,8 +1,24 @@
+import "dart:convert";
+import "package:frontend/core/network/api_client.dart";
 import 'package:frontend/core/network/api_result.dart';
 import 'package:frontend/core/network/mvp_endpoints.g.dart';
 import 'package:frontend/core/network/mvp_request_client.dart';
+import 'package:frontend/core/services/secure_storage_service.dart';
 
 import '../models/hub_operations_models.dart';
+
+/// B6 (Task 7) — kết quả duyệt thẻ kế hoạch tự động hoá (`POST /cosa/workspaces/:workspaceId/
+/// automation-plans/:proposalId/approve`, xem task-6-report.md mục ROUTE APPROVE). Route trả
+/// thẳng `ScheduleDefinitionResponse` (TS Encore, camelCase, KHÔNG bọc `{data, meta}` như các
+/// route MVP khác) — chỉ giữ lại các field UI cần, không parse toàn bộ shape.
+class AutomationPlanApprovalResult {
+  const AutomationPlanApprovalResult({required this.scheduleId});
+
+  final String scheduleId;
+
+  factory AutomationPlanApprovalResult.fromJson(Map<String, dynamic> json) =>
+      AutomationPlanApprovalResult(scheduleId: json['id']?.toString() ?? '');
+}
 
 List<Map<String, dynamic>> _items(Object? raw) {
   if (raw is Map<String, dynamic>) {
@@ -56,6 +72,76 @@ class HubOperationsService {
       query: {'limit': '$limit'},
       decode: (raw) => _items(raw).map(HubScheduleExecution.fromJson).toList(),
     );
+  }
+
+  /// Task 6 (B5) / Task 7 (B6) — founder bấm Duyệt thẻ kế hoạch tự động hoá trong chat.
+  /// `ApiClient.post` tự gắn `Authorization`/`X-Workspace-Id` từ phiên đăng nhập founder đang
+  /// lưu (KHÔNG phải delegation agent — đúng yêu cầu route, xem task-6-report.md mục ROUTE
+  /// APPROVE). `workspaceId` phải nằm TRONG path (route Encore), khác các route MVP khác chỉ
+  /// cần header.
+  Future<ApiResult<AutomationPlanApprovalResult>> approveAutomationPlan({
+    required String proposalId,
+    required String projectId,
+  }) async {
+    final workspaceId = await SecureStorageService.read('workspace_id');
+    if (workspaceId == null || workspaceId.isEmpty) {
+      return ApiFailure(ApiFailureDetail(
+        code: ApiFailureCode.invalidRequest,
+        message: 'Chưa xác định được workspace hiện tại.',
+      ));
+    }
+    try {
+      final res = await ApiClient.post(
+        '/cosa/workspaces/$workspaceId/automation-plans/$proposalId/approve',
+        body: {'projectId': projectId},
+      );
+      final decoded = res.bodyBytes.isEmpty ? null : jsonDecode(utf8.decode(res.bodyBytes));
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        return ApiSuccess(
+          data: AutomationPlanApprovalResult.fromJson(
+            decoded is Map<String, dynamic> ? decoded : const {},
+          ),
+          meta: ApiResponseMeta(
+            dataState: ApiDataState.populated,
+            observedAt: DateTime.now().toUtc(),
+          ),
+        );
+      }
+      final backendCode = decoded is Map<String, dynamic> ? decoded['code']?.toString() : null;
+      final backendMessage =
+          decoded is Map<String, dynamic> ? decoded['message']?.toString() : null;
+      return ApiFailure(ApiFailureDetail(
+        code: _mapApprovalFailureCode(backendCode),
+        statusCode: res.statusCode,
+        message: backendMessage ?? 'Failed to approve automation plan (${res.statusCode})',
+        raw: decoded,
+      ));
+    } catch (e) {
+      return ApiFailure(ApiFailureDetail(
+        code: ApiFailureCode.unknown,
+        message: e.toString(),
+      ));
+    }
+  }
+
+  ApiFailureCode _mapApprovalFailureCode(String? backendCode) {
+    switch (backendCode) {
+      case 'unauthenticated':
+        return ApiFailureCode.unauthenticated;
+      case 'permission_denied':
+        return ApiFailureCode.forbidden;
+      case 'not_found':
+        return ApiFailureCode.notFound;
+      case 'already_exists':
+      case 'failed_precondition':
+        return ApiFailureCode.conflict;
+      case 'invalid_argument':
+        return ApiFailureCode.invalidRequest;
+      case 'unavailable':
+        return ApiFailureCode.unavailable;
+      default:
+        return ApiFailureCode.unknown;
+    }
   }
 
   Future<ApiResult<List<HubAgentGrant>>> listAgentGrants(String projectId) {

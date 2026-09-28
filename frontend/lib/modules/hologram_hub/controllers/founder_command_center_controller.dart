@@ -26,6 +26,7 @@ import '../../../modules/workforce/models/workforce_mvp_models.dart';
 import '../../../modules/workforce/services/workforce_mvp_service.dart';
 import '../models/project_startup_team.dart';
 import '../services/project_startup_team_service.dart';
+import 'hub_operations_controller.dart' show HubOperationsTab;
 import '../services/project_activity_service.dart';
 import '../services/project_memory_service.dart';
 import '../models/project_activity_models.dart';
@@ -956,6 +957,29 @@ class FounderCommandCenterController extends GetxController {
         AppToast.error('Không lưu được vào trí nhớ dự án: ${failure.message}');
         return false;
     }
+  }
+
+  /// B6 (Task 7, 2026-09-28) — tín hiệu để thẻ đề xuất kế hoạch tự động hoá trong chat
+  /// (`_AutomationPlanProposalCard`, `chat_panel_content.dart`) yêu cầu `HubOperationsPanel`/
+  /// `HubOperationsCard` mở đúng tab khi thiếu điều kiện duyệt (blocker `tools_tab`/
+  /// `agents_tab` — xem task-5-report.md mục Blocker). Dùng `seq` riêng (không chỉ `Rxn&lt;Tab&gt;`)
+  /// vì Rx chỉ notify listener khi giá trị đổi — bấm lại đúng blocker cũ (2 lần liên tiếp)
+  /// vẫn phải phát tín hiệu để card mở lại/cuộn tới tab đó.
+  ///
+  /// CHỜ TÍCH HỢP Ở PHÍA NGHE: nơi dựng `HubOperationsPanel` thật
+  /// (`_HubLeftPanelsState` trong `hologram_hub_view.dart`) đang là một class HOÀN TOÀN MỚI,
+  /// WIP CHƯA COMMIT của người khác tại đúng thời điểm code task này (xem task-7-report.md
+  /// mục CONCERNS) — chèn listener thật vào đúng lúc này rủi ro đè lên nội dung họ đang viết.
+  /// Tín hiệu ở đây là hành động THẬT (không phải no-op/SnackBar giả) và đã sẵn sàng để người
+  /// hoàn thiện `_HubLeftPanelsState` nối `ever(controller.requestedOperationsTabSeq, (_) {
+  /// setState(() => _isOpsExpanded = true); opsControllerRef.selectTab(controller.
+  /// lastRequestedOperationsTab!); })`.
+  final RxInt requestedOperationsTabSeq = 0.obs;
+  HubOperationsTab? lastRequestedOperationsTab;
+
+  void requestOperationsTab(HubOperationsTab tab) {
+    lastRequestedOperationsTab = tab;
+    requestedOperationsTabSeq.value++;
   }
 
   /// Tạo mới phiên chat: huỷ SSE stream đang chạy, reset conversation ID và dọn dẹp tin nhắn.

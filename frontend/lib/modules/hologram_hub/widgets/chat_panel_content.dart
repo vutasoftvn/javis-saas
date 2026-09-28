@@ -9,7 +9,11 @@ import '../../../core/localization/supported_locale.dart';
 import '../../../core/ui/app_copy.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_markdown_body.dart';
+import '../../../core/routing/app_routes.dart';
+import '../../../core/network/api_result.dart';
 import '../controllers/founder_command_center_controller.dart';
+import '../controllers/hub_operations_controller.dart';
+import '../services/hub_operations_service.dart';
 
 /// Nội dung chat thuần (không side effect ngoài [controller] được truyền
 /// vào) — tách ra từ nội dung chat có sẵn trong `HologramHubView` để dùng
@@ -287,6 +291,24 @@ class _ChatPanelContentState extends State<ChatPanelContent> {
                                     fact: memoryFact,
                                     onConfirm: () => controller
                                         .confirmProjectFact(memoryFact),
+                                  ),
+                                );
+                              }
+                              // B6 — tool `automation.plan.propose` (T1) in thẳng
+                              // {"kind":"automation_plan_proposal",...} làm content, cùng cơ
+                              // chế parse-JSON-làm-content với plan_progress/memory_confirm ở
+                              // trên (xem task-7-brief.md mục "Cơ chế hiển thị").
+                              final automationPlanProposal = !isUser && !isError
+                                  ? AutomationPlanProposal.tryParse(content)
+                                  : null;
+                              if (automationPlanProposal != null) {
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 4,
+                                  ),
+                                  child: _AutomationPlanProposalCard(
+                                    proposal: automationPlanProposal,
+                                    controller: controller,
                                   ),
                                 );
                               }
@@ -1152,6 +1174,382 @@ class _PlanProgressCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// B6 (Task 7) — model + parse cho thẻ đề xuất kế hoạch tự động hoá
+/// (`{"kind":"automation_plan_proposal",...}`, shape trả về từ
+/// `POST /operations/projects/:projectId/automation-plans/proposals` — xem task-5-report.md
+/// mục ROUTE). Parse rộng dung: field thiếu/sai kiểu → giá trị mặc định hợp lý, KHÔNG throw
+/// (output model có thể lệch định dạng nhẹ).
+class AutomationPlanConnectorInfo {
+  const AutomationPlanConnectorInfo({required this.key, required this.status});
+  final String key;
+  final String status;
+  bool get isConnected => status == 'connected';
+}
+
+class AutomationPlanChannelInfo {
+  const AutomationPlanChannelInfo({
+    required this.kind,
+    required this.label,
+    required this.verified,
+  });
+  final String kind;
+  final String label;
+  final bool verified;
+}
+
+class AutomationPlanBlocker {
+  const AutomationPlanBlocker({required this.code, required this.target});
+  final String code;
+  final String target;
+}
+
+class AutomationPlanReadinessInfo {
+  const AutomationPlanReadinessInfo({required this.ready, required this.blockers});
+  final bool ready;
+  final List<AutomationPlanBlocker> blockers;
+}
+
+class AutomationPlanDetail {
+  const AutomationPlanDetail({
+    required this.agentLabel,
+    required this.proposeNewAgent,
+    required this.skillLabel,
+    required this.connectors,
+    required this.channel,
+    required this.scheduleHumanReadable,
+    required this.tokenBudgetPerRun,
+  });
+  final String agentLabel;
+  final bool proposeNewAgent;
+  final String skillLabel;
+  final List<AutomationPlanConnectorInfo> connectors;
+  final AutomationPlanChannelInfo channel;
+  final String scheduleHumanReadable;
+  final int tokenBudgetPerRun;
+}
+
+class AutomationPlanProposal {
+  const AutomationPlanProposal({
+    required this.proposalId,
+    required this.projectId,
+    required this.plan,
+    required this.readiness,
+  });
+
+  final String proposalId;
+  final String projectId;
+  final AutomationPlanDetail plan;
+  final AutomationPlanReadinessInfo readiness;
+
+  static AutomationPlanProposal? tryParse(String content) {
+    if (!content.startsWith('{') || !content.contains('"automation_plan_proposal"')) {
+      return null;
+    }
+    try {
+      final j = jsonDecode(content);
+      if (j is! Map<String, dynamic> || j['kind'] != 'automation_plan_proposal') {
+        return null;
+      }
+      final planJson = (j['plan'] is Map<String, dynamic>)
+          ? j['plan'] as Map<String, dynamic>
+          : const <String, dynamic>{};
+      final channelJson = (planJson['channel'] is Map<String, dynamic>)
+          ? planJson['channel'] as Map<String, dynamic>
+          : const <String, dynamic>{};
+      final scheduleJson = (planJson['schedule'] is Map<String, dynamic>)
+          ? planJson['schedule'] as Map<String, dynamic>
+          : const <String, dynamic>{};
+      final readinessJson = (j['readiness'] is Map<String, dynamic>)
+          ? j['readiness'] as Map<String, dynamic>
+          : const <String, dynamic>{};
+      final connectors = ((planJson['connectors'] as List<dynamic>?) ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map((c) => AutomationPlanConnectorInfo(
+                key: '${c['key'] ?? ''}',
+                status: '${c['status'] ?? 'missing'}',
+              ))
+          .toList();
+      final blockers = ((readinessJson['blockers'] as List<dynamic>?) ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map((b) => AutomationPlanBlocker(
+                code: '${b['code'] ?? ''}',
+                target: '${b['target'] ?? ''}',
+              ))
+          .toList();
+      return AutomationPlanProposal(
+        proposalId: '${j['proposalId'] ?? ''}',
+        projectId: '${j['projectId'] ?? ''}',
+        plan: AutomationPlanDetail(
+          agentLabel: '${planJson['agentLabel'] ?? ''}',
+          proposeNewAgent: planJson['proposeNewAgent'] == true,
+          skillLabel: '${planJson['skillLabel'] ?? ''}',
+          connectors: connectors,
+          channel: AutomationPlanChannelInfo(
+            kind: '${channelJson['kind'] ?? ''}',
+            label: '${channelJson['label'] ?? ''}',
+            verified: channelJson['verified'] == true,
+          ),
+          scheduleHumanReadable: '${scheduleJson['humanReadable'] ?? ''}',
+          tokenBudgetPerRun: (planJson['tokenBudgetPerRun'] is num)
+              ? (planJson['tokenBudgetPerRun'] as num).toInt()
+              : 0,
+        ),
+        readiness: AutomationPlanReadinessInfo(
+          ready: readinessJson['ready'] == true,
+          blockers: blockers,
+        ),
+      );
+    } on FormatException {
+      return null;
+    } catch (_) {
+      // Parse rộng dung — mọi lỗi cast khác (field đúng tên, sai kiểu) cũng không được
+      // làm crash bong bóng chat, chỉ coi như không nhận diện được thẻ này.
+      return null;
+    }
+  }
+}
+
+/// Thẻ đề xuất kế hoạch tự động hoá (B6): hiển thị agent/skill/connector/kênh/lịch/ngân
+/// sách, nút Duyệt gọi thẳng route approve của Task 6 (B5). Thiếu điều kiện (`readiness.
+/// ready == false`) thì khoá nút Duyệt và hiện nút phụ điều hướng thật theo từng blocker.
+class _AutomationPlanProposalCard extends StatefulWidget {
+  const _AutomationPlanProposalCard({required this.proposal, required this.controller});
+
+  final AutomationPlanProposal proposal;
+  final FounderCommandCenterController controller;
+
+  @override
+  State<_AutomationPlanProposalCard> createState() => _AutomationPlanProposalCardState();
+}
+
+class _AutomationPlanProposalCardState extends State<_AutomationPlanProposalCard> {
+  bool _busy = false;
+  bool _approved = false;
+  String? _errorMessage;
+  String? _scheduleSummary;
+  HubOperationsService? _service;
+
+  HubOperationsService get _operations => _service ??= HubOperationsService();
+
+  Future<void> _approve() async {
+    setState(() {
+      _busy = true;
+      _errorMessage = null;
+    });
+    final res = await _operations.approveAutomationPlan(
+      proposalId: widget.proposal.proposalId,
+      projectId: widget.proposal.projectId,
+    );
+    if (!mounted) return;
+    switch (res) {
+      case ApiSuccess():
+        // `ScheduleDefinitionResponse` (task-6-report.md) không có sẵn chuỗi giờ chạy đã
+        // format — dùng lại `humanReadable` company đã tính khi tạo nháp (không đổi sau
+        // duyệt, cùng lịch).
+        setState(() {
+          _busy = false;
+          _approved = true;
+          _scheduleSummary = widget.proposal.plan.scheduleHumanReadable;
+        });
+      case ApiFailure(:final failure):
+        // Task 6 (B5): duyệt lại 1 đề xuất đã có lịch trả `already_exists` — coi như đã
+        // tạo lịch, không phải lỗi (task-6-report.md mục ROUTE APPROVE).
+        final raw = failure.raw;
+        final backendCode = raw is Map ? raw['code']?.toString() : null;
+        if (backendCode == 'already_exists') {
+          setState(() {
+            _busy = false;
+            _approved = true;
+            _scheduleSummary = widget.proposal.plan.scheduleHumanReadable;
+          });
+          return;
+        }
+        setState(() {
+          _busy = false;
+          _errorMessage = AppCopy.automationPlanErrorFor(backendCode);
+        });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final plan = widget.proposal.plan;
+    final readiness = widget.proposal.readiness;
+    return Container(
+      key: Key('hub_chat_automation_plan_${widget.proposal.proposalId}'),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A).withValues(alpha: 0.22),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.45)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.auto_awesome_outlined, color: AppTheme.primaryLight, size: 16),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  AppCopy.automationPlanHeading,
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 11),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            plan.proposeNewAgent ? AppCopy.automationPlanNewAgentLabel : plan.agentLabel,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (plan.proposeNewAgent) ...[
+            const SizedBox(height: 2),
+            Text(
+              AppCopy.automationPlanNewAgentWarning,
+              style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 11),
+            ),
+          ],
+          const SizedBox(height: 4),
+          Text(
+            '${AppCopy.automationPlanSkillLabel}: ${plan.skillLabel}',
+            style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 12),
+          ),
+          if (plan.connectors.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final c in plan.connectors)
+                  _statusChip(
+                    c.isConnected
+                        ? AppCopy.automationPlanConnectorConnected(c.key)
+                        : AppCopy.automationPlanConnectorMissing(c.key),
+                    c.isConnected,
+                  ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 6),
+          _statusChip(
+            plan.channel.verified
+                ? AppCopy.automationPlanChannelVerified(plan.channel.label)
+                : AppCopy.automationPlanChannelUnverified(plan.channel.label),
+            plan.channel.verified,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${AppCopy.automationPlanScheduleLabel}: ${plan.scheduleHumanReadable}',
+            style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 12),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '${AppCopy.automationPlanBudgetLabel}: ${plan.tokenBudgetPerRun}',
+            style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 12),
+          ),
+          const SizedBox(height: 10),
+          if (_approved)
+            Text(
+              _scheduleSummary == null || _scheduleSummary!.isEmpty
+                  ? AppCopy.automationPlanApproved
+                  : '${AppCopy.automationPlanApproved} — $_scheduleSummary',
+              style: const TextStyle(color: Colors.greenAccent, fontSize: 12),
+            )
+          else ...[
+            if (_errorMessage != null) ...[
+              Text(
+                _errorMessage!,
+                style: const TextStyle(color: Color(0xFFF87171), fontSize: 12),
+              ),
+              const SizedBox(height: 6),
+            ],
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FilledButton(
+                  key: const Key('automation_plan_approve_button'),
+                  onPressed: (readiness.ready && !_busy) ? _approve : null,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppTheme.primary,
+                    foregroundColor: const Color(0xFF04070E),
+                  ),
+                  child: _busy
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Color(0xFF04070E),
+                          ),
+                        )
+                      : Text(AppCopy.automationPlanApprove),
+                ),
+                if (!readiness.ready)
+                  for (final blocker in readiness.blockers) _blockerButton(blocker),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _statusChip(String label, bool ok) {
+    final color = ok ? Colors.greenAccent : const Color(0xFFFBBF24);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
+  /// Nút phụ khi thiếu điều kiện — điều hướng THẬT theo `target` (không SnackBar/no-op).
+  /// `founder_profile` sang route hồ sơ founder thật (`AppRoutes.profile`). `tools_tab`/
+  /// `agents_tab` phát tín hiệu THẬT qua `FounderCommandCenterController.requestOperationsTab`
+  /// để `HubOperationsPanel` (hologram_hub_view.dart) mở đúng tab — xem CONCERNS trong
+  /// task-7-report.md về việc nối listener phía đó (đang là WIP chưa commit của người khác).
+  Widget _blockerButton(AutomationPlanBlocker blocker) {
+    switch (blocker.target) {
+      case 'founder_profile':
+        return OutlinedButton(
+          key: const Key('automation_plan_open_founder_profile'),
+          onPressed: () => Get.toNamed(AppRoutes.profile),
+          style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFFCBD5E1)),
+          child: Text(AppCopy.automationPlanOpenFounderProfile),
+        );
+      case 'tools_tab':
+        return OutlinedButton(
+          key: const Key('automation_plan_open_tools_tab'),
+          onPressed: () => widget.controller.requestOperationsTab(HubOperationsTab.tools),
+          style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFFCBD5E1)),
+          child: Text(AppCopy.automationPlanOpenToolsTab),
+        );
+      case 'agents_tab':
+        return OutlinedButton(
+          key: const Key('automation_plan_open_agents_tab'),
+          onPressed: () => widget.controller.requestOperationsTab(HubOperationsTab.agents),
+          style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFFCBD5E1)),
+          child: Text(AppCopy.automationPlanOpenAgentsTab),
+        );
+      default:
+        return const SizedBox.shrink();
+    }
   }
 }
 
