@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { APIError } from "encore.dev/api";
 import { and, eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
+import { identityWorkforceMembers } from "../../shared/db/schema/identity";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { TenantContext } from "../../shared/types/tenant_context";
 import { isLifecyclePrivileged } from "../strategy/services/lifecycle-authorization.service";
@@ -23,6 +24,7 @@ import {
   ensureProfileCapabilityGrants,
   revokeProfileCapabilityGrants,
 } from "./agent-profile-grants.service";
+import { WORKSPACE_CLONE_ORIGIN } from "./founder-asset-deployment.service";
 import {
   STARTUP_TEAM_PROFILES,
   STARTUP_TEAM_PROFILE_KEYS,
@@ -37,9 +39,23 @@ const {
   projects,
   projectAgentAssignments,
   projectAgentAssignmentEvents,
+  projectAgentDeployments,
   workspaceAgents,
   founderAssetEvents,
 } = schema;
+
+/**
+ * Task 9 (C2) — `listProjectStartupTeam` chỉ trả agent built-in (catalog cố định
+ * `StartupTeamProfileKey`). Agent tự tạo qua C1 (`workspaceAgents.originKind =
+ * 'WORKSPACE_CLONE'`, deploy qua `deployAgentToProject`) có `agentAssetId` dạng
+ * `custom.<profile>.<commandId>` KHÔNG nằm trong catalog cố định — widen kiểu
+ * `profileKey` cho riêng output của hàm này (không đụng file generated
+ * `startup-team-profiles.generated.ts`, vẫn dùng chung shape
+ * `ProjectStartupTeamMember` cho phần built-in).
+ */
+export type ProjectStartupTeamMemberOut = Omit<ProjectStartupTeamMember, "profileKey"> & {
+  profileKey: string;
+};
 
 /**
  * Guard quyền Founder/Admin cho việc quản trị Project Startup Team.
@@ -142,7 +158,7 @@ export async function listProjectStartupTeam(input: {
   workspaceId: string;
   projectId: string;
   actorId?: string;
-}): Promise<ProjectStartupTeamMember[]> {
+}): Promise<ProjectStartupTeamMemberOut[]> {
   const wsId = BigInt(input.workspaceId);
   const projId = BigInt(input.projectId);
 
@@ -173,7 +189,7 @@ export async function listProjectStartupTeam(input: {
     rowMap.set(r.profileKey, r);
   }
 
-  return STARTUP_TEAM_PROFILES.map((profile): ProjectStartupTeamMember => {
+  const builtIn: ProjectStartupTeamMemberOut[] = STARTUP_TEAM_PROFILES.map((profile): ProjectStartupTeamMember => {
     if (profile.key === "founder_assistant") {
       return {
         profileKey: "founder_assistant",
@@ -213,6 +229,49 @@ export async function listProjectStartupTeam(input: {
       ...specPinInfo(profile.key, row.specVersion),
     };
   });
+
+  // Agent tự tạo qua C1 (clone built-in -> publish -> workspace agent -> deploy vào Project)
+  // KHÔNG nằm trong catalog built-in cố định — UNION thêm ở đây để founder thấy agent mới
+  // xuất hiện trong startup team của Project sau khi deploy (task-9-brief.md).
+  const customRows = await db
+    .select({
+      deploymentState: projectAgentDeployments.state,
+      deploymentVersion: projectAgentDeployments.version,
+      agentAssetId: workspaceAgents.agentAssetId,
+      roleTitle: identityWorkforceMembers.roleTitle,
+    })
+    .from(projectAgentDeployments)
+    .innerJoin(workspaceAgents, eq(projectAgentDeployments.workspaceAgentId, workspaceAgents.id))
+    .innerJoin(
+      identityWorkforceMembers,
+      eq(workspaceAgents.workforceMemberId, identityWorkforceMembers.id)
+    )
+    .where(
+      and(
+        eq(projectAgentDeployments.workspaceId, wsId),
+        eq(projectAgentDeployments.projectId, projId),
+        eq(workspaceAgents.originKind, WORKSPACE_CLONE_ORIGIN)
+      )
+    );
+
+  const custom: ProjectStartupTeamMemberOut[] = customRows.map((r) => ({
+    // `agentAssetId` (dạng `custom.<profile>.<commandId>`) là khoá tất định, duy nhất trong
+    // Workspace — KHÔNG tra `AGENT_PROFILE_SPEC_ID` cố định vì key này không nằm trong đó.
+    profileKey: r.agentAssetId,
+    // Nhãn hiển thị lấy từ AI member (`roleTitle`, đặt lúc PUBLISH từ `agentManifest.displayName`
+    // = tên founder đặt khi CLONE) — không tra bảng label cố định để tránh crash trên key lạ.
+    label: r.roleTitle || r.agentAssetId,
+    displayState:
+      r.deploymentState === "PAUSED" || r.deploymentState === "RETIRED"
+        ? r.deploymentState
+        : "ACTIVE",
+    // Agent custom chỉ tồn tại sau khi đã publish + deploy thành công, nên luôn READY —
+    // không có trạng thái "template" (chưa deploy thì chưa xuất hiện ở đây).
+    runtimeReadiness: "READY",
+    assignmentVersion: r.deploymentVersion,
+  }));
+
+  return [...builtIn, ...custom];
 }
 
 /**

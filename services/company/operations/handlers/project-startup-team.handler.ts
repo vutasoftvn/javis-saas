@@ -6,6 +6,7 @@ import {
   activateProjectStartupTeamMember,
   pauseProjectStartupTeamMember,
   ProjectAgentRunAuthority,
+  ProjectStartupTeamMemberOut,
 } from "../services/project-startup-team.service";
 import {
   listProjectAgentCapabilityGrants,
@@ -30,7 +31,7 @@ export const listProjectStartupTeamApi = api(
   },
   async (
     params: ListProjectStartupTeamParams
-  ): Promise<{ items: ProjectStartupTeamMember[] }> => {
+  ): Promise<{ items: ProjectStartupTeamMemberOut[] }> => {
     const ctx = await requireWorkspaceAccess(params.authorization, params.workspaceId);
     const items = await listProjectStartupTeam({
       workspaceId: ctx.workspaceId,
