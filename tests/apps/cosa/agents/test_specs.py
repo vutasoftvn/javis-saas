@@ -13,8 +13,8 @@ from apps.cosa.agents.specs import (
 
 
 def test_direct_chat_capable_agent_specs_use_new_immutable_version() -> None:
-    # operations 1.8.0 (1.6.0 business.read + hành động T2 có duyệt; 1.7.0 founder.notify.send;
-    # 1.8.0 email.digest.read); finance 1.2.0 (sửa id
+    # operations 1.9.0 (1.6.0 business.read + hành động T2 có duyệt; 1.7.0 founder.notify.send;
+    # 1.8.0 email.digest.read; 1.9.0 automation.plan.propose); finance 1.2.0 (sửa id
     # capability classify_propose); marketing 1.2.0 (sửa id capability
     # commercial.campaign_asset.write / commercial.experiment.write).
     # Invariant: all are a Wave-M2b immutable version (>= 1.1.0), none left at 1.0.0.
@@ -22,8 +22,8 @@ def test_direct_chat_capable_agent_specs_use_new_immutable_version() -> None:
         COSA_OPERATIONS_AGENT_SPEC.version,
         COSA_FINANCE_AGENT_SPEC.version,
         COSA_MARKETING_AGENT_SPEC.version,
-    ) == ("1.8.0", "1.2.0", "1.2.0")
-    assert COSA_OPERATIONS_AGENT_SPEC.version == "1.8.0"
+    ) == ("1.9.0", "1.2.0", "1.2.0")
+    assert COSA_OPERATIONS_AGENT_SPEC.version == "1.9.0"
     assert "operations.task.create_draft" in COSA_OPERATIONS_AGENT_SPEC.capability_refs
     assert "workspace.context.read" in COSA_OPERATIONS_AGENT_SPEC.capability_refs
     assert (

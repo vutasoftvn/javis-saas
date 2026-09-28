@@ -71,4 +71,8 @@ export const AGENT_CAP = Object.freeze({
   // minh của chính founder sở hữu run. Không có tham số người nhận; company tự tra kênh
   // theo danh tính trong delegation. Chat vẫn buộc founder duyệt từng lần.
   FOUNDER_NOTIFY_SEND: "founder.notify.send",
+  // T1 (plan hub đợt 2 B4): agent lưu NHÁP kế hoạch tự động hoá (agent tái dùng, skill,
+  // connector, kênh nhận, lịch, ngân sách token) cho founder duyệt ở thẻ kế hoạch. Không tạo
+  // lịch thật, không gọi ra ngoài; founder = danh tính trong delegation.
+  AUTOMATION_PLAN_PROPOSE: "automation.plan.propose",
 });

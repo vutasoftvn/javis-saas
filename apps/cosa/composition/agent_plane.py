@@ -351,6 +351,10 @@ def build_cosa_agent_plane(
     run_scheduler = scheduler or HttpControlPlaneSchedulerClient(base_url=execution_plane_url)
     run_lease_client = lease_client or HttpControlPlaneLeaseClient(base_url=execution_plane_url)
 
+    # Client assert grant connector qua control plane: dùng chung cho gateway (re-verify mỗi lần
+    # execute) và `automation.plan.propose` (kiểm trạng thái connector khi đề xuất kế hoạch).
+    connector_grant_client = ConnectorGrantHttpClient(base_url=resolve_platform_control_plane_url())
+
     # 2. Capability Registry & Handlers
     cap_registry = CapabilityRegistry()
     register_cosa_capabilities(
@@ -366,6 +370,7 @@ def build_cosa_agent_plane(
         # Task 8 — knowledge.enterprise.read cần KnowledgeIngestionService thật
         # (đã wire vault_repository cho path InMemory, xem storage_factory.py).
         knowledge_ingestion_service=storage.knowledge_ingestion_service,
+        connector_grant_client=connector_grant_client,
     )
 
     # 3. Policy Engine & Approval Service
@@ -376,8 +381,6 @@ def build_cosa_agent_plane(
     )
 
     # 4. Capability Gateway
-    connector_grant_client = ConnectorGrantHttpClient(base_url=resolve_platform_control_plane_url())
-
     # action = capability id; requiredScope = spec.metadata["scope"] (vd. email.digest.read →
     # mail:read); control plane từ chối kèm mã → ConnectorGrantDeniedError (gateway DENY có mã).
     _connector_grant_resolver = build_connector_grant_resolver(connector_grant_client, cap_registry)

@@ -195,6 +195,11 @@ COSA_OPERATIONS_INSTRUCTIONS = (
     "Khi Founder hỏi về email chưa đọc hoặc cần tóm tắt hộp thư, gọi email.digest.read (chỉ có "
     "tiêu đề, người gửi, đoạn trích — không có nội dung đầy đủ); nếu công cụ báo chưa kết nối "
     "hoặc cần kết nối lại email, hướng dẫn Founder kết nối hộp thư ở tab Công cụ. "
+    "Khi Founder muốn tự động hoá việc lặp lại (vd. mỗi sáng tóm tắt email chưa đọc rồi gửi vào "
+    "kênh riêng), gọi automation.plan.propose để tạo NHÁP kế hoạch: dùng lại agent đã có trong "
+    "Project, chỉ đề xuất agent mới khi công cụ báo không có agent phù hợp; công cụ chỉ lưu nháp, "
+    "Founder duyệt trên thẻ kế hoạch. Nếu kết quả có điểm chặn (kênh chưa xác minh, chưa kết nối "
+    "email, cần agent mới), nói rõ và chỉ Founder đúng nơi xử lý — không tự kết nối thay Founder. "
     "Nếu công cụ báo lỗi, nói rõ phần nào không lấy được và tiếp tục với dữ liệu còn có."
 )
 
@@ -257,7 +262,10 @@ COSA_OPERATIONS_AGENT_SPEC = AgentSpec(
     # từng lần trong chat. Không phải mở T3: engagement.message.send vẫn không có ở đây.
     # 1.8.0 (plan hub đợt 2 B3): email.digest.read — T0 đọc email chưa đọc rút gọn qua grant
     # connector `email-read` của founder (gateway re-verify grant mỗi lần gọi).
-    version="1.8.0",
+    # 1.9.0 (plan hub đợt 2 B4): automation.plan.propose — T1 lưu NHÁP kế hoạch tự động hoá (tái
+    # dùng agent trong Project, skill operations.email-digest, connector, kênh, lịch, ngân sách
+    # token) cho founder duyệt ở thẻ kế hoạch; không tạo lịch thật.
+    version="1.9.0",
     autonomy_level=AutonomyLevel.L2_EXECUTE,
     instructions=COSA_OPERATIONS_INSTRUCTIONS,
     capability_refs=[
@@ -281,6 +289,7 @@ COSA_OPERATIONS_AGENT_SPEC = AgentSpec(
         "venture.profile.propose_update",
         "founder.notify.send",
         "email.digest.read",
+        "automation.plan.propose",
     ],
     model_input_capability_ref="model.input.direct-user-message",
     pinned_skills=[

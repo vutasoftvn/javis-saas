@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 114 | 24 |
 | VALID_KEEP (giữ nguyên) | 139 | 38 |
-| REVIEW (chưa phân loại) | 1367 | 311 |
+| REVIEW (chưa phân loại) | 1383 | 315 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -79,6 +79,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/identity/handlers/workspace.handler.ts | 9 |
 | apps/cosa/api/test_main.py | 8 |
 | apps/cosa/authorization/live_authorizer.py | 8 |
+| apps/cosa/capabilities/access_matrix.py | 8 |
 | apps/cosa/composition/context_assembler.py | 8 |
 | apps/cosa/tests/test_ai_governance_read.py | 8 |
 | apps/cosa/tests/test_data_governance_read.py | 8 |
@@ -90,16 +91,16 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | packages/agent_integrations/openai_agents_sdk/kernel.py | 8 |
 | services/company/operations/services/founder-asset-query.service.ts | 8 |
 | apps/cosa/auth/workspace_client.py | 7 |
-| apps/cosa/capabilities/access_matrix.py | 7 |
 | apps/cosa/capabilities/engagement_assignment_write.py | 7 |
 | apps/cosa/company/project_team_client.py | 7 |
+| apps/cosa/composition/capability_registration.py | 7 |
 | frontend/lib/modules/hologram_hub/services/cofounder_api_service.dart | 7 |
 | frontend/lib/shared/widgets/company_scope_switcher.dart | 7 |
+| apps/cosa/capabilities/automation_plan.py | 6 |
 | apps/cosa/capabilities/finance_write.py | 6 |
 | apps/cosa/capabilities/okr_write.py | 6 |
 | apps/cosa/capabilities/operations_write.py | 6 |
 | apps/cosa/compliance/company_client.py | 6 |
-| apps/cosa/composition/capability_registration.py | 6 |
 | apps/cosa/composition/kernel_factory.py | 6 |
 | apps/cosa/policies/evaluator.py | 6 |
 | apps/cosa/tests/test_worker_jwt.py | 6 |
@@ -127,6 +128,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/identity/services/platform-workspace-mapping.service.ts | 5 |
 | services/company/identity/services/token.service.ts | 5 |
 | services/company/operations/handlers/onboard.handler.ts | 5 |
+| services/company/operations/services/automation-plan-proposal.service.ts | 5 |
 | services/company/shared/services/snowflake.service.ts | 5 |
 | services/cosa/services/workspace-settings.service.ts | 5 |
 | apps/cosa/api/approval_authority.py | 4 |
@@ -230,6 +232,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/identity/migrations/001_cosa_startup_core_baseline.up.sql | 2 |
 | services/company/identity/migrations/007_agent_capability_permission_bindings.up.sql | 2 |
 | services/company/identity/migrations/009_founder_notify_send_permission_binding.up.sql | 2 |
+| services/company/identity/migrations/010_automation_plan_propose_permission_binding.up.sql | 2 |
 | services/company/identity/services/founder-channel-secret.ts | 2 |
 | services/company/identity/services/tenant-context.service.ts | 2 |
 | services/company/identity/tests/helpers/test-session.ts | 2 |
@@ -323,6 +326,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | services/company/operations/migrations/001_cosa_startup_core_baseline.up.sql | 1 |
 | services/company/operations/migrations/018_founder_configurable_assets.up.sql | 1 |
 | services/company/operations/migrations/028_startup_os_core_schema.down.sql | 1 |
+| services/company/operations/migrations/033_backfill_automation_plan_propose_grant.up.sql | 1 |
 | services/company/operations/services/ai-governance-dossier.service.ts | 1 |
 | services/company/operations/services/automation-blueprint.service.ts | 1 |
 | services/company/operations/services/data-governance-dossier.service.ts | 1 |

@@ -1,0 +1,65 @@
+apiVersion: agentos.ai/v1
+kind: Skill
+metadata:
+  id: operations.email-digest
+  name: Email Digest to Founder Channel
+  version: 1.0.0
+  description: Đọc email chưa đọc của founder (chỉ tiêu đề, người gửi, đoạn trích), tóm tắt ngắn theo người gửi/chủ đề và gửi vào kênh nhận đã xác minh của chính founder.
+publisher:
+  name: cosa
+  type: official
+source:
+  type: local
+  path: skillpacks/operations/email-digest
+capability:
+  domain: operations
+  category: automation
+  intents:
+  - email digest
+  - tóm tắt email chưa đọc
+  - operations.email-digest
+  # Profile agent skill cần — quy tắc 3: tái dùng agent `operations` đã có trong Project.
+  agent_profile: operations
+  required_connectors:
+  - email-read
+applicability:
+  project_stages:
+  - P0_DISCOVERY
+  - P1_PROBLEM_VALIDATION
+  - P2_SOLUTION_VALIDATION
+  - P3_BUILD_VALIDATE
+  - P4_GO_TO_MARKET
+  - P5_OPERATE_GROWTH
+  - P6_SCALE_GOVERN
+  gates: []
+  required_context:
+  - workspace
+  - project
+  outputs:
+  - notification
+autonomy:
+  ceiling: L2_BOUNDED
+  side_effect_class: X
+evidence:
+  min_source_refs: 0
+  self_validation_forbidden: true
+quality:
+  eval_suite: evals/operations/email-digest.yaml
+  required_negative_cases:
+  - missing-workspace
+  - cross-workspace
+  - email-not-connected
+  - unverified-founder-channel
+  - foreign-recipient-requested
+runtime:
+  entrypoint: SKILL.md
+  tools:
+  - email.digest.read
+  - founder.notify.send
+permissions:
+  required:
+  - READ_LOCAL
+risk:
+  level: medium
+trust:
+  tier: T0

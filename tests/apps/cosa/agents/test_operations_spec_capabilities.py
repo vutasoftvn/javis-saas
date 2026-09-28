@@ -17,12 +17,13 @@ MUST_HAVE = {
     "operations.task.advance",
     "founder.notify.send",
     "email.digest.read",
+    "automation.plan.propose",
 }
 
 
 def test_operations_spec_has_business_capabilities() -> None:
     assert MUST_HAVE <= set(SPEC.capability_refs)
-    assert SPEC.version == "1.8.0"
+    assert SPEC.version == "1.9.0"
     assert SPEC.autonomy_level == AutonomyLevel.L2_EXECUTE
 
 

@@ -35,6 +35,8 @@ export const AGENT_PROFILE_GRANTED_CAPABILITIES: Readonly<Record<string, readonl
       "venture.profile.propose_update",
       // ADR-FOUNDER-CHANNEL-001: T2-self, chỉ gửi về kênh đã xác minh của founder sở hữu run.
       "founder.notify.send",
+      // Plan hub đợt 2 B4: T1, chỉ lưu nháp kế hoạch tự động hoá cho founder duyệt.
+      "automation.plan.propose",
     ]),
     finance: Object.freeze([
       "finance.transaction.classify_propose",
@@ -67,6 +69,10 @@ export const CAPABILITY_LABELS: Readonly<Record<string, { vi: string; en: string
   "founder.notify.send": {
     vi: "Gửi thông báo vào kênh riêng của founder",
     en: "Send notifications to the founder's own channel",
+  },
+  "automation.plan.propose": {
+    vi: "Đề xuất kế hoạch tự động hoá",
+    en: "Propose automation plans",
   },
 });
 

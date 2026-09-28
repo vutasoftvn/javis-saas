@@ -108,6 +108,10 @@ MATRIX: dict[str, AccessEntry] = {
     # --- email của founder (plan hub đợt 2 B3): T0 đọc metadata qua grant connector `email-read`;
     # gọi Gmail bằng token của grant, không gọi company bằng token agent ⇒ không có AGENT_CAP.
     "email.digest.read": _r("email"),
+    # --- tự động hoá (plan hub đợt 2 B4): T1 chứ không T2 như plan ghi — chỉ lưu NHÁP kế hoạch ở
+    # company (không tạo lịch, không gọi ra ngoài); founder duyệt ở thẻ kế hoạch (B6) rồi B5 mới
+    # tạo lịch. Để T2 thì chat bắt founder duyệt hai lần (thẻ duyệt T2 rồi thẻ kế hoạch).
+    "automation.plan.propose": _d("automation", "automation.plan.propose"),
     # --- legal / people / product / security / data / ai governance
     "legal.issue.read": _r("legal", "legal.issue.read"),
     "legal.applicability.assess": _r("legal"),

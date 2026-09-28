@@ -1424,3 +1424,25 @@ export const aiGovernanceDossierRevisions = operatingSchema.table("ai_governance
 
 
 
+
+// Plan hub vận hành đợt 2 B4 — nháp kế hoạch tự động hoá do agent đề xuất
+// (capability `automation.plan.propose`, T1). Không tạo lịch thật: B5 duyệt
+// theo `id` rồi mới tạo lịch và ghi `approved_schedule_id`. Bảng này cũng là
+// nguồn đếm quota nháp/Project/ngày UTC. `plan`/`readiness` chỉ chứa dữ liệu đã
+// chuẩn hoá ở service (nhãn kênh, trạng thái connector) — KHÔNG chat id,
+// secret_ref hay token. Xem migration 032.
+export const automationPlanProposals = operatingSchema.table("automation_plan_proposals", {
+  id: bigint("id", { mode: "bigint" }).primaryKey(),
+  workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  proposedByMemberId: bigint("proposed_by_member_id", { mode: "bigint" }).notNull(),
+  runId: text("run_id"),
+  plan: jsonb("plan").notNull(),
+  readiness: jsonb("readiness").notNull(),
+  status: text("status").default("DRAFT").notNull(), // DRAFT | APPROVED | DISCARDED
+  approvedScheduleId: text("approved_schedule_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  decidedAt: timestamp("decided_at", { withTimezone: true }),
+}, (t) => ({
+  ixProjCreated: index("idx_automation_plan_proposals_project_created").on(t.projectId, t.createdAt),
+}));

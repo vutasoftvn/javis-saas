@@ -39,7 +39,7 @@ export const AGENT_PROFILE_SPEC_ID: Record<OwnerAgentProfile, string> = {
 // Metadata mô tả (constraint workforce_members yêu cầu agent_spec_version NOT NULL
 // cho AI_AGENT).
 export const AGENT_PROFILE_SPEC_VERSION: Record<OwnerAgentProfile, string> = {
-  operations: "1.8.0",
+  operations: "1.9.0",
   finance: "1.2.0",
   marketing: "1.2.0",
   research_intelligence: "1.1.0",
@@ -57,7 +57,7 @@ export const AGENT_PROFILE_SPEC_VERSION: Record<OwnerAgentProfile, string> = {
 
 // Pinned definition_hash theo specs.py AgentSpec.compute_hash().
 export const AGENT_PROFILE_SPEC_HASH: Record<OwnerAgentProfile, string> = {
-  operations: "b5f07fc2c8436a531a7ec0243389d301e027f1c9864b805a07bfefee83046972",
+  operations: "2e0fcd5489178f920c606fbd8d18df55eec12f5b6f5afc80eab0c5f477baeec3",
   finance: "7c8bab30f70b75e856a5a3a4c83687047bda08988f58e8c498c455e362a4fc78",
   marketing: "f4d95277b345b7e172d878bc83961955ae6c364dafb9d3a033a39c20ee5908c5",
   research_intelligence: "fc98ddd07d96fb31e7feee056554ee0015b7103b707f1a205fb54d86531ab4b6",

@@ -16,6 +16,10 @@ from apps.cosa.capabilities.ai_governance_read import (
     AI_GOVERNANCE_READ_SPEC,
     create_ai_governance_read_handler,
 )
+from apps.cosa.capabilities.automation_plan import (
+    AUTOMATION_PLAN_PROPOSE_SPEC,
+    create_automation_plan_propose_handler,
+)
 from apps.cosa.capabilities.business_read import (
     BUSINESS_READ_SPEC,
     create_business_read_handler,
@@ -25,6 +29,7 @@ from apps.cosa.capabilities.commercial_customer_read import (
     COMMERCIAL_CUSTOMER_360_READ_SPEC,
     create_commercial_customer_360_read_handler,
 )
+from apps.cosa.capabilities.connector_grant_client import ConnectorGrantHttpClient
 from apps.cosa.capabilities.data_governance_read import (
     DATA_GOVERNANCE_READ_SPEC,
     create_data_governance_read_handler,
@@ -223,6 +228,7 @@ def register_cosa_capabilities(
     knowledge_snapshot_repo: KnowledgeSnapshotRepository | None = None,
     web_search_provider: WebSearchProvider | None = None,
     knowledge_ingestion_service: Any | None = None,
+    connector_grant_client: ConnectorGrantHttpClient | None = None,
 ) -> None:
     """Đăng ký toàn bộ capability specs và handlers cho CosaAgentPlane."""
     # Operations
@@ -306,6 +312,13 @@ def register_cosa_capabilities(
     # Email chưa đọc của founder (plan hub đợt 2 B3): T0; gateway re-verify grant connector
     # `email-read` ở mọi lần execute, token lấy từ secret_ref của grant đó.
     cap_registry.register(EMAIL_DIGEST_READ_SPEC, create_email_digest_read_handler())
+
+    # Nháp kế hoạch tự động hoá (plan hub đợt 2 B4): T1 — lưu nháp ở company, handler tự kiểm
+    # connector với control plane; không tạo lịch thật (B5 duyệt theo proposalId).
+    cap_registry.register(
+        AUTOMATION_PLAN_PROPOSE_SPEC,
+        create_automation_plan_propose_handler(client, connector_grant_client),
+    )
 
     # Knowledge & Legal
     cap_registry.register(
