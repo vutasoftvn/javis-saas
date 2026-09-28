@@ -15,7 +15,9 @@ async def test_full_publish_lifecycle_transition():
     eval_svc = EvaluationService(repo)
     auth_svc = AuthoringService(repo, eval_svc)
 
-    draft = await auth_svc.create_agent_draft(
+    # C1: AGENT phải là clone của built-in (tests/apps/cosa/assets/test_workspace_agent.py);
+    # vòng đời publish chung được kiểm bằng SKILL.
+    draft = await auth_svc.create_skill_draft(
         workspace_id="ws-1",
         asset_id="agent.writer.1",
         version="0.1.0",

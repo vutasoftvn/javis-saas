@@ -102,7 +102,7 @@ async def test_clone_nonexistent_source_is_rejected(authoring_service):
 
 @pytest.mark.asyncio
 async def test_publish_requires_passing_evaluation_and_founder_command(authoring_service, evaluation_service):
-    draft = await authoring_service.create_agent_draft(
+    draft = await authoring_service.create_skill_draft(
         workspace_id="ws-1",
         asset_id="agent.analyst.1",
         version="0.1.0",
@@ -179,7 +179,7 @@ async def test_workflow_publish_is_disabled_in_v1_early_phase(authoring_service)
 @pytest.mark.asyncio
 async def test_publish_resolves_latest_version_not_fixed_010(authoring_service, evaluation_service):
     # Create draft with version 2.5.0
-    draft = await authoring_service.create_agent_draft(
+    draft = await authoring_service.create_skill_draft(
         workspace_id="ws-1",
         asset_id="agent.analyst.v2",
         version="2.5.0",
@@ -315,7 +315,7 @@ async def test_workflow_kind_is_preserved_without_name_heuristics(authoring_serv
 
 @pytest.mark.asyncio
 async def test_publish_uses_the_exact_evaluated_version(authoring_service, evaluation_service):
-    newer = await authoring_service.create_agent_draft(
+    newer = await authoring_service.create_skill_draft(
         workspace_id="ws-1",
         asset_id="agent.versioned",
         version="0.10.0",
@@ -325,7 +325,7 @@ async def test_publish_uses_the_exact_evaluated_version(authoring_service, evalu
         scope=AssetScope.workspace(),
         created_by="founder-1",
     )
-    await authoring_service.create_agent_draft(
+    await authoring_service.create_skill_draft(
         workspace_id="ws-1",
         asset_id="agent.versioned",
         version="0.2.0",

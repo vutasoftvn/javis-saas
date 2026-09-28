@@ -8,6 +8,7 @@ from agent.assets.contracts import (
     AssetLifecycle,
     AssetNotEvaluatedError,
     AssetNotFoundError,
+    AssetOrigin,
     AssetScope,
     AssetScopeKind,
     BuiltinAssetReadOnlyError,
@@ -19,6 +20,14 @@ from agent.assets.repository import WorkspaceAssetRepository
 from agent.workflows.repository import WorkflowDefinitionRepository
 
 from apps.cosa.assets.evaluation_service import EvaluationService
+from apps.cosa.assets.workspace_agent import (
+    build_clone_content,
+    profile_for_spec_id,
+    resolve_builtin_origin,
+)
+
+# Draft đầu tiên của agent clone từ built-in (spec 2026-09-27-agent-clone-executor-design §2).
+WORKSPACE_AGENT_INITIAL_VERSION = "0.1.0"
 
 
 class WorkflowPublishDisabledError(Exception):
@@ -68,7 +77,26 @@ class AuthoringService:
         target_scope: AssetScope,
         created_by: str,
         source_content: dict[str, Any] | None = None,
+        *,
+        command_id: str | None = None,
+        name: str | None = None,
+        description: str | None = None,
     ) -> WorkspaceAssetVersion:
+        if (
+            source_content is None
+            and source.kind == AssetKind.AGENT
+            and profile_for_spec_id(source.asset_id) is not None
+        ):
+            return await self._clone_builtin_agent(
+                workspace_id,
+                source,
+                target_scope,
+                created_by,
+                command_id=command_id,
+                name=name,
+                description=description,
+            )
+
         content = source_content
         if content is None:
             # 1. Try resolving from existing published asset in repository
@@ -105,6 +133,58 @@ class AuthoringService:
             source_content=content,
             created_by=created_by,
         )
+
+    async def _clone_builtin_agent(
+        self,
+        workspace_id: str,
+        source: PinnedAssetIdentity,
+        target_scope: AssetScope,
+        created_by: str,
+        *,
+        command_id: str | None,
+        name: str | None,
+        description: str | None,
+    ) -> WorkspaceAssetVersion:
+        """Clone agent built-in thành override manifest `workspace_agent.v1` với lineage đã pin.
+
+        Asset id tất định theo lệnh company (`custom.<profile>.<commandId>`) nên xử lý lại cùng
+        lệnh trả đúng draft đã có, còn clone lần hai của cùng built-in là asset khác.
+        """
+        if not command_id:
+            raise ValueError("command_id is required to clone a built-in agent")
+        profile, origin_spec, origin_hash = await resolve_builtin_origin(
+            self._spec_registry,
+            source.asset_id,
+            source.version or None,
+            source.definition_hash or None,
+        )
+        asset_id = f"custom.{profile}.{command_id}"
+        existing = await self._repository.get_version(
+            workspace_id, asset_id, WORKSPACE_AGENT_INITIAL_VERSION
+        )
+        if existing is not None:
+            return existing
+
+        content = build_clone_content(
+            profile, origin_spec, origin_hash, name=name, description=description
+        )
+        draft = WorkspaceAssetDraft(
+            asset_id=asset_id,
+            kind=AssetKind.AGENT,
+            version=WORKSPACE_AGENT_INITIAL_VERSION,
+            name=content["name"],
+            description=content["description"] or None,
+            content=content,
+            scope=target_scope,
+            created_by=created_by,
+            origin=AssetOrigin(
+                kind="CLONE",
+                asset_id=origin_spec.id,
+                version=origin_spec.version,
+                definition_hash=origin_hash,
+            ),
+        )
+        return await self._repository.create_draft(workspace_id, draft)
 
     async def create_agent_draft(
         self,
@@ -234,7 +314,11 @@ class AuthoringService:
         latest_eval = await self._repository.get_latest_evaluation(
             workspace_id, asset_id, item.version
         )
-        if not latest_eval or latest_eval.status != "PASS":
+        if (
+            not latest_eval
+            or latest_eval.status != "PASS"
+            or latest_eval.definition_hash != item.definition_hash
+        ):
             if is_workflow:
                 raise WorkflowPublishDisabledError(
                     f"Workflow {asset_id} version {item.version} requires a passing evaluation before publish"

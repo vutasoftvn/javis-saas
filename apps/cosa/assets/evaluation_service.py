@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from agent.assets.contracts import (
     AssetEvaluationResult,
@@ -12,10 +13,17 @@ from agent.assets.contracts import (
 )
 from agent.assets.repository import WorkspaceAssetRepository
 
+from apps.cosa.assets.workspace_agent import evaluate_agent_content
+
 
 class EvaluationService:
-    def __init__(self, repository: WorkspaceAssetRepository) -> None:
+    def __init__(
+        self, repository: WorkspaceAssetRepository, spec_registry: Any | None = None
+    ) -> None:
         self._repository = repository
+        # Cần để resolve đúng version+hash của agent built-in gốc khi nó không còn là bản đang
+        # import (built-in đã nâng version sau khi clone).
+        self._spec_registry = spec_registry
 
     async def evaluate(
         self,
@@ -31,6 +39,7 @@ class EvaluationService:
 
         content = item.content_json
         structural_errors: list[str] = []
+        reason_codes: list[str] = []
 
         # 1. Structural check: No raw secrets or shell execution
         serialized_str = str(content).lower()
@@ -47,7 +56,17 @@ class EvaluationService:
                     "PROJECT_SANDBOX assets cannot declare external capability_refs"
                 )
 
-        # 3. Workflow asset structural & executor readiness validation
+        # 3. Agent: bản clone bị ràng buộc của built-in (spec 2026-09-27-agent-clone-executor-design
+        # §3) — không leo thang capability, không đổi model policy/tier, giới hạn nội dung.
+        if item.kind == AssetKind.AGENT:
+            violations, _, _ = await evaluate_agent_content(
+                content, lineage=item.origin, spec_registry=self._spec_registry
+            )
+            for violation in violations:
+                structural_errors.append(violation.message)
+                reason_codes.append(violation.code)
+
+        # 4. Workflow asset structural & executor readiness validation
         is_workflow = item.kind == AssetKind.WORKFLOW
         if is_workflow:
             from agent.workflows.schema import WorkflowSpec
@@ -85,6 +104,7 @@ class EvaluationService:
             structural_result={
                 "valid": len(structural_errors) == 0,
                 "errors": structural_errors,
+                "reason_codes": reason_codes,
             },
             negative_policy_result={
                 "denied_secrets": True,

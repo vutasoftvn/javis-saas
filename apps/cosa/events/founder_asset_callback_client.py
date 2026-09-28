@@ -74,8 +74,9 @@ class FounderAssetStatusCallbackClient:
         asset_ref: dict[str, Any] | None = None,
         evaluation_summary: dict[str, Any] | None = None,
         safe_reason_code: str | None = None,
+        agent_manifest: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        payload = {
+        payload: dict[str, Any] = {
             "commandId": command_id,
             "workspaceId": workspace_id,
             "projectId": project_id,
@@ -86,6 +87,8 @@ class FounderAssetStatusCallbackClient:
             "evaluationSummary": evaluation_summary,
             "safeReasonCode": safe_reason_code,
         }
+        if agent_manifest is not None:
+            payload["agentManifest"] = agent_manifest
         last_exc: Exception | None = None
         for attempt in range(1, self._max_retries + 1):
             try:

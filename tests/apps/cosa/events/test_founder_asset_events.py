@@ -213,10 +213,10 @@ async def test_production_wiring_create_evaluate_publish_lifecycle() -> None:
         status_callback_client=callback_client,
     )
 
-    # 1. CREATE draft
+    # 1. CREATE draft (SKILL: AGENT phải là clone built-in — test_agent_clone_executor_e2e.py)
     create_payload = _command_payload(
         operation="CREATE",
-        assetKind="AGENT",
+        assetKind="SKILL",
         assetRef={"assetId": "agent.ops.specialist", "version": "0.1.0"},
         metadata={
             "name": "Operations Specialist",
@@ -240,7 +240,7 @@ async def test_production_wiring_create_evaluate_publish_lifecycle() -> None:
     eval_payload = _command_payload(
         commandId=eval_cmd_id,
         operation="EVALUATE",
-        assetKind="AGENT",
+        assetKind="SKILL",
         assetRef={"assetId": "agent.ops.specialist", "version": "0.1.0"},
     )
     env2 = _env(eval_payload)
@@ -257,7 +257,7 @@ async def test_production_wiring_create_evaluate_publish_lifecycle() -> None:
     pub_payload = _command_payload(
         commandId=pub_cmd_id,
         operation="PUBLISH",
-        assetKind="AGENT",
+        assetKind="SKILL",
         assetRef={
             "assetId": "agent.ops.specialist",
             "version": "0.1.0",

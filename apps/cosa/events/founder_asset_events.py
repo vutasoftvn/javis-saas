@@ -75,8 +75,9 @@ def _status_callback_payload(
     asset_ref: dict[str, Any],
     evaluation_summary: dict[str, Any] | None,
     safe_reason_code: str | None,
+    agent_manifest: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    return {
+    payload: dict[str, Any] = {
         "command_id": command_id,
         "workspace_id": workspace_id,
         "project_id": project_id,
@@ -87,6 +88,23 @@ def _status_callback_payload(
         "evaluation_summary": evaluation_summary,
         "safe_reason_code": safe_reason_code,
     }
+    # Chỉ PUBLISH AGENT thành công mang manifest (biên nhận để company cấp grant theo agent gốc);
+    # không thêm khoá cho các callback khác để giữ nguyên payload cũ.
+    if agent_manifest is not None:
+        payload["agent_manifest"] = agent_manifest
+    return payload
+
+
+def _agent_clone_scope(cmd: FounderAssetCommand) -> Any:
+    """AGENT clone mặc định scope WORKSPACE (vào Project qua deployAgentToProject);
+    `metadata.scope = "PROJECT_SANDBOX"` chọn sandbox của Project trong lệnh."""
+    from agent.assets.contracts import AssetScope
+
+    if cmd.metadata.get("scope") == "PROJECT_SANDBOX":
+        if not cmd.project_id:
+            raise ValueError("PROJECT_SANDBOX scope requires projectId")
+        return AssetScope.project_sandbox(cmd.project_id)
+    return AssetScope.workspace()
 
 
 async def _deliver_callback_record(
@@ -178,12 +196,17 @@ async def dispatch_founder_asset_command(deps: Any, env: Any) -> tuple[str, str 
         target_scope = (
             AssetScope.project_sandbox(cmd.project_id) if cmd.project_id else AssetScope.workspace()
         )
+        is_agent_clone = cmd.asset_kind == AssetKind.AGENT.value and cmd.operation == "CLONE"
         source_id = PinnedAssetIdentity(
             kind=AssetKind(cmd.asset_kind),
             asset_id=cmd.asset_ref.asset_id,
-            version=cmd.asset_ref.version or "1.0.0",
-            definition_hash=cmd.asset_ref.definition_hash or "sha256:placeholder",
+            # AGENT clone từ built-in: thiếu version/hash nghĩa là "pin bản built-in hiện hành",
+            # không được thay bằng giá trị giả (resolve_builtin_origin đòi khớp tuyệt đối).
+            version=cmd.asset_ref.version or ("" if is_agent_clone else "1.0.0"),
+            definition_hash=cmd.asset_ref.definition_hash
+            or ("" if is_agent_clone else "sha256:placeholder"),
         )
+        agent_manifest: dict[str, Any] | None = None
 
         status = "SUCCESS"
         out_ref: dict[str, Any] = {
@@ -196,12 +219,23 @@ async def dispatch_founder_asset_command(deps: Any, env: Any) -> tuple[str, str 
 
         try:
             if cmd.operation == "CLONE":
-                res = await authoring_service.clone(
-                    workspace_id=cmd.workspace_id,
-                    source=source_id,
-                    target_scope=target_scope,
-                    created_by=getattr(getattr(env, "actor", None), "id", "founder"),
-                )
+                if is_agent_clone:
+                    res = await authoring_service.clone(
+                        workspace_id=cmd.workspace_id,
+                        source=source_id,
+                        target_scope=_agent_clone_scope(cmd),
+                        created_by=getattr(getattr(env, "actor", None), "id", "founder"),
+                        command_id=cmd.command_id,
+                        name=cmd.metadata.get("name"),
+                        description=cmd.metadata.get("description"),
+                    )
+                else:
+                    res = await authoring_service.clone(
+                        workspace_id=cmd.workspace_id,
+                        source=source_id,
+                        target_scope=target_scope,
+                        created_by=getattr(getattr(env, "actor", None), "id", "founder"),
+                    )
                 out_ref = {
                     "assetId": res.asset_id,
                     "version": res.version,
@@ -267,6 +301,9 @@ async def dispatch_founder_asset_command(deps: Any, env: Any) -> tuple[str, str 
                         version=cmd.asset_ref.version or "0.1.0",
                     )
                     status = "SUCCESS" if eval_res.status == "PASS" else "REJECTED"
+                    if status == "REJECTED":
+                        codes = (eval_res.structural_result or {}).get("reason_codes") or []
+                        safe_reason = codes[0] if codes else "EVALUATION_FAILED"
                     eval_summary = {
                         "status": eval_res.status,
                         "evaluation_id": eval_res.evaluation_id,
@@ -285,6 +322,10 @@ async def dispatch_founder_asset_command(deps: Any, env: Any) -> tuple[str, str 
                     "version": res.version,
                     "definitionHash": res.definition_hash,
                 }
+                if res.kind == AssetKind.AGENT:
+                    from apps.cosa.assets.workspace_agent import publish_manifest
+
+                    agent_manifest = publish_manifest(res.content_json)
             else:
                 status = "REJECTED"
                 safe_reason = f"Unsupported operation: {cmd.operation}"
@@ -310,6 +351,7 @@ async def dispatch_founder_asset_command(deps: Any, env: Any) -> tuple[str, str 
                     asset_ref=out_ref,
                     evaluation_summary=eval_summary,
                     safe_reason_code=safe_reason,
+                    agent_manifest=agent_manifest if status == "SUCCESS" else None,
                 ),
             )
             try:
