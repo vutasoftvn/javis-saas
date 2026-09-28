@@ -153,14 +153,15 @@ function invalid(message: string): APIError {
   return APIError.invalidArgument(`automation_plan_invalid: ${message}`);
 }
 
-function parseId(value: string, field: string): bigint {
+export function parseId(value: string, field: string): bigint {
   if (typeof value !== "string" || !/^\d{1,20}$/.test(value)) {
     throw invalid(`${field} phải là số nguyên hợp lệ`);
   }
   return BigInt(value);
 }
 
-function requireFounderOwner(ctx: TenantContext): string {
+/** Founder/co-founder gọi hàm này (đề xuất HOẶC duyệt — B5 tái dùng cho người bấm duyệt). */
+export function requireFounderOwner(ctx: TenantContext): string {
   const role = (ctx.membershipRole || "").toLowerCase();
   if (!FOUNDER_ROLES.has(role)) {
     throw APIError.permissionDenied(
@@ -436,7 +437,9 @@ function startOfUtcDay(now: Date): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 }
 
-function toResult(row: typeof automationPlanProposals.$inferSelect): AutomationPlanProposalResult {
+export function toAutomationPlanProposalResult(
+  row: typeof automationPlanProposals.$inferSelect
+): AutomationPlanProposalResult {
   return {
     proposalId: row.id.toString(),
     projectId: row.projectId.toString(),
@@ -563,7 +566,7 @@ export async function proposeAutomationPlan(
     return inserted;
   });
 
-  return mvpItem(toResult(row), [
+  return mvpItem(toAutomationPlanProposalResult(row), [
     { kind: "company_db", ref: `operating.automation_plan_proposals:${row.id.toString()}` },
   ]);
 }
@@ -590,7 +593,7 @@ export async function getAutomationPlanProposal(
   if (!row || !ctx.workforceMemberId || row.proposedByMemberId.toString() !== ctx.workforceMemberId) {
     throw APIError.notFound("automation_plan_not_found: không tìm thấy nháp kế hoạch");
   }
-  return mvpItem(toResult(row), [
+  return mvpItem(toAutomationPlanProposalResult(row), [
     { kind: "company_db", ref: `operating.automation_plan_proposals:${row.id.toString()}` },
   ]);
 }

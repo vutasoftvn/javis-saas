@@ -40,6 +40,42 @@ export {
   logEnqueueRetryMetric,
 };
 
+// Plan hub vận hành đợt 2 B5 (Task 6) — capability nào được phép chạy KHÔNG hỏi lại founder mỗi
+// lần (ADR-FOUNDER-CHANNEL-001 mục 7). Allowlist CỨNG, chỉ đường founder duyệt thẻ kế hoạch
+// (`services/cosa/services/automation-plan-approval.service.ts`) mới đặt được; route tạo lịch
+// thủ công (tab Lịch, `createScheduleEndpoint`) KHÔNG truyền field này nên luôn rỗng.
+export const PRE_AUTHORIZABLE_CAPABILITY_IDS = Object.freeze([
+  "email.digest.read",
+  "founder.notify.send",
+] as const);
+export type PreAuthorizableCapabilityId = (typeof PRE_AUTHORIZABLE_CAPABILITY_IDS)[number];
+
+function normalizePreAuthorizedCapabilityIds(input: {
+  preAuthorizedCapabilityIds?: string[];
+  founderMemberId?: string | null;
+  founderUserId?: string | null;
+}): string[] {
+  const raw = input.preAuthorizedCapabilityIds ?? [];
+  if (!Array.isArray(raw) || raw.some((v) => typeof v !== "string")) {
+    throw APIError.invalidArgument("preAuthorizedCapabilityIds must be an array of strings");
+  }
+  const deduped = [...new Set(raw)];
+  const allowlist: readonly string[] = PRE_AUTHORIZABLE_CAPABILITY_IDS;
+  for (const capId of deduped) {
+    if (!allowlist.includes(capId)) {
+      throw APIError.invalidArgument(
+        `preAuthorizedCapabilityIds contains a capability outside the allowlist: ${capId.slice(0, 128)}`
+      );
+    }
+  }
+  if (deduped.length > 0 && (!input.founderMemberId || !input.founderUserId)) {
+    throw APIError.invalidArgument(
+      "preAuthorizedCapabilityIds requires founderMemberId and founderUserId"
+    );
+  }
+  return deduped;
+}
+
 export async function createWorkspaceSchedule(input: {
   organizationId: string;
   createdBy: string;
@@ -53,6 +89,13 @@ export async function createWorkspaceSchedule(input: {
   agentProfile?: string;
   connectorGrantIds?: string[];
   projectId: string;
+  // B5 (Task 6) — chỉ đường duyệt thẻ kế hoạch đặt các field dưới đây; route thủ công không
+  // truyền (interface `CreateScheduleParams` ở handler không có các field này).
+  preAuthorizedCapabilityIds?: string[];
+  founderMemberId?: string | null;
+  founderUserId?: string | null;
+  automationPlanProposalId?: string | null;
+  tokenBudgetPerRun?: number | null;
 }) {
   const tz = input.timezone || "Asia/Ho_Chi_Minh";
   validateIanaTimezone(tz);
@@ -63,6 +106,7 @@ export async function createWorkspaceSchedule(input: {
   if (!input.projectId || !input.projectId.trim()) {
     throw APIError.invalidArgument("projectId is required");
   }
+  const preAuthorizedCapabilityIds = normalizePreAuthorizedCapabilityIds(input);
 
   // Check active schedule quota
   const activeCount = await repo.countActiveSchedulesByWorkspace(input.organizationId);
@@ -106,6 +150,11 @@ export async function createWorkspaceSchedule(input: {
     nextRunAt,
     projectId: input.projectId,
     isLegacyUnscoped: false,
+    preAuthorizedCapabilityIds,
+    founderMemberId: input.founderMemberId || null,
+    founderUserId: input.founderUserId || null,
+    automationPlanProposalId: input.automationPlanProposalId || null,
+    tokenBudgetPerRun: input.tokenBudgetPerRun ?? null,
   });
 }
 
@@ -182,6 +231,10 @@ export async function dispatchDueWorkspaceSchedules(
         agentProfileSnapshot: def.agentProfile,
         connectorGrantIdsSnapshot: (def.connectorGrantIds as string[]) || [],
         projectIdSnapshot: def.projectId,
+        preAuthorizedCapabilityIdsSnapshot: (def.preAuthorizedCapabilityIds as string[]) || [],
+        founderMemberIdSnapshot: def.founderMemberId ?? null,
+        founderUserIdSnapshot: def.founderUserId ?? null,
+        tokenBudgetPerRunSnapshot: def.tokenBudgetPerRun ?? null,
         state: "queued",
       });
 
@@ -256,6 +309,10 @@ export async function runScheduleNow(input: {
     agentProfileSnapshot: def.agentProfile,
     connectorGrantIdsSnapshot: (def.connectorGrantIds as string[]) || [],
     projectIdSnapshot: def.projectId,
+    preAuthorizedCapabilityIdsSnapshot: (def.preAuthorizedCapabilityIds as string[]) || [],
+    founderMemberIdSnapshot: def.founderMemberId ?? null,
+    founderUserIdSnapshot: def.founderUserId ?? null,
+    tokenBudgetPerRunSnapshot: def.tokenBudgetPerRun ?? null,
     state: "queued",
   });
 

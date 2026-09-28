@@ -32,6 +32,13 @@ export interface ScheduleDefinitionResponse {
   lastRunAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  // B5 (Task 6) — snapshot uỷ quyền trước; chỉ đường duyệt thẻ kế hoạch mới đặt (xem
+  // PRE_AUTHORIZABLE_CAPABILITY_IDS ở workspace-schedule.service.ts).
+  preAuthorizedCapabilityIds: unknown;
+  founderMemberId: string | null;
+  founderUserId: string | null;
+  automationPlanProposalId: string | null;
+  tokenBudgetPerRun: number | null;
 }
 
 export interface ScheduleExecutionResponse {
@@ -52,6 +59,11 @@ export interface ScheduleExecutionResponse {
   nextAttemptAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  // B5 (Task 6) — worker (Task 6b) đọc các snapshot này qua GET .../executions/:id.
+  preAuthorizedCapabilityIdsSnapshot: unknown;
+  founderMemberIdSnapshot: string | null;
+  founderUserIdSnapshot: string | null;
+  tokenBudgetPerRunSnapshot: number | null;
 }
 
 export interface CreateScheduleParams {

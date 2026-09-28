@@ -55,6 +55,11 @@ export async function insertScheduleDefinition(values: {
   nextRunAt: Date | null;
   projectId: string;
   isLegacyUnscoped: boolean;
+  preAuthorizedCapabilityIds: string[];
+  founderMemberId: string | null;
+  founderUserId: string | null;
+  automationPlanProposalId: string | null;
+  tokenBudgetPerRun: number | null;
 }): Promise<ScheduleDefinitionRow> {
   const [created] = await db
     .insert(workspaceScheduleDefinitions)
@@ -84,6 +89,26 @@ export async function findScheduleDefinitionById(id: string): Promise<ScheduleDe
     .select()
     .from(workspaceScheduleDefinitions)
     .where(eq(workspaceScheduleDefinitions.id, id));
+  return def;
+}
+
+/**
+ * B5 (Task 6) — idempotency của flow duyệt thẻ kế hoạch: nếu approve được gọi lại (vd. lần gọi
+ * trước tạo lịch xong nhưng chưa kịp link-schedule ở services/company), KHÔNG tạo lịch trùng.
+ */
+export async function findScheduleDefinitionByProposalId(
+  organizationId: string,
+  automationPlanProposalId: string
+): Promise<ScheduleDefinitionRow | undefined> {
+  const [def] = await db
+    .select()
+    .from(workspaceScheduleDefinitions)
+    .where(
+      and(
+        eq(workspaceScheduleDefinitions.organizationId, organizationId),
+        eq(workspaceScheduleDefinitions.automationPlanProposalId, automationPlanProposalId)
+      )
+    );
   return def;
 }
 
@@ -259,6 +284,10 @@ export async function insertExecutionOnConflictDoNothing(values: {
   agentProfileSnapshot: string;
   connectorGrantIdsSnapshot: string[];
   projectIdSnapshot: string | null;
+  preAuthorizedCapabilityIdsSnapshot: string[];
+  founderMemberIdSnapshot: string | null;
+  founderUserIdSnapshot: string | null;
+  tokenBudgetPerRunSnapshot: number | null;
   state: "queued";
 }): Promise<ScheduleExecutionRow | undefined> {
   const [inserted] = await db
@@ -278,6 +307,10 @@ export async function insertExecution(values: {
   agentProfileSnapshot: string;
   connectorGrantIdsSnapshot: string[];
   projectIdSnapshot: string | null;
+  preAuthorizedCapabilityIdsSnapshot: string[];
+  founderMemberIdSnapshot: string | null;
+  founderUserIdSnapshot: string | null;
+  tokenBudgetPerRunSnapshot: number | null;
   state: "queued";
 }): Promise<ScheduleExecutionRow> {
   const [execution] = await db

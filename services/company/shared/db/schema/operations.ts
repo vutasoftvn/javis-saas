@@ -1443,6 +1443,10 @@ export const automationPlanProposals = operatingSchema.table("automation_plan_pr
   approvedScheduleId: text("approved_schedule_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   decidedAt: timestamp("decided_at", { withTimezone: true }),
+  // B5 (Task 6, migration 034) — founder đã bấm duyệt; có thể khác proposedByMemberId
+  // ("founder sở hữu lịch = người bấm duyệt", ADR-FOUNDER-CHANNEL-001 mục 5).
+  decidedByMemberId: bigint("decided_by_member_id", { mode: "bigint" }),
+  decidedByUserId: text("decided_by_user_id"),
 }, (t) => ({
   ixProjCreated: index("idx_automation_plan_proposals_project_created").on(t.projectId, t.createdAt),
 }));

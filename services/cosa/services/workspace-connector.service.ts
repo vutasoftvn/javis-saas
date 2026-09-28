@@ -1,5 +1,5 @@
 import { APIError } from "encore.dev/api";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, gt, sql } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { isStagingOrProd } from "../shared/env";
 import { verifyControlDelegationToken } from "./token.service";
@@ -7,7 +7,10 @@ import { authorizeAndProjectCoreAccess, looksLikeJwt } from "./core-access.servi
 
 const DEV_COMPANY_SERVICE_URL = "http://localhost:4002";
 
-function resolveCompanyServiceUrl(): string {
+// Dùng bởi B5 (automation-plan-approval.service.ts) để gọi ngược sang services/company —
+// cùng URL company gọi sang cosa qua `/cosa/connectors/*` (channel-onboarding.ts,
+// connector-grant.client.ts), chỉ đổi hướng.
+export function resolveCompanyServiceUrl(): string {
   const url = process.env.COMPANY_SERVICE_URL;
   if (isStagingOrProd()) {
     if (!url || url === DEV_COMPANY_SERVICE_URL) {
@@ -431,4 +434,41 @@ export async function assertConnectorInvocation(input: {
   }
 
   return { ok: true, secretRef: auth.secretRef };
+}
+
+/**
+ * B5 (Task 6, phát hiện review Task 5 mục 1) — lúc founder duyệt thẻ kế hoạch tự động hoá,
+ * KHÔNG tin `plan.connectors[].status` cũ (founder tự khai lúc đề xuất). services/cosa tự
+ * re-verify bằng cách tìm authorization workspace-scoped (`connectorAuthorizations`, KHÔNG
+ * phải session grant theo conversation — lịch nền chưa có conversation) đang `active`, chưa hết
+ * hạn, thuộc installation `enabled`, cho đúng connector key. Trả về id các authorization đủ điều
+ * kiện để dùng làm `connectorGrantIds` SNAPSHOT của lịch (không phải chuỗi founder tự khai).
+ *
+ * Cùng độ chi tiết với `connectorStatus` của B4 (Task 5): "connected" = workspace có authorization
+ * dùng được cho connector key này, không phân biệt theo principal cụ thể — Task 6b (worker,
+ * preflight) mới là nơi cấp session grant thật cho conversation của từng lần chạy.
+ */
+export async function findActiveConnectorAuthorizationIds(
+  organizationId: string,
+  connectorKey: string
+): Promise<string[]> {
+  const now = new Date();
+  const rows = await db
+    .select({ id: connectorAuthorizations.id })
+    .from(connectorAuthorizations)
+    .innerJoin(
+      workspaceConnectorInstallations,
+      eq(connectorAuthorizations.installationId, workspaceConnectorInstallations.id)
+    )
+    .where(
+      and(
+        eq(workspaceConnectorInstallations.organizationId, organizationId),
+        eq(workspaceConnectorInstallations.connectorKey, connectorKey),
+        eq(workspaceConnectorInstallations.status, "enabled"),
+        eq(connectorAuthorizations.organizationId, organizationId),
+        eq(connectorAuthorizations.state, "active"),
+        gt(connectorAuthorizations.expiresAt, now)
+      )
+    );
+  return rows.map((r) => r.id);
 }

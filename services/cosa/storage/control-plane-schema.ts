@@ -227,6 +227,15 @@ export const workspaceScheduleDefinitions = controlPlaneSchema.table("organizati
   lastRunAt: timestamp("last_run_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  // Plan hub vận hành đợt 2 B5 (Task 6, migration 010) — snapshot uỷ quyền trước khi founder
+  // duyệt thẻ kế hoạch tự động hoá (services/company `automation_plan_proposals`). CHỈ đường
+  // approve mới đặt các field này; route tạo lịch thủ công (tab Lịch) không nhận từ client
+  // (xem PRE_AUTHORIZABLE_CAPABILITY_IDS ở workspace-schedule.service.ts).
+  preAuthorizedCapabilityIds: jsonb("pre_authorized_capability_ids").default([]).notNull(),
+  founderMemberId: text("founder_member_id"),
+  founderUserId: text("founder_user_id"),
+  automationPlanProposalId: text("automation_plan_proposal_id"),
+  tokenBudgetPerRun: integer("token_budget_per_run"),
 });
 
 export const workspaceScheduleExecutions = controlPlaneSchema.table("organization_schedule_executions", {
@@ -253,6 +262,12 @@ export const workspaceScheduleExecutions = controlPlaneSchema.table("organizatio
   nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  // Copy từ definition lúc tạo execution (Task 6) — worker (Task 6b) đọc snapshot này qua
+  // GET /cosa/schedules/executions/:id, KHÔNG đọc lại definition (có thể đã đổi sau khi lịch chạy).
+  preAuthorizedCapabilityIdsSnapshot: jsonb("pre_authorized_capability_ids_snapshot").default([]).notNull(),
+  founderMemberIdSnapshot: text("founder_member_id_snapshot"),
+  founderUserIdSnapshot: text("founder_user_id_snapshot"),
+  tokenBudgetPerRunSnapshot: integer("token_budget_per_run_snapshot"),
 });
 
 // Document ingestion lifecycle: immutable, server-authoritative records for knowledge ingestion
