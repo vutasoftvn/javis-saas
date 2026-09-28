@@ -115,3 +115,88 @@ class FounderAssetCommandResult {
     );
   }
 }
+
+/// Ref tới 1 bản asset chính xác (id + version + hash) — dùng để pin PUBLISH khớp tuyệt đối
+/// bản đã EVALUATE PASS (task-8-report.md mục "API/luồng C2").
+class FounderAssetRef {
+  final String assetId;
+  final String? version;
+  final String? definitionHash;
+
+  const FounderAssetRef({required this.assetId, this.version, this.definitionHash});
+
+  factory FounderAssetRef.fromJson(Map<String, dynamic> json) => FounderAssetRef(
+        assetId: json['assetId'] as String? ?? '',
+        version: json['version'] as String?,
+        definitionHash: json['definitionHash'] as String?,
+      );
+}
+
+/// Task 9 (C2) — 1 dòng trả về từ `GET /operations/founder/assets/events?commandId=` (poll
+/// trạng thái 1 lệnh CLONE/EDIT_DRAFT/EVALUATE/PUBLISH — task-8-report.md bước 2). Field nằm
+/// trong `metadata` (JSONB) phía backend, KHÔNG có bọc `{data, meta}` — xem
+/// `getFounderAssetEventsApi` (`services/company/operations/handlers/
+/// founder-asset-authoring.handler.ts`).
+class FounderAssetEvent {
+  final String commandId;
+  final String? status;
+  final FounderAssetRef? updatedAssetRef;
+  final String? safeReasonCode;
+  final Map<String, dynamic>? agentManifest;
+
+  const FounderAssetEvent({
+    required this.commandId,
+    this.status,
+    this.updatedAssetRef,
+    this.safeReasonCode,
+    this.agentManifest,
+  });
+
+  bool get isSuccess => status == 'SUCCESS';
+  bool get isFailed => status == 'FAILED' || status == 'REJECTED';
+  bool get isPending => status == null || status == 'PENDING';
+
+  factory FounderAssetEvent.fromJson(Map<String, dynamic> json) {
+    final metadata = json['metadata'] is Map<String, dynamic>
+        ? json['metadata'] as Map<String, dynamic>
+        : const <String, dynamic>{};
+    final updatedRef = metadata['updatedAssetRef'];
+    return FounderAssetEvent(
+      commandId: (json['id'] ?? json['commandId'])?.toString() ?? '',
+      status: metadata['status'] as String?,
+      updatedAssetRef:
+          updatedRef is Map<String, dynamic> ? FounderAssetRef.fromJson(updatedRef) : null,
+      safeReasonCode: metadata['safeReasonCode'] as String?,
+      agentManifest:
+          metadata['agentManifest'] is Map<String, dynamic> ? metadata['agentManifest'] as Map<String, dynamic> : null,
+    );
+  }
+}
+
+/// Kết quả `POST /operations/founder/assets/workspace-agents` (task-8-report.md bước 6).
+class WorkspaceAgentDto {
+  final String id;
+  final String agentAssetId;
+  final String agentAssetVersion;
+  final String agentDefinitionHash;
+  final String originKind;
+  final String state;
+
+  const WorkspaceAgentDto({
+    required this.id,
+    required this.agentAssetId,
+    required this.agentAssetVersion,
+    required this.agentDefinitionHash,
+    required this.originKind,
+    required this.state,
+  });
+
+  factory WorkspaceAgentDto.fromJson(Map<String, dynamic> json) => WorkspaceAgentDto(
+        id: json['id'] as String? ?? '',
+        agentAssetId: json['agentAssetId'] as String? ?? '',
+        agentAssetVersion: json['agentAssetVersion'] as String? ?? '',
+        agentDefinitionHash: json['agentDefinitionHash'] as String? ?? '',
+        originKind: json['originKind'] as String? ?? '',
+        state: json['state'] as String? ?? '',
+      );
+}

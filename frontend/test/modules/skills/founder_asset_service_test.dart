@@ -174,4 +174,154 @@ void main() {
     expect(failure.failure.statusCode, 409);
     expect(failure.failure.code, ApiFailureCode.conflict);
   });
+
+  // ── Task 9 (C2) — CLONE/EDIT_DRAFT/EVALUATE polling + workspace-agents ─────
+
+  test('clones an AGENT with metadata name/description and an optional projectId', () async {
+    final mockHttp = MockClient((request) async {
+      expect(request.method, 'POST');
+      expect(request.url.path, '/operations/founder/assets/commands');
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      expect(body['assetKind'], 'AGENT');
+      expect(body['operation'], 'CLONE');
+      expect(body['assetRef'], {'assetId': 'cosa.agents.operations'});
+      expect(body['projectId'], 'proj-1');
+      expect(body['metadata'], {'name': 'Vận hành gọn', 'description': 'Agent riêng'});
+
+      return http.Response(
+        jsonEncode({
+          'commandId': 'cmd-agent-1',
+          'assetKind': 'AGENT',
+          'operation': 'CLONE',
+          'status': 'PENDING',
+          'idempotencyKey': body['idempotencyKey'],
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+
+    final service = FounderAssetService(client: MvpRequestClient(httpClient: mockHttp));
+    final result = await service.cloneAsset(
+      assetKind: FounderAssetKind.agent,
+      sourceAssetId: 'cosa.agents.operations',
+      reason: 'Tạo agent riêng',
+      projectId: 'proj-1',
+      metadata: {'name': 'Vận hành gọn', 'description': 'Agent riêng'},
+    );
+
+    expect(result, isA<ApiSuccess<FounderAssetCommandResult>>());
+    expect((result as ApiSuccess<FounderAssetCommandResult>).data.commandId, 'cmd-agent-1');
+  });
+
+  test('edits a draft with the exact assetRef of the previous command', () async {
+    final mockHttp = MockClient((request) async {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      expect(body['operation'], 'EDIT_DRAFT');
+      expect(body['assetRef'], {'assetId': 'custom.operations.cmd-agent-1', 'version': '0.1.0', 'definitionHash': 'sha256:draft'});
+      expect(body['metadata'], {'content': {'name': 'Vận hành gọn 2'}});
+
+      return http.Response(
+        jsonEncode({
+          'commandId': 'cmd-agent-2',
+          'assetKind': 'AGENT',
+          'operation': 'EDIT_DRAFT',
+          'status': 'PENDING',
+          'idempotencyKey': body['idempotencyKey'],
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+
+    final service = FounderAssetService(client: MvpRequestClient(httpClient: mockHttp));
+    final result = await service.editDraft(
+      assetKind: FounderAssetKind.agent,
+      assetRef: const FounderAssetRef(
+        assetId: 'custom.operations.cmd-agent-1',
+        version: '0.1.0',
+        definitionHash: 'sha256:draft',
+      ),
+      content: const {'name': 'Vận hành gọn 2'},
+      reason: 'Sửa tên',
+    );
+
+    expect(result, isA<ApiSuccess<FounderAssetCommandResult>>());
+  });
+
+  test('polls founder asset events and decodes status/safeReasonCode/updatedAssetRef', () async {
+    final mockHttp = MockClient((request) async {
+      expect(request.method, 'GET');
+      expect(request.url.path, '/operations/founder/assets/events');
+      expect(request.url.queryParameters['commandId'], 'cmd-agent-2');
+
+      return http.Response(
+        jsonEncode({
+          'events': [
+            {
+              'id': 'cmd-agent-2',
+              'metadata': {
+                'status': 'REJECTED',
+                'safeReasonCode': 'AGENT_CAPABILITY_ESCALATION',
+                'updatedAssetRef': {
+                  'assetId': 'custom.operations.cmd-agent-1',
+                  'version': '0.1.0',
+                  'definitionHash': 'sha256:edited',
+                },
+              },
+            },
+          ],
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+
+    final service = FounderAssetService(client: MvpRequestClient(httpClient: mockHttp));
+    final result = await service.getEvents(commandId: 'cmd-agent-2');
+
+    expect(result, isA<ApiSuccess<List<FounderAssetEvent>>>());
+    final events = (result as ApiSuccess<List<FounderAssetEvent>>).data;
+    expect(events, hasLength(1));
+    expect(events.first.status, 'REJECTED');
+    expect(events.first.isFailed, isTrue);
+    expect(events.first.safeReasonCode, 'AGENT_CAPABILITY_ESCALATION');
+    expect(events.first.updatedAssetRef?.definitionHash, 'sha256:edited');
+  });
+
+  test('creates a workspace agent from a published clone', () async {
+    final mockHttp = MockClient((request) async {
+      expect(request.method, 'POST');
+      expect(request.url.path, '/operations/founder/assets/workspace-agents');
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      expect(body['agentAssetId'], 'custom.operations.cmd-agent-1');
+      expect(body['agentAssetVersion'], '0.1.0');
+      expect(body['agentDefinitionHash'], 'sha256:edited');
+
+      return http.Response(
+        jsonEncode({
+          'id': 'wa-1',
+          'agentAssetId': 'custom.operations.cmd-agent-1',
+          'agentAssetVersion': '0.1.0',
+          'agentDefinitionHash': 'sha256:edited',
+          'originKind': 'WORKSPACE_CLONE',
+          'state': 'ACTIVE',
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+
+    final service = FounderAssetService(client: MvpRequestClient(httpClient: mockHttp));
+    final result = await service.createWorkspaceAgent(
+      agentAssetId: 'custom.operations.cmd-agent-1',
+      agentAssetVersion: '0.1.0',
+      agentDefinitionHash: 'sha256:edited',
+    );
+
+    expect(result, isA<ApiSuccess<WorkspaceAgentDto>>());
+    final dto = (result as ApiSuccess<WorkspaceAgentDto>).data;
+    expect(dto.id, 'wa-1');
+    expect(dto.originKind, 'WORKSPACE_CLONE');
+  });
 }

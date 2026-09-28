@@ -279,5 +279,81 @@ class AppCopy {
         );
     }
   }
+
+  // ── C2 (Task 9) — wizard "Tạo agent mới" trong tab Agent ────────────────
+  static String get hubOpsCreateAgent => _l('New agent', 'Tạo agent mới');
+  static String get hubOpsCreateAgentTitle => _l('Create a new agent', 'Tạo agent mới');
+  static String get hubOpsCreateAgentSourceLabel =>
+      _l('Clone from a built-in agent', 'Nhân bản từ agent có sẵn');
+  static String get hubOpsCreateAgentNameLabel => _l('Name', 'Tên agent');
+  static String get hubOpsCreateAgentNameHint =>
+      _l('Up to 80 characters', 'Tối đa 80 ký tự');
+  static String get hubOpsCreateAgentDescriptionLabel => _l('Description (optional)', 'Mô tả (tuỳ chọn)');
+  static String get hubOpsCreateAgentDescriptionHint =>
+      _l('Up to 500 characters', 'Tối đa 500 ký tự');
+  static String get hubOpsCreateAgentNameRequired =>
+      _l('Name is required (1-80 characters).', 'Tên là bắt buộc (1-80 ký tự).');
+  static String get hubOpsCreateAgentDescriptionTooLong =>
+      _l('Description is too long (max 500 characters).', 'Mô tả quá dài (tối đa 500 ký tự).');
+  static String get hubOpsCreateAgentSubmit => _l('Create agent', 'Tạo agent');
+  static String get hubOpsCreateAgentCreating => _l('Creating…', 'Đang tạo…');
+  static String hubOpsCreateAgentStep(String step) =>
+      _l('Step: $step', 'Bước: $step');
+  static String get hubOpsCreateAgentStepClone => _l('cloning', 'nhân bản');
+  static String get hubOpsCreateAgentStepEdit => _l('saving draft', 'lưu bản nháp');
+  static String get hubOpsCreateAgentStepEvaluate => _l('evaluating', 'đánh giá');
+  static String get hubOpsCreateAgentStepPublish => _l('publishing', 'xuất bản');
+  static String get hubOpsCreateAgentStepWorkspaceAgent =>
+      _l('registering agent', 'đăng ký agent');
+  static String get hubOpsCreateAgentStepDeploy => _l('deploying to project', 'triển khai vào dự án');
+  static String get hubOpsCreateAgentSuccess =>
+      _l('Agent created and deployed to this project.', 'Đã tạo agent và triển khai vào dự án.');
+  static String get hubOpsCreateAgentTimeout => _l(
+        'This step is taking too long. Please try again.',
+        'Bước này mất quá lâu, vui lòng thử lại.',
+      );
+
+  /// Rút gọn mã lỗi `AGENT_*` (task-8-report.md §3) thành thông báo thân thiện — không lộ mã kỹ
+  /// thuật thô ra UI, theo đúng cách `automationPlanErrorFor` đã làm ở Task 7.
+  static String agentCloneErrorFor(String? safeReasonCode) {
+    switch (safeReasonCode) {
+      case 'AGENT_CAPABILITY_ESCALATION':
+        return _l(
+          'The new agent cannot have more permissions than the original.',
+          'Agent mới không được có quyền vượt quá agent gốc.',
+        );
+      case 'AGENT_MANIFEST_INVALID':
+        return _l(
+          'Some of the agent settings are not valid.',
+          'Một số thiết lập của agent không hợp lệ.',
+        );
+      case 'AGENT_NAME_INVALID':
+        return hubOpsCreateAgentNameRequired;
+      case 'AGENT_DESCRIPTION_TOO_LONG':
+        return hubOpsCreateAgentDescriptionTooLong;
+      case 'AGENT_ADDENDUM_TOO_LONG':
+        return _l(
+          'The extra instructions are too long.',
+          'Phần hướng dẫn thêm quá dài.',
+        );
+      case 'AGENT_SECRET_DETECTED':
+        return _l(
+          'The content looks like it contains a secret or credential — remove it and try again.',
+          'Nội dung có vẻ chứa bí mật/thông tin đăng nhập — hãy bỏ đi rồi thử lại.',
+        );
+      case 'AGENT_ORIGIN_MISMATCH':
+      case 'AGENT_ORIGIN_UNAVAILABLE':
+      case 'AGENT_ORIGIN_REQUIRED':
+        return _l(
+          'The source agent for this clone is not available.',
+          'Agent gốc để nhân bản không khả dụng.',
+        );
+      default:
+        return _l(
+          'Could not create the agent. Please try again.',
+          'Không tạo được agent, vui lòng thử lại.',
+        );
+    }
+  }
 }
 

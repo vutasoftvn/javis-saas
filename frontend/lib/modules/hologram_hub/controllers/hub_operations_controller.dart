@@ -1,10 +1,12 @@
 import 'package:get/get.dart';
 
 import '../../../core/network/api_result.dart';
+import '../../projects/services/project_agent_deployment_service.dart';
 import '../../projects/services/project_operating_loop_service.dart';
 import '../../settings/models/settings_models.dart';
 import '../../settings/services/permissions_service.dart';
 import '../../settings/services/settings_mvp_service.dart';
+import '../../skills/services/founder_asset_service.dart';
 import '../models/hub_operations_models.dart';
 import '../models/project_startup_team.dart';
 import '../services/hub_operations_service.dart';
@@ -34,17 +36,27 @@ class HubOperationsController extends GetxController {
     ProjectStartupTeamService? teamService,
     SettingsMvpService? settingsService,
     PermissionsService? permissionsService,
+    FounderAssetService? founderAssetService,
+    ProjectAgentDeploymentService? agentDeploymentService,
   })  : _operations = operationsService ?? HubOperationsService(),
         _loop = loopService ?? ProjectOperatingLoopService(),
         _team = teamService ?? ProjectStartupTeamService(),
         _settings = settingsService ?? SettingsMvpService(),
-        _permissions = permissionsService ?? PermissionsService();
+        _permissions = permissionsService ?? PermissionsService(),
+        founderAssetService = founderAssetService ?? FounderAssetService(),
+        agentDeploymentService = agentDeploymentService ?? ProjectAgentDeploymentService();
 
   final HubOperationsService _operations;
   final ProjectOperatingLoopService _loop;
   final ProjectStartupTeamService _team;
   final SettingsMvpService _settings;
   final PermissionsService _permissions;
+
+  /// C2 (Task 9) — wizard "Tạo agent mới" trong tab Agent dùng chung 2 service này (giữ nguyên
+  /// pattern injectable qua constructor của các service khác trong controller, để widget test
+  /// thay bằng test double thay vì gọi mạng thật).
+  final FounderAssetService founderAssetService;
+  final ProjectAgentDeploymentService agentDeploymentService;
 
   final Rxn<String> projectId = Rxn<String>();
   final Rx<HubOperationsTab> tab = HubOperationsTab.tasks.obs;
@@ -204,6 +216,35 @@ class HubOperationsController extends GetxController {
     }
   }
 
+  Future<HubActionOutcome> createSchedule({
+    required String promptTemplate,
+    String scheduleKind = "daily",
+    int? hour,
+    int? minute,
+    List<int> weekdays = const [],
+    String agentProfile = "operations",
+  }) async {
+    final pid = projectId.value;
+    if (pid == null) return const HubActionOutcome(false, "Chưa chọn dự án");
+    schedulesLoading.value = true;
+    try {
+      final res = await _operations.createSchedule(
+        projectId: pid,
+        promptTemplate: promptTemplate,
+        scheduleKind: scheduleKind,
+        hour: hour,
+        minute: minute,
+        weekdays: weekdays,
+        agentProfile: agentProfile,
+      );
+      if (res is ApiFailure) return HubActionOutcome(false, _failureMessage(res));
+      await loadSchedules();
+      return const HubActionOutcome(true);
+    } finally {
+      schedulesLoading.value = false;
+    }
+  }
+
   // ── Công cụ ────────────────────────────────────────────────────────────
 
   Future<void> loadTools() async {
@@ -229,6 +270,20 @@ class HubOperationsController extends GetxController {
         toolsError.value = _failureMessage(grantRes);
     }
     toolsLoading.value = false;
+  }
+
+  Future<HubActionOutcome> installConnector(String connectorKey) async {
+    busy.add("connector_$connectorKey");
+    try {
+      final res = await _settings.installConnector(connectorKey);
+      if (res is ApiFailure) return HubActionOutcome(false, _failureMessage(res));
+      await loadTools();
+      return const HubActionOutcome(true);
+    } catch (e) {
+      return HubActionOutcome(false, e.toString());
+    } finally {
+      busy.remove("connector_$connectorKey");
+    }
   }
 
   Future<HubActionOutcome> revokeGrant(HubAgentGrant grant, {required String reason}) async {

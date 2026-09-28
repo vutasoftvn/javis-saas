@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/network/api_result.dart';
 import '../../../core/routing/module_routes.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/ui/app_copy.dart';
 import '../../projects/models/project_operating_loop.dart';
+import '../../projects/services/project_agent_deployment_service.dart';
+import '../../skills/models/founder_asset.dart';
+import '../../skills/services/founder_asset_service.dart';
 import '../controllers/hub_operations_controller.dart';
 import '../models/hub_operations_models.dart';
 import '../models/project_startup_team.dart';
@@ -631,26 +635,44 @@ class _AgentsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Obx(() {
-      if (controller.agentsLoading.value && controller.team.isEmpty) return const _Loading();
-      if (controller.agentsError.value != null) {
-        return _Notice(AppCopy.hubOpsLoadFailed, onRetry: controller.loadTeam);
-      }
-      if (controller.team.isEmpty) return _Notice(AppCopy.hubOpsNoAgents);
-      // Agent đang hoạt động/tạm dừng lên trước mẫu chưa kích hoạt.
-      final sorted = [...controller.team]..sort((a, b) {
-          int rank(ProjectStartupTeamMember m) => switch (m.displayState) {
-                TeamDisplayState.active => 0,
-                TeamDisplayState.paused => 1,
-                _ => 2,
-              };
-          return rank(a).compareTo(rank(b));
-        });
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [for (final m in sorted.take(HubOperationsCard._maxRows + 2)) _row(m)],
-      );
-    });
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            key: const Key('hub_ops_create_agent'),
+            style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+            onPressed: () => showDialog<void>(
+              context: context,
+              builder: (_) => _CreateAgentDialog(controller: controller),
+            ),
+            icon: const Icon(Icons.add, size: 16),
+            label: Text(AppCopy.hubOpsCreateAgent, style: const TextStyle(fontSize: 12)),
+          ),
+        ),
+        Obx(() {
+          if (controller.agentsLoading.value && controller.team.isEmpty) return const _Loading();
+          if (controller.agentsError.value != null) {
+            return _Notice(AppCopy.hubOpsLoadFailed, onRetry: controller.loadTeam);
+          }
+          if (controller.team.isEmpty) return _Notice(AppCopy.hubOpsNoAgents);
+          // Agent đang hoạt động/tạm dừng lên trước mẫu chưa kích hoạt.
+          final sorted = [...controller.team]..sort((a, b) {
+              int rank(ProjectStartupTeamMember m) => switch (m.displayState) {
+                    TeamDisplayState.active => 0,
+                    TeamDisplayState.paused => 1,
+                    _ => 2,
+                  };
+              return rank(a).compareTo(rank(b));
+            });
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [for (final m in sorted.take(HubOperationsCard._maxRows + 2)) _row(m)],
+          );
+        }),
+      ],
+    );
   }
 
   Widget _row(ProjectStartupTeamMember m) {
@@ -765,7 +787,353 @@ class _HubOperationsPanelState extends State<HubOperationsPanel> {
         controller: _controller,
         operatingLoop: widget.operatingLoop.value,
         onTasksChanged: widget.onTasksChanged,
+        isExpanded: widget.isExpanded,
+        onToggleExpand: widget.onToggleExpand,
+        isFullHeight: widget.isFullHeight,
       ),
+    );
+  }
+}
+
+// ── C2 (Task 9) — Wizard "Tạo agent mới" trong tab Agent ────────────────────
+//
+// Luồng gọi đúng 5 lệnh của executor thật (Task 8/C1, xem task-8-report.md mục
+// "API/luồng C2"): CLONE -> EVALUATE -> PUBLISH -> tạo workspace agent -> deploy vào Project.
+// KHÔNG gọi EDIT_DRAFT trong luồng mặc định: `CLONE` đã nhận `metadata.name`/`description` và áp
+// thẳng vào draft đầu tiên (`apps/cosa/assets/authoring_service.py::_clone_builtin_agent` truyền
+// `name`/`description` vào `build_clone_content`, kế thừa đầy đủ `capability_refs` của agent
+// gốc) — còn `EDIT_DRAFT` phía cosa REPLACE TOÀN BỘ content (`AuthoringService.edit` ->
+// `replace_draft_content`), nên gọi nó từ client mà không có `schema`/`origin`/`capability_refs`
+// hiện tại (không có endpoint nào trả content đầy đủ của draft cho Flutter) sẽ làm hỏng manifest.
+// `FounderAssetService.editDraft` vẫn được cài đặt + test (phục vụ UI thu hẹp capability ở bản
+// sau, khi có endpoint đọc lại content) nhưng wizard này không gọi tới.
+class _CreateAgentDialog extends StatefulWidget {
+  const _CreateAgentDialog({
+    required this.controller,
+    this.pollInterval = const Duration(milliseconds: 1500),
+    this.pollTimeout = const Duration(seconds: 30),
+  });
+
+  final HubOperationsController controller;
+  final Duration pollInterval;
+  final Duration pollTimeout;
+
+  @override
+  State<_CreateAgentDialog> createState() => _CreateAgentDialogState();
+}
+
+class _CreateAgentDialogState extends State<_CreateAgentDialog> {
+  // Lấy từ controller (như mọi service khác của HubOperationsController) thay vì tự khởi tạo —
+  // widget test thay bằng test double qua constructor của `HubOperationsController`, không cần
+  // dialog riêng biết cách inject (dialog vốn `private`, chỉ mở được từ trong file này).
+  FounderAssetService get _founderAssetService => widget.controller.founderAssetService;
+  ProjectAgentDeploymentService get _deploymentService => widget.controller.agentDeploymentService;
+
+  final _nameController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  String? _sourceProfileKey;
+  bool _submitting = false;
+  String? _stepLabel;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  /// Nguồn built-in để nhân bản lấy từ `controller.team` đã nạp sẵn (không hard-code danh sách
+  /// mới) — loại `founder_assistant`/`customer_support` (không clone được, xem
+  /// `apps/cosa/assets/workspace_agent.py::_NON_CLONEABLE_PROFILES`) và các agent tự tạo đã có
+  /// trong danh sách (`profileKey` dạng `custom.<profile>.<commandId>`, không phải nguồn clone).
+  List<ProjectStartupTeamMember> get _cloneableSources => widget.controller.team
+      .where((m) =>
+          m.profileKey != 'founder_assistant' &&
+          m.profileKey != 'customer_support' &&
+          !m.profileKey.startsWith('custom.'))
+      .toList();
+
+  /// Đếm số lượt thay vì so `DateTime.now()` — timeout xác định (`pollTimeout ~/ pollInterval`
+  /// lượt), không phụ thuộc đồng hồ hệ thống nên widget test tua thời gian bằng `tester.pump()`
+  /// (giả lập `Timer`/`Future.delayed`) mà không phải chờ thật.
+  Future<FounderAssetEvent?> _pollUntilDone(String commandId) async {
+    final maxAttempts =
+        (widget.pollTimeout.inMilliseconds / widget.pollInterval.inMilliseconds).ceil();
+    for (var attempt = 0; attempt < maxAttempts; attempt++) {
+      final res = await _founderAssetService.getEvents(commandId: commandId);
+      if (res is ApiSuccess<List<FounderAssetEvent>>) {
+        final event = res.data.isNotEmpty ? res.data.first : null;
+        if (event != null && !event.isPending) return event;
+      }
+      await Future.delayed(widget.pollInterval);
+    }
+    return null;
+  }
+
+  void _fail(String message) {
+    if (!mounted) return;
+    setState(() {
+      _errorMessage = message;
+      _stepLabel = null;
+    });
+  }
+
+  Future<void> _submit() async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty || name.length > 80) {
+      setState(() => _errorMessage = AppCopy.hubOpsCreateAgentNameRequired);
+      return;
+    }
+    final description = _descriptionController.text.trim();
+    if (description.length > 500) {
+      setState(() => _errorMessage = AppCopy.hubOpsCreateAgentDescriptionTooLong);
+      return;
+    }
+    final sourceProfileKey = _sourceProfileKey;
+    final projectId = widget.controller.projectId.value;
+    if (sourceProfileKey == null || projectId == null) {
+      setState(() => _errorMessage = AppCopy.hubOpsCreateAgentNameRequired);
+      return;
+    }
+
+    setState(() {
+      _submitting = true;
+      _errorMessage = null;
+      _stepLabel = AppCopy.hubOpsCreateAgentStepClone;
+    });
+
+    try {
+      // 1. CLONE — draft đầu tiên đã có tên/mô tả + kế thừa đầy đủ capability của agent gốc.
+      final cloneRes = await _founderAssetService.cloneAsset(
+        assetKind: FounderAssetKind.agent,
+        sourceAssetId: 'cosa.agents.$sourceProfileKey',
+        reason: 'Founder tạo agent vận hành riêng qua hub',
+        projectId: projectId,
+        metadata: {
+          'name': name,
+          if (description.isNotEmpty) 'description': description,
+        },
+      );
+      if (cloneRes is ApiFailure<FounderAssetCommandResult>) {
+        _fail(cloneRes.failure.message);
+        return;
+      }
+      final cloneCommandId = (cloneRes as ApiSuccess<FounderAssetCommandResult>).data.commandId;
+      final cloneEvent = await _pollUntilDone(cloneCommandId);
+      if (cloneEvent == null) {
+        _fail(AppCopy.hubOpsCreateAgentTimeout);
+        return;
+      }
+      if (!cloneEvent.isSuccess || cloneEvent.updatedAssetRef == null) {
+        _fail(AppCopy.agentCloneErrorFor(cloneEvent.safeReasonCode));
+        return;
+      }
+      final draftRef = cloneEvent.updatedAssetRef!;
+
+      // 2. EVALUATE — FAIL/REJECTED dừng wizard ở đây, KHÔNG publish (task-8-report.md bước 4).
+      if (!mounted) return;
+      setState(() => _stepLabel = AppCopy.hubOpsCreateAgentStepEvaluate);
+      final evalRes = await _founderAssetService.evaluate(
+        assetKind: FounderAssetKind.agent,
+        assetRef: draftRef,
+        reason: 'Đánh giá agent vừa tạo',
+        projectId: projectId,
+      );
+      if (evalRes is ApiFailure<FounderAssetCommandResult>) {
+        _fail(evalRes.failure.message);
+        return;
+      }
+      final evalCommandId = (evalRes as ApiSuccess<FounderAssetCommandResult>).data.commandId;
+      final evalEvent = await _pollUntilDone(evalCommandId);
+      if (evalEvent == null) {
+        _fail(AppCopy.hubOpsCreateAgentTimeout);
+        return;
+      }
+      if (!evalEvent.isSuccess) {
+        _fail(AppCopy.agentCloneErrorFor(evalEvent.safeReasonCode));
+        return;
+      }
+
+      // 3. PUBLISH — assetRef phải khớp tuyệt đối bản vừa evaluate PASS.
+      if (!mounted) return;
+      setState(() => _stepLabel = AppCopy.hubOpsCreateAgentStepPublish);
+      final publishRes = await _founderAssetService.publishAsset(
+        assetKind: FounderAssetKind.agent,
+        assetId: draftRef.assetId,
+        version: draftRef.version ?? '',
+        expectedHash: draftRef.definitionHash ?? '',
+        reason: 'Xuất bản agent vừa tạo',
+        projectId: projectId,
+      );
+      if (publishRes is ApiFailure<FounderAssetCommandResult>) {
+        _fail(publishRes.failure.message);
+        return;
+      }
+      final publishCommandId =
+          (publishRes as ApiSuccess<FounderAssetCommandResult>).data.commandId;
+      final publishEvent = await _pollUntilDone(publishCommandId);
+      if (publishEvent == null) {
+        _fail(AppCopy.hubOpsCreateAgentTimeout);
+        return;
+      }
+      if (!publishEvent.isSuccess) {
+        _fail(AppCopy.agentCloneErrorFor(publishEvent.safeReasonCode));
+        return;
+      }
+
+      // 4. Tạo Workspace Agent từ biên nhận PUBLISH vừa có.
+      if (!mounted) return;
+      setState(() => _stepLabel = AppCopy.hubOpsCreateAgentStepWorkspaceAgent);
+      final waRes = await _founderAssetService.createWorkspaceAgent(
+        agentAssetId: draftRef.assetId,
+        agentAssetVersion: draftRef.version ?? '',
+        agentDefinitionHash: draftRef.definitionHash ?? '',
+      );
+      if (waRes is ApiFailure<WorkspaceAgentDto>) {
+        _fail(waRes.failure.message);
+        return;
+      }
+      final workspaceAgentId = (waRes as ApiSuccess<WorkspaceAgentDto>).data.id;
+
+      // 5. Deploy vào Project đang chọn.
+      if (!mounted) return;
+      setState(() => _stepLabel = AppCopy.hubOpsCreateAgentStepDeploy);
+      final deployRes =
+          await _deploymentService.deploy(projectId, workspaceAgentId: workspaceAgentId);
+      if (deployRes is ApiFailure<ProjectAgentDeployment>) {
+        _fail(deployRes.failure.message);
+        return;
+      }
+
+      // Thành công toàn bộ: nạp lại danh sách (nhờ UNION backend, agent mới sẽ xuất hiện).
+      await widget.controller.loadTeam();
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      Get.rawSnackbar(
+        message: AppCopy.hubOpsCreateAgentSuccess,
+        duration: const Duration(seconds: 3),
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sources = _cloneableSources;
+    return AlertDialog(
+      backgroundColor: const Color(0xFF0F172A),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: AppTheme.primary.withValues(alpha: 0.25)),
+      ),
+      title: Text(
+        AppCopy.hubOpsCreateAgentTitle,
+        style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+      ),
+      content: SizedBox(
+        width: 380,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(AppCopy.hubOpsCreateAgentSourceLabel, style: _rowMeta.copyWith(fontSize: 12)),
+            const SizedBox(height: 6),
+            DropdownButtonFormField<String>(
+              key: const Key('hub_ops_create_agent_source'),
+              initialValue: _sourceProfileKey,
+              isExpanded: true,
+              dropdownColor: const Color(0xFF0F172A),
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              decoration: const InputDecoration(isDense: true),
+              items: [
+                for (final m in sources)
+                  DropdownMenuItem(value: m.profileKey, child: Text(m.label)),
+              ],
+              onChanged: _submitting
+                  ? null
+                  : (value) => setState(() => _sourceProfileKey = value),
+            ),
+            const SizedBox(height: 14),
+            Text(AppCopy.hubOpsCreateAgentNameLabel, style: _rowMeta.copyWith(fontSize: 12)),
+            const SizedBox(height: 6),
+            TextField(
+              key: const Key('hub_ops_create_agent_name'),
+              controller: _nameController,
+              enabled: !_submitting,
+              maxLength: 80,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: AppCopy.hubOpsCreateAgentNameHint,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(AppCopy.hubOpsCreateAgentDescriptionLabel, style: _rowMeta.copyWith(fontSize: 12)),
+            const SizedBox(height: 6),
+            TextField(
+              key: const Key('hub_ops_create_agent_description'),
+              controller: _descriptionController,
+              enabled: !_submitting,
+              maxLength: 500,
+              maxLines: 2,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: AppCopy.hubOpsCreateAgentDescriptionHint,
+              ),
+            ),
+            if (_stepLabel != null) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      AppCopy.hubOpsCreateAgentStep(_stepLabel!),
+                      key: const Key('hub_ops_create_agent_step'),
+                      style: _rowMeta.copyWith(fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _errorMessage!,
+                key: const Key('hub_ops_create_agent_error'),
+                style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _submitting ? null : () => Navigator.of(context).pop(),
+          child: Text(AppCopy.hubOpsCancel),
+        ),
+        ElevatedButton(
+          key: const Key('hub_ops_create_agent_submit'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primary,
+            foregroundColor: Colors.black,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+          ),
+          onPressed: _submitting || sources.isEmpty ? null : _submit,
+          child: Text(
+            _submitting ? AppCopy.hubOpsCreateAgentCreating : AppCopy.hubOpsCreateAgentSubmit,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
     );
   }
 }
