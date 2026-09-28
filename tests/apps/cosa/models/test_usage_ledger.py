@@ -207,3 +207,124 @@ async def test_postgres_ledger_matches_in_memory():
             assert await ledger.total_cost_usd(ws, since, "p-deepseek") == Decimal("0.25")
     finally:
         await engine.dispose()
+
+
+async def test_usage_without_durable_initiative_id_is_recorded_unattributed_not_guessed():
+    ledger = InMemoryUsageLedger()
+    entry = await ledger.record(_entry())
+    assert entry.initiative_id is None
+
+
+async def test_usage_with_durable_initiative_id_is_recorded_and_aggregated():
+    ledger = InMemoryUsageLedger()
+    await ledger.record(
+        UsageEntry(
+            workspace_id="ws1",
+            project_id="proj1",
+            initiative_id="init-1",
+            run_id="run-1",
+            profile_id="p1",
+            prompt_tokens=100,
+            completion_tokens=50,
+            cost_usd=Decimal("0.15"),
+        )
+    )
+    await ledger.record(
+        UsageEntry(
+            workspace_id="ws1",
+            project_id="proj1",
+            initiative_id="init-1",
+            run_id="run-2",
+            profile_id="p1",
+            prompt_tokens=200,
+            completion_tokens=100,
+            cost_usd=Decimal("0.35"),
+        )
+    )
+    await ledger.record(
+        UsageEntry(
+            workspace_id="ws1",
+            project_id="proj1",
+            initiative_id="init-2",
+            run_id="run-3",
+            profile_id="p1",
+            prompt_tokens=50,
+            completion_tokens=25,
+            cost_usd=Decimal("0.05"),
+        )
+    )
+    total_init1 = await ledger.total_cost_for_initiative("ws1", "proj1", "init-1")
+    assert total_init1 == Decimal("0.50")
+    total_init2 = await ledger.total_cost_for_initiative("ws1", "proj1", "init-2")
+    assert total_init2 == Decimal("0.05")
+
+
+async def test_initiative_budget_allow_warn_and_hard_pause():
+    from apps.cosa.models.usage import (
+        InitiativeBudgetAction,
+        check_initiative_budget,
+    )
+
+    ledger = InMemoryUsageLedger()
+    await ledger.record(
+        UsageEntry(
+            workspace_id="ws1",
+            project_id="proj1",
+            initiative_id="init-1",
+            run_id="run-1",
+            profile_id="p1",
+            cost_usd=Decimal("5.00"),
+        )
+    )
+    # Below soft limit: ALLOW
+    decision = await check_initiative_budget(
+        ledger,
+        workspace_id="ws1",
+        project_id="proj1",
+        initiative_id="init-1",
+        soft_budget_usd=10.0,
+        hard_budget_usd=20.0,
+    )
+    assert decision.action == InitiativeBudgetAction.ALLOW
+
+    # Above soft limit: WARN
+    await ledger.record(
+        UsageEntry(
+            workspace_id="ws1",
+            project_id="proj1",
+            initiative_id="init-1",
+            run_id="run-2",
+            profile_id="p1",
+            cost_usd=Decimal("6.00"),
+        )
+    )
+    decision_warn = await check_initiative_budget(
+        ledger,
+        workspace_id="ws1",
+        project_id="proj1",
+        initiative_id="init-1",
+        soft_budget_usd=10.0,
+        hard_budget_usd=20.0,
+    )
+    assert decision_warn.action == InitiativeBudgetAction.WARN
+
+    # Above hard limit: PAUSE_INITIATIVE / UsageBudgetExceeded
+    await ledger.record(
+        UsageEntry(
+            workspace_id="ws1",
+            project_id="proj1",
+            initiative_id="init-1",
+            run_id="run-3",
+            profile_id="p1",
+            cost_usd=Decimal("10.00"),
+        )
+    )
+    with pytest.raises(UsageBudgetExceeded, match="initiative_budget_paused"):
+        await check_initiative_budget(
+            ledger,
+            workspace_id="ws1",
+            project_id="proj1",
+            initiative_id="init-1",
+            soft_budget_usd=10.0,
+            hard_budget_usd=20.0,
+        )

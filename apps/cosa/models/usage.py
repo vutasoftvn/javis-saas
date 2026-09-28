@@ -29,10 +29,13 @@ from apps.cosa.models.contracts import ProviderType, ResolvedModelRoute
 
 __all__ = [
     "InMemoryUsageLedger",
+    "InitiativeBudgetAction",
+    "InitiativeBudgetDecision",
     "PostgresUsageLedger",
     "UsageBudgetExceeded",
     "UsageEntry",
     "UsageLedger",
+    "check_initiative_budget",
     "check_usage_budget",
     "estimate_cost_usd",
     "month_start",
@@ -49,10 +52,30 @@ _LITELLM_PREFIX: dict[ProviderType, str] = {
 }
 
 
+from enum import Enum
+
+
+class InitiativeBudgetAction(str, Enum):
+    ALLOW = "ALLOW"
+    WARN = "WARN"
+    REQUIRE_APPROVAL = "REQUIRE_APPROVAL"
+    PAUSE_INITIATIVE = "PAUSE_INITIATIVE"
+
+
+class InitiativeBudgetDecision(BaseModel):
+    action: InitiativeBudgetAction
+    initiative_id: str
+    current_spend_usd: Decimal
+    soft_threshold_usd: Decimal | None = None
+    hard_threshold_usd: Decimal | None = None
+    reason: str | None = None
+
+
 class UsageEntry(BaseModel):
     usage_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     workspace_id: str
     project_id: str | None = None
+    initiative_id: str | None = None
     run_id: str
     agent_spec_id: str | None = None
     profile_id: str
@@ -66,7 +89,7 @@ class UsageEntry(BaseModel):
 
 class UsageBudgetExceeded(Exception):
     def __init__(self, code: str, detail: str) -> None:
-        super().__init__(detail)
+        super().__init__(f"{code}: {detail}")
         self.code = code
         self.detail = detail
 
@@ -78,6 +101,14 @@ class UsageLedger(Protocol):
 
     async def total_cost_usd(
         self, workspace_id: str, since: datetime, profile_id: str | None = None
+    ) -> Decimal: ...
+
+    async def total_cost_for_initiative(
+        self,
+        workspace_id: str,
+        project_id: str,
+        initiative_id: str,
+        since: datetime | None = None,
     ) -> Decimal: ...
 
 
@@ -111,6 +142,25 @@ class InMemoryUsageLedger:
             Decimal(0),
         )
 
+    async def total_cost_for_initiative(
+        self,
+        workspace_id: str,
+        project_id: str,
+        initiative_id: str,
+        since: datetime | None = None,
+    ) -> Decimal:
+        return sum(
+            (
+                e.cost_usd or Decimal(0)
+                for e in self.entries
+                if e.workspace_id == workspace_id
+                and e.project_id == project_id
+                and e.initiative_id == initiative_id
+                and (since is None or e.created_at >= since)
+            ),
+            Decimal(0),
+        )
+
 
 class PostgresUsageLedger:
     def __init__(self, session_factory: Any) -> None:
@@ -124,11 +174,11 @@ class PostgresUsageLedger:
                 text(
                     """
                     INSERT INTO models.run_usage (
-                        usage_id, workspace_id, project_id, run_id, agent_spec_id, profile_id,
+                        usage_id, workspace_id, project_id, initiative_id, run_id, agent_spec_id, profile_id,
                         provider_type, model_id, prompt_tokens, completion_tokens, cost_usd,
                         created_at
                     ) VALUES (
-                        :usage_id, :workspace_id, :project_id, :run_id, :agent_spec_id,
+                        :usage_id, :workspace_id, :project_id, :initiative_id, :run_id, :agent_spec_id,
                         :profile_id, :provider_type, :model_id, :prompt_tokens,
                         :completion_tokens, :cost_usd, :created_at
                     )
@@ -169,6 +219,32 @@ class PostgresUsageLedger:
                 {"workspace_id": workspace_id, "since": since, "profile_id": profile_id},
             )
             return Decimal(res.scalar_one())
+
+    async def total_cost_for_initiative(
+        self,
+        workspace_id: str,
+        project_id: str,
+        initiative_id: str,
+        since: datetime | None = None,
+    ) -> Decimal:
+        async with self._session_factory() as session:
+            query = """
+                SELECT COALESCE(SUM(cost_usd), 0) AS c
+                FROM models.run_usage
+                WHERE workspace_id = :workspace_id
+                  AND project_id = :project_id
+                  AND initiative_id = :initiative_id
+            """
+            params: dict[str, Any] = {
+                "workspace_id": workspace_id,
+                "project_id": project_id,
+                "initiative_id": initiative_id,
+            }
+            if since is not None:
+                query += " AND created_at >= :since"
+                params["since"] = since
+            res = await session.execute(text(query), params)
+            return Decimal(str(res.scalar_one()))
 
 
 def month_start(now: datetime | None = None) -> datetime:
@@ -269,3 +345,71 @@ async def check_usage_budget(
                 "profile_budget_exceeded",
                 f"profile {route.profile_id} spent ${spent} this month (limit ${budget})",
             )
+
+
+async def check_initiative_budget(
+    ledger: UsageLedger | None,
+    *,
+    workspace_id: str,
+    project_id: str,
+    initiative_id: str,
+    soft_budget_usd: float | Decimal | str | None = None,
+    hard_budget_usd: float | Decimal | str | None = None,
+    require_approval_on_warn: bool = False,
+    since: datetime | None = None,
+) -> InitiativeBudgetDecision:
+    """Kiểm tra ngân sách của AI Initiative (Task 5). Raise UsageBudgetExceeded('initiative_budget_paused') nếu vượt hard budget."""
+    if ledger is None:
+        if soft_budget_usd is not None or hard_budget_usd is not None:
+            raise UsageBudgetExceeded(
+                "usage_ledger_unavailable",
+                "usage ledger not configured but an initiative budget limit is set",
+            )
+        return InitiativeBudgetDecision(
+            action=InitiativeBudgetAction.ALLOW,
+            initiative_id=initiative_id,
+            current_spend_usd=Decimal(0),
+        )
+
+    spent = await ledger.total_cost_for_initiative(
+        workspace_id=workspace_id,
+        project_id=project_id,
+        initiative_id=initiative_id,
+        since=since,
+    )
+    hard = Decimal(str(hard_budget_usd)) if hard_budget_usd is not None else None
+    soft = Decimal(str(soft_budget_usd)) if soft_budget_usd is not None else None
+
+    if hard is not None and spent >= hard:
+        decision = InitiativeBudgetDecision(
+            action=InitiativeBudgetAction.PAUSE_INITIATIVE,
+            initiative_id=initiative_id,
+            current_spend_usd=spent,
+            soft_threshold_usd=soft,
+            hard_threshold_usd=hard,
+            reason=f"initiative {initiative_id} hard budget exceeded: spent {spent} >= {hard}",
+        )
+        raise UsageBudgetExceeded("initiative_budget_paused", decision.reason or "")
+
+    if soft is not None and spent >= soft:
+        action = (
+            InitiativeBudgetAction.REQUIRE_APPROVAL
+            if require_approval_on_warn
+            else InitiativeBudgetAction.WARN
+        )
+        return InitiativeBudgetDecision(
+            action=action,
+            initiative_id=initiative_id,
+            current_spend_usd=spent,
+            soft_threshold_usd=soft,
+            hard_threshold_usd=hard,
+            reason=f"initiative {initiative_id} soft budget reached: spent {spent} >= {soft}",
+        )
+
+    return InitiativeBudgetDecision(
+        action=InitiativeBudgetAction.ALLOW,
+        initiative_id=initiative_id,
+        current_spend_usd=spent,
+        soft_threshold_usd=soft,
+        hard_threshold_usd=hard,
+    )

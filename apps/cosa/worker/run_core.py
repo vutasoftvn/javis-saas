@@ -89,6 +89,7 @@ async def prepare_request(
     locale: str = "vi-VN",
     extra_metadata: dict[str, Any] | None = None,
     project_id: str | None = None,
+    initiative_id: str | None = None,
     history: list[dict[str, str]] | None = None,
     compliance_spec: AgentSpec | None = None,
     session_ref: str | None = None,
@@ -111,6 +112,8 @@ async def prepare_request(
     # dùng nó cho session_context trong prompt và apply_run_scope của tool.
     if project_id:
         run_metadata["project_id"] = str(project_id)
+    if initiative_id:
+        run_metadata["initiative_id"] = str(initiative_id)
     run_metadata["locale"] = locale
 
     req = RunRequest(
@@ -176,6 +179,7 @@ async def prepare_run(
     locale: str = "vi-VN",
     extra_metadata: dict[str, Any] | None = None,
     project_id: str | None = None,
+    initiative_id: str | None = None,
 ) -> RunCorePrep:
     """Tiện ích cho headless caller (WGA task) — resolve_spec + prepare_request
     một lượt, không cần chèn UI emit ở giữa.
@@ -198,6 +202,7 @@ async def prepare_run(
         locale=locale,
         extra_metadata=extra_metadata,
         project_id=project_id,
+        initiative_id=initiative_id,
     )
 
 
@@ -351,7 +356,7 @@ async def run_kernel(
     if resolver is not None:
         route = await bind_route_to_run(resolver, prep.req, prep.spec)
         prep.req.model_policy = _route_provenance(route)
-        await _enforce_usage_budget(plane, route)
+        await _enforce_usage_budget(plane, route, prep=prep)
         if not route.is_system_default:
             kernel, model_client = await _build_routed_kernel_with_model(plane, route)
 
@@ -366,6 +371,7 @@ async def run_kernel(
     ):
         run_result = await kernel.run(prep.req, prep.spec)
     if route is not None:
+        meta = getattr(prep.req, "metadata", None) or {}
         await record_route_usage(
             plane,
             route=route,
@@ -373,16 +379,27 @@ async def run_kernel(
             result=run_result,
             run_id=run_id,
             workspace_id=workspace_id,
-            project_id=(getattr(prep.req, "metadata", None) or {}).get("project_id"),
+            project_id=meta.get("project_id"),
             agent_spec_id=getattr(prep.spec, "id", None),
+            initiative_id=meta.get("initiative_id"),
         )
     return run_result, time.monotonic() - _start
 
 
-async def _enforce_usage_budget(plane: CosaAgentPlane, route: ResolvedModelRoute) -> None:
+async def _enforce_usage_budget(
+    plane: CosaAgentPlane,
+    route: ResolvedModelRoute,
+    *,
+    prep: RunCorePrep | None = None,
+) -> None:
     """Quota token tháng của workspace + budget_usd_limit của profile, TRƯỚC khi
-    dựng client (review 2026-09-27 G-3)."""
-    from apps.cosa.models.usage import UsageBudgetExceeded, check_usage_budget
+    dựng client (review 2026-09-27 G-3) + Initiative budget check (Task 5)."""
+    from apps.cosa.models.usage import (
+        UsageBudgetExceeded,
+        check_usage_budget,
+        check_initiative_budget,
+        month_start,
+    )
 
     budget: float | None = None
     repo = getattr(plane, "model_routing_repository", None)
@@ -397,6 +414,33 @@ async def _enforce_usage_budget(plane: CosaAgentPlane, route: ResolvedModelRoute
         logger.warning("usage budget blocked run: %s", exc.detail)
         raise RunCoreError("usage_budget_exceeded", compliance_code=exc.code) from exc
 
+    if prep is not None:
+        meta = getattr(prep.req, "metadata", None) or {}
+        initiative_id = meta.get("initiative_id")
+        project_id = meta.get("project_id")
+        if initiative_id:
+            if not project_id:
+                raise RunCoreError("missing_project_scope", compliance_code="initiative_scope_mismatch")
+            budget_policy = meta.get("initiative_budget_policy") or meta.get("budget_policy")
+            if budget_policy and isinstance(budget_policy, dict):
+                soft = budget_policy.get("soft_cost_threshold")
+                hard = budget_policy.get("hard_cost_threshold")
+                period = budget_policy.get("period", "TOTAL")
+                since = month_start() if period == "MONTHLY" else None
+                try:
+                    await check_initiative_budget(
+                        getattr(plane, "usage_ledger", None),
+                        workspace_id=route.workspace_id,
+                        project_id=str(project_id),
+                        initiative_id=str(initiative_id),
+                        soft_budget_usd=soft,
+                        hard_budget_usd=hard,
+                        since=since,
+                    )
+                except UsageBudgetExceeded as exc:
+                    logger.warning("initiative budget blocked run: %s", exc.detail)
+                    raise RunCoreError("usage_budget_exceeded", compliance_code=exc.code) from exc
+
 
 async def record_route_usage(
     plane: Any,
@@ -408,6 +452,7 @@ async def record_route_usage(
     workspace_id: str,
     project_id: str | None,
     agent_spec_id: str | None,
+    initiative_id: str | None = None,
 ) -> None:
     """Ghi 1 dòng usage theo profile THẬT đã phục vụ (fallback nếu có) + metric
     token theo model của route. Lỗi ghi không được làm hỏng run đã xong."""
@@ -434,6 +479,7 @@ async def record_route_usage(
             UsageEntry(
                 workspace_id=workspace_id,
                 project_id=str(project_id) if project_id else None,
+                initiative_id=str(initiative_id) if initiative_id else None,
                 run_id=run_id,
                 agent_spec_id=agent_spec_id,
                 profile_id=served.profile_id,
