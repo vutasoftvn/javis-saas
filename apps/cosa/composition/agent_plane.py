@@ -579,6 +579,8 @@ def build_cosa_agent_plane(
         skill_usage_observer=storage.skill_usage_observer,
         skill_improvement_service=resolved_skill_improvement_service,
     )
+    # Agent workspace (C1): worker load asset AGENT đã PUBLISHED (exact hash) từ cùng repo asset.
+    plane.workspace_asset_repository = workflow_asset_repository
     # agent.consult cần chính plane (prepare_run + run_kernel) nên đăng ký sau
     # khi plane được dựng; registry là cùng object mà kernel/gateway đang dùng.
     from apps.cosa.agents.consult import AGENT_CONSULT_SPEC, create_agent_consult_handler

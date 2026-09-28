@@ -22,6 +22,12 @@ from apps.cosa.agents.goal_intent import (
 )
 from apps.cosa.api.event_stream import CosaEventStreamManager
 from apps.cosa.approvals.summary import capability_id_for_tool, summarize_action
+from apps.cosa.assets.workspace_agent import (
+    ResolvedWorkspaceAgent,
+    WorkspaceAgentError,
+    profile_for_spec_id,
+    resolve_workspace_agent_spec,
+)
 from apps.cosa.capabilities.access_matrix import CHAT_T2_CAPABILITIES, MATRIX
 from apps.cosa.composition.agent_plane import CosaAgentPlane
 from apps.cosa.conversations.history import build_history, history_limits
@@ -159,6 +165,63 @@ async def _spec_for_authority(plane: Any, local_spec: Any, pin: Any, *, run_id: 
         pin.hash,
     )
     return None
+
+
+async def _resolve_workspace_agent_run(
+    plane: Any,
+    *,
+    workspace_id: str,
+    project_id: str,
+    deployment_id: str,
+) -> tuple[ResolvedWorkspaceAgent, dict[str, Any]]:
+    """Agent workspace (clone của built-in) chạy qua ProjectAgentDeployment của company.
+
+    Tham chiếu deployment đến từ client nên KHÔNG được tin: authority (state, scope, pin spec,
+    AI member) luôn lấy lại từ company; asset phải PUBLISHED đúng version + hash đã pin
+    (spec 2026-09-27-agent-clone-executor-design §6). Lỗi -> WorkspaceAgentError có mã ổn định.
+    """
+    client = getattr(plane, "company_client", None)
+    if client is None:
+        raise WorkspaceAgentError("deployment_authority_unavailable")
+    try:
+        authority = await client.get_project_agent_deployment_authority(
+            str(workspace_id), str(project_id), str(deployment_id)
+        )
+    except Exception as exc:
+        logger.warning("deployment authority unavailable for %s: %s", deployment_id, exc)
+        raise WorkspaceAgentError("deployment_authority_unavailable") from exc
+    if not isinstance(authority, dict) or authority.get("state") != "ACTIVE":
+        raise WorkspaceAgentError("deployment_not_active")
+    if (
+        str(authority.get("workspaceId")) != str(workspace_id)
+        or str(authority.get("projectId")) != str(project_id)
+        or str(authority.get("projectAgentDeploymentId")) != str(deployment_id)
+    ):
+        raise WorkspaceAgentError("deployment_scope_mismatch")
+    pin = authority.get("agentSpec") or {}
+    spec_id, version, definition_hash = (
+        pin.get("id"),
+        pin.get("version"),
+        pin.get("definitionHash"),
+    )
+    if not (spec_id and version and definition_hash):
+        raise WorkspaceAgentError("deployment_spec_pin_missing")
+    if profile_for_spec_id(spec_id) is not None or any(
+        spec.id == spec_id for spec in _AGENT_PROFILE_SPECS.values()
+    ):
+        # Built-in đi đường agent_profile + run-authority của startup team.
+        raise WorkspaceAgentError("deployment_not_workspace_agent")
+    if not authority.get("workforceMemberId"):
+        raise WorkspaceAgentError("deployment_member_missing")
+    resolved = await resolve_workspace_agent_spec(
+        asset_repository=getattr(plane, "workspace_asset_repository", None),
+        spec_registry=getattr(plane, "spec_registry", None),
+        workspace_id=str(workspace_id),
+        asset_id=spec_id,
+        version=version,
+        definition_hash=definition_hash,
+    )
+    return resolved, authority
 
 
 async def _load_chat_history(
@@ -357,6 +420,34 @@ async def execute_run_task(
             )
         return RunTaskResult(status="failed", error=error, run_id=run_id)
 
+    # Agent workspace (C1): profile của run = profile của agent built-in gốc, không phải giá trị
+    # client gửi. Authority lấy từ ProjectAgentDeployment của company, không từ startup team.
+    deployment_id = payload.get("project_agent_deployment_id")
+    workspace_agent: ResolvedWorkspaceAgent | None = None
+    if deployment_id:
+        if not workspace_id or not project_id:
+            return await _fail("project_context_required")
+        try:
+            workspace_agent, deployment_authority = await _resolve_workspace_agent_run(
+                plane,
+                workspace_id=str(workspace_id),
+                project_id=str(project_id),
+                deployment_id=str(deployment_id),
+            )
+        except WorkspaceAgentError as exc:
+            logger.warning(
+                "run_id=%s workspace agent deployment %s rejected: %s",
+                run_id,
+                deployment_id,
+                exc.reason_code,
+            )
+            return await _fail(exc.reason_code)
+        agent_profile = workspace_agent.profile_key
+        payload["agent_profile"] = agent_profile
+        payload["spec_hash"] = workspace_agent.spec.definition_hash
+        payload["agent_workforce_member_id"] = str(deployment_authority["workforceMemberId"])
+        payload.pop("copilot", None)
+
     # Chỉ profile có đường authority cho chat/schedule/event mới được chạy ở đây.
     # Executive/overlay chạy qua deliberation (authority = Project deployment +
     # overlay pin), kickoff chạy qua route riêng — không cho payload tự chọn.
@@ -390,6 +481,17 @@ async def execute_run_task(
                     persisted_conv.project_id,
                 )
                 return await _fail("project_context_mismatch")
+
+    if workspace_agent is not None:
+        with log_context(run_id=run_id, workspace_id=workspace_id):
+            await _execute_run_task_inner(
+                plane,
+                stream_mgr,
+                payload,
+                resolved_spec=workspace_agent.spec,
+                compliance_spec=workspace_agent.origin_spec,
+            )
+            return RunTaskResult(status="completed", run_id=run_id)
 
     if agent_profile in PROJECT_TEAM_OPERATING_PROFILES:
         team_client = getattr(plane, "project_team_client", None) or ProjectTeamClient()
@@ -462,6 +564,9 @@ async def _execute_run_task_inner(
     plane: CosaAgentPlane,
     stream_mgr: CosaEventStreamManager,
     payload: dict[str, Any],
+    *,
+    resolved_spec: AgentSpec | None = None,
+    compliance_spec: AgentSpec | None = None,
 ) -> None:
     run_id = payload["run_id"]
     conversation_id = payload["conversation_id"]
@@ -573,14 +678,18 @@ async def _execute_run_task_inner(
     # goal_decomposition / workspace_task_sweep. Hành vi client-facing của
     # nhánh lỗi giữ nguyên: map RunCoreError.reason_code -> đúng message/event
     # cũ.
-    try:
-        spec = await resolve_spec(plane, run_id=run_id, local_spec=local_spec)
-    except RunCoreError:
-        await _reject(
-            "Unable to resolve agent spec from registry — run rejected",
-            {"error": "spec_resolution_unavailable"},
-        )
-        return
+    if resolved_spec is not None:
+        # Agent workspace: spec hiệu lực đã dựng từ asset PUBLISHED (exact hash) + spec gốc đã pin.
+        spec = resolved_spec
+    else:
+        try:
+            spec = await resolve_spec(plane, run_id=run_id, local_spec=local_spec)
+        except RunCoreError:
+            await _reject(
+                "Unable to resolve agent spec from registry — run rejected",
+                {"error": "spec_resolution_unavailable"},
+            )
+            return
 
     await stream_mgr.emit(
         stream_repo,
@@ -671,6 +780,7 @@ async def _execute_run_task_inner(
             locale=locale,
             extra_metadata=extra_md or None,
             history=history,
+            compliance_spec=compliance_spec,
         )
     except RunCoreError as exc:
         if exc.reason_code == "compliance_resolver_unavailable":

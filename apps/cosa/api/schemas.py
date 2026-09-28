@@ -108,6 +108,9 @@ class MessageCreate(BaseModel):
     # (Task 5 — đóng gap DATA_ACCESS_CLAIM_MISSING cho luồng chat thật, khác
     # tool-only run vốn không set field metadata này — xem resolver.py Task 4).
     data_access: MessageDataAccess
+    # Agent workspace (C1): chạy agent founder đã clone + deploy vào Project. Worker KHÔNG tin
+    # tham chiếu này — authority (state, scope, pin spec, AI member) lấy lại từ company.
+    project_agent_deployment_id: str | None = None
     response_locale_override: str | None = None
 
     @field_validator("response_locale_override")

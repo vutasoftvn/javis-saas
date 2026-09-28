@@ -90,8 +90,12 @@ async def prepare_request(
     extra_metadata: dict[str, Any] | None = None,
     project_id: str | None = None,
     history: list[dict[str, str]] | None = None,
+    compliance_spec: AgentSpec | None = None,
 ) -> RunCorePrep:
     """Dựng RunRequest + resolve compliance (mint company delegation).
+
+    `compliance_spec`: agent workspace (clone của built-in) được đánh giá compliance theo spec
+    built-in gốc — dùng lại đúng binding catalog AI system của agent gốc.
 
     `policy_snapshot=None` -> không đưa vào metadata (headless task kiểu
     autopilot, không có bearer user để lấy snapshot). Chat path luôn truyền
@@ -119,7 +123,7 @@ async def prepare_request(
         metadata=run_metadata,
     )
 
-    return await apply_compliance(plane, req=req, spec=spec)
+    return await apply_compliance(plane, req=req, spec=spec, compliance_spec=compliance_spec)
 
 
 async def apply_compliance(
@@ -210,6 +214,9 @@ async def bind_route_to_run(
     """
     workspace_id = request.workspace_id or ""
     agent_spec_id = getattr(spec, "id", None) or getattr(spec, "spec_id", None) or ""
+    # Agent workspace không có model policy riêng: route theo agent built-in gốc.
+    metadata = getattr(spec, "metadata", None) or {}
+    agent_spec_id = metadata.get("origin_agent_spec_id") or agent_spec_id
     return await resolver.resolve_route(workspace_id, agent_spec_id)
 
 

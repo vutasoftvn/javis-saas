@@ -451,6 +451,11 @@ async def create_message(
             "direct_message_data_access": direct_message_data_access.model_dump(mode="json"),
             "locale": resolved_locale.value,
             "locale_source": resolved_locale.source,
+            **(
+                {"project_agent_deployment_id": req.project_agent_deployment_id}
+                if req.project_agent_deployment_id
+                else {}
+            ),
         },
     )
 

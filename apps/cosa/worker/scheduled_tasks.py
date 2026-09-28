@@ -201,6 +201,9 @@ async def execute_scheduled_session_task(
         "project_id": project_id,
         "delegation_token": payload.get("delegation_token") or "scheduled_worker_service_token",
     }
+    # Agent workspace (C1): worker kiểm lại deployment với company trước khi chạy.
+    if payload.get("project_agent_deployment_id"):
+        run_payload["project_agent_deployment_id"] = str(payload["project_agent_deployment_id"])
 
     error_msg = None
     state = "succeeded"
