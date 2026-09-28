@@ -545,6 +545,15 @@ enum MvpEndpoint {
     requiresWorkspace: true,
     requiresProject: false,
   ),
+  operationsFounderAssetEvents(
+    id: 'operations.founder_asset.events',
+    enabled: true,
+    plane: ApiPlane.company,
+    method: 'GET',
+    path: '/operations/founder/assets/events',
+    requiresWorkspace: true,
+    requiresProject: false,
+  ),
   operationsFounderAssetLibrary(
     id: 'operations.founder_asset.library',
     enabled: true,
@@ -556,7 +565,7 @@ enum MvpEndpoint {
   ),
   operationsFounderAssetWorkspaceAgentCreate(
     id: 'operations.founder_asset.workspace_agent.create',
-    enabled: false,
+    enabled: true,
     plane: ApiPlane.company,
     method: 'POST',
     path: '/operations/founder/assets/workspace-agents',
