@@ -173,3 +173,67 @@ async def test_client_omits_required_scope_when_not_given() -> None:
     assert grant.tenant_id == "ws_1"
     assert grant.allowed_actions == ("mcp.sandbox-read.x",)
     assert grant.metadata == {"secret_ref": SECRET_REF}
+
+
+# B5 (Task 6b) — assert_usable_for_execution: preflight connector cho lịch nền
+# uỷ quyền trước, TRƯỚC khi tạo conversation/model. Không raise khi ok:false —
+# trả nguyên dict để caller (scheduled_tasks.py) tự map mã lỗi.
+
+
+@pytest.mark.asyncio
+async def test_assert_usable_for_execution_sends_execution_id_not_conversation_id() -> None:
+    bodies: list[dict] = []
+
+    def cp(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/cosa/connectors/assert"
+        bodies.append(json.loads(request.content))
+        return httpx.Response(200, json={"ok": True, "secretRef": SECRET_REF})
+
+    client = ConnectorGrantHttpClient(
+        base_url="http://cp.test",
+        worker_token_provider=lambda: "worker-token",
+        transport=httpx.MockTransport(cp),
+    )
+    res = await client.assert_usable_for_execution(
+        "email-read",
+        workspace_id="ws_1",
+        execution_id="exec_1",
+        action="email.digest.read",
+        required_scope="mail:read",
+    )
+    assert bodies[0]["executionId"] == "exec_1"
+    assert "conversationId" not in bodies[0]
+    assert bodies[0]["requiredScope"] == "mail:read"
+    assert res == {"ok": True, "secretRef": SECRET_REF, "error": None}
+
+
+@pytest.mark.asyncio
+async def test_assert_usable_for_execution_does_not_raise_on_ok_false() -> None:
+    def cp(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"ok": False, "error": "connector_reauth_required"})
+
+    client = ConnectorGrantHttpClient(
+        base_url="http://cp.test",
+        worker_token_provider=lambda: "worker-token",
+        transport=httpx.MockTransport(cp),
+    )
+    res = await client.assert_usable_for_execution(
+        "email-read", workspace_id="ws_1", execution_id="exec_1", action="email.digest.read"
+    )
+    assert res == {"ok": False, "secretRef": None, "error": "connector_reauth_required"}
+
+
+@pytest.mark.asyncio
+async def test_assert_usable_for_execution_raises_on_http_error() -> None:
+    def cp(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, text="down")
+
+    client = ConnectorGrantHttpClient(
+        base_url="http://cp.test",
+        worker_token_provider=lambda: "worker-token",
+        transport=httpx.MockTransport(cp),
+    )
+    with pytest.raises(RuntimeError):
+        await client.assert_usable_for_execution(
+            "email-read", workspace_id="ws_1", execution_id="exec_1", action="email.digest.read"
+        )

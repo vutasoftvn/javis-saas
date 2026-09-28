@@ -294,6 +294,106 @@ async def _approval_required_payload(
     return payload
 
 
+# B5 (Task 6b) — mã lỗi "cần kết nối lại" mà Task 4 đã định nghĩa cho
+# connector Gmail/email-read (xem apps/cosa/capabilities/email_digest_read.py,
+# connector_secret.py, agent_integrations/gmail/read_adapter.py và
+# ConnectorGrantHttpClient ở connector_grant_client.py). Message của các lỗi
+# này bắt đầu bằng đúng các tiền tố dưới, hoặc (khi lỗi tới từ
+# ConnectorGrantDeniedError qua gateway) chứa nguyên mã trong
+# "Connector grant check failed: <code>"/"... denied: <code>". Founder phải
+# reconnect/xử lý lại — retry đơn thuần không giải quyết được, khác
+# `email_provider_unavailable` (hạ tầng tạm thời, retry được, giữ `failed`).
+_SCHEDULED_REAUTH_ERROR_CODES = (
+    "email_reauth_required",
+    "email_not_connected",
+    "connector_secret_unresolvable",
+    "connector_reauth_required",
+    "connector_not_granted_to_session",
+)
+
+
+def _scheduled_reauth_error_code(raw_error: str | None) -> str | None:
+    """None nếu `raw_error` không khớp mã "cần kết nối lại" nào đã biết —
+    caller giữ `failed` (retry được) thay vì `blocked_reauth`."""
+    text = (raw_error or "").lower()
+    for code in _SCHEDULED_REAUTH_ERROR_CODES:
+        if code in text:
+            return code
+    return None
+
+
+async def _block_scheduled_run_outside_snapshot(
+    plane: Any,
+    stream_mgr: CosaEventStreamManager,
+    stream_repo: Any,
+    *,
+    run_id: str,
+    conversation_id: str,
+    workspace_id: str | None,
+    project_id: str | None,
+    appr_id: str | None,
+    run_duration: float,
+) -> dict[str, Any]:
+    """B5 (Task 6b) — lịch nền uỷ quyền trước: capability T2 phát sinh ngoài
+    `preAuthorizedCapabilityIdsSnapshot` giữa lần chạy KHÔNG được treo chờ
+    duyệt (không có ai theo dõi/duyệt conversation lịch nền theo thời gian
+    thật). Từ chối approval record vừa được tạo (không để nó `pending` mồ
+    côi mãi), rồi kết thúc run fail-closed. `scheduled_tasks.py` map kết quả
+    `{"status": "blocked_reauth", ...}` sang execution state cùng tên —
+    nghĩa "founder phải xử lý lại" (ở đây: duyệt lại kế hoạch tự động hoá
+    với đủ capability, hoặc chạy tay)."""
+    capability_id: str | None = None
+    try:
+        approval = await plane.repository.get_approval(appr_id) if appr_id else None
+        if approval is not None:
+            capability_id = capability_id_for_tool(approval.action, MATRIX)
+        if appr_id:
+            await plane.repository.decide_approval(
+                appr_id,
+                reviewer="service:scheduler",
+                approved=False,
+                reason="preauthorization_required",
+            )
+    except Exception:
+        logger.warning(
+            "failed to resolve/deny scheduled approval outside snapshot",
+            extra={"run_id": run_id, "approval_id": appr_id},
+        )
+    error_code = f"preauthorization_required: {capability_id or 'unknown_capability'}"
+    record_run_outcome("failed", duration_sec=run_duration)
+    await _append_message(
+        plane,
+        conversation_id=conversation_id,
+        role="assistant",
+        content=(
+            "Yêu cầu vượt phạm vi uỷ quyền trước của lịch nền — cần founder duyệt lại kế hoạch."
+        ),
+        run_id=run_id,
+        status_="failed",
+        project_id=project_id,
+    )
+    if plane.workforce_repository is not None:
+        await plane.workforce_repository.enqueue_runtime_signal(
+            workspace_id=workspace_id,
+            source_kind="run",
+            source_id=run_id,
+            sequence=1,
+            state="FAILED",
+            observed_at=datetime.now(UTC),
+        )
+    await stream_mgr.emit(
+        stream_repo,
+        run_id=run_id,
+        conversation_id=conversation_id,
+        event_type="run.failed",
+        payload={"error": error_code, "error_code": "preauthorization_required"},
+        activity_service=getattr(plane, "project_activity_service", None),
+        workspace_id=workspace_id,
+        project_id=project_id,
+    )
+    return {"status": "blocked_reauth", "error": error_code}
+
+
 def _is_chat_resume(payload: dict[str, Any]) -> bool:
     """Run chat của founder (có conversation thật), không phải run nền WGA/autopilot."""
     conversation_id = str(payload.get("conversation_id") or "")
@@ -594,7 +694,18 @@ async def execute_run_task(
     # worker/main.py already sets log_context for dispatch_one_task, but
     # execute_run_task can also be called directly from execute_scheduled_session_task.
     with log_context(run_id=run_id, workspace_id=workspace_id):
-        await _execute_run_task_inner(plane, stream_mgr, payload)
+        inner_result = await _execute_run_task_inner(plane, stream_mgr, payload)
+        if inner_result is not None:
+            # B5 (Task 6b) — chỉ khác "completed" mặc định cho run lịch nền
+            # uỷ quyền trước (blocked_reauth) hoặc khi phản ánh đúng
+            # failed/waiting_approval thật (trước đây luôn báo "completed"
+            # dù `_execute_run_task_inner` đã emit run.failed nội bộ — xem
+            # docstring của hàm đó).
+            return RunTaskResult(
+                status=inner_result["status"],
+                error=inner_result.get("error"),
+                run_id=run_id,
+            )
         return RunTaskResult(status="completed", run_id=run_id)
 
 
@@ -605,7 +716,14 @@ async def _execute_run_task_inner(
     *,
     resolved_spec: AgentSpec | None = None,
     compliance_spec: AgentSpec | None = None,
-) -> None:
+) -> dict[str, Any] | None:
+    """Trả `None` khi hành vi hoàn toàn theo path cũ (caller giữ nguyên
+    `RunTaskResult(status="completed")` — tương thích ngược cho mọi run
+    không phải lịch nền uỷ quyền trước). Trả `{"status": ..., "error": ...}`
+    khi cần caller (execute_run_task) phản ánh đúng kết quả thật, cụ thể là
+    B5 (Task 6b): capability T2 phát sinh ngoài snapshot của lịch nền uỷ
+    quyền trước không được để treo (`waiting_approval`) — phải kết thúc
+    fail-closed ngay với `blocked_reauth`."""
     run_id = payload["run_id"]
     conversation_id = payload["conversation_id"]
     agent_profile = payload.get("agent_profile") or "operations"
@@ -614,6 +732,28 @@ async def _execute_run_task_inner(
     # Task 3 — xem comment ở execute_run_task() phía trên cùng lý do.
     project_id = payload.get("project_id")
     stream_repo = plane.stream_event_repository
+
+    # B5 (Task 6b) — lịch nền uỷ quyền trước theo snapshot (worker/
+    # scheduled_tasks.py::execute_scheduled_session_task). `_scheduler_dispatch`
+    # là marker CHỈ được set bởi chính worker lịch nền (không phải field HTTP
+    # client nào có thể gửi) — payload chat/API bên ngoài KHÔNG có key này dù
+    # có tự thêm `pre_authorized_capability_ids`, nên fail-closed tự nhiên,
+    # không phụ thuộc vào giá trị `principal` (principal của run lịch nền uỷ
+    # quyền trước là danh tính founder, không còn cố định "service:scheduler"
+    # — xem comment ở execute_scheduled_session_task).
+    pre_authorized_ids: set[str] = set()
+    if payload.get("_scheduler_dispatch") is True:
+        raw_pre_auth = payload.get("pre_authorized_capability_ids")
+        if isinstance(raw_pre_auth, (list, tuple, set)):
+            pre_authorized_ids = {str(c) for c in raw_pre_auth}
+    elif payload.get("pre_authorized_capability_ids"):
+        logger.warning(
+            "run_id=%s ignoring pre_authorized_capability_ids from non-scheduler dispatch "
+            "(principal=%r)",
+            run_id,
+            principal,
+        )
+    is_preauthorized_schedule_run = bool(pre_authorized_ids)
 
     async def _reject(content: str, error_payload: dict[str, Any]) -> None:
         """Ghi assistant message `failed` + phát `run.failed` (cùng scope Project)."""
@@ -645,14 +785,14 @@ async def _execute_run_task_inner(
     if not user_prompt:
         logger.error("run_id=%s missing user_prompt in payload, failing closed", run_id)
         await _reject("Missing user_prompt — run rejected", {"error": "missing_user_prompt"})
-        return
+        return None
 
     bearer_token = payload.get("delegation_token")
     if not bearer_token:
         await _reject(
             "Missing delegation token — run rejected", {"error": "missing_delegation_token"}
         )
-        return
+        return None
 
     local_spec = _AGENT_PROFILE_SPECS.get(agent_profile)
     if local_spec is None:
@@ -665,7 +805,7 @@ async def _execute_run_task_inner(
             f"Unsupported agent profile '{agent_profile}' — run rejected",
             {"error": f"unsupported_agent_profile_{agent_profile}"},
         )
-        return
+        return None
 
     assignment_id = payload.get("assignment_id")
     company_workforce_member_id = payload.get("company_workforce_member_id")
@@ -678,7 +818,7 @@ async def _execute_run_task_inner(
                 "Workforce assignment retired or not found — run rejected",
                 {"error": "workforce_assignment_retired"},
             )
-            return
+            return None
         if not company_workforce_member_id and assignment.company_workforce_member_id:
             company_workforce_member_id = assignment.company_workforce_member_id
 
@@ -709,7 +849,7 @@ async def _execute_run_task_inner(
             "Unable to verify tenant policy — run rejected",
             {"error": "policy_snapshot_unavailable"},
         )
-        return
+        return None
 
     # Resolve exact spec + dựng request + compliance qua apps/cosa/worker/
     # run_core.py (WGA int. point #2) — lõi dùng chung với headless task
@@ -727,7 +867,7 @@ async def _execute_run_task_inner(
                 "Unable to resolve agent spec from registry — run rejected",
                 {"error": "spec_resolution_unavailable"},
             )
-            return
+            return None
 
     await stream_mgr.emit(
         stream_repo,
@@ -780,7 +920,13 @@ async def _execute_run_task_inner(
     # Chat: mọi hành động T2 (ghi thật vào dữ liệu nội bộ) buộc founder duyệt trước khi chạy
     # (spec 2026-09-27-chat-business-actions §4.1). Policy engine chỉ SIẾT ALLOW thành
     # REQUIRE_APPROVAL — DENY của company/tenant vẫn giữ nguyên.
-    extra_md[REQUIRE_APPROVAL_CAPABILITIES_KEY] = sorted(CHAT_T2_CAPABILITIES)
+    # B5 (Task 6b) — lịch nền uỷ quyền trước: capability đã nằm trong snapshot
+    # `pre_authorized_capability_ids` (đã được founder duyệt lúc chấp thuận kế
+    # hoạch tự động hoá — Task 6) chạy thẳng, KHÔNG bớt các lớp gateway khác
+    # (grant, live ticket, compliance) — chỉ bỏ bước approval trong policy
+    # engine này. Lịch cũ (snapshot rỗng) hoặc chat/API khác giữ nguyên: mọi
+    # T2 đều REQUIRE_APPROVAL.
+    extra_md[REQUIRE_APPROVAL_CAPABILITIES_KEY] = sorted(CHAT_T2_CAPABILITIES - pre_authorized_ids)
     direct_message_data_access = payload.get("direct_message_data_access")
     if direct_message_data_access is not None:
         extra_md["direct_message_data_access"] = direct_message_data_access
@@ -833,7 +979,7 @@ async def _execute_run_task_inner(
                 "AI compliance resolver not configured — run rejected",
                 {"error": "compliance_resolver_unavailable"},
             )
-            return
+            return None
         # compliance_denied — chỉ emit reason code, không leak str(exc).
         code = exc.compliance_code or "UNKNOWN"
         if code != "MISSING_DELEGATION_TOKEN":
@@ -841,7 +987,7 @@ async def _execute_run_task_inner(
                 f"AI compliance check failed — run rejected: {code}",
                 {"error": "compliance_denied", "reason_code": code},
             )
-        return
+        return None
 
     _run_start = time.monotonic()
     try:
@@ -953,12 +1099,32 @@ async def _execute_run_task_inner(
                         )
 
         elif run_result.status == RunStatus.WAITING_APPROVAL:
-            record_run_outcome("waiting_approval", duration_sec=_run_duration)
             wait_desc = (
                 run_result.interruptions_waits[0] if run_result.interruptions_waits else None
             )
             appr_id = wait_desc.related_ref if wait_desc else None
             ckpt_ref = wait_desc.checkpoint_ref if wait_desc else None
+
+            if is_preauthorized_schedule_run:
+                # B5 (Task 6b) — không ai duyệt conversation lịch nền (không
+                # có founder theo dõi chat lịch nền theo thời gian thật): một
+                # capability T2 phát sinh ngoài snapshot uỷ quyền trước KHÔNG
+                # được để treo chờ duyệt (`waiting_approval` vô thời hạn) —
+                # phải kết thúc run fail-closed ngay, và approval record vừa
+                # được tạo phải bị từ chối luôn (không để pending mồ côi).
+                return await _block_scheduled_run_outside_snapshot(
+                    plane,
+                    stream_mgr,
+                    stream_repo,
+                    run_id=run_id,
+                    conversation_id=conversation_id,
+                    workspace_id=workspace_id,
+                    project_id=project_id,
+                    appr_id=appr_id,
+                    run_duration=_run_duration,
+                )
+
+            record_run_outcome("waiting_approval", duration_sec=_run_duration)
 
             if plane.workforce_repository is not None:
                 await plane.workforce_repository.enqueue_runtime_signal(
@@ -1008,6 +1174,7 @@ async def _execute_run_task_inner(
                         "checkpoint_ref": ckpt_ref,
                     },
                 )
+            return {"status": "waiting_approval", "error": None}
 
         else:
             record_run_outcome("failed", duration_sec=_run_duration)
@@ -1052,6 +1219,19 @@ async def _execute_run_task_inner(
                 workspace_id=workspace_id,
                 project_id=project_id,
             )
+            if is_preauthorized_schedule_run:
+                # B5 (Task 6b) — lỗi "cần kết nối lại" của connector (Gmail
+                # reauth, chưa connect, secret không resolve được — Task 4)
+                # phát sinh giữa lúc chạy lịch nền uỷ quyền trước phải báo
+                # `blocked_reauth` (founder cần xử lý lại), không phải
+                # `failed` thường (điều đó gợi ý "thử lại là được", không
+                # đúng — cần founder reconnect trước). Lỗi hạ tầng khác
+                # (`email_provider_unavailable`, timeout, ...) giữ `failed`
+                # — worker/scheduler tự retry theo backoff bình thường.
+                reauth_code = _scheduled_reauth_error_code(err_msg)
+                if reauth_code is not None:
+                    return {"status": "blocked_reauth", "error": reauth_code}
+            return {"status": "failed", "error": classified.code}
 
     except RunCoreError as exc:
         # Lỗi có mã ổn định lúc bind route (hết quota/ngân sách, profile sai):
@@ -1068,6 +1248,12 @@ async def _execute_run_task_inner(
                 "user_message": friendly,
             },
         )
+        error_code = exc.compliance_code or exc.reason_code
+        if is_preauthorized_schedule_run:
+            reauth_code = _scheduled_reauth_error_code(error_code)
+            if reauth_code is not None:
+                return {"status": "blocked_reauth", "error": reauth_code}
+        return {"status": "failed", "error": error_code}
     except Exception:
         # Task 6 — exception thô (message, traceback) có thể chứa nội dung
         # nhạy cảm (pinned skill detail, secret trong context, đường dẫn nội
@@ -1081,6 +1267,8 @@ async def _execute_run_task_inner(
             "Đã xảy ra lỗi không mong muốn khi thực thi run. Vui lòng thử lại hoặc liên hệ hỗ trợ.",
             {"error": "internal_error"},
         )
+        return {"status": "failed", "error": "internal_error"}
+    return None
 
 
 async def execute_resume_task(

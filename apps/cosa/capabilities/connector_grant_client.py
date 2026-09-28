@@ -92,6 +92,58 @@ class ConnectorGrantHttpClient:
             metadata={"secret_ref": data.get("secretRef", "")},
         )
 
+    async def assert_usable_for_execution(
+        self,
+        connector_key: str,
+        *,
+        workspace_id: str,
+        execution_id: str,
+        action: str,
+        required_scope: str | None = None,
+    ) -> dict[str, Any]:
+        """B5 (Task 6b) — preflight connector cho lịch nền uỷ quyền trước
+        (`execute_scheduled_session_task`), TRƯỚC khi tạo conversation/gọi
+        model. Đường `/cosa/connectors/assert` với `executionId` thay
+        `conversationId` (xem `assertConnectorInvocationForExecution` ở
+        `services/cosa/services/workspace-connector.service.ts`) — kiểm theo
+        `connectorGrantIdsSnapshot` đã chốt lúc founder duyệt kế hoạch, không
+        phải session grant theo conversation (lịch nền không có).
+
+        Khác `assert_usable`: KHÔNG raise khi `ok:false` — trả nguyên
+        `{"ok": bool, "secretRef"?: str, "error"?: str}` để caller (worker)
+        tự map mã lỗi sang `blocked_reauth`/`failed`, không cần try/except.
+        HTTP lỗi hạ tầng vẫn raise (fail-closed, caller coi là `failed` tạm
+        thời — không phải "founder cần xử lý lại")."""
+        token = (
+            self._worker_token_provider()
+            if self._worker_token_provider
+            else os.environ.get("COSA_WORKER_SERVICE_TOKEN", "")
+        )
+        body: dict[str, Any] = {
+            "organizationId": workspace_id,
+            "executionId": execution_id,
+            "connectorKey": connector_key,
+            "action": action,
+        }
+        if required_scope:
+            body["requiredScope"] = required_scope
+        async with httpx.AsyncClient(timeout=self.timeout, transport=self._transport) as client:
+            res = await client.post(
+                f"{self.base_url}/cosa/connectors/assert",
+                headers={"Authorization": f"Bearer {token}"},
+                json=body,
+            )
+        if res.status_code != 200:
+            raise RuntimeError(f"connector assert (execution) failed: HTTP {res.status_code}")
+        data = res.json()
+        if not isinstance(data, dict):
+            raise RuntimeError("connector assert (execution) returned a non-object response")
+        return {
+            "ok": bool(data.get("ok")),
+            "secretRef": data.get("secretRef"),
+            "error": data.get("error"),
+        }
+
 
 def build_connector_grant_resolver(
     client: ConnectorGrantHttpClient, registry: Any

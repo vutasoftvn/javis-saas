@@ -1,5 +1,5 @@
 import { APIError } from "encore.dev/api";
-import { eq, and, gt, sql } from "drizzle-orm";
+import { eq, and, gt, sql, inArray } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { isStagingOrProd } from "../shared/env";
 import { verifyControlDelegationToken } from "./token.service";
@@ -24,6 +24,7 @@ const {
   workspaceConnectorInstallations,
   connectorAuthorizations,
   sessionConnectorGrants,
+  workspaceScheduleExecutions,
 } = schema;
 
 export type ConnectorAuthorizationState = "active" | "expired" | "revoked";
@@ -475,4 +476,79 @@ export async function findActiveConnectorAuthorizationIds(
       )
     );
   return rows.map((r) => r.id);
+}
+
+/**
+ * B5 (Task 6b) — grant connector theo session/conversation
+ * (`assertConnectorInvocation` ở trên) luôn DENY cho lịch nền: mỗi execution
+ * tạo 1 conversation mới (`conv_sched_...`), không bao giờ có session grant.
+ * Đường này thay `conversationId` bằng `executionId` của chính schedule
+ * execution: kiểm authorization id nằm trong `connectorGrantIdsSnapshot` đã
+ * chốt lúc founder duyệt kế hoạch tự động hoá (Task 6 —
+ * `findActiveConnectorAuthorizationIds`, snapshot KHÔNG đổi sau khi chốt),
+ * VÀ connector authorization đó vẫn còn `active`/chưa hết hạn NGAY LÚC GỌI
+ * (grant có thể bị revoke sau khi snapshot, trước khi lịch chạy) — cùng mức
+ * kiểm với đường session grant (`connector_reauth_required` khi không còn
+ * active/hết hạn, KHÔNG dùng mã "not granted" riêng để tránh worker phải
+ * phân biệt thêm một mã mới cho cùng một nghĩa "founder phải xử lý lại").
+ */
+export async function assertConnectorInvocationForExecution(input: {
+  organizationId: string;
+  executionId: string;
+  connectorKey: string;
+  action?: string;
+  requiredScope?: string;
+}): Promise<{ ok: boolean; secretRef?: string; error?: string }> {
+  const [execution] = await db
+    .select()
+    .from(workspaceScheduleExecutions)
+    .where(eq(workspaceScheduleExecutions.id, input.executionId));
+
+  if (!execution || execution.organizationId !== input.organizationId) {
+    return { ok: false, error: "connector_reauth_required" };
+  }
+
+  const snapshotIds = ((execution.connectorGrantIdsSnapshot as string[]) || []).filter(Boolean);
+  if (snapshotIds.length === 0) {
+    return { ok: false, error: "connector_reauth_required" };
+  }
+
+  const rows = await db
+    .select({ auth: connectorAuthorizations, inst: workspaceConnectorInstallations })
+    .from(connectorAuthorizations)
+    .innerJoin(
+      workspaceConnectorInstallations,
+      eq(connectorAuthorizations.installationId, workspaceConnectorInstallations.id)
+    )
+    .where(
+      and(
+        eq(connectorAuthorizations.organizationId, input.organizationId),
+        inArray(connectorAuthorizations.id, snapshotIds),
+        eq(workspaceConnectorInstallations.connectorKey, input.connectorKey)
+      )
+    );
+
+  if (rows.length === 0) {
+    return { ok: false, error: "connector_reauth_required" };
+  }
+
+  const { auth, inst } = rows[0];
+
+  if (inst.status !== "enabled") {
+    return { ok: false, error: "connector_installation_disabled" };
+  }
+
+  const now = new Date();
+  if (auth.state !== "active" || auth.expiresAt < now) {
+    return { ok: false, error: "connector_reauth_required" };
+  }
+
+  if (input.requiredScope) {
+    const scopes = (auth.grantedScopes as string[]) || [];
+    if (!scopes.includes(input.requiredScope)) {
+      return { ok: false, error: "connector_scope_missing" };
+    }
+  }
+
+  return { ok: true, secretRef: auth.secretRef };
 }

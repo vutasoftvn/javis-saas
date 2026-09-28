@@ -14,6 +14,10 @@ from agent.contracts.run import RunStatus
 from agent.conversations.models import ConversationRecord, MessageRecord
 
 from apps.cosa.api.event_stream import CosaEventStreamManager
+from apps.cosa.auth.jwt import mint_company_delegation
+from apps.cosa.capabilities.client import CompanyServiceClient, CompanyServiceError
+from apps.cosa.capabilities.connector_grant_client import ConnectorGrantHttpClient
+from apps.cosa.capabilities.email_digest_read import EMAIL_CONNECTOR_KEY
 from apps.cosa.composition.agent_plane import CosaAgentPlane
 from apps.cosa.config.planes import resolve_platform_control_plane_url
 from apps.cosa.observability.otel import inject_trace_carrier
@@ -21,6 +25,21 @@ from apps.cosa.observability.otel import inject_trace_carrier
 logger = logging.getLogger("apps.cosa.worker.handlers")
 
 __all__ = ["execute_automation_run_task", "execute_scheduled_session_task"]
+
+# B5 (Task 6b) — 2 capability duy nhất được phép nằm trong snapshot uỷ quyền
+# trước (khớp `PRE_AUTHORIZABLE_CAPABILITY_IDS` phía services/cosa, Task 6).
+FOUNDER_NOTIFY_SEND_CAPABILITY_ID = "founder.notify.send"
+EMAIL_DIGEST_READ_CAPABILITY_ID = "email.digest.read"
+
+# Mã lỗi preflight founder-notify (Task 3/ADR mục 8) khiến execution
+# `blocked_reauth` (founder phải xử lý lại — thu hồi kênh, mất quyền
+# founder/co-founder). `founder_channel_ambiguous` KHÔNG nằm trong danh sách
+# này — đó là lỗi cấu hình (nhiều kênh, không rõ chọn cái nào), khác hẳn
+# "founder cần làm lại" — map sang `failed` (ADR mục 4/Consequences B5).
+_FOUNDER_PREFLIGHT_BLOCKED_REAUTH_CODES = (
+    "founder_channel_unavailable",
+    "founder_owner_not_authorized",
+)
 
 
 async def _report_schedule_execution_complete(
@@ -65,6 +84,128 @@ async def _report_schedule_execution_complete(
         logger.warning("Failed to report complete schedule execution %s: %s", schedule_exec_id, e)
 
 
+class _ScheduledExecutionBlocked(ValueError):
+    """B5 (Task 6b) — báo hiệu preflight đã chặn run TRƯỚC khi tạo
+    conversation/gọi model; control plane đã được báo hoàn thành
+    (`_report_schedule_execution_complete`) TRƯỚC KHI exception này được
+    raise — caller không cần (và không nên) báo lại."""
+
+
+async def _terminate_preflight(
+    schedule_exec_id: str | None, *, run_id: str, state: str, error: str
+) -> None:
+    logger.error("schedule_execution_id=%s preflight blocked run: %s", schedule_exec_id, error)
+    await _report_schedule_execution_complete(
+        schedule_exec_id, state=state, error=error, conversation_id=None, run_id=run_id
+    )
+    raise _ScheduledExecutionBlocked(error)
+
+
+async def _preflight_preauthorized_schedule(
+    *,
+    schedule_exec_id: str | None,
+    run_id: str,
+    workspace_id: str,
+    pre_authorized_capability_ids: list[str],
+    founder_member_id: str | None,
+    founder_user_id: str | None,
+) -> str:
+    """B5 (Task 6b) — lịch nền uỷ quyền trước (snapshot không rỗng, Task 6):
+    kiểm TRƯỚC khi tạo conversation/gọi model — không đọc email, không tiêu
+    token nếu kênh founder-notify hoặc connector email-read đã hỏng.
+
+    Trả về company delegation token (`sub=founder_user_id`, `aud=company`,
+    mint bởi `mint_company_delegation` — cùng cơ chế Task 3/4 dùng cho mọi
+    lệnh gọi Company khác của COSA) dùng cho chính các lệnh gọi preflight
+    này. Phần còn lại của run (tool call `founder.notify.send`/`email.digest.read`
+    giữa lúc chạy) KHÔNG dùng lại token này trực tiếp — `principal` của run
+    được set thành `user:<founder_user_id>` (xem `execute_scheduled_session_task`)
+    để `ComplianceResolver.resolve_for_run` (Task 3/5) tự mint delegation
+    cùng `sub` cho từng tool call, đúng cơ chế chat run của chính founder
+    dùng — không phát minh đường mint thứ hai.
+
+    Raise `_ScheduledExecutionBlocked` SAU KHI đã báo control plane (cùng
+    idiom với khối kiểm project_id ở `execute_scheduled_session_task`).
+    """
+    if not founder_user_id or not founder_member_id:
+        # Task 6 đã bắt buộc cả 2 field này khi preAuthorizedCapabilityIds
+        # không rỗng lúc tạo lịch — snapshot thiếu nghĩa là dữ liệu control
+        # plane hỏng/lệch, không phải điều kiện người dùng tự sửa được từ
+        # chat; `blocked_reauth` để hiện đúng "cần founder xử lý lại kế
+        # hoạch tự động hoá" thay vì gợi ý sai "thử lại là được".
+        await _terminate_preflight(
+            schedule_exec_id,
+            run_id=run_id,
+            state="blocked_reauth",
+            error=f"preauthorization_snapshot_invalid: schedule_execution_id={schedule_exec_id}",
+        )
+
+    delegation_token = mint_company_delegation(
+        sub=founder_user_id,  # type: ignore[arg-type]  # đã kiểm not-None ở trên
+        workspace_id=workspace_id,
+        run_id=run_id,
+        capability_ids=pre_authorized_capability_ids,
+    )
+
+    if FOUNDER_NOTIFY_SEND_CAPABILITY_ID in pre_authorized_capability_ids:
+        try:
+            client = CompanyServiceClient()
+            await client.get(
+                "/identity/founder-notifications/preflight",
+                headers={
+                    "Authorization": f"Bearer {delegation_token}",
+                    "X-Workspace-Id": str(workspace_id),
+                },
+            )
+        except CompanyServiceError as exc:
+            message = str(exc)
+            if any(code in message for code in _FOUNDER_PREFLIGHT_BLOCKED_REAUTH_CODES):
+                await _terminate_preflight(
+                    schedule_exec_id, run_id=run_id, state="blocked_reauth", error=message
+                )
+            else:
+                # founder_channel_ambiguous (lỗi cấu hình) hoặc lỗi hạ tầng
+                # khác (mạng, 5xx) — `failed`, scheduler tự thử lại lần chạy
+                # kế tiếp; không gợi ý sai "cần founder reconnect".
+                await _terminate_preflight(
+                    schedule_exec_id, run_id=run_id, state="failed", error=message
+                )
+
+    if EMAIL_DIGEST_READ_CAPABILITY_ID in pre_authorized_capability_ids:
+        connector_client = ConnectorGrantHttpClient()
+        try:
+            res = await connector_client.assert_usable_for_execution(
+                EMAIL_CONNECTOR_KEY,
+                workspace_id=workspace_id,
+                execution_id=str(schedule_exec_id),
+                action=EMAIL_DIGEST_READ_CAPABILITY_ID,
+                required_scope="mail:read",
+            )
+        except Exception as exc:
+            # Lỗi hạ tầng gọi control plane (HTTP != 200, mạng) — `failed`,
+            # KHÔNG `blocked_reauth` (không phải "founder cần xử lý lại").
+            await _terminate_preflight(
+                schedule_exec_id,
+                run_id=run_id,
+                state="failed",
+                error=f"connector_preflight_unavailable: {exc}",
+            )
+        else:
+            if not res.get("ok"):
+                code = res.get("error") or "connector_reauth_required"
+                # Mọi lý do control plane từ chối grant connector ở đây (thiếu
+                # snapshot, hết hạn, bị revoke, installation disabled, thiếu
+                # scope) đều quy về "founder phải kết nối/cấp lại connector" —
+                # cùng nghĩa `blocked_reauth`, khác class với lỗi cấu hình
+                # founder-notify (ambiguous) vì connector không có khái niệm
+                # "nhiều lựa chọn không rõ chọn cái nào".
+                await _terminate_preflight(
+                    schedule_exec_id, run_id=run_id, state="blocked_reauth", error=code
+                )
+
+    return delegation_token
+
+
 async def execute_scheduled_session_task(
     plane: CosaAgentPlane,
     stream_mgr: CosaEventStreamManager,
@@ -88,6 +229,15 @@ async def execute_scheduled_session_task(
     # workspace qua Company nữa (đã xoá `_resolve_workspace_project_id` —
     # đó chính là bug: rủi ro chạy nhầm project).
     project_id = payload.get("project_id")
+    # B5 (Task 6b) — snapshot uỷ quyền trước (Task 6): rỗng ⇒ lịch cũ, hành vi
+    # KHÔNG đổi (nguyên placeholder principal="service:scheduler"). Không
+    # rỗng ⇒ lịch đã được founder duyệt kèm capability cụ thể qua thẻ kế
+    # hoạch tự động hoá — worker phải mint danh tính founder + preflight
+    # trước khi chạm model (xem khối preflight bên dưới).
+    pre_authorized_capability_ids: list[str] = []
+    founder_member_id: str | None = None
+    founder_user_id: str | None = None
+    token_budget_per_run: int | None = None
 
     # If schedule_exec_id is provided, check or fetch execution snapshot from control plane
     if schedule_exec_id:
@@ -141,6 +291,13 @@ async def execute_scheduled_session_task(
                         )
                         raise ValueError(error_mismatch)
                     project_id = snapshot_project_id or project_id
+                    raw_pre_auth = data.get("preAuthorizedCapabilityIdsSnapshot")
+                    if isinstance(raw_pre_auth, list):
+                        pre_authorized_capability_ids = [str(c) for c in raw_pre_auth if c]
+                    founder_member_id = data.get("founderMemberIdSnapshot") or None
+                    founder_user_id = data.get("founderUserIdSnapshot") or None
+                    raw_budget = data.get("tokenBudgetPerRunSnapshot")
+                    token_budget_per_run = int(raw_budget) if raw_budget is not None else None
         except ValueError:
             raise
         except Exception as exc:
@@ -170,6 +327,47 @@ async def execute_scheduled_session_task(
         )
         raise ValueError(missing_project_error)
 
+    if token_budget_per_run is not None:
+        # B5 (Task 6b) mục 7 — `tokenBudgetPerRunSnapshot` được đọc từ
+        # snapshot nhưng CHƯA áp dụng: chưa tìm thấy cơ chế enforce ngân
+        # sách token cho MỘT run cụ thể trong kernel/run hiện có
+        # (`packages/agent/governance/budget_gate.py::BudgetGate` chỉ có quota
+        # per-tenant đăng ký sẵn qua `_quotas`, không có hook nhận override
+        # theo từng RunRequest) — chỉ log để không âm thầm bỏ qua giá trị đã
+        # founder duyệt. Không bịa ra một cơ chế enforce mới trong task này.
+        logger.info(
+            "schedule_execution_id=%s tokenBudgetPerRunSnapshot=%s captured but NOT enforced "
+            "(no per-run budget hook wired yet — B5 Task 6b concern)",
+            schedule_exec_id,
+            token_budget_per_run,
+        )
+
+    # B5 (Task 6b) — lịch nền uỷ quyền trước (snapshot không rỗng): preflight
+    # TRƯỚC khi tạo conversation/run — kênh founder-notify bị thu hồi hoặc
+    # connector email-read thiếu grant thì dừng ở đây, không tạo conversation
+    # mồ côi, không đọc email, không tiêu token. Lịch cũ (snapshot rỗng) bỏ
+    # qua hoàn toàn khối này — hành vi KHÔNG đổi.
+    scheduler_principal = "service:scheduler"
+    if pre_authorized_capability_ids:
+        await _preflight_preauthorized_schedule(
+            schedule_exec_id=schedule_exec_id,
+            run_id=run_id,
+            workspace_id=workspace_id,
+            pre_authorized_capability_ids=pre_authorized_capability_ids,
+            founder_member_id=founder_member_id,
+            founder_user_id=founder_user_id,
+        )
+        # Danh tính founder cho phần còn lại của run (mint company delegation
+        # theo `sub=founder_user_id` như chat run làm — ComplianceResolver tự
+        # mint lại theo `request.principal` cho từng tool call, xem docstring
+        # `_preflight_preauthorized_schedule`). `_scheduler_dispatch`/
+        # `pre_authorized_capability_ids` trong run_payload (đặt bên dưới) là
+        # điều kiện THẬT worker/handlers.py dùng để bỏ approval — không phải
+        # giá trị `principal` này (payload chat/API bên ngoài không có 2 key
+        # nội bộ đó dù có tự set `principal="user:..."`, xem
+        # apps/cosa/worker/handlers.py::_execute_run_task_inner).
+        scheduler_principal = f"user:{founder_user_id}"
+
     conversation_id = f"conv_sched_{uuid.uuid4().hex[:8]}"
     conv = ConversationRecord(
         conversation_id=conversation_id,
@@ -190,17 +388,20 @@ async def execute_scheduled_session_task(
     )
     await plane.conversation_repository.add_message(user_msg)
 
-    run_payload = {
+    run_payload: dict[str, Any] = {
         "run_id": run_id,
         "conversation_id": conversation_id,
         "user_prompt": prompt_template,
-        "principal": "service:scheduler",
+        "principal": scheduler_principal,
         "workspace_id": workspace_id,
         "agent_name": agent_profile,
         "agent_profile": agent_profile,
         "project_id": project_id,
         "delegation_token": payload.get("delegation_token") or "scheduled_worker_service_token",
     }
+    if pre_authorized_capability_ids:
+        run_payload["_scheduler_dispatch"] = True
+        run_payload["pre_authorized_capability_ids"] = pre_authorized_capability_ids
     # Agent workspace (C1): worker kiểm lại deployment với company trước khi chạy.
     if payload.get("project_agent_deployment_id"):
         run_payload["project_agent_deployment_id"] = str(payload["project_agent_deployment_id"])
@@ -212,8 +413,8 @@ async def execute_scheduled_session_task(
         from apps.cosa.worker.handlers import execute_run_task
 
         run_res = await execute_run_task(plane, stream_mgr, run_payload)
-        if run_res and run_res.status == "failed":
-            state = "failed"
+        if run_res and run_res.status in ("failed", "blocked_reauth"):
+            state = run_res.status
             error_msg = run_res.error
     except Exception as exc:
         state = "failed"

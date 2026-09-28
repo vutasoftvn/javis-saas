@@ -37,7 +37,12 @@ export interface RevokeGrantParams {
 export interface AssertConnectorParams {
   authorization?: Header<"Authorization">;
   organizationId: string;
-  conversationId: string;
+  // B5 (Task 6b) — đúng một trong hai phải có: `conversationId` (đường session
+  // grant cũ, chat/tool call trong 1 conversation thật) hoặc `executionId`
+  // (đường mới, lịch nền: schedule execution không có conversation grant —
+  // xem assertConnectorInvocationForExecution ở workspace-connector.service.ts).
+  conversationId?: string;
+  executionId?: string;
   connectorKey: string;
   action?: string;
   requiredScope?: string;
@@ -189,9 +194,24 @@ export const assertConnectorEndpoint = api(
     // Worker authentication guard
     requireWorkerServiceAuth(params.authorization);
 
+    const executionId = params.executionId;
+    if (executionId) {
+      return connectorSvc.assertConnectorInvocationForExecution({
+        organizationId: params.organizationId,
+        executionId,
+        connectorKey: params.connectorKey,
+        action: params.action,
+        requiredScope: params.requiredScope,
+      });
+    }
+    const conversationId = params.conversationId;
+    if (!conversationId) {
+      throw APIError.invalidArgument("conversationId or executionId is required");
+    }
+
     const res = await connectorSvc.assertConnectorInvocation({
       organizationId: params.organizationId,
-      conversationId: params.conversationId,
+      conversationId,
       connectorKey: params.connectorKey,
       action: params.action,
       requiredScope: params.requiredScope,

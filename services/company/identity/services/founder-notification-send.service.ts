@@ -121,6 +121,50 @@ async function requireNotificationOwner(ctx: TenantContext): Promise<string> {
   return ctx.workforceMemberId;
 }
 
+export interface FounderChannelPreflightResult {
+  readonly ok: true;
+  readonly channelKind: FounderNotificationChannelKind;
+  /** Nhãn founder tự đặt cho kênh, hoặc tên loại kênh. KHÔNG phải chat id. */
+  readonly channelLabel: string;
+}
+
+/**
+ * Dùng CHUNG bởi `sendFounderNotification` và `preflightFounderNotificationChannel` (B5
+ * Task 6b) — kiểm đúng role/workforce member của founder sở hữu run (Decision 5) rồi tra
+ * kênh dùng được (`resolveUsableChannelForFounder`, B1). Trả về bản ghi kênh nội bộ đầy đủ
+ * (chatId/secretRef) — CHỈ `sendFounderNotification` được đọc các field đó; preflight lọc
+ * lại thành `FounderChannelPreflightResult` trước khi trả cho caller.
+ */
+async function resolveFounderNotificationChannel(
+  ctx: TenantContext,
+  channelKind: FounderNotificationChannelKind | undefined
+) {
+  const founderMemberId = await requireNotificationOwner(ctx);
+  return resolveUsableChannelForFounder(ctx.workspaceId, founderMemberId, channelKind);
+}
+
+/**
+ * B5 (Task 6b, plan hub vận hành đợt 2) — KHÔNG gửi gì, không đọc secret, không gọi adapter.
+ * Worker (lịch nền uỷ quyền trước) gọi qua endpoint preflight TRƯỚC khi tạo conversation/gọi
+ * model, để phát hiện kênh bị thu hồi/founder mất quyền MÀ KHÔNG tiêu token hay bắt đầu chạy
+ * agent trước rồi mới biết không gửi được.
+ *
+ * Ném cùng lỗi với `sendFounderNotification` cho phần kiểm founder/kênh:
+ * `founder_owner_not_authorized:`, `founder_channel_unavailable:`, `founder_channel_ambiguous:`.
+ */
+export async function preflightFounderNotificationChannel(
+  ctx: TenantContext,
+  channelKind?: FounderNotificationChannelKind
+): Promise<FounderChannelPreflightResult> {
+  const channel = await resolveFounderNotificationChannel(ctx, channelKind);
+  const kind = channel.kind as FounderNotificationChannelKind;
+  return {
+    ok: true,
+    channelKind: kind,
+    channelLabel: channel.label?.trim() || KIND_DISPLAY_LABEL[kind] || kind,
+  };
+}
+
 /**
  * Gửi `content` vào kênh đã xác minh của founder sở hữu run. Lỗi (message mở đầu bằng mã
  * máy-đọc-được, cùng convention B1):
@@ -136,9 +180,7 @@ export async function sendFounderNotification(
 ): Promise<SendFounderNotificationResult> {
   // Chạy lại allowlist kể cả khi gọi trực tiếp (B5/worker): ép kiểu không lách được.
   const payload = parseFounderNotificationSendPayload(input);
-  const founderMemberId = await requireNotificationOwner(ctx);
-
-  const channel = await resolveUsableChannelForFounder(ctx.workspaceId, founderMemberId, payload.channelKind);
+  const channel = await resolveFounderNotificationChannel(ctx, payload.channelKind);
   const channelKind = channel.kind as FounderNotificationChannelKind;
   // Audit/log (Decision 9): chỉ channel id, kind, độ dài nội dung. Không token, không chat
   // id, không toàn văn, không lý do lỗi thô của Telegram (có thể chứa dữ liệu nhạy cảm).
