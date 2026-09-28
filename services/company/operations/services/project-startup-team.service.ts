@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { APIError } from "encore.dev/api";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { identityWorkforceMembers } from "../../shared/db/schema/identity";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
@@ -250,7 +250,11 @@ export async function listProjectStartupTeam(input: {
       and(
         eq(projectAgentDeployments.workspaceId, wsId),
         eq(projectAgentDeployments.projectId, projId),
-        eq(workspaceAgents.originKind, WORKSPACE_CLONE_ORIGIN)
+        eq(workspaceAgents.originKind, WORKSPACE_CLONE_ORIGIN),
+        // Deployment hoặc Workspace Agent đã RETIRED không còn thuộc startup team — không hiện
+        // vô thời hạn trong danh sách (cùng quy tắc `getProjectDeploymentAuthority`).
+        ne(projectAgentDeployments.state, "RETIRED"),
+        ne(workspaceAgents.state, "RETIRED")
       )
     );
 
@@ -261,10 +265,7 @@ export async function listProjectStartupTeam(input: {
     // Nhãn hiển thị lấy từ AI member (`roleTitle`, đặt lúc PUBLISH từ `agentManifest.displayName`
     // = tên founder đặt khi CLONE) — không tra bảng label cố định để tránh crash trên key lạ.
     label: r.roleTitle || r.agentAssetId,
-    displayState:
-      r.deploymentState === "PAUSED" || r.deploymentState === "RETIRED"
-        ? r.deploymentState
-        : "ACTIVE",
+    displayState: r.deploymentState === "PAUSED" ? "PAUSED" : "ACTIVE",
     // Agent custom chỉ tồn tại sau khi đã publish + deploy thành công, nên luôn READY —
     // không có trạng thái "template" (chưa deploy thì chưa xuất hiện ở đây).
     runtimeReadiness: "READY",

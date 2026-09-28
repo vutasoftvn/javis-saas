@@ -299,6 +299,47 @@ describe("Project Startup Team Service", () => {
       expect(teamAfterPause.find((m) => m.profileKey === ref.assetId)).toMatchObject({
         displayState: "PAUSED",
       });
+
+      // Deployment RETIRED -> agent custom biến mất khỏi danh sách (không hiện vô thời hạn).
+      await db
+        .update(schema.projectAgentDeployments)
+        .set({ state: "RETIRED" })
+        .where(eq(schema.projectAgentDeployments.id, deployments[0].id));
+      const teamAfterRetire = await listProjectStartupTeam({
+        workspaceId: ws.workspaceId,
+        projectId: ws.projectId,
+        actorId: ws.userId,
+      });
+      expect(teamAfterRetire.find((m) => m.profileKey === ref.assetId)).toBeUndefined();
+      // Built-in catalog không bị ảnh hưởng.
+      expect(
+        teamAfterRetire.filter((m) => (STARTUP_TEAM_PROFILE_KEYS as readonly string[]).includes(m.profileKey)).length
+      ).toBe(STARTUP_TEAM_PROFILES.length);
+
+      // Deployment còn ACTIVE nhưng Workspace Agent RETIRED -> cũng không hiện.
+      await db
+        .update(schema.projectAgentDeployments)
+        .set({ state: "ACTIVE" })
+        .where(eq(schema.projectAgentDeployments.id, deployments[0].id));
+      expect(
+        (
+          await listProjectStartupTeam({
+            workspaceId: ws.workspaceId,
+            projectId: ws.projectId,
+            actorId: ws.userId,
+          })
+        ).find((m) => m.profileKey === ref.assetId)
+      ).toMatchObject({ displayState: "ACTIVE" });
+      await db
+        .update(schema.workspaceAgents)
+        .set({ state: "RETIRED" })
+        .where(eq(schema.workspaceAgents.id, BigInt(agent.id)));
+      const teamAfterAgentRetire = await listProjectStartupTeam({
+        workspaceId: ws.workspaceId,
+        projectId: ws.projectId,
+        actorId: ws.userId,
+      });
+      expect(teamAfterAgentRetire.find((m) => m.profileKey === ref.assetId)).toBeUndefined();
     });
   });
 });
