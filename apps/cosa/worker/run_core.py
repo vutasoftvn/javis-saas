@@ -128,6 +128,27 @@ async def prepare_request(
         metadata=run_metadata,
     )
 
+    if initiative_id:
+        from apps.cosa.api.ai_initiative_internal_routes import get_consumed_snapshot
+        from apps.cosa.governance.initiative_policy import assert_initiative_run_allowed
+
+        snapshot = get_consumed_snapshot(workspace_id, str(initiative_id))
+        if snapshot is not None:
+            decision = assert_initiative_run_allowed(snapshot, req)
+            if not decision.allowed:
+                raise RunCoreError(
+                    decision.reason_code,
+                    compliance_code=decision.reason_code.upper(),
+                )
+            if decision.initiative_revision is not None:
+                run_metadata["initiative_revision"] = decision.initiative_revision
+            if decision.autonomy_tier is not None:
+                run_metadata["autonomy_tier"] = decision.autonomy_tier
+            if decision.risk_tier is not None:
+                run_metadata["risk_tier"] = decision.risk_tier
+            if decision.decision_hash:
+                run_metadata["decision_hash"] = decision.decision_hash
+
     return await apply_compliance(plane, req=req, spec=spec, compliance_spec=compliance_spec)
 
 

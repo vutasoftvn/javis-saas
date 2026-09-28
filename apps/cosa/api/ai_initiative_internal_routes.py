@@ -107,3 +107,30 @@ async def consume_promotion_snapshot(
         decision_id=body.decision_id,
         initiative_id=body.initiative_id,
     )
+
+
+def get_consumed_snapshot(workspace_id: str, initiative_id: str) -> dict[str, Any] | None:
+    """Retrieve the latest consumed snapshot for a workspace and initiative."""
+    candidates = [
+        snap for snap in _consumed_snapshots.values()
+        if snap.get("workspace_id") == workspace_id and snap.get("initiative_id") == initiative_id
+    ]
+    if not candidates:
+        return None
+    # Sort by revision descending
+    candidates.sort(key=lambda s: s.get("initiative_revision", 0), reverse=True)
+    return candidates[0]
+
+
+def store_consumed_snapshot(snapshot: dict[str, Any]) -> None:
+    """Programmatically store or override a snapshot (useful for testing and local seeds)."""
+    ws = snapshot.get(workspace_id)
+    init_id = snapshot.get(initiative_id)
+    dec_id = snapshot.get(decision_id, default)
+    key = f"{ws}:{init_id}:{dec_id}"
+    _consumed_snapshots[key] = snapshot
+
+
+def clear_consumed_snapshots() -> None:
+    """Clear snapshot store (useful for test isolations)."""
+    _consumed_snapshots.clear()

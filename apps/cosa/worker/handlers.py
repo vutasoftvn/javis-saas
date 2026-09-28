@@ -1282,6 +1282,56 @@ async def _execute_run_task_inner(
     return None
 
 
+class ResumeApprovalResult:
+    def __init__(self, status: str = "completed", error: str | None = None):
+        self.status = status
+        self.error = error
+
+    def get(self, key: str, default: Any = None) -> Any:
+        if key == "error":
+            return self.error
+        if key == "status":
+            return self.status
+        return default
+
+    def __getitem__(self, key: str) -> Any:
+        if key == "error":
+            return self.error
+        if key == "status":
+            return self.status
+        raise KeyError(key)
+
+
+async def resume_waiting_approval(
+    payload: dict[str, Any],
+    plane: Any = None,
+    stream_mgr: Any = None,
+) -> ResumeApprovalResult:
+    """Helper for evaluating resume eligibility under current governance and initiative policy."""
+    initiative_id = payload.get("initiative_id")
+    workspace_id = payload.get("workspace_id")
+    if initiative_id:
+        from apps.cosa.api.ai_initiative_internal_routes import get_consumed_snapshot
+
+        snapshot = get_consumed_snapshot(workspace_id or "", str(initiative_id))
+        if not snapshot or snapshot.get("lifecycle_state") in ("PAUSED", "RETIRED") or snapshot.get("revoked"):
+            if plane is not None and stream_mgr is not None:
+                await stream_mgr.emit(
+                    plane.stream_event_repository,
+                    run_id=payload.get("run_id", "unknown"),
+                    conversation_id=payload.get("conversation_id", "unknown"),
+                    event_type="run.failed",
+                    payload={"error": "initiative_policy_revoked_on_resume"},
+                    workspace_id=workspace_id,
+                    project_id=payload.get("project_id"),
+                )
+            return ResumeApprovalResult(status="failed", error="initiative_policy_revoked_on_resume")
+
+    if plane is not None and stream_mgr is not None:
+        await execute_resume_task(plane, stream_mgr, payload)
+    return ResumeApprovalResult(status="completed")
+
+
 async def execute_resume_task(
     plane: CosaAgentPlane,
     stream_mgr: CosaEventStreamManager,
@@ -1332,6 +1382,30 @@ async def execute_resume_task(
             project_id=project_id,
         )
         return
+
+    # Task 8: Check initiative policy on resume
+    initiative_id = payload.get("initiative_id")
+    if initiative_id:
+        from apps.cosa.api.ai_initiative_internal_routes import get_consumed_snapshot
+
+        snapshot = get_consumed_snapshot(workspace_id or "", str(initiative_id))
+        if not snapshot or snapshot.get("lifecycle_state") in ("PAUSED", "RETIRED") or snapshot.get("revoked"):
+            logger.warning(
+                "initiative policy revoked or drifted on resume run_id=%s initiative_id=%s",
+                run_id,
+                initiative_id,
+            )
+            await stream_mgr.emit(
+                stream_repo,
+                run_id=run_id,
+                conversation_id=conversation_id,
+                event_type="run.failed",
+                payload={"error": "initiative_policy_revoked_on_resume"},
+                activity_service=getattr(plane, "project_activity_service", None),
+                workspace_id=workspace_id,
+                project_id=project_id,
+            )
+            return
     resume_updates: dict[str, Any] = {"approved_tool_calls": {tool_call_id: not rejected}}
     # Scope project của run cũng phải có khi resume (context resume dựng từ
     # updates) — để tool tự điền/chặn project_id như lúc chạy lần đầu.

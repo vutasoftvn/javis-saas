@@ -30,6 +30,9 @@ _RUN_ID_VAR: contextvars.ContextVar[str | None] = contextvars.ContextVar(
 _WORKSPACE_ID_VAR: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "cosa_log_workspace_id", default=None
 )
+_INITIATIVE_ID_VAR: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "cosa_log_initiative_id", default=None
+)
 
 # Patterns for secret redaction
 SENSITIVE_PATTERNS = [
@@ -140,28 +143,37 @@ def redact_provider_payload(payload: Any) -> Any:
     return payload
 
 
-def set_log_context(run_id: str | None = None, workspace_id: str | None = None) -> None:
-    """Gán correlation context (run_id, workspace_id) cho scope hiện tại."""
+def set_log_context(
+    run_id: str | None = None,
+    workspace_id: str | None = None,
+    initiative_id: str | None = None,
+) -> None:
+    """Gán correlation context (run_id, workspace_id, initiative_id) cho scope hiện tại."""
     if run_id is not None:
         _RUN_ID_VAR.set(run_id)
     if workspace_id is not None:
         _WORKSPACE_ID_VAR.set(workspace_id)
+    if initiative_id is not None:
+        _INITIATIVE_ID_VAR.set(initiative_id)
 
 
 def clear_log_context() -> None:
     """Xóa correlation context của scope hiện tại."""
     _RUN_ID_VAR.set(None)
     _WORKSPACE_ID_VAR.set(None)
+    _INITIATIVE_ID_VAR.set(None)
 
 
 @contextmanager
 def log_context(
     run_id: str | None = None,
     workspace_id: str | None = None,
+    initiative_id: str | None = None,
 ) -> Iterator[None]:
     """Context manager gán correlation context và tự động phục hồi sau khi thoát."""
     token_run = _RUN_ID_VAR.set(run_id) if run_id is not None else None
     token_ws = _WORKSPACE_ID_VAR.set(workspace_id) if workspace_id is not None else None
+    token_init = _INITIATIVE_ID_VAR.set(initiative_id) if initiative_id is not None else None
     try:
         yield
     finally:
@@ -169,6 +181,8 @@ def log_context(
             _RUN_ID_VAR.reset(token_run)
         if token_ws is not None:
             _WORKSPACE_ID_VAR.reset(token_ws)
+        if token_init is not None:
+            _INITIATIVE_ID_VAR.reset(token_init)
 
 
 class RedactingFilter(logging.Filter):
@@ -222,6 +236,12 @@ ALLOWED_LOG_METADATA_KEYS = frozenset(
     {
         "run_id",
         "workspace_id",
+        "initiative_id",
+        "initiative_revision",
+        "evaluation_suite_ref",
+        "budget_policy_ref",
+        "autonomy_tier",
+        "risk_tier",
         "trace_id",
         "span_id",
         "event_type",
@@ -275,6 +295,10 @@ class JSONLogFormatter(logging.Formatter):
         workspace_id = _WORKSPACE_ID_VAR.get()
         if workspace_id:
             log_data["workspace_id"] = workspace_id
+
+        initiative_id = _INITIATIVE_ID_VAR.get()
+        if initiative_id:
+            log_data["initiative_id"] = initiative_id
 
         # Inject OTel trace correlation
         trace_id = get_current_trace_id()

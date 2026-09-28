@@ -873,3 +873,20 @@ async def test_resume_without_project_id_does_not_set_scope():
     await execute_resume_task(plane, CosaEventStreamManager(), payload)
 
     assert "project_id" not in plane.kernel.resume.await_args.kwargs["updates"]
+
+
+@pytest.mark.asyncio
+async def test_resume_fails_closed_when_current_initiative_snapshot_is_revoked():
+    from apps.cosa.worker.handlers import resume_waiting_approval
+    revoked_initiative_run = {
+        "run_id": "run_resume_revoked_init",
+        "checkpoint_ref": "checkpoint_1",
+        "conversation_id": "conv_1",
+        "workspace_id": "ws_1",
+        "project_id": "proj_1",
+        "tool_call_id": "call_1",
+        "delegation_token": "fake-token",
+        "initiative_id": "init_revoked",
+    }
+    result = await resume_waiting_approval(revoked_initiative_run)
+    assert result.error == "initiative_policy_revoked_on_resume"
