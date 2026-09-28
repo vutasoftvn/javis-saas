@@ -437,20 +437,23 @@ export async function assertConnectorInvocation(input: {
 }
 
 /**
- * B5 (Task 6, phát hiện review Task 5 mục 1) — lúc founder duyệt thẻ kế hoạch tự động hoá,
- * KHÔNG tin `plan.connectors[].status` cũ (founder tự khai lúc đề xuất). services/cosa tự
- * re-verify bằng cách tìm authorization workspace-scoped (`connectorAuthorizations`, KHÔNG
- * phải session grant theo conversation — lịch nền chưa có conversation) đang `active`, chưa hết
- * hạn, thuộc installation `enabled`, cho đúng connector key. Trả về id các authorization đủ điều
- * kiện để dùng làm `connectorGrantIds` SNAPSHOT của lịch (không phải chuỗi founder tự khai).
+ * B5 (Task 6, phát hiện review Task 5 mục 1 + fix review "Needs fixes" Critical 1) — lúc founder
+ * duyệt thẻ kế hoạch tự động hoá, KHÔNG tin `plan.connectors[].status` cũ (founder tự khai lúc đề
+ * xuất). services/cosa tự re-verify bằng cách tìm authorization workspace-scoped
+ * (`connectorAuthorizations`, KHÔNG phải session grant theo conversation — lịch nền chưa có
+ * conversation) đang `active`, chưa hết hạn, thuộc installation `enabled`, cho đúng connector key
+ * **VÀ đúng principal = founder sở hữu lịch** (người đã bấm duyệt). Trả về id các authorization đủ
+ * điều kiện để dùng làm `connectorGrantIds` SNAPSHOT của lịch (không phải chuỗi founder tự khai).
  *
- * Cùng độ chi tiết với `connectorStatus` của B4 (Task 5): "connected" = workspace có authorization
- * dùng được cho connector key này, không phân biệt theo principal cụ thể — Task 6b (worker,
- * preflight) mới là nơi cấp session grant thật cho conversation của từng lần chạy.
+ * `principalId` PHẢI truyền — không lọc theo principal thì founder A đã connect email-read, founder
+ * B duyệt kế hoạch (B chưa connect) vẫn mượn được authorization của A: worker chạy nền đọc mailbox A
+ * rồi gửi digest vào kênh của B. Cùng quy tắc principal ownership `grantConnectorToSession` /
+ * `revokeSessionGrant` ở trên đã áp dụng (so `principalId === callerPrincipalId`).
  */
 export async function findActiveConnectorAuthorizationIds(
   organizationId: string,
-  connectorKey: string
+  connectorKey: string,
+  principalId: string
 ): Promise<string[]> {
   const now = new Date();
   const rows = await db
@@ -466,6 +469,7 @@ export async function findActiveConnectorAuthorizationIds(
         eq(workspaceConnectorInstallations.connectorKey, connectorKey),
         eq(workspaceConnectorInstallations.status, "enabled"),
         eq(connectorAuthorizations.organizationId, organizationId),
+        eq(connectorAuthorizations.principalId, principalId),
         eq(connectorAuthorizations.state, "active"),
         gt(connectorAuthorizations.expiresAt, now)
       )

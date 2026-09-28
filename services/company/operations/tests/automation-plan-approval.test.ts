@@ -295,6 +295,26 @@ describe("automation-plan-approval — approve", () => {
       expect(err.code).toBe("failed_precondition");
       expect(err.message).toMatch(/^automation_plan_discarded:/);
     });
+
+    it("fix review Needs fixes Important 3: Promise.all 2 lần approve cùng proposalId -> chỉ 1 quyết định thật (double-check locking, không tự ghi đè)", async () => {
+      const { f, proposalId } = await seedReadyDraft();
+      const ctx = founderCtx(f);
+
+      const [a, b] = await Promise.all([
+        approveAutomationPlanProposal(ctx, f.projectId, proposalId),
+        approveAutomationPlanProposal(ctx, f.projectId, proposalId),
+      ]);
+
+      // Cả 2 request PHẢI thấy cùng 1 decidedAt (không ai ghi đè quyết định của người kia).
+      expect(a.data.decidedAt).toBe(b.data.decidedAt);
+      expect(a.data.founderMemberId).toBe(b.data.founderMemberId);
+
+      const [row] = await db
+        .select()
+        .from(automationPlanProposals)
+        .where(sql`${automationPlanProposals.id} = ${BigInt(proposalId)}`);
+      expect(row.status).toBe("APPROVED");
+    });
   });
 });
 

@@ -66,10 +66,107 @@ function toApprovalResult(
   };
 }
 
+type ProposalRow = typeof automationPlanProposals.$inferSelect;
+
+/** Đọc nháp theo `id` + scope workspace/project — dùng chung cho đọc không khoá và `FOR UPDATE`. */
+async function selectProposalRow(
+  executor: typeof db,
+  ctx: TenantContext,
+  projId: bigint,
+  id: bigint,
+  lock: boolean
+): Promise<ProposalRow | undefined> {
+  const query = executor
+    .select()
+    .from(automationPlanProposals)
+    .where(
+      and(
+        eq(automationPlanProposals.id, id),
+        eq(automationPlanProposals.workspaceId, BigInt(ctx.workspaceId)),
+        eq(automationPlanProposals.projectId, projId)
+      )
+    )
+    .limit(1);
+  const [row] = lock ? await (query as any).for("update") : await query;
+  return row;
+}
+
+/** Nhánh chỉ ĐỌC (DISCARDED / đã APPROVED) — không cần khoá, không ghi gì. `null` = vẫn DRAFT. */
+function idempotentResultIfDecided(
+  row: ProposalRow
+): MvpSuccess<AutomationPlanApprovalResult> | null {
+  if (row.status === "DISCARDED") {
+    throw APIError.failedPrecondition("automation_plan_discarded: nháp kế hoạch đã bị huỷ");
+  }
+  if (row.status === "APPROVED") {
+    if (row.approvedScheduleId) {
+      throw APIError.alreadyExists(
+        `automation_plan_already_linked: nháp đã có lịch (scheduleId=${row.approvedScheduleId})`
+      );
+    }
+    if (!row.decidedByMemberId || !row.decidedByUserId) {
+      // Không nên xảy ra với dòng được tạo bởi flow này — coi như hỏng dữ liệu.
+      throw APIError.internal("automation_plan_decision_incomplete: thiếu founder đã duyệt");
+    }
+    return mvpItem(toApprovalResult(row, row.decidedByMemberId.toString(), row.decidedByUserId), [
+      { kind: "company_db", ref: `operating.automation_plan_proposals:${row.id.toString()}` },
+    ]);
+  }
+  return null;
+}
+
+/** Re-verify readiness (kênh + agent deployment) BÂY GIỜ — không tin `plan`/`readiness` cũ. */
+async function reverifyReadinessOrThrow(
+  ctx: TenantContext,
+  projId: bigint,
+  approverMemberId: string,
+  plan: AutomationPlan
+): Promise<void> {
+  const blockers: string[] = [];
+
+  try {
+    // Founder sở hữu lịch = người bấm duyệt (ADR mục 5) — không phải proposedByMemberId.
+    await resolveUsableChannelForFounder(ctx.workspaceId, approverMemberId, plan.channel.kind);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    if (
+      message.startsWith("founder_channel_unavailable:") ||
+      message.startsWith("founder_channel_ambiguous:")
+    ) {
+      blockers.push("founder_channel_unverified");
+    } else {
+      throw err;
+    }
+  }
+
+  if (plan.agentDeploymentId) {
+    const deployments = await getProjectFounderDeployments(ctx, projId.toString());
+    const deployment = deployments.data.agents.find((a) => a.id === plan.agentDeploymentId);
+    if (!deployment || deployment.state !== "ACTIVE") {
+      throw APIError.failedPrecondition(
+        `agent_deployment_unavailable: agent đã chọn không còn hoạt động trong Project (deploymentId=${plan.agentDeploymentId})`
+      );
+    }
+  } else {
+    // proposeNewAgent=true và chưa có deployment thật để tái dùng.
+    blockers.push("requires_new_agent");
+  }
+
+  if (blockers.length > 0) {
+    throw APIError.failedPrecondition(`automation_plan_not_ready: ${blockers.join(",")}`);
+  }
+}
+
 /**
  * Founder (hoặc co-founder) bấm Duyệt thẻ kế hoạch. Idempotent: gọi lại khi đã `APPROVED` mà
  * chưa có `approved_schedule_id` thì trả lại ĐÚNG dữ liệu đã quyết định lần trước (để services/cosa
  * retry an toàn sau khi tạo lịch thất bại giữa đường); đã có lịch rồi thì `alreadyExists`.
+ *
+ * Fix review "Needs fixes" Important 3 — KHÔNG giữ `FOR UPDATE` trong lúc re-verify (2 câu SELECT
+ * nội bộ: `resolveUsableChannelForFounder`, `getProjectFounderDeployments`). Đọc trước (không
+ * khoá) để re-verify ngoài transaction, rồi mở transaction NGẮN chỉ để khoá + xác nhận LẠI vẫn
+ * `DRAFT` trước khi ghi (double-check locking) — nếu một request khác đã duyệt xong giữa lúc
+ * re-verify, trả lại đúng kết quả của request đó (idempotent) thay vì ghi đè.
  */
 export async function approveAutomationPlanProposal(
   ctx: TenantContext,
@@ -81,81 +178,26 @@ export async function approveAutomationPlanProposal(
   const projId = parseId(projectId, "projectId");
   const id = parseId(proposalId, "proposalId");
 
-  return db.transaction(async (tx) => {
-    // Khoá đúng dòng nháp — hai lần bấm Duyệt song song (hoặc worker retry chồng lấp request
-    // người dùng) không được cùng đi qua nhánh DRAFT và tạo 2 quyết định khác nhau.
-    const [row] = await tx
-      .select()
-      .from(automationPlanProposals)
-      .where(
-        and(
-          eq(automationPlanProposals.id, id),
-          eq(automationPlanProposals.workspaceId, BigInt(ctx.workspaceId)),
-          eq(automationPlanProposals.projectId, projId)
-        )
-      )
-      .limit(1)
-      .for("update");
+  const row0 = await selectProposalRow(db, ctx, projId, id, false);
+  if (!row0) {
+    throw APIError.notFound("automation_plan_not_found: không tìm thấy nháp kế hoạch");
+  }
+  const decided0 = idempotentResultIfDecided(row0);
+  if (decided0) return decided0;
 
+  // status === "DRAFT" (tại thời điểm đọc) — re-verify NGOÀI transaction/lock.
+  await reverifyReadinessOrThrow(ctx, projId, approverMemberId, row0.plan as AutomationPlan);
+
+  return db.transaction(async (tx) => {
+    // Khoá đúng dòng + xác nhận LẠI vẫn DRAFT — hai lần bấm Duyệt song song không được cùng ghi
+    // 2 quyết định khác nhau; nếu request khác đã duyệt xong ở giữa (từ lúc `row0` đến đây) thì
+    // trả lại kết quả của họ, không tự ghi đè.
+    const row = await selectProposalRow(tx as unknown as typeof db, ctx, projId, id, true);
     if (!row) {
       throw APIError.notFound("automation_plan_not_found: không tìm thấy nháp kế hoạch");
     }
-
-    if (row.status === "DISCARDED") {
-      throw APIError.failedPrecondition("automation_plan_discarded: nháp kế hoạch đã bị huỷ");
-    }
-
-    if (row.status === "APPROVED") {
-      if (row.approvedScheduleId) {
-        throw APIError.alreadyExists(
-          `automation_plan_already_linked: nháp đã có lịch (scheduleId=${row.approvedScheduleId})`
-        );
-      }
-      if (!row.decidedByMemberId || !row.decidedByUserId) {
-        // Không nên xảy ra với dòng được tạo bởi flow này — coi như hỏng dữ liệu.
-        throw APIError.internal("automation_plan_decision_incomplete: thiếu founder đã duyệt");
-      }
-      return mvpItem(
-        toApprovalResult(row, row.decidedByMemberId.toString(), row.decidedByUserId),
-        [{ kind: "company_db", ref: `operating.automation_plan_proposals:${row.id.toString()}` }]
-      );
-    }
-
-    // status === "DRAFT" — re-verify readiness BÂY GIỜ, không tin `row.readiness` cũ.
-    const plan = row.plan as AutomationPlan;
-    const blockers: string[] = [];
-
-    try {
-      // Founder sở hữu lịch = người bấm duyệt (ADR mục 5) — không phải proposedByMemberId.
-      await resolveUsableChannelForFounder(ctx.workspaceId, approverMemberId, plan.channel.kind);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "";
-      if (
-        message.startsWith("founder_channel_unavailable:") ||
-        message.startsWith("founder_channel_ambiguous:")
-      ) {
-        blockers.push("founder_channel_unverified");
-      } else {
-        throw err;
-      }
-    }
-
-    if (plan.agentDeploymentId) {
-      const deployments = await getProjectFounderDeployments(ctx, projId.toString());
-      const deployment = deployments.data.agents.find((a) => a.id === plan.agentDeploymentId);
-      if (!deployment || deployment.state !== "ACTIVE") {
-        throw APIError.failedPrecondition(
-          `agent_deployment_unavailable: agent đã chọn không còn hoạt động trong Project (deploymentId=${plan.agentDeploymentId})`
-        );
-      }
-    } else {
-      // proposeNewAgent=true và chưa có deployment thật để tái dùng.
-      blockers.push("requires_new_agent");
-    }
-
-    if (blockers.length > 0) {
-      throw APIError.failedPrecondition(`automation_plan_not_ready: ${blockers.join(",")}`);
-    }
+    const decided = idempotentResultIfDecided(row);
+    if (decided) return decided;
 
     const decidedAt = now;
     const [updated] = await tx

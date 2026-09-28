@@ -98,6 +98,22 @@ function buildAutomationPlanPrompt(plan: CompanyAutomationPlan): string {
   return builder(plan);
 }
 
+// Fix review "Needs fixes" Critical 2 — nhận diện unique-violation Postgres (SQLSTATE 23505) xuyên
+// qua chuỗi `.cause` (driver `pg` có thể bọc lỗi). Cùng pattern với
+// `workspace-invitation.service.ts` / `snowflake-registry.service.ts` / `runtime-node-registry.service.ts`.
+function isUniqueViolation(err: unknown): boolean {
+  let cur: unknown = err;
+  for (let d = 0; d < 5 && cur; d++) {
+    if (typeof cur === "object" && cur !== null) {
+      const o = cur as { code?: string; message?: string; cause?: unknown };
+      if (o.code === "23505") return true;
+      if (typeof o.message === "string" && o.message.includes("duplicate key value")) return true;
+      cur = o.cause;
+    } else break;
+  }
+  return false;
+}
+
 async function callCompanyApprove(input: {
   organizationId: string;
   projectId: string;
@@ -205,11 +221,18 @@ export async function approveAutomationPlan(
 
   const plan = approval.plan;
 
-  // Phát hiện review Task 5 mục 1 — re-verify connector THẬT ở services/cosa (bảng
-  // connectorAuthorizations sống ở đây), không tin plan.connectors[].status cũ của nháp.
+  // Fix review "Needs fixes" Critical 1 — re-verify connector THẬT ở services/cosa (bảng
+  // connectorAuthorizations sống ở đây), không tin plan.connectors[].status cũ của nháp, VÀ lọc
+  // đúng principal = founder sở hữu lịch (approval.founderUserId, người đã bấm duyệt). Không lọc
+  // theo principal thì founder A đã connect email-read, founder B duyệt (B chưa connect) sẽ mượn
+  // được authorization của A — worker đọc nhầm mailbox A rồi gửi digest vào kênh B.
   const connectorGrantIds: string[] = [];
   for (const connector of plan.connectors) {
-    const ids = await findActiveConnectorAuthorizationIds(input.organizationId, connector.key);
+    const ids = await findActiveConnectorAuthorizationIds(
+      input.organizationId,
+      connector.key,
+      approval.founderUserId
+    );
     if (ids.length === 0) {
       throw APIError.failedPrecondition(
         `automation_plan_not_ready: connector_missing (${connector.key})`
@@ -221,25 +244,48 @@ export async function approveAutomationPlan(
   const promptTemplate = buildAutomationPlanPrompt(plan);
   const agentProfile = SKILL_AGENT_PROFILE[plan.skillId] || "operations";
 
-  const schedule = await createWorkspaceSchedule({
-    organizationId: input.organizationId,
-    createdBy: approval.founderUserId,
-    scheduleKind: plan.schedule.kind,
-    timezone: plan.schedule.timezone,
-    runAt: plan.schedule.runAt ? new Date(plan.schedule.runAt) : null,
-    hour: plan.schedule.hour ?? undefined,
-    minute: plan.schedule.minute ?? undefined,
-    weekdays: plan.schedule.weekdays,
-    promptTemplate,
-    agentProfile,
-    connectorGrantIds: [...new Set(connectorGrantIds)],
-    projectId: input.projectId,
-    preAuthorizedCapabilityIds: approval.capabilityIds,
-    founderMemberId: approval.founderMemberId,
-    founderUserId: approval.founderUserId,
-    automationPlanProposalId: approval.proposalId,
-    tokenBudgetPerRun: plan.tokenBudgetPerRun,
-  });
+  let schedule: repo.ScheduleDefinitionRow;
+  try {
+    schedule = await createWorkspaceSchedule({
+      organizationId: input.organizationId,
+      createdBy: approval.founderUserId,
+      scheduleKind: plan.schedule.kind,
+      timezone: plan.schedule.timezone,
+      runAt: plan.schedule.runAt ? new Date(plan.schedule.runAt) : null,
+      hour: plan.schedule.hour ?? undefined,
+      minute: plan.schedule.minute ?? undefined,
+      weekdays: plan.schedule.weekdays,
+      promptTemplate,
+      agentProfile,
+      connectorGrantIds: [...new Set(connectorGrantIds)],
+      projectId: input.projectId,
+      preAuthorizedCapabilityIds: approval.capabilityIds,
+      founderMemberId: approval.founderMemberId,
+      founderUserId: approval.founderUserId,
+      automationPlanProposalId: approval.proposalId,
+      tokenBudgetPerRun: plan.tokenBudgetPerRun,
+    });
+  } catch (err) {
+    // Fix review "Needs fixes" Critical 2 — 2 request approve cùng proposalId chạy đồng thời:
+    // check-then-create ở trên (mục idempotency) không tự chặn được race giữa lần ĐỌC
+    // `findScheduleDefinitionByProposalId` (rỗng ở cả 2) và lần GHI `createWorkspaceSchedule`
+    // (cả 2 đều insert). UNIQUE INDEX (migration 011) trên `automation_plan_proposal_id` chặn ở
+    // tầng DB — request thua nhận `unique_violation` (23505), coi như đã có lịch (đọc lại bằng
+    // `findScheduleDefinitionByProposalId`) thay vì lỗi thật.
+    if (!isUniqueViolation(err)) {
+      throw err;
+    }
+    const raceWinner = await repo.findScheduleDefinitionByProposalId(input.organizationId, approval.proposalId);
+    if (!raceWinner) {
+      // Không nên xảy ra: unique_violation nghĩa là có dòng khác cùng proposalId, nhưng đọc lại
+      // ngay sau đó không thấy (vd. transaction khác chưa commit xong) — thử phản hồi tạm rồi để
+      // caller retry, thay vì che giấu bằng lỗi mơ hồ.
+      throw APIError.unavailable(
+        "automation_plan_approve_race: lịch đang được tạo bởi request khác, thử lại"
+      );
+    }
+    schedule = raceWinner;
+  }
 
   await callCompanyLinkSchedule({
     organizationId: input.organizationId,
