@@ -787,9 +787,6 @@ class _HubOperationsPanelState extends State<HubOperationsPanel> {
         controller: _controller,
         operatingLoop: widget.operatingLoop.value,
         onTasksChanged: widget.onTasksChanged,
-        isExpanded: widget.isExpanded,
-        onToggleExpand: widget.onToggleExpand,
-        isFullHeight: widget.isFullHeight,
       ),
     );
   }
