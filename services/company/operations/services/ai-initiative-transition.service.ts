@@ -23,6 +23,7 @@ import {
   AiInitiativeGateStatus,
 } from "./ai-initiative-promotion-policy";
 import { appendOutboxEvent } from "../../shared/events/outbox.repository";
+import { computeDecisionHash, AiInitiativePromotionSnapshot } from "./ai-initiative-cosa.client";
 import { makeBusinessEvent } from "../../shared/events/envelope";
 
 const { initiatives } = schema;
@@ -151,6 +152,29 @@ export async function transitionAiInitiative(
     idempotencyKey: params.idempotencyKey,
   });
 
+  const decisionHash = computeDecisionHash(decision.id, nextRevision, toState);
+  const snapshot: AiInitiativePromotionSnapshot = {
+    initiativeId: params.initiativeId,
+    initiativeRevision: nextRevision,
+    workspaceId: params.workspaceId,
+    projectId: params.projectId,
+    lifecycleState: toState,
+    riskTier: existing.riskTier,
+    autonomyTier: existing.autonomyTier,
+    decisionId: decision.id,
+    decisionHash,
+    valueContractRevision: valContract?.revision ?? null,
+    dataReadinessRevision: dataAssessment?.revision ?? null,
+    budgetPolicyRevision: budgetPolicy?.revision ?? null,
+    evaluationSuiteRevision: null,
+    pins: {
+      agentSpecRef: null,
+      workflowRef: null,
+      modelRouteRef: null,
+      knowledgeSnapshotRef: dataAssessment?.knowledgeSnapshotRef ?? null,
+    },
+  };
+
   // Outbox delivery
   const event = makeBusinessEvent({
     eventType: "ai.initiative.promoted.v1",
@@ -171,6 +195,7 @@ export async function transitionAiInitiative(
       to_state: toState,
       revision: nextRevision,
       decision_id: decision.id,
+      snapshot,
     },
   });
 

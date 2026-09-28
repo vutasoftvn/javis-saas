@@ -106,6 +106,19 @@ export async function failOutboxEvent(eventId: string, claimToken: string, error
   `);
 }
 
+export async function getOutboxEventForDecision(decisionId: string): Promise<OutboxRow | null> {
+  const rows = await db.execute(sql`
+    SELECT * FROM integration.event_outbox
+    WHERE envelope->'payload'->>'decision_id' = ${decisionId}
+    ORDER BY occurred_at DESC
+    LIMIT 1;
+  `);
+  const r = ((rows as any).rows as any[])[0];
+  return r ? mapDbRow(r) : null;
+}
+
+export const outboxFor = getOutboxEventForDecision;
+
 export async function pruneDeliveredOutbox(olderThanDays: number): Promise<number> {
   const res = await db.execute(sql`
     DELETE FROM integration.event_outbox
