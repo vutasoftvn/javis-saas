@@ -37,3 +37,4 @@ export * from "./organization-overview.handler";
 export * from "./ai-workforce.handler";
 export * from "./ai-initiative.handler";
 export * from "./ai-initiative-portfolio.handler";
+export * from "./ai-initiative-review.handler";

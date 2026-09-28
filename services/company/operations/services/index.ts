@@ -7,3 +7,4 @@ export * from "./onboard.service";
 export * from "./goals.service";
 export * from "./discovery-project.service";
 export * from "./ai-initiative-portfolio.service";
+export * from "./ai-initiative-review.service";

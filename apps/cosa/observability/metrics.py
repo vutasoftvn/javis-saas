@@ -209,3 +209,13 @@ def set_scheduler_queue_depth(depth: int) -> None:
 def get_prometheus_metrics_payload() -> tuple[bytes, str]:
     """Sinh payload Prometheus text exposition format và Content-Type header."""
     return generate_latest(REGISTRY), CONTENT_TYPE_LATEST
+
+from apps.cosa.observability.initiative_metrics import (
+    COSA_INITIATIVE_RUNS_TOTAL,
+    COSA_INITIATIVE_RUN_DURATION_SECONDS,
+    COSA_INITIATIVE_GATE_EVALUATIONS_TOTAL,
+    COSA_INITIATIVE_ACTIVE_GAUGE,
+    record_initiative_run,
+    record_initiative_gate_evaluation,
+    set_initiative_active_state,
+)
