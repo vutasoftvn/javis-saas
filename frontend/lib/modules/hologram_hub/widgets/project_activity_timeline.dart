@@ -155,13 +155,17 @@ class _ProjectActivityTimelineState extends State<ProjectActivityTimeline> {
             size: 14,
           ),
           const SizedBox(width: 8),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 11,
-              letterSpacing: 0.5,
-              fontWeight: FontWeight.bold,
+          Flexible(
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 11,
+                letterSpacing: 0.5,
+                fontWeight: FontWeight.bold,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           const SizedBox(width: 8),
@@ -305,6 +309,8 @@ class _ProjectActivityTimelineState extends State<ProjectActivityTimeline> {
                           color: Colors.white70,
                           fontSize: 10.5,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -315,25 +321,32 @@ class _ProjectActivityTimelineState extends State<ProjectActivityTimeline> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _getActorIcon(event.actorKind),
-                            size: 13,
-                            color: Colors.white54,
-                          ),
-                          const SizedBox(width: 5),
-                          Text(
-                            event.formatActor(isEn: isEn),
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.65),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w400,
+                      Expanded(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _getActorIcon(event.actorKind),
+                              size: 13,
+                              color: Colors.white54,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 5),
+                            Flexible(
+                              child: Text(
+                                event.formatActor(isEn: isEn),
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.65),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
+                      const SizedBox(width: 8),
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [

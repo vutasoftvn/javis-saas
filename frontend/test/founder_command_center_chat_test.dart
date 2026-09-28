@@ -1,3 +1,5 @@
+import 'package:frontend/core/services/secure_storage_service.dart';
+import 'package:frontend/modules/workforce/services/workforce_mvp_service.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
@@ -28,7 +30,7 @@ void main() {
 
   test('sendChatMessage tạo conversation, gửi message, và render câu trả lời stream về từ SSE', () async {
     ApiClient.client = MockClient((request) async {
-      final path = request.url.path;
+      final path = request.url.path; 
       if (path == '/agent/conversations' && request.method == 'POST') {
         return http.Response(
           '{"id":"conv_1","workspace_id":"ws1","created_by_principal":"p1",'
@@ -90,7 +92,7 @@ void main() {
     late Completer<http.Response> projACompleter;
 
     ApiClient.client = MockClient((request) async {
-      final path = request.url.path;
+      final path = request.url.path; 
 
       // Project A conversation creation — we'll delay this completion
       if (path == '/agent/conversations' && request.method == 'POST') {
@@ -150,7 +152,7 @@ void main() {
 
   test('loadDashboardData marks workforceState and approvalsState as unavailable when service is unavailable', () async {
     ApiClient.client = MockClient((request) async {
-      final path = request.url.path;
+      final path = request.url.path; 
       if (path == '/identity/workspaces/ws1') {
         return http.Response(
           '{"data":{"id":"ws1","name":"Workspace 1","projects":[{"id":"proj_1","title":"Project 1","lifecycleStage":"P0_DISCOVERY"}]}}',
@@ -166,5 +168,58 @@ void main() {
     expect(controller.workforceState.value, WorkforceLoadState.unavailable);
     expect(controller.approvalsState.value, WorkforceLoadState.unavailable);
     expect(controller.pendingApprovals, isEmpty);
+  });
+
+  test("sendChatMessage bằng text hoặc voice affirmative tự động duyệt thẻ approval đang pending", () async {
+    await SecureStorageService.write("auth_token", "test-token");
+    await SecureStorageService.write("workspace_id", "ws1");
+    String? decidedApprovalId;
+    bool? decidedApprovalFlag;
+
+    final mockClient = MockClient((request) async {
+      final path = request.url.path;
+      if (path.contains("/agent/workforce/approvals/appr_123/decision")) {
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        decidedApprovalId = "appr_123";
+        decidedApprovalFlag = body["approved"] as bool?;
+        return http.Response(
+          jsonEncode({
+            "data": {
+              "approval_id": "appr_123",
+              "run_id": "run_123",
+              "status": "APPROVED",
+              "reviewer": "user_1",
+              "decided_at": "2026-09-28T00:00:00Z"
+            }
+          }),
+          200,
+        );
+      }
+      return http.Response("not found", 404);
+    });
+    ApiClient.client = mockClient;
+
+    final controller = Get.put(
+      FounderCommandCenterController(
+        workforceMvpService: WorkforceMvpService(httpClient: mockClient),
+      ),
+    );
+    controller.activeProjectId.value = "proj_1";
+    controller.chatMessages.add({
+      "role": "approval",
+      "approval_id": "appr_123",
+      "run_id": "run_123",
+      "title": "Cập nhật Key Result",
+      "detail": "Trạng thái mới: đang thực hiện",
+      "status": "pending",
+    });
+
+    // Founder gửi text (hoặc nói voice -> text transcript) "ok em"
+    await controller.sendChatMessage("ok em");
+
+    expect(decidedApprovalId, "appr_123");
+    expect(decidedApprovalFlag, true);
+    final card = controller.chatMessages.firstWhere((m) => m["approval_id"] == "appr_123");
+    expect(card["status"], "approved");
   });
 }

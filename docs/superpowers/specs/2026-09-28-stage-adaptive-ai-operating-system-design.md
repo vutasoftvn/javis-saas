@@ -173,6 +173,19 @@ Transitions use optimistic `expectedVersion`, an idempotency key, authenticated
 actor, reason code and append-only event. A rejected transition returns a typed
 machine code plus missing gate identifiers; it never silently coerces status.
 
+`strategy.initiatives` already carries a separate, pre-existing `approvalStatus`
+field (`DRAFT | PENDING_APPROVAL | APPROVED | REJECTED | CLOSED`) that gates
+"strategic execution" eligibility independent of AI maturity. This design does
+not replace it and does not let `lifecycle_state` progress independent of it:
+**`DISCOVER -> PILOT` requires `approvalStatus = APPROVED`** on the initiative
+record, checked in the same transaction as the lifecycle transition. A `DRAFT`
+or `REJECTED` initiative stays in `DISCOVER` regardless of how much AI evidence
+it accumulates. `approvalStatus` and `lifecycle_state` remain otherwise
+independent after that gate: approval status does not advance automatically as
+lifecycle progresses, and later `approvalStatus` changes (e.g. `CLOSED`) are a
+Company governance action that must pause the Initiative via existing revoke
+handling, not a silent lifecycle side effect.
+
 ### 6.3 Value contract
 
 Một Initiative từ `PILOT` trở lên phải có exactly one active `AiValueContract`:
@@ -235,6 +248,10 @@ spend/action limits, authenticated recipient, kill switch and post-action audit.
 `InitiativePromotionPolicy` là derived code policy, versioned/persisted as a
 snapshot on transition. Minimum rules:
 
+- `DISCOVER → PILOT`: `approvalStatus = APPROVED` on the initiative record, in
+  addition to owner + problem + intended outcome + initial risk/data
+  assessment (see 6.2). Missing or non-`APPROVED` status is a blocking gate,
+  not a warning.
 - `PILOT → VALIDATE`: baseline + metric + owner + risk tier + assessment.
 - `VALIDATE → SCALE_CANDIDATE`: evaluation suite passes; cost budget; data
   readiness meets required level; no unresolved critical finding.

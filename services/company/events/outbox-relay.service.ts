@@ -25,9 +25,21 @@ export interface RelayDeps {
   agentOsUrl: string;
 }
 
+// Task 6/13 (plan 2026-09-28-stage-adaptive-ai-operating-system) — this relay
+// forwards every claimed event to the generic `/agent/internal/events` rule
+// dispatcher (apps/cosa/events/router.py), which has no rule for
+// `ai.initiative.promoted.v1` and does not understand the promotion snapshot
+// contract. That event type has its OWN dedicated relay
+// (ai-initiative-relay.service.ts -> `/internal/ai-initiatives/snapshots`),
+// so it is excluded here to avoid a race where either relay could claim it
+// and forward it to the wrong endpoint.
+export const AI_INITIATIVE_PROMOTED_EVENT_TYPE = "ai.initiative.promoted.v1";
+
 export async function runRelayOnce(deps: RelayDeps): Promise<void> {
   assertInternalTarget(deps.agentOsUrl);
-  const rows = await claimDueOutboxEvents("company-relay", deps.batchLimit);
+  const rows = await claimDueOutboxEvents("company-relay", deps.batchLimit, undefined, {
+    excludeEventType: AI_INITIATIVE_PROMOTED_EVENT_TYPE,
+  });
   const secret = requireLocalServiceSecret();
   for (const row of rows) {
     const payload = JSON.stringify(row.envelope);

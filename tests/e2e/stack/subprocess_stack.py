@@ -283,6 +283,14 @@ def boot_subprocess_stack(
                 # Đích relay outbox → apps/cosa intake. Mặc định code là
                 # `http://127.0.0.1:8000`, sai khi stack dùng cổng động.
                 COSA_AGENTOS_INTAKE_URL=api_url,
+                # Task 6/13 (plan 2026-09-28-stage-adaptive-ai-operating-system) —
+                # ai-initiative-relay.service.ts::publishPromotionSnapshotToCosa
+                # dùng requireCosaInternalUrl() (COSA_INTERNAL_URL), một biến
+                # KHÁC với COSA_AGENTOS_INTAKE_URL ở trên dù cùng trỏ tới apps/cosa
+                # API của stack này — thiếu biến này khiến nó rơi về default
+                # `http://127.0.0.1:8000` (sai cổng động), relay không bao giờ tới
+                # đích thật dù outbox event vẫn được claim/gửi "thành công".
+                COSA_INTERNAL_URL=api_url,
             ),
         )
         procs.append(company)

@@ -171,7 +171,7 @@ describe("AI Initiative COSA Client & Outbox Integration", () => {
         riskTier: "LOW",
         autonomyTier: "A0",
         decisionId: "dec-100",
-        decisionHash: computeDecisionHash("dec-100", 2, "PILOT"),
+        decisionHash: computeDecisionHash("dec-100", 2, "PILOT", "ws-1", "proj-1"),
         pins: {},
       };
 

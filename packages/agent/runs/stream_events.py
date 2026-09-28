@@ -125,7 +125,7 @@ class PostgresRunStreamEventRepository:
                 {
                     "run_id": event.run_id,
                     "event_type": event.event_type,
-                    "payload": json.dumps(event.payload),
+                    "payload": json.dumps(event.payload, default=str),
                     "conversation_id": event.conversation_id,
                     "workspace_id": event.workspace_id,
                     "project_id": event.project_id,

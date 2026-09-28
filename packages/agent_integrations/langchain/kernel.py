@@ -534,7 +534,7 @@ class LangChainKernel:
                 await self._emit_event(
                     run_id,
                     "run.waiting",
-                    {"waits": [w.model_dump() for w in waits]},
+                    {"waits": [w.model_dump(mode="json") for w in waits]},
                     correlation_id,
                 )
                 return RunResult(

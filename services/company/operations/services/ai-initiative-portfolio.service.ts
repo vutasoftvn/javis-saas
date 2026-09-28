@@ -181,7 +181,7 @@ export async function getAiInitiativePortfolio(
 
     const baselineVal = vc?.baselineValue != null ? String(vc.baselineValue).replace(/\.?0+$/, "") : null;
     const targetVal = vc?.targetValue != null ? String(vc.targetValue).replace(/\.?0+$/, "") : null;
-    const outcomeVal = vm?.measuredValue != null ? String(vm.measuredValue).replace(/\.?0+$/, "") : null;
+    const outcomeVal = vm?.observedValue != null ? String(vm.observedValue).replace(/\.?0+$/, "") : null;
 
     let nextGate = "VALIDATION_BASELINE_AND_METRICS";
     const blockingReasons: string[] = [];
@@ -248,7 +248,7 @@ export async function getAiInitiativePortfolio(
       costBudgetStatus: bp ? "OK" : "NOT_CONFIGURED",
       adoptionStatus: vm ? "HEALTHY" : "NO_DATA",
       qualityStatus: "PASSED",
-      dataReadinessStatus: da?.readinessLevel ?? "NO_ASSESSMENT",
+      dataReadinessStatus: da?.assessmentStatus ?? "NO_ASSESSMENT",
       nextRequiredGate: nextGate,
       blockingReasons,
       authorizedActions,

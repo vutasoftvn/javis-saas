@@ -566,3 +566,46 @@ async def test_openai_agents_sdk_kernel_live_deepseek_tool_call():
     assert result.status == RunStatus.COMPLETED
     assert len(captured) >= 1
     assert "42" in str(result.final_output)
+
+
+@pytest.mark.asyncio
+async def test_run_waiting_event_payload_is_json_serializable():
+    repo = InMemoryRunRepository()
+    registry = CapabilityRegistry()
+    cap = CapabilitySpec(
+        id="finance.payout.execute",
+        description="Execute financial payout",
+        input_schema={"type": "object", "properties": {"amount": {"type": "number"}}},
+    )
+    registry.register(cap, lambda args: {})
+    model = FakeSDKModel(
+        responses=[
+            tool_call_response(
+                "call_serial_test",
+                "finance.payout.execute",
+                arguments="{\"amount\": 500}",
+            )
+        ]
+    )
+    kernel = RealOpenAIAgentsSDKKernel(
+        repository=repo,
+        capability_registry=registry,
+        capability_executor=lambda name, args: {"status": "paid"},
+        model=model,
+        policy_evaluator=lambda name, args, ctx=None: "REQUIRE_APPROVAL",
+    )
+    spec = _build_finance_spec()
+    request = _build_request(spec=spec)
+    result = await kernel.run(request, spec)
+    assert result.status == RunStatus.WAITING_APPROVAL
+
+    events = repo._events.get(result.run_id, [])
+    waiting_events = [e for e in events if e.event_type == "run.waiting"]
+    assert len(waiting_events) == 1
+    # Must serialize with standard json.dumps without raising TypeError
+    dumped = json.dumps(waiting_events[0].payload)
+    parsed = json.loads(dumped)
+    assert "waits" in parsed
+    assert len(parsed["waits"]) == 1
+    assert parsed["waits"][0]["kind"] == "approval"
+    assert isinstance(parsed["waits"][0]["created_at"], str)

@@ -109,6 +109,7 @@ class CosaAgentPlane:
         model_routing_session_factory: Any | None = None,
         model_routing_repository: Any | None = None,
         usage_ledger: Any | None = None,
+        ai_initiative_snapshot_store: Any | None = None,
         project_activity_repository: ProjectActivityRepository | None = None,
         project_activity_service: ProjectActivityService | None = None,
         skill_candidate_store: SkillCandidateStore | None = None,
@@ -187,6 +188,13 @@ class CosaAgentPlane:
         self.model_routing_repository = model_routing_repository
         # Review 2026-09-27 G-3 — sổ cái usage/ngân sách (run_core.run_kernel).
         self.usage_ledger = usage_ledger
+
+        # Task 6 (plan 2026-09-28-stage-adaptive-ai-operating-system) — durable
+        # idempotency + "current snapshot" store cho AI Initiative promotion
+        # snapshot mà Company đẩy qua apps/cosa/api/ai_initiative_internal_routes.py.
+        # Task 8's assert_initiative_run_allowed() đọc get_current() từ đây, nên
+        # PHẢI là Postgres khi có DB — không được quên sau restart.
+        self.ai_initiative_snapshot_store = ai_initiative_snapshot_store
 
         # Task 3 (plan 2026-09-11-project-scoped-founder-hub) — durable
         # Project Activity repository, dùng bởi project_activity_routes.py
@@ -268,6 +276,22 @@ def _build_usage_ledger(session_factory: Any | None) -> Any:
     if session_factory is not None:
         return PostgresUsageLedger(session_factory)
     return InMemoryUsageLedger()
+
+
+def _build_ai_initiative_snapshot_store(session_factory: Any | None) -> Any:
+    """Task 6 — durable idempotency/current-snapshot store for Company AI
+    Initiative promotion delivery. Postgres khi có DB (cùng session factory
+    của usage ledger/model routing), InMemory chỉ cho test/dev: một process
+    restart production KHÔNG được quên snapshot đã consume (Task 13 E2E yêu
+    cầu restart/recovery), nên không âm thầm rơi về in-memory khi có DB."""
+    from apps.cosa.models.ai_initiative_snapshot import (
+        InMemoryAiInitiativePromotionSnapshotStore,
+        PostgresAiInitiativePromotionSnapshotStore,
+    )
+
+    if session_factory is not None:
+        return PostgresAiInitiativePromotionSnapshotStore(session_factory)
+    return InMemoryAiInitiativePromotionSnapshotStore()
 
 
 def build_cosa_agent_plane(
@@ -355,6 +379,14 @@ def build_cosa_agent_plane(
     # execute) và `automation.plan.propose` (kiểm trạng thái connector khi đề xuất kế hoạch).
     connector_grant_client = ConnectorGrantHttpClient(base_url=resolve_platform_control_plane_url())
 
+    # Task 11 (plan 2026-09-28-stage-adaptive-ai-operating-system) — dựng SỚM
+    # (trước capability registration) để `knowledge.enterprise.read` handler
+    # (Task 11) và `CosaAgentPlane.ai_initiative_snapshot_store` (Task 6/8)
+    # dùng CHUNG một instance/table, không tạo 2 store rời nhau.
+    resolved_ai_initiative_snapshot_store = _build_ai_initiative_snapshot_store(
+        storage.model_routing_session_factory
+    )
+
     # 2. Capability Registry & Handlers
     cap_registry = CapabilityRegistry()
     register_cosa_capabilities(
@@ -371,6 +403,7 @@ def build_cosa_agent_plane(
         # (đã wire vault_repository cho path InMemory, xem storage_factory.py).
         knowledge_ingestion_service=storage.knowledge_ingestion_service,
         connector_grant_client=connector_grant_client,
+        ai_initiative_snapshot_store=resolved_ai_initiative_snapshot_store,
     )
 
     # 3. Policy Engine & Approval Service
@@ -572,6 +605,7 @@ def build_cosa_agent_plane(
         model_routing_session_factory=storage.model_routing_session_factory,
         model_routing_repository=storage.model_routing_repository,
         usage_ledger=_build_usage_ledger(storage.model_routing_session_factory),
+        ai_initiative_snapshot_store=resolved_ai_initiative_snapshot_store,
         project_activity_repository=storage.project_activity_repository,
         project_activity_service=resolved_project_activity_service,
         skill_candidate_store=storage.skill_candidate_store,

@@ -5,23 +5,42 @@ transitions lifecycle stages (DISCOVER -> PILOT -> VALIDATE -> SCALE_CANDIDATE -
 
 Auth: header `X-Cosa-Service-Token` matching `COSA_SERVICE_TOKEN` or `COSA_INTERNAL_SERVICE_TOKEN`.
 Fail closed on foreign project, invalid/drifted hash, or missing credentials.
-Idempotent: duplicate snapshot delivery with identical decision_id returns 200 without side effects.
+Idempotent: duplicate snapshot delivery with identical decision_id returns 200 without side effects,
+and survives process restart via the Postgres-backed
+`apps.cosa.models.ai_initiative_snapshot.AiInitiativePromotionSnapshotStore` (see
+`CosaAgentPlane.ai_initiative_snapshot_store`) — an in-memory dict here would forget
+consumed snapshots on restart and break both idempotent retry and Task 8's
+`assert_initiative_run_allowed()`, which reads the current snapshot at run time.
+
+`decision_hash` binds `decision_id:revision:lifecycle_state:workspace_id:project_id`
+(see `services/company/operations/services/ai-initiative-cosa.client.ts:computeDecisionHash`,
+which Company uses to compute it). Recomputing and comparing it here is the actual
+scope/tamper check — a resubmitted decision with a swapped project_id or workspace_id
+fails hash verification because those fields are part of the signed input, not because
+of any string heuristic on the field's content.
 """
 
 from __future__ import annotations
 
+import hashlib
 import os
 from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
+from apps.cosa.models.ai_initiative_snapshot import AiInitiativePromotionSnapshot
+
 router = APIRouter(prefix="/internal/ai-initiatives", tags=["ai-initiatives-internal"])
 
-_DEV_TOKEN = "dev-cosa-service-token"
-
-# In-memory storage for consumed promotion snapshots (idempotency store)
-_consumed_snapshots: dict[str, dict[str, Any]] = {}
+# Must match the Company-side dev fallback exactly — both sides fall back to
+# this value ONLY when COSA_SERVICE_TOKEN/COSA_INTERNAL_SERVICE_TOKEN are
+# unset (dev/test convenience). See
+# services/company/shared/events/service-identity.ts::DEV_TOKEN — the plan's
+# Task 6 design intends these to be the SAME shared secret (Company's
+# requireCosaServiceToken() and this check), not two independent tokens that
+# happen to have different string values.
+_DEV_TOKEN = "local-dev-service-token"
 
 
 def _require_service_token(token: str | None) -> None:
@@ -35,6 +54,21 @@ def _require_service_token(token: str | None) -> None:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="invalid service token",
         )
+
+
+def compute_decision_hash(
+    decision_id: str,
+    revision: int,
+    lifecycle_state: str,
+    workspace_id: str,
+    project_id: str,
+) -> str:
+    """Must match `computeDecisionHash` in
+    `services/company/operations/services/ai-initiative-cosa.client.ts` exactly —
+    same field order and `:` separator."""
+    return hashlib.sha256(
+        f"{decision_id}:{revision}:{lifecycle_state}:{workspace_id}:{project_id}".encode()
+    ).hexdigest()
 
 
 class PromotionSnapshotRequest(BaseModel):
@@ -52,6 +86,8 @@ class PromotionSnapshotRequest(BaseModel):
     data_readiness_revision: int | None = None
     budget_policy_revision: int | None = None
     evaluation_suite_revision: int | None = None
+    data_readiness_status: str | None = None
+    retrieval_mode: str | None = None
 
 
 class PromotionSnapshotResponse(BaseModel):
@@ -61,76 +97,86 @@ class PromotionSnapshotResponse(BaseModel):
     initiative_id: str
 
 
+def _get_snapshot_store(request: Request) -> Any:
+    plane = getattr(request.app.state, "plane", None) or getattr(
+        request.app.state, "cosa_agent_plane", None
+    )
+    store = getattr(plane, "ai_initiative_snapshot_store", None) if plane else None
+    if store is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="ai initiative snapshot store not initialized",
+        )
+    return store
+
+
 @router.post("/snapshots", response_model=PromotionSnapshotResponse)
 async def consume_promotion_snapshot(
+    request: Request,
     body: PromotionSnapshotRequest,
     x_cosa_service_token: str | None = Header(default=None),
 ) -> PromotionSnapshotResponse:
     # 1. Require internal service token
     _require_service_token(x_cosa_service_token)
 
-    # 2. Scope containment: reject foreign project or drifted decision hash
-    if not body.project_id or "foreign" in body.project_id.lower():
+    # 2. Required scope identity — fail closed on any missing field instead of
+    # silently treating it as "no constraint" (see module docstring: the real
+    # scope/tamper check is the hash comparison below, this is just presence).
+    for field_name, value in (
+        ("workspace_id", body.workspace_id),
+        ("project_id", body.project_id),
+        ("initiative_id", body.initiative_id),
+        ("decision_id", body.decision_id),
+    ):
+        if not value:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"{field_name} is required",
+            )
+
+    # 3. Recompute and verify decision_hash — the real scope/tamper check.
+    # A decision resubmitted under a different project_id/workspace_id, or with
+    # a mutated decision_id/revision/lifecycle_state, fails this comparison
+    # because all five fields are bound into the hash Company computed.
+    expected_hash = compute_decision_hash(
+        body.decision_id,
+        body.initiative_revision,
+        body.lifecycle_state,
+        body.workspace_id,
+        body.project_id,
+    )
+    if not body.decision_hash or body.decision_hash != expected_hash:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="foreign project rejected: scope containment violation",
+            detail="decision hash mismatch: scope or lifecycle drift detected",
         )
 
-    if not body.decision_hash or "drift" in body.decision_hash.lower() or len(body.decision_hash) < 8:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="decision hash drift detected or invalid hash",
-        )
-
-    if not body.workspace_id or "foreign" in body.workspace_id.lower():
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="foreign workspace rejected",
-        )
-
-    # 3. Idempotency handling
+    # 4. Durable idempotent consume (Postgres-backed; survives restart).
+    store = _get_snapshot_store(request)
     idempotency_key = f"{body.workspace_id}:{body.initiative_id}:{body.decision_id}"
-    if idempotency_key in _consumed_snapshots:
-        return PromotionSnapshotResponse(
-            status="already_consumed",
-            accepted=True,
-            decision_id=body.decision_id,
-            initiative_id=body.initiative_id,
-        )
-
-    # Store snapshot state
-    _consumed_snapshots[idempotency_key] = body.model_dump()
+    snapshot = AiInitiativePromotionSnapshot(
+        workspace_id=body.workspace_id,
+        project_id=body.project_id,
+        initiative_id=body.initiative_id,
+        initiative_revision=body.initiative_revision,
+        decision_id=body.decision_id,
+        decision_hash=body.decision_hash,
+        lifecycle_state=body.lifecycle_state,
+        risk_tier=body.risk_tier,
+        autonomy_tier=body.autonomy_tier,
+        pins=body.pins,
+        value_contract_revision=body.value_contract_revision,
+        data_readiness_revision=body.data_readiness_revision,
+        budget_policy_revision=body.budget_policy_revision,
+        evaluation_suite_revision=body.evaluation_suite_revision,
+        data_readiness_status=body.data_readiness_status,
+        retrieval_mode=body.retrieval_mode,
+    )
+    _, already_consumed = await store.consume(idempotency_key, snapshot)
 
     return PromotionSnapshotResponse(
-        status="accepted",
+        status="already_consumed" if already_consumed else "accepted",
         accepted=True,
         decision_id=body.decision_id,
         initiative_id=body.initiative_id,
     )
-
-
-def get_consumed_snapshot(workspace_id: str, initiative_id: str) -> dict[str, Any] | None:
-    """Retrieve the latest consumed snapshot for a workspace and initiative."""
-    candidates = [
-        snap for snap in _consumed_snapshots.values()
-        if snap.get("workspace_id") == workspace_id and snap.get("initiative_id") == initiative_id
-    ]
-    if not candidates:
-        return None
-    # Sort by revision descending
-    candidates.sort(key=lambda s: s.get("initiative_revision", 0), reverse=True)
-    return candidates[0]
-
-
-def store_consumed_snapshot(snapshot: dict[str, Any]) -> None:
-    """Programmatically store or override a snapshot (useful for testing and local seeds)."""
-    ws = snapshot.get(workspace_id)
-    init_id = snapshot.get(initiative_id)
-    dec_id = snapshot.get(decision_id, default)
-    key = f"{ws}:{init_id}:{dec_id}"
-    _consumed_snapshots[key] = snapshot
-
-
-def clear_consumed_snapshots() -> None:
-    """Clear snapshot store (useful for test isolations)."""
-    _consumed_snapshots.clear()

@@ -103,6 +103,10 @@ git commit -m "feat(contract): define AI initiative endpoints"
 - Consumes: existing `strategy.initiatives`, `strategy.initiative_key_results`, `strategy.projects`, `key_results`.
 - Produces: `AiInitiative` read type; no create/update path can choose a first Project or first Key Result.
 
+- [ ] **Step 0: Audit existing callers of `createInitiativeAuthorized` before removing the first-Project/first-KR fallback.**
+
+Grep every caller across `services/company` (internal service-to-service calls), `shared/contracts/mvp-surface.json`-generated handlers, and `frontend/lib` (any initiative-creation form/service) for calls that omit `projectId` or `keyResultIds` and currently rely on the fallback at `initiative.service.ts:233-258`. Record findings (caller path, whether it omits either field) directly in this task's PR description or a scratch note — do not skip this because "MVP likely has no such caller." If a real caller is found, Step 4 must add an explicit `projectId`/`keyResultIds` argument at that call site as part of this task, not defer it.
+
 - [ ] **Step 1: Write failing service tests for explicit Project/KR, same-Workspace ownership, and legacy remediation.**
 
 ```ts
@@ -219,6 +223,10 @@ it("allows PILOT to VALIDATE only with baseline, metric, owner, risk and data as
 it("rejects cross-Project evidence and a stale expectedRevision", async () => {
   await expect(transitionAiInitiative(staleOrForeignEvidence, ctx)).rejects.toThrow("Revision conflict");
 });
+
+it("rejects DISCOVER to PILOT when approvalStatus is not APPROVED", async () => {
+  await expect(transitionAiInitiative(discoverToPilotWithDraftApproval, ctx)).rejects.toThrow("approvalStatus must be APPROVED");
+});
 ```
 
 - [ ] **Step 2: Run the tests and verify they fail because no transition service exists.**
@@ -229,7 +237,7 @@ Expected: FAIL with missing service/route.
 
 - [ ] **Step 3: Implement `evaluateAiInitiativePromotionGates`.**
 
-Signature: `evaluateAiInitiativePromotionGates(input: AiInitiativeGateInput): readonly AiInitiativeGateStatus[]`. Make it a pure function mapping Project stage, lifecycle edge, risk/autonomy tier and evidence identities to required gate codes; do not query DB or call COSA.
+Signature: `evaluateAiInitiativePromotionGates(input: AiInitiativeGateInput): readonly AiInitiativeGateStatus[]`. Make it a pure function mapping Project stage, lifecycle edge, risk/autonomy tier and evidence identities to required gate codes; do not query DB or call COSA. For the `DISCOVER -> PILOT` edge, `input` must include the initiative's current `approvalStatus`; require `APPROVED` and return a blocking `APPROVAL_STATUS_REQUIRED` gate code otherwise, per spec §6.2/§7.2.
 
 - [ ] **Step 4: Implement `transitionAiInitiative`.**
 
@@ -311,7 +319,7 @@ git commit -m "feat(agent): attribute usage to AI initiatives"
 **Files:**
 - Create: `services/company/operations/services/ai-initiative-cosa.client.ts`
 - Modify: `services/company/operations/services/ai-initiative-transition.service.ts`
-- Modify: `services/company/shared/events/outbox.ts` or the existing Company outbox publisher
+- Modify: `services/company/shared/events/outbox.repository.ts` (existing Company outbox publisher; also review `services/company/events/outbox-relay.service.ts` for delivery wiring)
 - Create: `apps/cosa/api/ai_initiative_internal_routes.py`
 - Modify: `apps/cosa/api/app.py`
 - Test: `services/company/operations/tests/ai-initiative-cosa.client.test.ts`

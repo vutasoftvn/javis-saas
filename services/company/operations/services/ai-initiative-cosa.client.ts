@@ -23,12 +23,27 @@ export interface AiInitiativePromotionSnapshot {
   dataReadinessRevision?: number | null;
   budgetPolicyRevision?: number | null;
   evaluationSuiteRevision?: number | null;
+  // Task 11 — carried alongside dataReadinessRevision so COSA's knowledge
+  // readiness gate (apps/cosa/knowledge/initiative_readiness.py) can decide
+  // NOT_READY/CONDITIONAL/READY + lexical/semantic without a cross-plane
+  // lookup back into Company's strategy.ai_initiative_data_readiness_assessments.
+  dataReadinessStatus?: "NOT_READY" | "CONDITIONAL" | "READY" | null;
+  retrievalMode?: "none" | "lexical" | "semantic" | null;
   pins: AiInitiativePromotionPins;
 }
 
-export function computeDecisionHash(decisionId: string, revision: number, targetState: string): string {
+export function computeDecisionHash(
+  decisionId: string,
+  revision: number,
+  targetState: string,
+  workspaceId: string,
+  projectId: string
+): string {
+  // Binds workspace/project scope into the hash so COSA can independently
+  // detect a resubmitted decision whose project/workspace was swapped, not
+  // just a corrupted decisionId/revision/targetState — see plan Task 6.
   return createHash("sha256")
-    .update(`${decisionId}:${revision}:${targetState}`)
+    .update(`${decisionId}:${revision}:${targetState}:${workspaceId}:${projectId}`)
     .digest("hex");
 }
 
@@ -77,6 +92,8 @@ export async function publishPromotionSnapshotToCosa(
         data_readiness_revision: snapshot.dataReadinessRevision ?? null,
         budget_policy_revision: snapshot.budgetPolicyRevision ?? null,
         evaluation_suite_revision: snapshot.evaluationSuiteRevision ?? null,
+        data_readiness_status: snapshot.dataReadinessStatus ?? null,
+        retrieval_mode: snapshot.retrievalMode ?? null,
         pins: snapshot.pins || {},
       }),
     });

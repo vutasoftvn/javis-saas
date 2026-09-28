@@ -129,25 +129,32 @@ async def prepare_request(
     )
 
     if initiative_id:
-        from apps.cosa.api.ai_initiative_internal_routes import get_consumed_snapshot
         from apps.cosa.governance.initiative_policy import assert_initiative_run_allowed
 
-        snapshot = get_consumed_snapshot(workspace_id, str(initiative_id))
-        if snapshot is not None:
-            decision = assert_initiative_run_allowed(snapshot, req)
-            if not decision.allowed:
-                raise RunCoreError(
-                    decision.reason_code,
-                    compliance_code=decision.reason_code.upper(),
-                )
-            if decision.initiative_revision is not None:
-                run_metadata["initiative_revision"] = decision.initiative_revision
-            if decision.autonomy_tier is not None:
-                run_metadata["autonomy_tier"] = decision.autonomy_tier
-            if decision.risk_tier is not None:
-                run_metadata["risk_tier"] = decision.risk_tier
-            if decision.decision_hash:
-                run_metadata["decision_hash"] = decision.decision_hash
+        store = getattr(plane, "ai_initiative_snapshot_store", None)
+        snapshot = await store.get_current(workspace_id, str(initiative_id)) if store is not None else None
+        if snapshot is None:
+            # Run tagged với initiative_id nhưng KHÔNG có snapshot promotion nào
+            # (chưa từng promote, hoặc store chưa wire) — fail closed, không
+            # âm thầm bỏ qua policy gate (trước đây skip hoàn toàn ở đây).
+            raise RunCoreError(
+                "initiative_snapshot_not_found",
+                compliance_code="INITIATIVE_SNAPSHOT_NOT_FOUND",
+            )
+        decision = assert_initiative_run_allowed(snapshot, req)
+        if not decision.allowed:
+            raise RunCoreError(
+                decision.reason_code,
+                compliance_code=decision.reason_code.upper(),
+            )
+        if decision.initiative_revision is not None:
+            run_metadata["initiative_revision"] = decision.initiative_revision
+        if decision.autonomy_tier is not None:
+            run_metadata["autonomy_tier"] = decision.autonomy_tier
+        if decision.risk_tier is not None:
+            run_metadata["risk_tier"] = decision.risk_tier
+        if decision.decision_hash:
+            run_metadata["decision_hash"] = decision.decision_hash
 
     return await apply_compliance(plane, req=req, spec=spec, compliance_spec=compliance_spec)
 

@@ -97,9 +97,33 @@ def test_initiative_policy_protected_run_requires_scale_candidate_or_scaled():
     assert decision.allowed is False
     assert decision.reason_code == "initiative_lifecycle_not_scale_candidate_or_scaled"
 
+    # A protected run also requires a current evaluation_result once the
+    # lifecycle gate is satisfied — see test below for the missing-evaluation
+    # case; here we supply a non-drifted, passing one to isolate the
+    # lifecycle-state assertion.
     snapshot_scaled = _sample_snapshot(lifecycle_state="SCALED")
-    decision_scaled = assert_initiative_run_allowed(snapshot_scaled, req)
+    passing_eval = InitiativeEvaluationResult(
+        result_id="res_scaled_ok",
+        suite_id="suite_1",
+        suite_hash="hash_1",
+        workspace_id="ws_test",
+        project_id="proj_test",
+        initiative_id="init_123",
+        pins=EvaluationPinSet(agent_spec_ref="spec_1", model_route_ref="route_1"),
+        passed=True,
+    )
+    decision_scaled = assert_initiative_run_allowed(
+        snapshot_scaled, req, evaluation_result=passing_eval
+    )
     assert decision_scaled.allowed is True
+
+
+def test_initiative_policy_protected_run_requires_evaluation_result():
+    snapshot_scaled = _sample_snapshot(lifecycle_state="SCALED")
+    req = _sample_run_request(is_protected=True)
+    decision = assert_initiative_run_allowed(snapshot_scaled, req)
+    assert decision.allowed is False
+    assert decision.reason_code == "evaluation_result_required"
 
 
 def test_initiative_policy_pin_drift_denied():

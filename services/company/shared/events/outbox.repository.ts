@@ -54,19 +54,36 @@ export async function appendOutboxEvent(
  * intentionally sharded by tenant. The optional scope also keeps callers from
  * claiming unrelated tenants while recovering a known event.
  */
+export interface ClaimDueOutboxEventsOptions {
+  /** Only claim events of this eventType (used by a relay that owns exactly one event type). */
+  eventType?: string;
+  /** Never claim events of this eventType (used by the generic relay to leave a dedicated-relay
+   * event type alone — see ai-initiative-relay.service.ts). */
+  excludeEventType?: string;
+}
+
 export async function claimDueOutboxEvents(
   workerId: string,
   limit: number,
   workspaceId?: string,
+  options?: ClaimDueOutboxEventsOptions,
 ): Promise<OutboxRow[]> {
   const token = `${workerId}:${randomUUID().slice(0, 12)}`;
   const workspaceScope = workspaceId ? sql`AND workspace_id = ${workspaceId}` : sql``;
+  const includeScope = options?.eventType
+    ? sql`AND event_type = ${options.eventType}`
+    : sql``;
+  const excludeScope = options?.excludeEventType
+    ? sql`AND event_type != ${options.excludeEventType}`
+    : sql``;
   const rows = await db.execute(sql`
     WITH due AS (
       SELECT id FROM integration.event_outbox
       WHERE (status = 'pending'
          OR (status = 'claimed' AND visibility_timeout_at < now()))
         ${workspaceScope}
+        ${includeScope}
+        ${excludeScope}
       ORDER BY occurred_at
       FOR UPDATE SKIP LOCKED
       LIMIT ${limit}

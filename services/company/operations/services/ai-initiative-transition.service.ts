@@ -152,7 +152,13 @@ export async function transitionAiInitiative(
     idempotencyKey: params.idempotencyKey,
   });
 
-  const decisionHash = computeDecisionHash(decision.id, nextRevision, toState);
+  const decisionHash = computeDecisionHash(
+    decision.id,
+    nextRevision,
+    toState,
+    params.workspaceId,
+    params.projectId
+  );
   const snapshot: AiInitiativePromotionSnapshot = {
     initiativeId: params.initiativeId,
     initiativeRevision: nextRevision,
@@ -167,6 +173,8 @@ export async function transitionAiInitiative(
     dataReadinessRevision: dataAssessment?.revision ?? null,
     budgetPolicyRevision: budgetPolicy?.revision ?? null,
     evaluationSuiteRevision: null,
+    dataReadinessStatus: dataAssessment?.assessmentStatus ?? null,
+    retrievalMode: dataAssessment?.retrievalMode ?? null,
     pins: {
       agentSpecRef: null,
       workflowRef: null,

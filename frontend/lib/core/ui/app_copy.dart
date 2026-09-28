@@ -40,8 +40,8 @@ class AppCopy {
           : 'Hãy hỏi COSA về tiến độ kinh doanh, phản biện giả định hoặc giao Mission!';
   static String get hubChatInputHint =>
       Get.locale?.languageCode == 'en'
-          ? 'Enter message for Co-Founder...'
-          : 'Nhập tin nhắn trao đổi với Co-Founder...';
+          ? 'Discuss work with COSA...'
+          : 'Hãy trao đổi công việc với COSA nhé!';
   static String get hubChatNewChatTooltip =>
       Get.locale?.languageCode == 'en'
           ? 'New Chat'

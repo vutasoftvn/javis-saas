@@ -1004,9 +1004,57 @@ class FounderCommandCenterController extends GetxController {
   /// đi qua AgentOS conversation/message/SSE flow (`apps/cosa/api/routes.py`),
   /// đúng pattern `AgentChatService` module `chat` đã dùng — tái dùng lại thay
   /// vì tạo route giả thứ hai.
+  static final RegExp _affirmativeApprovalRegex = RegExp(
+    r"^(ok|oke|oki|okay|yes|yep|yeah|duyệt|duyet|đồng ý|dong y|chấp nhận|chap nhan|xác nhận|xac nhan|tiến hành|tien hanh|triển khai|trien khai|làm đi|lam di|approve|confirm|proceed)(\b|\s|$)",
+    caseSensitive: false,
+  );
+
+  static final RegExp _negativeApprovalRegex = RegExp(
+    r"^(no|không|khong|từ chối|tu choi|hủy|huy|huỷ|bỏ qua|bo qua|reject|cancel|deny)(\b|\s|$)",
+    caseSensitive: false,
+  );
+
+  bool _isAffirmativeApprovalText(String text) {
+    final lower = text.trim().toLowerCase();
+    if (lower.contains("nhưng") ||
+        lower.contains("nhung") ||
+        lower.contains("khoan") ||
+        lower.contains("sửa") ||
+        lower.contains("sua") ||
+        lower.contains("thay đổi") ||
+        lower.contains("thay doi")) {
+      return false;
+    }
+    return _affirmativeApprovalRegex.hasMatch(lower);
+  }
+
+  bool _isNegativeApprovalText(String text) {
+    final lower = text.trim().toLowerCase();
+    return _negativeApprovalRegex.hasMatch(lower);
+  }
+
   Future<void> sendChatMessage(String message) async {
     final trimmed = message.trim();
     if (trimmed.isEmpty) return;
+
+    // Cho phép founder duyệt hoặc từ chối thẻ pending bằng văn bản hoặc giọng nói
+    // (ví dụ: "ok", "duyệt", "đồng ý", "tiến hành đi", "từ chối", "hủy").
+    final pendingApprovalIdx = chatMessages.lastIndexWhere(
+      (m) => m["role"] == "approval" && m["status"] == "pending",
+    );
+    if (pendingApprovalIdx != -1) {
+      final approvalId = chatMessages[pendingApprovalIdx]["approval_id"]?.toString() ?? "";
+      if (approvalId.isNotEmpty) {
+        final isAffirmative = _isAffirmativeApprovalText(trimmed);
+        final isNegative = _isNegativeApprovalText(trimmed);
+        if (isAffirmative || isNegative) {
+          chatMessages.add({"role": "user", "content": trimmed});
+          chatInputController.clear();
+          await decideChatApproval(approvalId, approve: isAffirmative);
+          return;
+        }
+      }
+    }
 
     // Task 2 (2026-09-11 Project-scoped Founder Hub) — Project là bắt buộc,
     // không auto-select/company-wide. Chưa có Project đang hoạt động thì

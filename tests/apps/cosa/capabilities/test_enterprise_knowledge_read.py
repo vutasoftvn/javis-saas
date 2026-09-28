@@ -207,3 +207,101 @@ async def test_handler_requires_workspace_id_and_principal():
 
     with pytest.raises(ValueError, match="principal"):
         await handler({"query": "salary"}, {"workspace_id": "ws-1"})
+
+
+@pytest.mark.asyncio
+async def test_handler_without_snapshot_store_ignores_initiative_id():
+    """No `ai_initiative_snapshot_store` injected (plane built without DB, or
+    older callers) — Task 11 gate must be a no-op, not a new denial, so a run
+    carrying `metadata.initiative_id` behaves exactly as before Task 11."""
+    vault_repo = InMemoryVaultRepository()
+    knowledge_store = InMemoryKnowledgeStore()
+    workspace_id = f"ws-{uuid.uuid4().hex[:8]}"
+    await _seed_published_doc(
+        vault_repo,
+        knowledge_store,
+        workspace_id,
+        created_by="founder",
+        visibility=VaultVisibility.WORKSPACE,
+    )
+    service = KnowledgeIngestionService(store=knowledge_store, vault_repository=vault_repo)
+    handler = create_enterprise_knowledge_read_handler(service)
+
+    result = await handler(
+        {"query": "salary"},
+        {"workspace_id": workspace_id, "principal": "member-1", "metadata": {"initiative_id": "init_1"}},
+    )
+    assert len(result["citations"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_handler_denies_when_initiative_has_no_snapshot():
+    from apps.cosa.models.ai_initiative_snapshot import InMemoryAiInitiativePromotionSnapshotStore
+
+    vault_repo = InMemoryVaultRepository()
+    knowledge_store = InMemoryKnowledgeStore()
+    workspace_id = f"ws-{uuid.uuid4().hex[:8]}"
+    await _seed_published_doc(
+        vault_repo,
+        knowledge_store,
+        workspace_id,
+        created_by="founder",
+        visibility=VaultVisibility.WORKSPACE,
+    )
+    service = KnowledgeIngestionService(store=knowledge_store, vault_repository=vault_repo)
+    store = InMemoryAiInitiativePromotionSnapshotStore()
+    handler = create_enterprise_knowledge_read_handler(service, ai_initiative_snapshot_store=store)
+
+    with pytest.raises(ValueError, match="initiative_snapshot_not_found"):
+        await handler(
+            {"query": "salary"},
+            {
+                "workspace_id": workspace_id,
+                "principal": "member-1",
+                "metadata": {"initiative_id": "init_unknown"},
+            },
+        )
+
+
+@pytest.mark.asyncio
+async def test_handler_denies_when_initiative_data_readiness_not_ready():
+    from apps.cosa.models.ai_initiative_snapshot import (
+        AiInitiativePromotionSnapshot,
+        InMemoryAiInitiativePromotionSnapshotStore,
+    )
+
+    vault_repo = InMemoryVaultRepository()
+    knowledge_store = InMemoryKnowledgeStore()
+    workspace_id = f"ws-{uuid.uuid4().hex[:8]}"
+    await _seed_published_doc(
+        vault_repo,
+        knowledge_store,
+        workspace_id,
+        created_by="founder",
+        visibility=VaultVisibility.WORKSPACE,
+    )
+    service = KnowledgeIngestionService(store=knowledge_store, vault_repository=vault_repo)
+    store = InMemoryAiInitiativePromotionSnapshotStore()
+    await store.consume(
+        f"{workspace_id}:init_1:dec_1",
+        AiInitiativePromotionSnapshot(
+            workspace_id=workspace_id,
+            project_id="proj_1",
+            initiative_id="init_1",
+            initiative_revision=1,
+            decision_id="dec_1",
+            decision_hash="hash_1",
+            lifecycle_state="PILOT",
+            risk_tier="LOW",
+            autonomy_tier="A0",
+            data_readiness_status="NOT_READY",
+            retrieval_mode="none",
+        ),
+    )
+    handler = create_enterprise_knowledge_read_handler(service, ai_initiative_snapshot_store=store)
+
+    with pytest.raises(ValueError, match="data_readiness_not_ready"):
+        await handler(
+            {"query": "salary"},
+            {"workspace_id": workspace_id, "principal": "member-1", "metadata": {"initiative_id": "init_1"}},
+        )

@@ -1120,7 +1120,7 @@ class PostgresRunRepository(BasePostgresRepository):
                     "run_id": event.run_id,
                     "project_id": event.project_id,
                     "event_type": event.event_type,
-                    "payload": json.dumps(event.payload),
+                    "payload": json.dumps(event.payload, default=str),
                     "correlation_id": event.correlation_id,
                     "created_at": event.created_at,
                 },

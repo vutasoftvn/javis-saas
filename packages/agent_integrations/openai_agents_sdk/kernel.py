@@ -912,7 +912,10 @@ class RealOpenAIAgentsSDKKernel:
 
             await self._repo.update_run_status(run_id, status=RunStatus.WAITING_APPROVAL)
             await self._emit_event(
-                run_id, "run.waiting", {"waits": [w.model_dump() for w in waits]}, correlation_id
+                run_id,
+                "run.waiting",
+                {"waits": [w.model_dump(mode="json") for w in waits]},
+                correlation_id,
             )
             return RunResult(
                 run_id=run_id, status=RunStatus.WAITING_APPROVAL, interruptions_waits=waits
@@ -926,7 +929,7 @@ class RealOpenAIAgentsSDKKernel:
             if not is_valid:
                 val_fail = ValidationFailure(is_valid=False, errors=errs, raw_output=final_out)
                 await self._repo.update_run_status(
-                    run_id, status=RunStatus.FAILED, final_output=val_fail.model_dump()
+                    run_id, status=RunStatus.FAILED, final_output=val_fail.model_dump(mode="json")
                 )
                 # jsonschema.ValidationError message thường echo lại giá trị output
                 # thô không hợp lệ (vd. "'x@y.com' is not of type ...") — audit event

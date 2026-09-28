@@ -1311,10 +1311,13 @@ async def resume_waiting_approval(
     initiative_id = payload.get("initiative_id")
     workspace_id = payload.get("workspace_id")
     if initiative_id:
-        from apps.cosa.api.ai_initiative_internal_routes import get_consumed_snapshot
-
-        snapshot = get_consumed_snapshot(workspace_id or "", str(initiative_id))
-        if not snapshot or snapshot.get("lifecycle_state") in ("PAUSED", "RETIRED") or snapshot.get("revoked"):
+        store = getattr(plane, "ai_initiative_snapshot_store", None) if plane is not None else None
+        snapshot = (
+            await store.get_current(workspace_id or "", str(initiative_id))
+            if store is not None
+            else None
+        )
+        if snapshot is None or snapshot.lifecycle_state in ("PAUSED", "RETIRED"):
             if plane is not None and stream_mgr is not None:
                 await stream_mgr.emit(
                     plane.stream_event_repository,
@@ -1386,10 +1389,13 @@ async def execute_resume_task(
     # Task 8: Check initiative policy on resume
     initiative_id = payload.get("initiative_id")
     if initiative_id:
-        from apps.cosa.api.ai_initiative_internal_routes import get_consumed_snapshot
-
-        snapshot = get_consumed_snapshot(workspace_id or "", str(initiative_id))
-        if not snapshot or snapshot.get("lifecycle_state") in ("PAUSED", "RETIRED") or snapshot.get("revoked"):
+        store = getattr(plane, "ai_initiative_snapshot_store", None)
+        snapshot = (
+            await store.get_current(workspace_id or "", str(initiative_id))
+            if store is not None
+            else None
+        )
+        if snapshot is None or snapshot.lifecycle_state in ("PAUSED", "RETIRED"):
             logger.warning(
                 "initiative policy revoked or drifted on resume run_id=%s initiative_id=%s",
                 run_id,

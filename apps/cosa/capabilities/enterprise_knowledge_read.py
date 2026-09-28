@@ -64,11 +64,23 @@ def create_enterprise_knowledge_read_handler(
     service: KnowledgeIngestionService,
     *,
     role_ids_resolver: Callable[[dict[str, Any]], set[str]] | None = None,
+    ai_initiative_snapshot_store: Any | None = None,
 ) -> Callable[[dict[str, Any], Any], Coroutine[Any, Any, dict[str, Any]]]:
     """`role_ids_resolver` cho phép ghi đè cách resolve role (vd. test, hoặc
     caller có nguồn role phong phú hơn 1 field đơn) — mặc định đọc thẳng
     `ctx.get("role_id")` (đã có từ Task 10), rỗng nếu ctx không mang field
-    này (fail-closed, không raise)."""
+    này (fail-closed, không raise).
+
+    `ai_initiative_snapshot_store` (Task 11, plan 2026-09-28-stage-adaptive-
+    ai-operating-system): khi run mang `metadata["initiative_id"]` (Task 5/8
+    đã thread field này qua `RunRequest.metadata` -> `InvocationContext.metadata`),
+    handler gate call bằng `assert_initiative_knowledge_allowed` TRƯỚC khi gọi
+    `service.retrieve_authorized_citations` — NOT_READY/thiếu assessment chặn,
+    không suy diễn quyền từ chỗ khác. Run KHÔNG gắn `initiative_id` (đa số
+    workspace-level chat hiện tại) giữ nguyên hành vi cũ, không bị gate mới
+    này ảnh hưởng. `store=None` (mặc định, hoặc plane build không có DB) cũng
+    giữ nguyên hành vi cũ — gate này chỉ SIẾT thêm khi có dữ liệu Initiative
+    thật để đánh giá, không tự ý mở rộng quyền khi thiếu wiring."""
 
     def _default_role_ids(ctx: dict[str, Any]) -> set[str]:
         role_id = ctx.get("role_id")
@@ -80,14 +92,28 @@ def create_enterprise_knowledge_read_handler(
         if isinstance(ctx, dict):
             workspace_id = ctx.get("workspace_id")
             principal_id = ctx.get("principal")
+            metadata = ctx.get("metadata") or {}
         else:
             workspace_id = getattr(ctx, "workspace_id", None)
             principal_id = getattr(ctx, "principal", None)
+            metadata = getattr(ctx, "metadata", None) or {}
 
         if not workspace_id:
             raise ValueError("Không thể thực hiện knowledge.enterprise.read: thiếu workspace_id")
         if not principal_id:
             raise ValueError("Không thể thực hiện knowledge.enterprise.read: thiếu principal")
+
+        initiative_id = metadata.get("initiative_id") if isinstance(metadata, dict) else None
+        if initiative_id and ai_initiative_snapshot_store is not None:
+            from apps.cosa.knowledge.initiative_readiness import assert_initiative_knowledge_allowed
+
+            snapshot = await ai_initiative_snapshot_store.get_current(str(workspace_id), str(initiative_id))
+            decision = assert_initiative_knowledge_allowed(snapshot, {"retrieval_mode": "lexical"})
+            if not decision.allowed:
+                raise ValueError(
+                    f"knowledge.enterprise.read denied for initiative {initiative_id}: "
+                    f"{decision.code} ({decision.details})"
+                )
 
         query = str(args.get("query", "")).strip()
         limit = int(args.get("limit", 5))

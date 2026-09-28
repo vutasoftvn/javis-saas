@@ -231,6 +231,7 @@ def register_cosa_capabilities(
     web_search_provider: WebSearchProvider | None = None,
     knowledge_ingestion_service: Any | None = None,
     connector_grant_client: ConnectorGrantHttpClient | None = None,
+    ai_initiative_snapshot_store: Any | None = None,
 ) -> None:
     """Đăng ký toàn bộ capability specs và handlers cho CosaAgentPlane."""
     # Operations
@@ -339,7 +340,10 @@ def register_cosa_capabilities(
     if knowledge_ingestion_service is not None:
         cap_registry.register(
             ENTERPRISE_KNOWLEDGE_READ_SPEC,
-            create_enterprise_knowledge_read_handler(knowledge_ingestion_service),
+            create_enterprise_knowledge_read_handler(
+                knowledge_ingestion_service,
+                ai_initiative_snapshot_store=ai_initiative_snapshot_store,
+            ),
         )
         # Task 10 — workspace.context.read là cầu nối duy nhất kernel/model
         # dùng để gọi persisted GraphQL operations (Task 9), cần cùng

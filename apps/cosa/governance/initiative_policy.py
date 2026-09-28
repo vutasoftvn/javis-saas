@@ -1,13 +1,32 @@
 """Initiative execution policy and promotion gate enforcement (Task 8).
 
 Pure policy evaluator `assert_initiative_run_allowed` checking:
-- Scope containment: workspace_id and project_id match snapshot.
+- Scope containment: workspace_id and project_id REQUIRED on the run request
+  and must match the snapshot (missing either fails closed — it does not skip
+  the check, see `_get_val` note below).
 - Lifecycle state: DISCOVER cannot run; PAUSED/RETIRED fail closed;
   protected runs require SCALE_CANDIDATE or SCALED.
 - Autonomy tier ceiling: A0 < A1 < A2. A3 is reserved and fails closed.
   Run requested autonomy cannot exceed snapshot ceiling.
-- Pin identity: Run pins must match snapshot pins.
-- Evaluation status: If evaluation result provided, verifies no material pin drift and passing status.
+- Pin identity: run pins present in the request are compared to snapshot pins;
+  a pin key absent from `run_request` is not (yet) treated as a mismatch —
+  `apps/cosa/worker/run_core.py:prepare_request` does not currently populate
+  `RunRequest.metadata["pins"]` from the resolved AgentSpec, so requiring pins
+  unconditionally would deny every initiative-gated run today. Wiring that
+  upstream population is required follow-up before this sub-check is fully
+  load-bearing for SCALE_CANDIDATE/SCALED protected runs.
+- Evaluation status: REQUIRED (fails closed) for protected runs — a
+  SCALE_CANDIDATE/SCALED protected run with no evaluation_result is denied,
+  not silently allowed. Non-protected runs treat it as optional.
+
+`run_request` is normally a real `agent.contracts.run.RunRequest`, whose only
+tenant-scope field at the top level is `workspace_id` — `project_id`, `pins`,
+`autonomy_tier` and `is_protected` all live under `.metadata`. `_get_val` reads
+the top-level attribute first (so the lightweight fakes used in
+tests/apps/cosa/worker/test_initiative_policy_gate.py keep working) and falls
+back to `.metadata`/dict entries so the real `RunRequest` shape is actually
+checked — previously these fell straight through to `default` for every real
+call, since `RunRequest` has no top-level `project_id`/`pins` attribute at all.
 """
 
 from __future__ import annotations
@@ -34,10 +53,20 @@ class InitiativeRunPolicyDecision(BaseModel):
     decision_hash: str | None = None
 
 
+_MISSING = object()
+
+
 def _get_val(obj: Any, key: str, default: Any = None) -> Any:
     if isinstance(obj, dict):
-        return obj.get(key, default)
-    return getattr(obj, key, default)
+        val = obj.get(key, _MISSING)
+    else:
+        val = getattr(obj, key, _MISSING)
+    if val is not _MISSING and val is not None:
+        return val
+    metadata = obj.get("metadata") if isinstance(obj, dict) else getattr(obj, "metadata", None)
+    if isinstance(metadata, dict) and key in metadata:
+        return metadata[key]
+    return default
 
 
 def assert_initiative_run_allowed(
@@ -66,20 +95,22 @@ def assert_initiative_run_allowed(
     req_ws = _get_val(run_request, "workspace_id")
     req_proj = _get_val(run_request, "project_id")
 
-    # 1. Scope containment
-    if snap_ws and req_ws and snap_ws != req_ws:
+    # 1. Scope containment — REQUIRED, not skip-if-missing. A run request
+    # without workspace_id/project_id cannot be proven in-scope, so it is
+    # denied the same as an explicit mismatch (spec §4 "Scope": no infer).
+    if not req_ws or not snap_ws or snap_ws != req_ws:
         return InitiativeRunPolicyDecision(
             allowed=False,
             reason_code="initiative_scope_mismatch",
-            details="Workspace scope mismatch between initiative and run request",
+            details="Workspace scope missing or mismatched between initiative and run request",
             **base_decision,
         )
 
-    if snap_proj and req_proj and snap_proj != req_proj:
+    if not req_proj or not snap_proj or snap_proj != req_proj:
         return InitiativeRunPolicyDecision(
             allowed=False,
             reason_code="initiative_scope_mismatch",
-            details="Project scope mismatch between initiative and run request",
+            details="Project scope missing or mismatched between initiative and run request",
             **base_decision,
         )
 
@@ -157,8 +188,21 @@ def assert_initiative_run_allowed(
                 **base_decision,
             )
 
-    # 5. Evaluation drift checks
-    if evaluation_result is not None:
+    # 5. Evaluation drift checks — REQUIRED (fail closed) for protected runs.
+    # A SCALE_CANDIDATE/SCALED protected run with no evaluation_result has no
+    # proof it ever passed the release gates in spec §9.2 ("Process recovery"),
+    # so it must be denied, not silently allowed through. Non-protected runs
+    # keep evaluation_result optional (e.g. PILOT/VALIDATE draft-tier runs that
+    # have not reached an evaluation gate yet).
+    if evaluation_result is None:
+        if is_protected:
+            return InitiativeRunPolicyDecision(
+                allowed=False,
+                reason_code="evaluation_result_required",
+                details="Protected execution requires a current evaluation result",
+                **base_decision,
+            )
+    else:
         from packages.agent.evaluations.initiative_suite import assert_evaluation_current
 
         drift_check = assert_evaluation_current(snapshot, evaluation_result)
