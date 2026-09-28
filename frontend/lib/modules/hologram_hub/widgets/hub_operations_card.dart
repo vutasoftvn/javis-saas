@@ -678,9 +678,14 @@ class _AgentsTab extends StatelessWidget {
   Widget _row(ProjectStartupTeamMember m) {
     final busy = controller.busy.contains(m.profileKey);
     final ready = m.runtimeReadiness == RuntimeReadiness.ready;
-    final canActivate = ready &&
+    // Agent tự tạo (C2, `profileKey` dạng `custom.<profile>.<commandId>`) không nằm trong catalog
+    // built-in: route activate/pause của startup team trả `Unknown profile key` cho key này, nên
+    // KHÔNG hiện nút Tạm dừng/Kích hoạt cho các dòng đó.
+    final isCustom = m.profileKey.startsWith('custom.');
+    final canActivate = !isCustom &&
+        ready &&
         (m.displayState == TeamDisplayState.template || m.displayState == TeamDisplayState.paused);
-    final canPause = m.displayState == TeamDisplayState.active;
+    final canPause = !isCustom && m.displayState == TeamDisplayState.active;
     return Padding(
       key: Key('hub_ops_agent_${m.profileKey}'),
       padding: const EdgeInsets.symmetric(vertical: 4),

@@ -42,6 +42,9 @@ class _FakeFounderBackend {
   };
   String? safeReasonCode;
 
+  /// Dòng bổ sung cho `GET startup-team` (ví dụ agent custom đã deploy — UNION backend).
+  final List<Map<String, dynamic>> extraTeam = [];
+
   static const draftAssetId = 'custom.operations.cmd-1';
   static const draftVersion = '0.1.0';
   static const draftHash = 'sha256:draft';
@@ -69,6 +72,7 @@ class _FakeFounderBackend {
             'runtimeReadiness': 'READY',
             'assignmentVersion': 1,
           },
+          ...extraTeam,
         ],
       });
     }
@@ -312,5 +316,37 @@ void main() {
     expect(backend.requests.where((r) => r.contains(':EVALUATE')), isEmpty);
     // Dialog vẫn còn (không im lặng treo, không tự đóng khi lỗi).
     expect(find.byKey(const Key('hub_ops_create_agent_submit')), findsOneWidget);
+  });
+
+  testWidgets('custom (cloned) agent rows show no pause/activate toggle — built-in route rejects them',
+      (tester) async {
+    backend.extraTeam.addAll([
+      {
+        'profileKey': 'custom.operations.cmd-1',
+        'label': 'Vận hành gọn',
+        'displayState': 'ACTIVE',
+        'runtimeReadiness': 'READY',
+        'assignmentVersion': 1,
+      },
+      {
+        'profileKey': 'custom.operations.cmd-2',
+        'label': 'Vận hành tạm nghỉ',
+        'displayState': 'PAUSED',
+        'runtimeReadiness': 'READY',
+        'assignmentVersion': 2,
+      },
+    ]);
+
+    await pump(tester);
+
+    // Dòng custom vẫn hiển thị theo nhãn đã lưu...
+    expect(find.byKey(const Key('hub_ops_agent_custom.operations.cmd-1')), findsOneWidget);
+    expect(find.text('Vận hành gọn'), findsOneWidget);
+    expect(find.byKey(const Key('hub_ops_agent_custom.operations.cmd-2')), findsOneWidget);
+    // ...nhưng không có nút Tạm dừng/Kích hoạt (sẽ luôn lỗi `Unknown profile key`).
+    expect(find.byKey(const Key('hub_ops_agent_toggle_custom.operations.cmd-1')), findsNothing);
+    expect(find.byKey(const Key('hub_ops_agent_toggle_custom.operations.cmd-2')), findsNothing);
+    // Agent built-in TEMPLATE vẫn còn nút Kích hoạt.
+    expect(find.byKey(const Key('hub_ops_agent_toggle_operations')), findsOneWidget);
   });
 }
