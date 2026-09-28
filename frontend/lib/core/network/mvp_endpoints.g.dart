@@ -554,6 +554,15 @@ enum MvpEndpoint {
     requiresWorkspace: true,
     requiresProject: false,
   ),
+  operationsFounderAssetWorkspaceAgentCreate(
+    id: 'operations.founder_asset.workspace_agent.create',
+    enabled: false,
+    plane: ApiPlane.company,
+    method: 'POST',
+    path: '/operations/founder/assets/workspace-agents',
+    requiresWorkspace: true,
+    requiresProject: false,
+  ),
   operationsOkrCycleCreate(
     id: 'operations.okr.cycle.create',
     enabled: true,

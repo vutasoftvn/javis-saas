@@ -135,6 +135,19 @@ tier/approval/compliance theo capability và spec gốc.
 
 ## 7. Ngoài phạm vi / còn lại
 
+- **`capabilityRestrictions` của deployment hiện là NO-OP lúc runtime.** `getProjectDeploymentAuthority`
+  (và endpoint `.../deployment-authority`) trả field này, `deployAgentToProject` nhận
+  `capabilityOverrides` DENY/RESTRICT, nhưng **không nơi nào áp nó** khi dựng spec hiệu lực hay tập tool —
+  cả nhánh agent workspace lẫn nhánh built-in (gap kiến trúc có sẵn trước C1). Một DENY cấp Project hiện
+  **không chặn được gì**; đừng coi đây là capability đang hoạt động (founder/C2 không được hiển thị nó như
+  một kiểm soát có hiệu lực). Muốn thu hẹp quyền của agent clone hôm nay: bỏ capability khỏi
+  `capability_refs` của manifest (EDIT_DRAFT → EVALUATE → PUBLISH bản clone mới). Việc còn lại: áp DENY
+  vào tool set lúc chạy mà không nhúng vào spec (nhúng làm hash khác theo Project → xung đột registry).
+- Endpoint `POST /operations/founder/assets/workspace-agents` đã khai báo trong
+  `shared/contracts/mvp-surface.json` (`operations.founder_asset.workspace_agent.create`) với
+  `enabled: false`; C2 bật `enabled: true` khi thêm `FounderAssetService.createWorkspaceAgent` + test
+  Flutter tương ứng.
+
 - UI Flutter (C2). Sửa agent đã publish = clone mới (chưa có "version mới của cùng asset").
 - Lệnh `RETIRE` asset chưa có executor; dừng agent dùng `pauseProjectDeployment`/retire workspace agent
   ở company (runtime đã fail-closed với deployment không ACTIVE).

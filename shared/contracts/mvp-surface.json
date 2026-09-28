@@ -1122,6 +1122,22 @@
       "integration_test": "tests/apps/cosa/events/test_founder_asset_events.py"
     },
     {
+      "id": "operations.founder_asset.workspace_agent.create",
+      "enabled": false,
+      "owner": "company-operations",
+      "plane": "company",
+      "method": "POST",
+      "path": "/operations/founder/assets/workspace-agents",
+      "schema": "operations.founder_asset.workspace_agent.create.v1",
+      "source_kind": "company_db",
+      "requires_workspace": true,
+      "requires_project": false,
+      "frontend_symbol": "FounderAssetService.createWorkspaceAgent",
+      "backend_test": "services/company/operations/tests/founder-agent-clone.service.test.ts",
+      "flutter_test": "frontend/test/modules/skills/founder_asset_service_test.dart",
+      "integration_test": "tests/apps/cosa/worker/test_agent_clone_executor_e2e.py"
+    },
+    {
       "id": "operations.founder_asset.library",
       "enabled": true,
       "owner": "company-operations",
