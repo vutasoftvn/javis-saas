@@ -103,3 +103,48 @@ def test_metric_gte_is_not_evaluable_in_v1():
 def test_result_keeps_required_flag():
     r = evaluate_deterministic(_crit("artifact_exists", {}, required=False), _facts())
     assert r.required is False
+
+
+import pytest
+
+
+@pytest.mark.parametrize(
+    "crit",
+    [
+        None,
+        "x",
+        [1],
+        {},
+        {"predicate": [1]},
+        {"id": "c", "predicate": [1]},
+        {"id": "c", "predicate": "artifact_exists"},
+        {"id": "c", "predicate": None},
+        {"id": "c", "predicate": {"kind": ["a"], "args": {}}},
+        {"id": "c", "predicate": {"kind": {"a": 1}, "args": {}}},
+        {"id": "c", "predicate": {"kind": "artifact_exists", "args": [1]}},
+        {"id": "c", "predicate": {"kind": "artifact_exists", "args": None}},
+        {"id": "c", "predicate": {"kind": "artifact_exists"}},
+        {"id": "c", "predicate": {"kind": "artifact_exists", "args": {"kind": ["x"]}}},
+        {"id": 5, "predicate": {"kind": "nope", "args": {}}},
+    ],
+)
+def test_malformed_criteria_never_raise_and_are_unclear(crit):
+    r = evaluate_deterministic(crit, _facts(structured={"a": 1}))
+    assert r.verdict is CriterionVerdict.UNCLEAR
+    assert r.reason in {"invalid_args", "unknown_predicate"}
+    assert isinstance(r.id, str)
+
+
+def test_field_present_does_not_traverse_lists():
+    facts = _facts(structured={"items": [{"x": 1}], "a.b": 1})
+    r = evaluate_deterministic(_crit("field_present", {"path": "items.0.x"}), facts)
+    assert r.verdict is CriterionVerdict.UNCLEAR and "path_through_list_unsupported" in r.reason
+    assert (
+        evaluate_deterministic(_crit("field_present", {"path": "items"}), facts).verdict
+        is CriterionVerdict.PASS
+    )
+    # khóa dict chứa dấu chấm không với tới được
+    assert (
+        evaluate_deterministic(_crit("field_present", {"path": "a.b"}), facts).verdict
+        is CriterionVerdict.FAIL
+    )
