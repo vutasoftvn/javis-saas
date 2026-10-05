@@ -110,7 +110,7 @@ không suy diễn hoặc giả lập.
 ## 4. Release matrix (Step 4)
 
 Chạy đúng thứ tự lệnh trong brief, trên máy dev với `.venv` (Python 3.11) +
-Postgres KHỞI TẠO MỚI qua Docker (`pgvector/pgvector:pg16`, cổng `55432`,
+Postgres KHỞI TẠO MỚI qua Docker (`pgvector/pgvector:pg18`, cổng `55432`,
 container `cosa_ci_test_pg` — KHÔNG dùng cluster dev đang chạy ở cổng `5432`)
 cho phần DB-backed. Container đã bị xoá (`docker rm -f`) sau khi dùng xong.
 

@@ -28,7 +28,7 @@ services:
 
   # --------------------------------------------------------------------------
   postgres:
-    image: pgvector/pgvector:pg16
+    image: pgvector/pgvector:pg18
     container_name: cosa_prod_db
     restart: unless-stopped
     ports:
@@ -44,7 +44,10 @@ services:
       WORKSPACE_APP_PASSWORD: ${WORKSPACE_APP_PASSWORD:?WORKSPACE_APP_PASSWORD required}
       WORKSPACE_MIGRATOR_PASSWORD: ${WORKSPACE_MIGRATOR_PASSWORD:?WORKSPACE_MIGRATOR_PASSWORD required}
     volumes:
-      - prod_pgdata:/var/lib/postgresql/data
+      # PG18 image: PGDATA = /var/lib/postgresql/18/docker, nên mount THƯ MỤC CHA /var/lib/postgresql.
+      # Volume MỚI (prod_pgdata18): volume pg16 cũ (prod_pgdata) giữ nguyên để rollback —
+      # không thể dùng lại data dir PG16 cho PG18. Xem docs/runbooks/postgres-18-production-upgrade.md
+      - prod_pgdata18:/var/lib/postgresql
       # Tái dùng script tạo app-role canonical (chạy 1 lần lúc initdb volume mới).
       - ../postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
@@ -352,7 +355,7 @@ services:
         limits: { memory: 128m, cpus: "0.5" }
 
 volumes:
-  prod_pgdata:
+  prod_pgdata18:
   prod_miniodata:
   prod_caddydata:
   prod_caddyconfig:

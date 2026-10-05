@@ -52,9 +52,34 @@ upload() {  # $1 = local file, $2 = remote relative path
   fi
 }
 
+# Guard phiên bản: pg_dump client phải >= major của server (PG18 server + client 16 sẽ
+# lỗi "server version mismatch"; chặn sớm với thông báo rõ ràng thay vì dump hỏng giữa chừng).
+# Guard: pg_dump client major must be >= server major.
+client_major() {
+  pg_dump --version | sed -E 's/^[^0-9]*([0-9]+).*/\1/'
+}
+server_major() {  # $1 = dsn ; SHOW server_version_num = 180006 -> 18
+  local num
+  num="$(psql --dbname="$1" --no-psqlrc --tuples-only --no-align --command='SHOW server_version_num' 2>/dev/null | tr -d '[:space:]')" || return 1
+  [[ "$num" =~ ^[0-9]+$ ]] || return 1
+  echo $(( num / 10000 ))
+}
+check_pg_dump_version() {  # $1 = name, $2 = dsn
+  local cli srv
+  cli="$(client_major)"
+  srv="$(server_major "$2")" || {
+    echo "❌ [backup] không đọc được server_version_num của ${1} / cannot read server version" >&2; return 1; }
+  if [ "$cli" -lt "$srv" ]; then
+    echo "❌ [backup] pg_dump ${cli} older than server ${srv} (db=${1}): cài postgresql-client-${srv} / install a pg_dump >= ${srv}" >&2
+    return 1
+  fi
+  echo "[backup] ${1}: pg_dump ${cli} >= server ${srv} OK"
+}
+
 for pair in $BACKUP_DATABASES; do
   name="${pair%%=*}"; dsn="${pair#*=}"
   out="${RUN_DIR}/${name}.dump.gz"
+  check_pg_dump_version "$name" "$dsn"
   echo "[backup] pg_dump ${name}..."
   pg_dump --format=custom --no-owner --no-privileges --dbname="$dsn" | gzip -9 > "$out"
 

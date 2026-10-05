@@ -1,6 +1,6 @@
 # Hướng Dẫn Triển Khai COSA Central Control Plane (Coolify & VPS)
 
-Tài liệu hướng dẫn triển khai **COSA Central Control Plane** (FastAPI + PostgreSQL 16) lên hệ thống VPS thông qua **Coolify (GitHub App Integration)** với domain chính thức **`api.vutasoft.com`**.
+Tài liệu hướng dẫn triển khai **COSA Central Control Plane** (FastAPI + PostgreSQL 18) lên hệ thống VPS thông qua **Coolify (GitHub App Integration)** với domain chính thức **`api.vutasoft.com`**.
 
 ---
 
@@ -16,6 +16,8 @@ Trỏ các bản ghi DNS của bạn về địa chỉ IP của VPS Coolify:
 ---
 
 ### Bước 2: Tạo Cơ Sở Dữ Liệu PostgreSQL trên Coolify
+
+> **PostgreSQL 18:** stack chuẩn dùng `pgvector/pgvector:pg18`. Nếu dùng resource PostgreSQL do Coolify quản lý, phiên bản/image được đặt trong Coolify UI (ngoài repo) — phải đặt PG18 có pgvector và nâng cấp theo `docs/runbooks/postgres-18-production-upgrade.md` (data dir PG16 không dùng lại được cho PG18).
 1. Trên Coolify Dashboard: Chọn Project $\rightarrow$ Environment (ví dụ `production`) $\rightarrow$ Click **+ New Resource**.
 2. Chọn **PostgreSQL** (Managed Database).
 3. Đặt cấu hình:

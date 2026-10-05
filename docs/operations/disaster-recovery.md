@@ -13,7 +13,7 @@
 ## WAL/PITR
 
 Quyết định (điền khi bring-up):
-- **Nếu** Postgres prod tự quản (compose `postgres:16-alpine`) → bật
+- **Nếu** Postgres prod tự quản (compose `pgvector/pgvector:pg18`) → bật
   `archive_mode=on` + `archive_command` push WAL lên object store; RPO ≈ vài
   phút. Ghi cấu hình vào đây.
 - **Nếu** dùng managed Postgres có PITR sẵn → dùng PITR của provider, ghi
@@ -60,8 +60,10 @@ aws s3 cp "$BACKUP_S3_BUCKET/manifest.json" ./manifest.json
 sha256sum -c SHA256SUMS
 
 # 2. Postgres trắng
-docker run -d --name pg-restore -e POSTGRES_PASSWORD=restore -p 55432:5432 postgres:16-alpine
+docker run -d --name pg-restore -e POSTGRES_PASSWORD=restore -p 55432:5432 pgvector/pgvector:pg18
+#   (image phải có pgvector — `postgres:*-alpine` KHÔNG restore được DB dùng vector; PG18 mount thư mục cha /var/lib/postgresql nếu cần volume)
 #   tạo role/db phụ như deploy/postgres/init/01-create-app-roles.sql
+#   pg_restore client phải cùng/lớn hơn major của server dump (dùng client từ chính image pg18)
 
 # 3. Restore từng logical DB
 for db in agent cosa company; do
