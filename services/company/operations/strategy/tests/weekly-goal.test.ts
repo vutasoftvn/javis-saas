@@ -96,6 +96,13 @@ describe("setWeeklyGoalService", () => {
     expect(events[0]!.envelope.payload.lifecycleStage).toBe("P0_DISCOVERY");
     expect(events[0]!.envelope.payload.existingTaskTitles).toEqual([]);
     expect(events[0]!.envelope.payload.nextBestActions).toEqual([]);
+    // Ngữ cảnh goal: project chưa link objective nên chuỗi rỗng + lý do.
+    const ancestry = events[0]!.envelope.payload.goalAncestry as {
+      goalChain: unknown[];
+      unlinkedReason: string | null;
+    };
+    expect(ancestry.unlinkedReason).toBe("project_not_linked");
+    expect(ancestry.goalChain).toEqual([]);
   });
 
   it("does not append an event when triggerDecomposition is false", async () => {

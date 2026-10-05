@@ -129,6 +129,7 @@ async def test_weekly_goal_set_schedules_goal_decomposition_task():
         "lifecycleStage": "P1_PROBLEM_FIT",
         "existingTaskTitles": ["Interview 3 customers"],
         "nextBestActions": ["Validate pricing with 5 customers"],
+        "goalAncestry": {"goalChain": [{"title": "Q4", "goalType": "strategic"}]},
     }
     env = _env(
         "operating.weekly_goal.set.v1", payload, aggregate_type="weekly_plan", aggregate_id="wp_1"
@@ -149,6 +150,7 @@ async def test_weekly_goal_set_schedules_goal_decomposition_task():
     assert t["input_payload"]["lifecycle_stage"] == "P1_PROBLEM_FIT"
     assert t["input_payload"]["existing_task_titles"] == ["Interview 3 customers"]
     assert t["input_payload"]["next_best_actions"] == ["Validate pricing with 5 customers"]
+    assert t["input_payload"]["goal_ancestry"] == payload["goalAncestry"]
     assert t["input_payload"]["actor_id"] == "u1"  # from envelope actor.id
 
 

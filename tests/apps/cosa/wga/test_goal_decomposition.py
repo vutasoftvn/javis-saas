@@ -3,9 +3,11 @@ import json
 import pytest
 
 from apps.cosa.agents.goal_decomposition import (
+    PlanItemDraft,
     PlanSchemaError,
     build_decomposition_prompt,
     parse_plan_output,
+    validate_plan_capabilities,
 )
 
 
@@ -179,3 +181,61 @@ def test_prompt_lists_capability_catalog_and_existing_tasks():
     assert "- Interview 3 customers" in prompt
     assert "- sales: project.crm.read" in prompt
     assert "operations.sop.draft" not in prompt
+
+
+_CRITERIA = {
+    "version": 1,
+    "criteria": [{"id": "c1", "description": "Có tài liệu", "check": "rubric", "rubric": "Có tài liệu"}],
+}
+
+
+def test_parse_plan_output_accepts_done_criteria_and_normalizes():
+    items = parse_plan_output(_plan(done_criteria=_CRITERIA))
+    assert items[0].done_criteria == {
+        "version": 1,
+        "criteria": [
+            {"id": "c1", "description": "Có tài liệu", "required": True, "check": "rubric", "rubric": "Có tài liệu"}
+        ],
+    }
+
+
+def test_parse_plan_output_done_criteria_optional():
+    assert parse_plan_output(_plan())[0].done_criteria is None
+
+
+def test_parse_plan_output_rejects_invalid_done_criteria():
+    with pytest.raises(PlanSchemaError, match="done_criteria"):
+        parse_plan_output(_plan(done_criteria={"version": 1, "criteria": []}))
+
+
+def test_validate_plan_capabilities_preserves_done_criteria():
+    items = parse_plan_output(_plan(done_criteria=_CRITERIA))
+    out = validate_plan_capabilities(items, {"operations": ["operations.sop.draft"]})
+    assert out[0].done_criteria == items[0].done_criteria
+    assert isinstance(out[0], PlanItemDraft)
+
+
+def test_prompt_includes_goal_context_and_asks_for_done_criteria():
+    prompt = build_decomposition_prompt(
+        "Tăng MRR",
+        {
+            "lifecycle_stage": "P2",
+            "next_best_actions": [],
+            "existing_task_titles": [],
+            "capability_catalog": {},
+            "goal_ancestry": {
+                "goalChain": [{"title": "Chiến lược Q4", "goalType": "strategic"}],
+                "companyObjective": {"title": "Tăng trưởng"},
+                "unlinkedReason": None,
+            },
+        },
+    )
+    assert "Chiến lược Q4" in prompt and "Tăng trưởng" in prompt
+    assert "done_criteria" in prompt
+    assert "context only" in prompt.lower()
+
+
+def test_prompt_without_goal_ancestry_has_no_goal_context_block():
+    for ancestry in (None, {}, {"goalChain": [], "companyObjective": None}):
+        prompt = build_decomposition_prompt("G", {"goal_ancestry": ancestry})
+        assert "GOAL CONTEXT" not in prompt

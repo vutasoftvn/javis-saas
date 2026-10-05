@@ -19,6 +19,7 @@ import { appendOutboxEvent } from "../../../shared/events/outbox.repository";
 import { makeBusinessEvent } from "../../../shared/events/envelope";
 import { generateSnowflake } from "../../../shared/services/snowflake.service";
 import { WEEKLY_GOAL_SET } from "../../../shared/events";
+import { resolveGoalAncestrySafe } from "../../services/goal-ancestry.service";
 import {
   getLocalDateFromInstant,
   nextMondayOnOrAfterLocalDate,
@@ -267,6 +268,12 @@ export async function setWeeklyGoalService(
         )
         .orderBy(desc(nextBestActions.priority), desc(nextBestActions.createdAt))
         .limit(DECOMPOSITION_NEXT_BEST_ACTIONS_LIMIT);
+      // Ngữ cảnh goal cho agent phân rã; lỗi resolve không được chặn event.
+      const goalAncestry = await resolveGoalAncestrySafe(wsId, {
+        projectId: pId,
+        initiativeId: null,
+        keyResultId: null,
+      });
       const event = makeBusinessEvent({
         eventType: WEEKLY_GOAL_SET,
         workspaceId: ctx.workspaceId,
@@ -285,6 +292,7 @@ export async function setWeeklyGoalService(
           lifecycleStage: proj.lifecycleStage,
           existingTaskTitles: openTasks.map((t) => t.title),
           nextBestActions: nbaRows.map((r) => r.recommendation),
+          goalAncestry,
         },
       });
       await appendOutboxEvent(tx, event);

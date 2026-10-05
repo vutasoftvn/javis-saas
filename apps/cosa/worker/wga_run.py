@@ -274,6 +274,7 @@ async def execute_goal_decomposition_task(
             "existing_task_titles": list(payload.get("existing_task_titles") or []),
             "next_best_actions": list(payload.get("next_best_actions") or []),
             "capability_catalog": catalog,
+            "goal_ancestry": payload.get("goal_ancestry"),
         },
     )
 
@@ -361,6 +362,7 @@ async def execute_goal_decomposition_task(
                 "tenantPolicyDecision": None,
                 "dependsOnTitles": it.depends_on_titles,
                 "priority": it.priority,
+                "doneCriteria": it.done_criteria,
             }
             for it in items
         ],

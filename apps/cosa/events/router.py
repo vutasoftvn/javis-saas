@@ -192,6 +192,7 @@ def _self_trigger_payload(event_type: str, env: object) -> dict:
             "lifecycle_stage": payload.get("lifecycleStage"),
             "existing_task_titles": payload.get("existingTaskTitles") or [],
             "next_best_actions": payload.get("nextBestActions") or [],
+            "goal_ancestry": payload.get("goalAncestry"),
             "actor_id": actor_id,
             "correlation_id": corr,
         }

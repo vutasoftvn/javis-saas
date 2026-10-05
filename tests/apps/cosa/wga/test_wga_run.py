@@ -96,6 +96,72 @@ async def test_goal_decomposition_posts_execution_plan():
     assert "Bearer " in call.kwargs["headers"]["Authorization"]
 
 
+_DC_PLAN = json.dumps(
+    {
+        "items": [
+            {
+                "title": "Draft onboarding SOP",
+                "decision_reason": "Standardise week-one onboarding",
+                "evidence_refs": ["n1"],
+                "suggested_domain": "operations",
+                "expected_capability": "operations.task.create_draft",
+                "priority": "high",
+                "done_criteria": {
+                    "version": 1,
+                    "criteria": [
+                        {"id": "c1", "description": "Có SOP", "check": "rubric", "rubric": "Có SOP"}
+                    ],
+                },
+            }
+        ]
+    }
+)
+
+
+async def _post_body(plan_text, extra=None):
+    company = AsyncMock()
+    company.post.return_value = {"id": "plan-1", "status": "draft"}
+    plane = _plane(
+        company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": plan_text})
+    )
+    await wga_run.execute_goal_decomposition_task(
+        plane,
+        None,
+        {
+            "run_id": "wga_decomp_1",
+            "workspace_id": "ws1",
+            "project_id": "proj1",
+            "weekly_plan_id": "wp1",
+            "goal_text": "Close 3 customer interviews",
+            "origin": "command_center",
+            "actor_id": "42",
+            **(extra or {}),
+        },
+    )
+    company.post.assert_awaited_once()
+    return company.post.await_args.kwargs["json"]
+
+
+@pytest.mark.asyncio
+async def test_goal_decomposition_post_body_carries_done_criteria():
+    body = await _post_body(
+        _DC_PLAN,
+        {"goal_ancestry": {"goalChain": [{"title": "Chiến lược Q4", "goalType": "strategic"}]}},
+    )
+    assert body["items"][0]["doneCriteria"] == {
+        "version": 1,
+        "criteria": [
+            {"id": "c1", "description": "Có SOP", "required": True, "check": "rubric", "rubric": "Có SOP"}
+        ],
+    }
+
+
+@pytest.mark.asyncio
+async def test_goal_decomposition_post_body_done_criteria_null_when_absent():
+    body = await _post_body(_VALID_PLAN)
+    assert body["items"][0]["doneCriteria"] is None
+
+
 @pytest.mark.asyncio
 async def test_goal_decomposition_skips_post_on_invalid_plan_schema():
     company = AsyncMock()
