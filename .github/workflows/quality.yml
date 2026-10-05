@@ -197,10 +197,10 @@ jobs:
       - name: Start Postgres (Homebrew, preinstalled on macos-latest runner image)
         run: |
           # PG >= 15 is required by migrations 038/039 (ON DELETE SET NULL (col)).
-          brew list postgresql@16 >/dev/null 2>&1 || brew install postgresql@16
-          export PATH="$(brew --prefix postgresql@16)/bin:$PATH"
-          echo "$(brew --prefix postgresql@16)/bin" >> "$GITHUB_PATH"
-          brew services start postgresql@16
+          brew list postgresql@18 >/dev/null 2>&1 || brew install postgresql@18
+          export PATH="$(brew --prefix postgresql@18)/bin:$PATH"
+          echo "$(brew --prefix postgresql@18)/bin" >> "$GITHUB_PATH"
+          brew services start postgresql@18
           for i in $(seq 1 30); do
             pg_isready -h 127.0.0.1 -p 5432 -U "$(whoami)" && break
             sleep 2
