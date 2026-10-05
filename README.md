@@ -31,7 +31,7 @@ flowchart LR
 | **`4000`** | **Company Business Plane** | `services/company` (Encore.ts) | Nghiệp vụ công ty: Chiến lược, Vận hành, Bán hàng, Tài chính - Pháp lý, và đồng bộ danh tính (`/identity/sync-from-platform`). |
 | **`8000`** | **AgentOS API** | `apps/cosa` (FastAPI) | Multi-Agent platform, streaming chat, workforce routes, orchestration. |
 | **`8765`** | **Desktop Worker** | `desktop_worker` (Python) | Loopback execution worker cho tác vụ desktop/cục bộ. |
-| **`5432`** | **PostgreSQL (Docker)** | `cosa_postgres` (pgvector 16) | Chứa 3 cơ sở dữ liệu: `cosa` (platform), `workspace` (business), `agent` (state & run). |
+| **`5432`** | **PostgreSQL (Docker)** | `cosa_postgres` (pgvector, PostgreSQL 18) | Chứa 3 cơ sở dữ liệu: `cosa` (platform), `workspace` (business), `agent` (state & run). |
 | **`9000/9001`** | **MinIO S3 (Docker)** | `cosa_minio` | Lưu trữ file, document ingestion, knowledge artifacts. |
 | **`7880/7881`** | **LiveKit (Docker)** | `cosa_livekit_local` | Kênh giao tiếp Voice & Audio thời gian thực. |
 

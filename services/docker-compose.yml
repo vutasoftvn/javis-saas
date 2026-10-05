@@ -12,7 +12,7 @@ services:
   # Dedicated PostgreSQL (với pgvector) cho local workspace database
   # ─────────────────────────────────────────────────────────────
   postgres:
-    image: pgvector/pgvector:pg16
+    image: pgvector/pgvector:pg18
     container_name: workspace_db
     ports:
       - "127.0.0.1:5433:5432"
@@ -27,7 +27,7 @@ services:
       - WORKSPACE_APP_PASSWORD=${WORKSPACE_APP_PASSWORD:-change-me-workspace-app}
       - WORKSPACE_MIGRATOR_PASSWORD=${WORKSPACE_MIGRATOR_PASSWORD:-change-me-workspace-migrator}
     volumes:
-      - workspace_db_data:/var/lib/postgresql/data
+      - workspace_db_data:/var/lib/postgresql
       - ../deploy/postgres/init:/docker-entrypoint-initdb.d:ro
     networks:
       - workspace_net

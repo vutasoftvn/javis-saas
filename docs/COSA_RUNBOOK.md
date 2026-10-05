@@ -82,7 +82,7 @@ Each gate must exit with code 0 before proceeding to the next. Do not run in par
 Start all required Docker containers. Must complete successfully before migrations.
 
 **What it does:**
-- Starts PostgreSQL 16 (ports 5432 for COSA, 5433 for Company)
+- Starts PostgreSQL 18 (ports 5432 for COSA, 5433 for Company)
 - Starts MinIO S3-compatible storage (port 9000/9001)
 - Starts LiveKit WebRTC server (port 7880/7885)
 

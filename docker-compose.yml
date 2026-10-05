@@ -25,7 +25,7 @@ services:
   # database URL trỏ tới managed DB bên ngoài.
   # ─────────────────────────────────────────────────────────────
   postgres:
-    image: pgvector/pgvector:pg16
+    image: pgvector/pgvector:pg18
     container_name: cosa_postgres
     ports:
       # dev-only: expose to host loopback for local psql/DB tools. Not public internet.
@@ -41,7 +41,10 @@ services:
       - WORKSPACE_APP_PASSWORD=${WORKSPACE_APP_PASSWORD:-change-me-workspace-app}
       - WORKSPACE_MIGRATOR_PASSWORD=${WORKSPACE_MIGRATOR_PASSWORD:-change-me-workspace-migrator}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      # PG18 image: PGDATA=/var/lib/postgresql/18/docker, mount the PARENT dir. Volumes created
+      # by PG16 (mounted at .../data) are not upgradable in place: dump with pg_dumpall, then
+      # `docker compose down -v postgres` and restore.
+      - postgres_data:/var/lib/postgresql
       - ./deploy/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}"]
