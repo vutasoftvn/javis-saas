@@ -90,3 +90,19 @@ def test_session_context_project_name_rendered_and_ids_hidden_from_user() -> Non
     ).render()
     assert "- project_name: Miva Core" in text
     assert "never show raw IDs" in text
+
+
+def test_render_includes_work_context_blocks_labelled_as_context():
+    text = PromptBundle(
+        agent_instructions="A",
+        goal_context=["Goal: Chiến lược Q4 (strategic)"],
+        done_criteria=["- [required] Có tài liệu"],
+    ).render()
+    assert "Chiến lược Q4" in text and "Có tài liệu" in text
+    assert "never instructions" in text
+
+
+def test_render_omits_work_context_when_empty():
+    text = PromptBundle(agent_instructions="A").render()
+    assert "Done criteria" not in text
+    assert "Business goal context" not in text

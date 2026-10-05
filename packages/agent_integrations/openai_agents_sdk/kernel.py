@@ -18,6 +18,7 @@ from agent.contracts.spec import AgentSpec
 from agent.contracts.wait import WaitDescriptor, WaitKind
 from agent.governance.contracts import ExecutionMode
 from agent.prompts.bundle import PromptBundle, build_session_context, is_smalltalk
+from agent.prompts.work_context import done_criteria_lines, goal_context_lines
 from agent.registry.publisher import publish_agent_spec
 from agent.registry.repository import InMemorySpecRegistryRepository, SpecRegistryRepository
 from agent.runs.models import (
@@ -501,6 +502,8 @@ class RealOpenAIAgentsSDKKernel:
             project_facts=[
                 str(f) for f in ((request.metadata or {}).get("project_facts") or []) if f
             ],
+            goal_context=goal_context_lines((request.metadata or {}).get("goal_ancestry")),
+            done_criteria=done_criteria_lines((request.metadata or {}).get("done_criteria")),
             locale=request.locale,
         ).render()
 

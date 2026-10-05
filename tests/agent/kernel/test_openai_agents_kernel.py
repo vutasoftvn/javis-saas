@@ -519,6 +519,40 @@ async def test_kernel_run_injects_session_context_and_conversation_style():
 
 
 @pytest.mark.asyncio
+async def test_kernel_run_renders_goal_context_and_done_criteria_from_metadata():
+    client = _CapturingModelClient()
+    kernel = ManualToolLoopKernel(repository=InMemoryRunRepository(), model_client=client)
+    spec = AgentSpec(
+        id="test.agent.work_ctx_1",
+        version="1.0.0",
+        instructions="Bạn là trợ lý vận hành.",
+        model_input_capability_ref="model.input.direct-user-message",
+    )
+    request = RunRequest(
+        principal="test_user",
+        root_executable_ref=spec.to_pinned_identity(),
+        input={"prompt": "Làm task này"},
+        workspace_id="w-1",
+        metadata={
+            "goal_ancestry": {"goalChain": [{"title": "Chiến lược Q4", "goalType": "strategic"}]},
+            "done_criteria": {
+                "version": 1,
+                "criteria": [
+                    {"id": "c1", "description": "Có tài liệu", "required": True,
+                     "check": "rubric", "rubric": "r"}
+                ],
+            },
+        },
+    )
+
+    await kernel.run(request, spec)
+
+    content = client.captured_messages[0]["content"]
+    assert "Chiến lược Q4 (strategic)" in content
+    assert "- [required] Có tài liệu" in content
+
+
+@pytest.mark.asyncio
 async def test_kernel_run_greeting_drops_agent_instructions():
     client = _CapturingModelClient()
     kernel = ManualToolLoopKernel(repository=InMemoryRunRepository(), model_client=client)

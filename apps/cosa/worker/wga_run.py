@@ -693,6 +693,11 @@ async def _execute_claimed_task(
     extra_metadata: dict[str, Any] = {"execution_plan_item_id": t.get("planItemId")}
     if needs_approval and expected_cap:
         extra_metadata[REQUIRE_APPROVAL_CAPABILITIES_KEY] = [expected_cap]
+    # Ngữ cảnh mục tiêu + tiêu chí hoàn thành đi qua metadata của run (không đổi AgentSpec).
+    if t.get("goalAncestry"):
+        extra_metadata["goal_ancestry"] = t["goalAncestry"]
+    if t.get("doneCriteria"):
+        extra_metadata["done_criteria"] = t["doneCriteria"]
 
     try:
         prep = await prepare_run(

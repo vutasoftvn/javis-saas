@@ -853,3 +853,66 @@ async def test_progress_message_is_announced_on_project_activity_after_persist()
     assert call.kwargs["project_id"] == "proj1"
     assert call.kwargs["raw_context"]["conversation_id"] == "conv_9"
     assert call.kwargs["raw_context"]["message_kind"] == "plan_progress"
+
+
+_ANCESTRY = {
+    "resolvedVia": "initiative",
+    "project": {"id": "proj1", "title": "Dự án A"},
+    "keyResult": None,
+    "objective": None,
+    "companyObjective": {"id": "co1", "title": "Tăng trưởng"},
+    "goalChain": [{"id": "g1", "title": "Chiến lược Q4", "goalType": "strategic"}],
+    "unlinkedReason": None,
+}
+_CRITERIA = {
+    "version": 1,
+    "criteria": [
+        {"id": "c1", "description": "Có tài liệu", "required": True, "check": "rubric", "rubric": "r"}
+    ],
+}
+
+
+@pytest.mark.asyncio
+async def test_sweep_passes_goal_ancestry_and_done_criteria_into_run_metadata():
+    from agent.prompts.bundle import PromptBundle
+    from agent.prompts.work_context import done_criteria_lines, goal_context_lines
+
+    task = dict(_AUTO_TASK, goalAncestry=_ANCESTRY, doneCriteria=_CRITERIA)
+    company = AsyncMock()
+    company.get.return_value = {"tasks": [task]}
+    company.post.return_value = {"status": "ok"}
+    plane = _plane(company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": "ok"}))
+
+    await wga_run.execute_workspace_task_sweep_task(
+        plane, None, {"run_id": "s", "workspace_id": "ws1", "actor_id": "42"}
+    )
+
+    md = plane.kernel.run.await_args.args[0].metadata
+    assert md["goal_ancestry"] == _ANCESTRY
+    assert md["done_criteria"] == _CRITERIA
+    # Cùng hàm mà cả hai kernel dùng -> prompt render có chuỗi mục tiêu và tiêu chí.
+    rendered = PromptBundle(
+        agent_instructions="A",
+        goal_context=goal_context_lines(md.get("goal_ancestry")),
+        done_criteria=done_criteria_lines(md.get("done_criteria")),
+    ).render()
+    assert "Chiến lược Q4" in rendered and "Tăng trưởng" in rendered
+    assert "- [required] Có tài liệu" in rendered
+
+
+@pytest.mark.asyncio
+async def test_sweep_omits_goal_keys_when_task_has_none():
+    task = dict(_AUTO_TASK, goalAncestry=None, doneCriteria=None)
+    company = AsyncMock()
+    company.get.return_value = {"tasks": [task, dict(_AUTO_TASK, taskId="t2")]}
+    company.post.return_value = {"status": "ok"}
+    plane = _plane(company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": "ok"}))
+
+    await wga_run.execute_workspace_task_sweep_task(
+        plane, None, {"run_id": "s", "workspace_id": "ws1", "actor_id": "42"}
+    )
+
+    assert plane.kernel.run.await_args_list
+    for call in plane.kernel.run.await_args_list:
+        md = call.args[0].metadata
+        assert "goal_ancestry" not in md and "done_criteria" not in md
