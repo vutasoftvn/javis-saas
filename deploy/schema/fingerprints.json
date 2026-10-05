@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "generated_at": "2026-10-05T01:50:09.062Z",
+  "generated_at": "2026-10-05T02:30:48.968Z",
   "groups": {
     "agent": {
-      "fingerprint": "45255ceda7a9cc4cf47b458356a725b2badd48638d5f91ff80348ab7a341a538",
+      "fingerprint": "f40955c3300d84d658e37e78ea5bdf5bb3a9053a3a2ee88bc38b53dd5aba3980",
       "schemas": [
         "agent",
         "agent_artifact",
@@ -1051,7 +1051,7 @@
           "check_constraints": [
             {
               "name": "chk_agent_approvals_binding",
-              "clause": "(((((binding_kind)::text = 'TOOL_CALL'::text) AND (run_id IS NOT NULL) AND (tool_call_id IS NOT NULL) AND (checkpoint_ref IS NOT NULL)) OR (((binding_kind)::text = 'CHANGE_REQUEST'::text) AND (workspace_id IS NOT NULL) AND (run_id IS NULL) AND (tool_call_id IS NULL) AND (checkpoint_ref IS NULL) AND (subject_kind IS NOT NULL) AND (subject_ref IS NOT NULL) AND (subject_hash IS NOT NULL))))"
+              "clause": "((((binding_kind)::text = 'TOOL_CALL'::text) AND (run_id IS NOT NULL) AND (tool_call_id IS NOT NULL) AND (checkpoint_ref IS NOT NULL)) OR (((binding_kind)::text = 'CHANGE_REQUEST'::text) AND (workspace_id IS NOT NULL) AND (run_id IS NULL) AND (tool_call_id IS NULL) AND (checkpoint_ref IS NULL) AND (subject_kind IS NOT NULL) AND (subject_ref IS NOT NULL) AND (subject_hash IS NOT NULL)))"
             }
           ],
           "indexes": [
@@ -1554,11 +1554,11 @@
           "check_constraints": [
             {
               "name": "chk_founder_asset_callback_delivery_attempts",
-              "clause": "((delivery_attempts >= 0))"
+              "clause": "(delivery_attempts >= 0)"
             },
             {
               "name": "chk_founder_asset_callback_delivery_status",
-              "clause": "(((delivery_status)::text = ANY ((ARRAY['PENDING'::character varying, 'DELIVERED'::character varying])::text[])))"
+              "clause": "((delivery_status)::text = ANY ((ARRAY['PENDING'::character varying, 'DELIVERED'::character varying])::text[]))"
             }
           ],
           "indexes": [
@@ -1967,11 +1967,11 @@
           "check_constraints": [
             {
               "name": "local_ingestion_attempts_size_bytes_check",
-              "clause": "(((size_bytes IS NULL) OR (size_bytes >= 0)))"
+              "clause": "((size_bytes IS NULL) OR (size_bytes >= 0))"
             },
             {
               "name": "local_ingestion_attempts_state_check",
-              "clause": "((state = ANY (ARRAY['QUEUED'::text, 'VALIDATING'::text, 'CONVERTING'::text, 'REVIEW_PENDING'::text, 'PUBLISHED'::text, 'REJECTED'::text, 'FAILED'::text])))"
+              "clause": "(state = ANY (ARRAY['QUEUED'::text, 'VALIDATING'::text, 'CONVERTING'::text, 'REVIEW_PENDING'::text, 'PUBLISHED'::text, 'REJECTED'::text, 'FAILED'::text]))"
             }
           ],
           "indexes": [
@@ -2184,7 +2184,7 @@
           "check_constraints": [
             {
               "name": "local_upload_tickets_max_bytes_check",
-              "clause": "((max_bytes > 0))"
+              "clause": "(max_bytes > 0)"
             }
           ],
           "indexes": [
@@ -2991,15 +2991,15 @@
           "check_constraints": [
             {
               "name": "run_cost_observations_cost_amount_check",
-              "clause": "((cost_amount >= (0)::numeric))"
+              "clause": "(cost_amount >= (0)::numeric)"
             },
             {
               "name": "run_cost_observations_input_tokens_check",
-              "clause": "((input_tokens >= 0))"
+              "clause": "(input_tokens >= 0)"
             },
             {
               "name": "run_cost_observations_output_tokens_check",
-              "clause": "((output_tokens >= 0))"
+              "clause": "(output_tokens >= 0)"
             }
           ],
           "indexes": [
@@ -3822,7 +3822,7 @@
           "check_constraints": [
             {
               "name": "runtime_signal_outbox_state_delivery_check",
-              "clause": "((state_delivery = ANY (ARRAY['PENDING'::text, 'DELIVERED'::text, 'FAILED'::text])))"
+              "clause": "(state_delivery = ANY (ARRAY['PENDING'::text, 'DELIVERED'::text, 'FAILED'::text]))"
             }
           ],
           "indexes": [
@@ -5721,7 +5721,7 @@
           "check_constraints": [
             {
               "name": "workforce_employees_status_check",
-              "clause": "((status = ANY (ARRAY['ACTIVE'::text, 'SUSPENDED'::text, 'RETIRED'::text])))"
+              "clause": "(status = ANY (ARRAY['ACTIVE'::text, 'SUSPENDED'::text, 'RETIRED'::text]))"
             }
           ],
           "indexes": [
@@ -5852,7 +5852,7 @@
           "check_constraints": [
             {
               "name": "workforce_schedules_status_check",
-              "clause": "((status = ANY (ARRAY['ACTIVE'::text, 'RETIRED'::text])))"
+              "clause": "(status = ANY (ARRAY['ACTIVE'::text, 'RETIRED'::text]))"
             }
           ],
           "indexes": [
@@ -6039,11 +6039,11 @@
           "check_constraints": [
             {
               "name": "check_lifecycle",
-              "clause": "(((lifecycle)::text = ANY ((ARRAY['DRAFT'::character varying, 'CANDIDATE'::character varying, 'EVALUATING'::character varying, 'REVIEW_REQUIRED'::character varying, 'PUBLISHED'::character varying, 'RETIRED'::character varying])::text[])))"
+              "clause": "((lifecycle)::text = ANY ((ARRAY['DRAFT'::character varying, 'CANDIDATE'::character varying, 'EVALUATING'::character varying, 'REVIEW_REQUIRED'::character varying, 'PUBLISHED'::character varying, 'RETIRED'::character varying])::text[]))"
             },
             {
               "name": "check_version_sandbox_project",
-              "clause": "(((((scope_kind)::text = 'PROJECT_SANDBOX'::text) AND (project_id IS NOT NULL)) OR (((scope_kind)::text = 'WORKSPACE'::text) AND (project_id IS NULL))))"
+              "clause": "((((scope_kind)::text = 'PROJECT_SANDBOX'::text) AND (project_id IS NOT NULL)) OR (((scope_kind)::text = 'WORKSPACE'::text) AND (project_id IS NULL)))"
             }
           ],
           "indexes": [
@@ -6239,11 +6239,11 @@
           "check_constraints": [
             {
               "name": "check_asset_kind",
-              "clause": "(((kind)::text = ANY ((ARRAY['AGENT'::character varying, 'SKILL'::character varying, 'WORKFLOW'::character varying])::text[])))"
+              "clause": "((kind)::text = ANY ((ARRAY['AGENT'::character varying, 'SKILL'::character varying, 'WORKFLOW'::character varying])::text[]))"
             },
             {
               "name": "check_sandbox_project",
-              "clause": "(((((scope_kind)::text = 'PROJECT_SANDBOX'::text) AND (project_id IS NOT NULL)) OR (((scope_kind)::text = 'WORKSPACE'::text) AND (project_id IS NULL))))"
+              "clause": "((((scope_kind)::text = 'PROJECT_SANDBOX'::text) AND (project_id IS NOT NULL)) OR (((scope_kind)::text = 'WORKSPACE'::text) AND (project_id IS NULL)))"
             }
           ],
           "indexes": [
@@ -6428,11 +6428,11 @@
           "check_constraints": [
             {
               "name": "chk_workspace_artifact_kind",
-              "clause": "(((artifact_kind)::text = ANY (ARRAY[('assistant_output'::character varying)::text, ('report'::character varying)::text, ('table'::character varying)::text, ('file_export'::character varying)::text])))"
+              "clause": "((artifact_kind)::text = ANY (ARRAY[('assistant_output'::character varying)::text, ('report'::character varying)::text, ('table'::character varying)::text, ('file_export'::character varying)::text]))"
             },
             {
               "name": "chk_workspace_artifact_status",
-              "clause": "(((status)::text = ANY (ARRAY[('available'::character varying)::text, ('failed'::character varying)::text, ('archived'::character varying)::text])))"
+              "clause": "((status)::text = ANY (ARRAY[('available'::character varying)::text, ('failed'::character varying)::text, ('archived'::character varying)::text]))"
             }
           ],
           "indexes": [
@@ -6577,11 +6577,11 @@
           "check_constraints": [
             {
               "name": "chk_agent_conversation_conversations_project_scope",
-              "clause": "(((((scope_state)::text = 'PROJECT_SCOPED'::text) AND (project_id IS NOT NULL)) OR (((scope_state)::text = 'LEGACY_UNSCOPED'::text) AND (project_id IS NULL))))"
+              "clause": "((((scope_state)::text = 'PROJECT_SCOPED'::text) AND (project_id IS NOT NULL)) OR (((scope_state)::text = 'LEGACY_UNSCOPED'::text) AND (project_id IS NULL)))"
             },
             {
               "name": "chk_agent_conversation_conversations_scope_state",
-              "clause": "(((scope_state)::text = ANY ((ARRAY['PROJECT_SCOPED'::character varying, 'LEGACY_UNSCOPED'::character varying])::text[])))"
+              "clause": "((scope_state)::text = ANY ((ARRAY['PROJECT_SCOPED'::character varying, 'LEGACY_UNSCOPED'::character varying])::text[]))"
             }
           ],
           "indexes": [
@@ -7170,7 +7170,7 @@
           "check_constraints": [
             {
               "name": "invocation_governance_history_source_check",
-              "clause": "((source = ANY (ARRAY['ambient'::text, 'historical'::text])))"
+              "clause": "(source = ANY (ARRAY['ambient'::text, 'historical'::text]))"
             }
           ],
           "indexes": [
@@ -7327,7 +7327,7 @@
           "check_constraints": [
             {
               "name": "spec_resolution_manifest_entries_spec_kind_check",
-              "clause": "((spec_kind = ANY (ARRAY['agent'::text, 'workflow'::text, 'skill'::text, 'prompt'::text, 'model_policy'::text, 'tool_contract'::text])))"
+              "clause": "(spec_kind = ANY (ARRAY['agent'::text, 'workflow'::text, 'skill'::text, 'prompt'::text, 'model_policy'::text, 'tool_contract'::text]))"
             }
           ],
           "indexes": [
@@ -8594,15 +8594,15 @@
           "check_constraints": [
             {
               "name": "model_provider_profiles_max_concurrency_check",
-              "clause": "(((max_concurrency IS NULL) OR (max_concurrency > 0)))"
+              "clause": "((max_concurrency IS NULL) OR (max_concurrency > 0))"
             },
             {
               "name": "model_provider_profiles_provider_type_check",
-              "clause": "((provider_type = ANY (ARRAY['local_openai_compatible'::text, 'anthropic_api'::text, 'openai_api'::text, 'openrouter_api'::text, 'deepseek_api'::text, 'claude_cli'::text, 'codex_cli'::text, 'gemini_cli'::text])))"
+              "clause": "(provider_type = ANY (ARRAY['local_openai_compatible'::text, 'anthropic_api'::text, 'openai_api'::text, 'openrouter_api'::text, 'deepseek_api'::text, 'claude_cli'::text, 'codex_cli'::text, 'gemini_cli'::text]))"
             },
             {
               "name": "model_provider_profiles_status_check",
-              "clause": "((status = ANY (ARRAY['ACTIVE'::text, 'DISABLED'::text])))"
+              "clause": "(status = ANY (ARRAY['ACTIVE'::text, 'DISABLED'::text]))"
             }
           ],
           "indexes": [
@@ -8763,15 +8763,15 @@
           "check_constraints": [
             {
               "name": "run_usage_completion_tokens_check",
-              "clause": "((completion_tokens >= 0))"
+              "clause": "(completion_tokens >= 0)"
             },
             {
               "name": "run_usage_cost_usd_check",
-              "clause": "(((cost_usd IS NULL) OR (cost_usd >= (0)::numeric)))"
+              "clause": "((cost_usd IS NULL) OR (cost_usd >= (0)::numeric))"
             },
             {
               "name": "run_usage_prompt_tokens_check",
-              "clause": "((prompt_tokens >= 0))"
+              "clause": "(prompt_tokens >= 0)"
             }
           ],
           "indexes": [
@@ -8984,7 +8984,7 @@
           "check_constraints": [
             {
               "name": "workspace_model_policies_scope_check",
-              "clause": "((scope = ANY (ARRAY['WORKSPACE'::text, 'AGENT_PROFILE'::text])))"
+              "clause": "(scope = ANY (ARRAY['WORKSPACE'::text, 'AGENT_PROFILE'::text]))"
             }
           ],
           "indexes": [
@@ -9001,7 +9001,7 @@
       }
     },
     "cosa": {
-      "fingerprint": "498140cd5e9ab8ecd8a4222d6d2d2c9697858511aee252e265c7e0f70049778f",
+      "fingerprint": "021f2b2684296283fe8089dabfee54cfacaa8de322b34dfd61a68f261c873417",
       "schemas": [
         "control_plane",
         "cosa"
@@ -9119,7 +9119,7 @@
           "check_constraints": [
             {
               "name": "assignments_status_check",
-              "clause": "((status = ANY (ARRAY['leased'::text, 'completed'::text, 'failed'::text, 'released'::text])))"
+              "clause": "(status = ANY (ARRAY['leased'::text, 'completed'::text, 'failed'::text, 'released'::text]))"
             }
           ],
           "indexes": [
@@ -9314,7 +9314,7 @@
           "check_constraints": [
             {
               "name": "automation_dispatches_state_check",
-              "clause": "((state = ANY (ARRAY['received'::text, 'scheduled'::text, 'claimed'::text, 'completed'::text, 'failed'::text, 'quarantined'::text])))"
+              "clause": "(state = ANY (ARRAY['received'::text, 'scheduled'::text, 'claimed'::text, 'completed'::text, 'failed'::text, 'quarantined'::text]))"
             }
           ],
           "indexes": [
@@ -9472,7 +9472,7 @@
           "check_constraints": [
             {
               "name": "chk_authorization_state",
-              "clause": "((state = ANY (ARRAY['active'::text, 'expired'::text, 'revoked'::text])))"
+              "clause": "(state = ANY (ARRAY['active'::text, 'expired'::text, 'revoked'::text]))"
             }
           ],
           "indexes": [
@@ -9719,7 +9719,7 @@
           "check_constraints": [
             {
               "name": "delivery_attempts_status_check",
-              "clause": "((status = ANY (ARRAY['pending'::text, 'sent'::text, 'failed'::text])))"
+              "clause": "(status = ANY (ARRAY['pending'::text, 'sent'::text, 'failed'::text]))"
             }
           ],
           "indexes": [
@@ -9810,11 +9810,11 @@
           "check_constraints": [
             {
               "name": "delivery_policies_channel_check",
-              "clause": "((channel = ANY (ARRAY['flutter'::text, 'email'::text, 'slack'::text, 'webhook'::text])))"
+              "clause": "(channel = ANY (ARRAY['flutter'::text, 'email'::text, 'slack'::text, 'webhook'::text]))"
             },
             {
               "name": "delivery_policies_status_check",
-              "clause": "((status = ANY (ARRAY['active'::text, 'paused'::text])))"
+              "clause": "(status = ANY (ARRAY['active'::text, 'paused'::text]))"
             }
           ],
           "indexes": [
@@ -9948,7 +9948,7 @@
           "check_constraints": [
             {
               "name": "document_ingestion_audit_events_actor_kind_check",
-              "clause": "((actor_kind = ANY (ARRAY['user'::text, 'worker'::text, 'system'::text])))"
+              "clause": "(actor_kind = ANY (ARRAY['user'::text, 'worker'::text, 'system'::text]))"
             }
           ],
           "indexes": [
@@ -10168,7 +10168,7 @@
           "check_constraints": [
             {
               "name": "document_ingestions_state_check",
-              "clause": "((state = ANY (ARRAY['UPLOADING'::text, 'QUARANTINED'::text, 'QUEUED'::text, 'VALIDATING'::text, 'CONVERTING'::text, 'REVIEW_PENDING'::text, 'PUBLISHED'::text, 'REJECTED'::text, 'FAILED'::text, 'EXPIRED'::text])))"
+              "clause": "(state = ANY (ARRAY['UPLOADING'::text, 'QUARANTINED'::text, 'QUEUED'::text, 'VALIDATING'::text, 'CONVERTING'::text, 'REVIEW_PENDING'::text, 'PUBLISHED'::text, 'REJECTED'::text, 'FAILED'::text, 'EXPIRED'::text]))"
             }
           ],
           "indexes": [
@@ -10323,7 +10323,7 @@
           "check_constraints": [
             {
               "name": "missions_status_check",
-              "clause": "((status = ANY (ARRAY['active'::text, 'completed'::text, 'failed'::text, 'cancelled'::text])))"
+              "clause": "(status = ANY (ARRAY['active'::text, 'completed'::text, 'failed'::text, 'cancelled'::text]))"
             }
           ],
           "indexes": [
@@ -10432,7 +10432,7 @@
           "check_constraints": [
             {
               "name": "chk_installation_status",
-              "clause": "((status = ANY (ARRAY['enabled'::text, 'disabled'::text])))"
+              "clause": "(status = ANY (ARRAY['enabled'::text, 'disabled'::text]))"
             }
           ],
           "indexes": [
@@ -10573,11 +10573,11 @@
           "check_constraints": [
             {
               "name": "workspace_execution_leases_active_runtime_role_check",
-              "clause": "((active_runtime_role = ANY (ARRAY['local_workspace_runtime'::text, 'cloud_workspace_runtime'::text])))"
+              "clause": "(active_runtime_role = ANY (ARRAY['local_workspace_runtime'::text, 'cloud_workspace_runtime'::text]))"
             },
             {
               "name": "workspace_execution_leases_failover_policy_check",
-              "clause": "((failover_policy = ANY (ARRAY['AUTO'::text, 'MANUAL'::text])))"
+              "clause": "(failover_policy = ANY (ARRAY['AUTO'::text, 'MANUAL'::text]))"
             }
           ],
           "indexes": [
@@ -10718,11 +10718,11 @@
           "check_constraints": [
             {
               "name": "workspace_runtime_nodes_presence_status_check",
-              "clause": "((presence_status = ANY (ARRAY['ONLINE'::text, 'OFFLINE'::text, 'DEGRADED'::text])))"
+              "clause": "(presence_status = ANY (ARRAY['ONLINE'::text, 'OFFLINE'::text, 'DEGRADED'::text]))"
             },
             {
               "name": "workspace_runtime_nodes_runtime_role_check",
-              "clause": "((runtime_role = ANY (ARRAY['local_workspace_runtime'::text, 'cloud_workspace_runtime'::text])))"
+              "clause": "(runtime_role = ANY (ARRAY['local_workspace_runtime'::text, 'cloud_workspace_runtime'::text]))"
             }
           ],
           "indexes": [
@@ -10997,11 +10997,11 @@
           "check_constraints": [
             {
               "name": "chk_schedule_kind",
-              "clause": "((schedule_kind = ANY (ARRAY['one_time'::text, 'daily'::text, 'weekdays'::text])))"
+              "clause": "(schedule_kind = ANY (ARRAY['one_time'::text, 'daily'::text, 'weekdays'::text]))"
             },
             {
               "name": "chk_schedule_state",
-              "clause": "((state = ANY (ARRAY['enabled'::text, 'paused'::text, 'archived'::text])))"
+              "clause": "(state = ANY (ARRAY['enabled'::text, 'paused'::text, 'archived'::text]))"
             }
           ],
           "indexes": [
@@ -11267,7 +11267,7 @@
           "check_constraints": [
             {
               "name": "chk_schedule_execution_state",
-              "clause": "((state = ANY (ARRAY['queued'::text, 'enqueue_retry'::text, 'enqueue_failed'::text, 'running'::text, 'succeeded'::text, 'failed'::text, 'blocked_reauth'::text, 'cancelled'::text])))"
+              "clause": "(state = ANY (ARRAY['queued'::text, 'enqueue_retry'::text, 'enqueue_failed'::text, 'running'::text, 'succeeded'::text, 'failed'::text, 'blocked_reauth'::text, 'cancelled'::text]))"
             }
           ],
           "indexes": [
@@ -11866,7 +11866,7 @@
           "check_constraints": [
             {
               "name": "scheduled_tasks_status_check",
-              "clause": "((status = ANY (ARRAY['scheduled'::text, 'processing'::text, 'completed'::text, 'coalesced'::text, 'failed'::text, 'blocked'::text])))"
+              "clause": "(status = ANY (ARRAY['scheduled'::text, 'processing'::text, 'completed'::text, 'coalesced'::text, 'failed'::text, 'blocked'::text]))"
             }
           ],
           "indexes": [
@@ -12048,7 +12048,7 @@
           "check_constraints": [
             {
               "name": "chk_session_grant_state",
-              "clause": "((state = ANY (ARRAY['enabled'::text, 'revoked'::text, 'expired'::text])))"
+              "clause": "(state = ANY (ARRAY['enabled'::text, 'revoked'::text, 'expired'::text]))"
             }
           ],
           "indexes": [
@@ -12268,11 +12268,11 @@
           "check_constraints": [
             {
               "name": "snowflake_generator_slots_runtime_role_check",
-              "clause": "((runtime_role = ANY (ARRAY['cosa_control_plane'::text, 'cloud_workspace_runtime'::text])))"
+              "clause": "(runtime_role = ANY (ARRAY['cosa_control_plane'::text, 'cloud_workspace_runtime'::text]))"
             },
             {
               "name": "snowflake_generator_slots_slot_check",
-              "clause": "(((slot >= 0) AND (slot <= 1023)))"
+              "clause": "((slot >= 0) AND (slot <= 1023))"
             }
           ],
           "indexes": [
@@ -12418,7 +12418,7 @@
           "check_constraints": [
             {
               "name": "tasks_status_check",
-              "clause": "((status = ANY (ARRAY['pending'::text, 'assigned'::text, 'running'::text, 'completed'::text, 'failed'::text, 'cancelled'::text])))"
+              "clause": "(status = ANY (ARRAY['pending'::text, 'assigned'::text, 'running'::text, 'completed'::text, 'failed'::text, 'cancelled'::text]))"
             }
           ],
           "indexes": [
@@ -12612,7 +12612,7 @@
           "check_constraints": [
             {
               "name": "watches_status_check",
-              "clause": "((status = ANY (ARRAY['active'::text, 'paused'::text, 'retired'::text])))"
+              "clause": "(status = ANY (ARRAY['active'::text, 'paused'::text, 'retired'::text]))"
             }
           ],
           "indexes": [
@@ -12733,7 +12733,7 @@
           "check_constraints": [
             {
               "name": "workers_status_check",
-              "clause": "((status = ANY (ARRAY['online'::text, 'offline'::text, 'degraded'::text])))"
+              "clause": "(status = ANY (ARRAY['online'::text, 'offline'::text, 'degraded'::text]))"
             }
           ],
           "indexes": [
@@ -12843,7 +12843,7 @@
           "check_constraints": [
             {
               "name": "workspace_agent_policy_decision_check",
-              "clause": "((decision = ANY (ARRAY['ALLOW'::text, 'REQUIRE_APPROVAL'::text, 'DENY'::text])))"
+              "clause": "(decision = ANY (ARRAY['ALLOW'::text, 'REQUIRE_APPROVAL'::text, 'DENY'::text]))"
             }
           ],
           "indexes": [
@@ -13230,7 +13230,7 @@
           "check_constraints": [
             {
               "name": "organization_invitation_grants_state_check",
-              "clause": "((state = ANY (ARRAY['requested'::text, 'core_granted'::text, 'projected'::text, 'failed'::text])))"
+              "clause": "(state = ANY (ARRAY['requested'::text, 'core_granted'::text, 'projected'::text, 'failed'::text]))"
             }
           ],
           "indexes": [
@@ -13412,11 +13412,11 @@
           "check_constraints": [
             {
               "name": "workspace_invitations_role_id_check",
-              "clause": "((role_id = ANY (ARRAY['member'::text, 'admin'::text])))"
+              "clause": "(role_id = ANY (ARRAY['member'::text, 'admin'::text]))"
             },
             {
               "name": "workspace_invitations_status_check",
-              "clause": "((status = ANY (ARRAY['pending'::text, 'accepted'::text, 'revoked'::text, 'expired'::text])))"
+              "clause": "(status = ANY (ARRAY['pending'::text, 'accepted'::text, 'revoked'::text, 'expired'::text]))"
             }
           ],
           "indexes": [
@@ -13726,7 +13726,7 @@
           "check_constraints": [
             {
               "name": "workspace_memberships_role_check",
-              "clause": "((role = ANY (ARRAY['founder'::text, 'co-founder'::text, 'admin'::text, 'member'::text, 'viewer'::text])))"
+              "clause": "(role = ANY (ARRAY['founder'::text, 'co-founder'::text, 'admin'::text, 'member'::text, 'viewer'::text]))"
             }
           ],
           "indexes": [
@@ -13821,7 +13821,7 @@
           "check_constraints": [
             {
               "name": "workspace_module_configs_module_key_check",
-              "clause": "((module_key = ANY (ARRAY['finance'::text, 'legal'::text, 'crm'::text])))"
+              "clause": "(module_key = ANY (ARRAY['finance'::text, 'legal'::text, 'crm'::text]))"
             }
           ],
           "indexes": [
@@ -13922,7 +13922,7 @@
           "check_constraints": [
             {
               "name": "workspace_surface_overrides_status_override_check",
-              "clause": "((status_override = ANY (ARRAY['PILOT'::text, 'PLANNED'::text, 'CONFIGURATION_REQUIRED'::text, 'UNAVAILABLE'::text])))"
+              "clause": "(status_override = ANY (ARRAY['PILOT'::text, 'PLANNED'::text, 'CONFIGURATION_REQUIRED'::text, 'UNAVAILABLE'::text]))"
             }
           ],
           "indexes": [
@@ -14043,7 +14043,7 @@
           "check_constraints": [
             {
               "name": "platform_workspace_sync_log_sync_status_check",
-              "clause": "((sync_status = ANY (ARRAY['pending'::text, 'success'::text, 'failed'::text])))"
+              "clause": "(sync_status = ANY (ARRAY['pending'::text, 'success'::text, 'failed'::text]))"
             }
           ],
           "indexes": [
@@ -14134,7 +14134,7 @@
           "check_constraints": [
             {
               "name": "platform_workspaces_status_check",
-              "clause": "((status = ANY (ARRAY['active'::text, 'archived'::text])))"
+              "clause": "(status = ANY (ARRAY['active'::text, 'archived'::text]))"
             }
           ],
           "indexes": [
@@ -14382,7 +14382,7 @@
           "check_constraints": [
             {
               "name": "chk_profiles_preferred_locale",
-              "clause": "(((preferred_locale)::text = ANY (ARRAY[('vi-VN'::character varying)::text, ('en-US'::character varying)::text])))"
+              "clause": "((preferred_locale)::text = ANY (ARRAY[('vi-VN'::character varying)::text, ('en-US'::character varying)::text]))"
             }
           ],
           "indexes": [
@@ -14578,7 +14578,7 @@
           "check_constraints": [
             {
               "name": "user_workspace_module_preferences_module_key_check",
-              "clause": "((module_key = ANY (ARRAY['finance'::text, 'legal'::text, 'crm'::text])))"
+              "clause": "(module_key = ANY (ARRAY['finance'::text, 'legal'::text, 'crm'::text]))"
             }
           ],
           "indexes": [
@@ -14741,7 +14741,7 @@
           "check_constraints": [
             {
               "name": "users_email_or_phone_required",
-              "clause": "(((email IS NOT NULL) OR (phone IS NOT NULL)))"
+              "clause": "((email IS NOT NULL) OR (phone IS NOT NULL))"
             }
           ],
           "indexes": [
@@ -14770,7 +14770,7 @@
       }
     },
     "workspace": {
-      "fingerprint": "49c6a5c343f261ad576027042031853d3938189843cc3c767f5e443d823e41fc",
+      "fingerprint": "3ced4ca0963a28f64ccfed4a4b4106ee84d58f192282b9e75ed6dced13661445",
       "schemas": [
         "commercial",
         "core",
@@ -17758,11 +17758,11 @@
           "check_constraints": [
             {
               "name": "marketing_proposals_origin_check",
-              "clause": "(((origin)::text = ANY (ARRAY[('USER'::character varying)::text, ('MODEL_DRAFT'::character varying)::text])))"
+              "clause": "((origin)::text = ANY (ARRAY[('USER'::character varying)::text, ('MODEL_DRAFT'::character varying)::text]))"
             },
             {
               "name": "marketing_proposals_status_check",
-              "clause": "(((status)::text = ANY (ARRAY[('DRAFT'::character varying)::text, ('IN_REVIEW'::character varying)::text, ('APPROVED'::character varying)::text, ('REJECTED'::character varying)::text])))"
+              "clause": "((status)::text = ANY (ARRAY[('DRAFT'::character varying)::text, ('IN_REVIEW'::character varying)::text, ('APPROVED'::character varying)::text, ('REJECTED'::character varying)::text]))"
             }
           ],
           "indexes": [
@@ -19113,7 +19113,7 @@
           "check_constraints": [
             {
               "name": "check_valid_until_after_valid_from",
-              "clause": "(((valid_until IS NULL) OR (valid_until > valid_from)))"
+              "clause": "((valid_until IS NULL) OR (valid_until > valid_from))"
             }
           ],
           "indexes": [
@@ -19364,7 +19364,7 @@
           "check_constraints": [
             {
               "name": "role_permissions_effect_check",
-              "clause": "((effect = ANY (ARRAY['ALLOW'::text, 'DENY'::text, 'REQUIRE_APPROVAL'::text])))"
+              "clause": "(effect = ANY (ARRAY['ALLOW'::text, 'DENY'::text, 'REQUIRE_APPROVAL'::text]))"
             }
           ],
           "indexes": [
@@ -19500,7 +19500,7 @@
           "check_constraints": [
             {
               "name": "user_projections_email_or_phone_required",
-              "clause": "(((email IS NOT NULL) OR (phone IS NOT NULL)))"
+              "clause": "((email IS NOT NULL) OR (phone IS NOT NULL))"
             }
           ],
           "indexes": [
@@ -19706,11 +19706,11 @@
           "check_constraints": [
             {
               "name": "workforce_members_manager_not_self",
-              "clause": "(((manager_member_id IS NULL) OR (manager_member_id <> id)))"
+              "clause": "((manager_member_id IS NULL) OR (manager_member_id <> id))"
             },
             {
               "name": "workforce_members_type_consistency",
-              "clause": "((((member_type = 'HUMAN'::text) AND (human_user_id IS NOT NULL) AND (agent_spec_id IS NULL) AND (agent_spec_version IS NULL)) OR ((member_type = 'AI_AGENT'::text) AND (human_user_id IS NULL) AND (agent_spec_id IS NOT NULL) AND (agent_spec_version IS NOT NULL))))"
+              "clause": "(((member_type = 'HUMAN'::text) AND (human_user_id IS NOT NULL) AND (agent_spec_id IS NULL) AND (agent_spec_version IS NULL)) OR ((member_type = 'AI_AGENT'::text) AND (human_user_id IS NULL) AND (agent_spec_id IS NOT NULL) AND (agent_spec_version IS NOT NULL)))"
             }
           ],
           "indexes": [
@@ -20496,7 +20496,7 @@
           "check_constraints": [
             {
               "name": "workspace_slugs_status_check",
-              "clause": "((status = ANY (ARRAY['ACTIVE'::text, 'REDIRECT'::text, 'RELEASED'::text])))"
+              "clause": "(status = ANY (ARRAY['ACTIVE'::text, 'REDIRECT'::text, 'RELEASED'::text]))"
             }
           ],
           "indexes": [
@@ -20748,23 +20748,23 @@
           "check_constraints": [
             {
               "name": "workspaces_lifecycle_stage_chk",
-              "clause": "((lifecycle_stage = ANY (ARRAY['W0_IDEA'::text, 'W1_PROBLEM_VALIDATION'::text, 'W2_SOLUTION_VALIDATION'::text, 'W3_MVP_BUILD'::text, 'W4_PRODUCT_MARKET_FIT'::text, 'W5_SCALE'::text])))"
+              "clause": "(lifecycle_stage = ANY (ARRAY['W0_IDEA'::text, 'W1_PROBLEM_VALIDATION'::text, 'W2_SOLUTION_VALIDATION'::text, 'W3_MVP_BUILD'::text, 'W4_PRODUCT_MARKET_FIT'::text, 'W5_SCALE'::text]))"
             },
             {
               "name": "workspaces_runtime_mode_chk",
-              "clause": "((runtime_mode = ANY (ARRAY['LOCAL_ONLY'::text, 'REMOTE_ACCESS'::text, 'CLOUD_CONTINUITY'::text])))"
+              "clause": "(runtime_mode = ANY (ARRAY['LOCAL_ONLY'::text, 'REMOTE_ACCESS'::text, 'CLOUD_CONTINUITY'::text]))"
             },
             {
               "name": "workspaces_status_chk",
-              "clause": "((status = ANY (ARRAY['ACTIVE'::text, 'ARCHIVED'::text, 'SUSPENDED'::text])))"
+              "clause": "(status = ANY (ARRAY['ACTIVE'::text, 'ARCHIVED'::text, 'SUSPENDED'::text]))"
             },
             {
               "name": "workspaces_sync_policy_chk",
-              "clause": "((sync_policy = ANY (ARRAY['CONTROL_METADATA_ONLY'::text, 'SELECTIVE_ENCRYPTED'::text, 'FULL_ENCRYPTED'::text])))"
+              "clause": "(sync_policy = ANY (ARRAY['CONTROL_METADATA_ONLY'::text, 'SELECTIVE_ENCRYPTED'::text, 'FULL_ENCRYPTED'::text]))"
             },
             {
               "name": "workspaces_sync_status_chk",
-              "clause": "((sync_status = ANY (ARRAY['LOCAL_ONLY'::text, 'PENDING'::text, 'IN_SYNC'::text, 'CONFLICT'::text, 'ERROR'::text])))"
+              "clause": "(sync_status = ANY (ARRAY['LOCAL_ONLY'::text, 'PENDING'::text, 'IN_SYNC'::text, 'CONFLICT'::text, 'ERROR'::text]))"
             }
           ],
           "indexes": [
@@ -25994,11 +25994,11 @@
           "check_constraints": [
             {
               "name": "accounting_documents_document_type_check",
-              "clause": "((document_type = ANY (ARRAY['RECEIPT'::text, 'PAYMENT'::text, 'INVOICE'::text, 'JOURNAL'::text])))"
+              "clause": "(document_type = ANY (ARRAY['RECEIPT'::text, 'PAYMENT'::text, 'INVOICE'::text, 'JOURNAL'::text]))"
             },
             {
               "name": "accounting_documents_status_check",
-              "clause": "((status = ANY (ARRAY['DRAFT'::text, 'CONFIRMED'::text, 'VOID'::text])))"
+              "clause": "(status = ANY (ARRAY['DRAFT'::text, 'CONFIRMED'::text, 'VOID'::text]))"
             }
           ],
           "indexes": [
@@ -27671,15 +27671,15 @@
           "check_constraints": [
             {
               "name": "bank_connections_consent_state_check",
-              "clause": "((consent_state = ANY (ARRAY['PENDING'::text, 'GRANTED'::text, 'REVOKED'::text, 'EXPIRED'::text])))"
+              "clause": "(consent_state = ANY (ARRAY['PENDING'::text, 'GRANTED'::text, 'REVOKED'::text, 'EXPIRED'::text]))"
             },
             {
               "name": "bank_connections_provider_check",
-              "clause": "((provider = ANY (ARRAY['cas'::text, 'manual'::text])))"
+              "clause": "(provider = ANY (ARRAY['cas'::text, 'manual'::text]))"
             },
             {
               "name": "bank_connections_secret_ref_check",
-              "clause": "(((secret_ref IS NULL) OR (secret_ref ~~ 'secret://cosa-connectors/%'::text)))"
+              "clause": "((secret_ref IS NULL) OR (secret_ref ~~ 'secret://cosa-connectors/%'::text))"
             }
           ],
           "indexes": [
@@ -27905,11 +27905,11 @@
           "check_constraints": [
             {
               "name": "bank_transactions_direction_check",
-              "clause": "((direction = ANY (ARRAY['IN'::text, 'OUT'::text])))"
+              "clause": "(direction = ANY (ARRAY['IN'::text, 'OUT'::text]))"
             },
             {
               "name": "bank_transactions_status_check",
-              "clause": "((status = ANY (ARRAY['UNRECONCILED'::text, 'MATCHED'::text, 'CONFIRMED'::text])))"
+              "clause": "(status = ANY (ARRAY['UNRECONCILED'::text, 'MATCHED'::text, 'CONFIRMED'::text]))"
             }
           ],
           "indexes": [
@@ -28570,7 +28570,7 @@
           "check_constraints": [
             {
               "name": "cas_webhook_inbox_status_check",
-              "clause": "((status = ANY (ARRAY['RECEIVED'::text, 'PROCESSING'::text, 'PROCESSED'::text, 'FAILED'::text, 'DLQ'::text])))"
+              "clause": "(status = ANY (ARRAY['RECEIVED'::text, 'PROCESSING'::text, 'PROCESSED'::text, 'FAILED'::text, 'DLQ'::text]))"
             }
           ],
           "indexes": [
@@ -28730,7 +28730,7 @@
           "check_constraints": [
             {
               "name": "document_reconciliation_proposals_status_check",
-              "clause": "((status = ANY (ARRAY['PENDING'::text, 'ACCEPTED'::text, 'REJECTED'::text])))"
+              "clause": "(status = ANY (ARRAY['PENDING'::text, 'ACCEPTED'::text, 'REJECTED'::text]))"
             }
           ],
           "indexes": [
@@ -29754,7 +29754,7 @@
           "check_constraints": [
             {
               "name": "ingestion_events_status_check",
-              "clause": "((status = ANY (ARRAY['RECEIVED'::text, 'PROCESSING'::text, 'PROCESSED'::text, 'FAILED'::text, 'DLQ'::text])))"
+              "clause": "(status = ANY (ARRAY['RECEIVED'::text, 'PROCESSING'::text, 'PROCESSED'::text, 'FAILED'::text, 'DLQ'::text]))"
             }
           ],
           "indexes": [
@@ -30936,7 +30936,7 @@
           "check_constraints": [
             {
               "name": "event_outbox_status_check",
-              "clause": "((status = ANY (ARRAY['pending'::text, 'claimed'::text, 'delivered'::text, 'dead'::text])))"
+              "clause": "(status = ANY (ARRAY['pending'::text, 'claimed'::text, 'delivered'::text, 'dead'::text]))"
             }
           ],
           "indexes": [
@@ -31682,11 +31682,11 @@
           "check_constraints": [
             {
               "name": "ai_compliance_snapshots_mode_check",
-              "clause": "((mode = 'ADVISORY_ONLY'::text))"
+              "clause": "(mode = 'ADVISORY_ONLY'::text)"
             },
             {
               "name": "ai_compliance_snapshots_status_check",
-              "clause": "((status = ANY (ARRAY['DRAFT'::text, 'ASSESSED'::text, 'APPROVED_FOR_USE'::text, 'SUSPENDED'::text, 'REJECTED'::text, 'RETIRED'::text])))"
+              "clause": "(status = ANY (ARRAY['DRAFT'::text, 'ASSESSED'::text, 'APPROVED_FOR_USE'::text, 'SUSPENDED'::text, 'REJECTED'::text, 'RETIRED'::text]))"
             }
           ],
           "indexes": [
@@ -31942,7 +31942,7 @@
           "check_constraints": [
             {
               "name": "ai_data_processing_profiles_status_check",
-              "clause": "((status = ANY (ARRAY['DRAFT'::text, 'ACTIVE'::text, 'SUSPENDED'::text, 'RETIRED'::text])))"
+              "clause": "(status = ANY (ARRAY['DRAFT'::text, 'ACTIVE'::text, 'SUSPENDED'::text, 'RETIRED'::text]))"
             }
           ],
           "indexes": [
@@ -32343,15 +32343,15 @@
           "check_constraints": [
             {
               "name": "ai_incidents_notification_decision_check",
-              "clause": "((notification_decision = ANY (ARRAY['NOT_REQUIRED'::text, 'NOTIFY_AUTHORITY'::text, 'NOTIFY_SUBJECTS'::text, 'NOTIFY_BOTH'::text])))"
+              "clause": "(notification_decision = ANY (ARRAY['NOT_REQUIRED'::text, 'NOTIFY_AUTHORITY'::text, 'NOTIFY_SUBJECTS'::text, 'NOTIFY_BOTH'::text]))"
             },
             {
               "name": "ai_incidents_severity_check",
-              "clause": "((severity = ANY (ARRAY['LOW'::text, 'MEDIUM'::text, 'HIGH'::text, 'CRITICAL'::text])))"
+              "clause": "(severity = ANY (ARRAY['LOW'::text, 'MEDIUM'::text, 'HIGH'::text, 'CRITICAL'::text]))"
             },
             {
               "name": "ai_incidents_status_check",
-              "clause": "((status = ANY (ARRAY['OPEN'::text, 'CONTAINED'::text, 'ASSESSING'::text, 'NOTIFICATION_DECISION_PENDING'::text, 'REMEDIATING'::text, 'CLOSED'::text])))"
+              "clause": "(status = ANY (ARRAY['OPEN'::text, 'CONTAINED'::text, 'ASSESSING'::text, 'NOTIFICATION_DECISION_PENDING'::text, 'REMEDIATING'::text, 'CLOSED'::text]))"
             }
           ],
           "indexes": [
@@ -32541,7 +32541,7 @@
           "check_constraints": [
             {
               "name": "ai_provider_profiles_status_check",
-              "clause": "((status = ANY (ARRAY['DRAFT'::text, 'APPROVED'::text, 'SUSPENDED'::text, 'REVOKED'::text])))"
+              "clause": "(status = ANY (ARRAY['DRAFT'::text, 'APPROVED'::text, 'SUSPENDED'::text, 'REVOKED'::text]))"
             }
           ],
           "indexes": [
@@ -32769,11 +32769,11 @@
           "check_constraints": [
             {
               "name": "ai_risk_assessments_classification_check",
-              "clause": "((classification = ANY (ARRAY['OUT_OF_CATALOG'::text, 'REQUIRES_REVIEW'::text, 'HIGH_RISK'::text])))"
+              "clause": "(classification = ANY (ARRAY['OUT_OF_CATALOG'::text, 'REQUIRES_REVIEW'::text, 'HIGH_RISK'::text]))"
             },
             {
               "name": "ai_risk_assessments_status_check",
-              "clause": "((status = ANY (ARRAY['PENDING'::text, 'APPROVED'::text, 'REJECTED'::text, 'EXPIRED'::text])))"
+              "clause": "(status = ANY (ARRAY['PENDING'::text, 'APPROVED'::text, 'REJECTED'::text, 'EXPIRED'::text]))"
             }
           ],
           "indexes": [
@@ -32943,15 +32943,15 @@
           "check_constraints": [
             {
               "name": "ai_system_capability_bindings_decision_domain_check",
-              "clause": "((decision_domain = ANY (ARRAY['GENERAL'::text, 'LEGAL'::text, 'FINANCE'::text, 'HR'::text, 'OPERATIONS'::text, 'COMMERCIAL'::text])))"
+              "clause": "(decision_domain = ANY (ARRAY['GENERAL'::text, 'LEGAL'::text, 'FINANCE'::text, 'HR'::text, 'OPERATIONS'::text, 'COMMERCIAL'::text]))"
             },
             {
               "name": "ai_system_capability_bindings_effect_class_check",
-              "clause": "((effect_class = ANY (ARRAY['READ'::text, 'DRAFT'::text, 'EXTERNAL'::text])))"
+              "clause": "(effect_class = ANY (ARRAY['READ'::text, 'DRAFT'::text, 'EXTERNAL'::text]))"
             },
             {
               "name": "ai_system_capability_bindings_max_data_category_check",
-              "clause": "((max_data_category = ANY (ARRAY['NON_PERSONAL'::text, 'PERSONAL'::text, 'SENSITIVE_PERSONAL'::text, 'BUSINESS_CONFIDENTIAL'::text])))"
+              "clause": "(max_data_category = ANY (ARRAY['NON_PERSONAL'::text, 'PERSONAL'::text, 'SENSITIVE_PERSONAL'::text, 'BUSINESS_CONFIDENTIAL'::text]))"
             }
           ],
           "indexes": [
@@ -33083,7 +33083,7 @@
           "check_constraints": [
             {
               "name": "ai_system_catalog_lifecycle_status_check",
-              "clause": "((lifecycle_status = ANY (ARRAY['DRAFT'::text, 'ACTIVE'::text, 'DEPRECATED'::text, 'RETIRED'::text])))"
+              "clause": "(lifecycle_status = ANY (ARRAY['DRAFT'::text, 'ACTIVE'::text, 'DEPRECATED'::text, 'RETIRED'::text]))"
             }
           ],
           "indexes": [
@@ -33235,7 +33235,7 @@
           "check_constraints": [
             {
               "name": "ai_system_versions_status_check",
-              "clause": "((status = ANY (ARRAY['DRAFT'::text, 'ACTIVE'::text, 'DEPRECATED'::text, 'RETIRED'::text])))"
+              "clause": "(status = ANY (ARRAY['DRAFT'::text, 'ACTIVE'::text, 'DEPRECATED'::text, 'RETIRED'::text]))"
             }
           ],
           "indexes": [
@@ -33646,11 +33646,11 @@
           "check_constraints": [
             {
               "name": "data_processing_authorizations_authority_type_check",
-              "clause": "((authority_type = ANY (ARRAY['CONSENT'::text, 'CONTRACTUAL_NECESSITY'::text, 'LEGAL_OBLIGATION'::text, 'VITAL_INTERESTS'::text, 'LEGITIMATE_INTERESTS'::text])))"
+              "clause": "(authority_type = ANY (ARRAY['CONSENT'::text, 'CONTRACTUAL_NECESSITY'::text, 'LEGAL_OBLIGATION'::text, 'VITAL_INTERESTS'::text, 'LEGITIMATE_INTERESTS'::text]))"
             },
             {
               "name": "data_processing_authorizations_status_check",
-              "clause": "((status = ANY (ARRAY['GRANTED'::text, 'WITHDRAWN'::text, 'RESTRICTED'::text])))"
+              "clause": "(status = ANY (ARRAY['GRANTED'::text, 'WITHDRAWN'::text, 'RESTRICTED'::text]))"
             }
           ],
           "indexes": [
@@ -33815,11 +33815,11 @@
           "check_constraints": [
             {
               "name": "data_subject_requests_request_type_check",
-              "clause": "((request_type = ANY (ARRAY['ACCESS'::text, 'CORRECTION'::text, 'DELETION'::text, 'RESTRICTION'::text])))"
+              "clause": "(request_type = ANY (ARRAY['ACCESS'::text, 'CORRECTION'::text, 'DELETION'::text, 'RESTRICTION'::text]))"
             },
             {
               "name": "data_subject_requests_status_check",
-              "clause": "((status = ANY (ARRAY['RECEIVED'::text, 'IN_REVIEW'::text, 'FULFILLED'::text, 'REJECTED'::text, 'LEGAL_HOLD'::text])))"
+              "clause": "(status = ANY (ARRAY['RECEIVED'::text, 'IN_REVIEW'::text, 'FULFILLED'::text, 'REJECTED'::text, 'LEGAL_HOLD'::text]))"
             }
           ],
           "indexes": [
@@ -34314,7 +34314,7 @@
           "check_constraints": [
             {
               "name": "legal_obligation_instances_source_check",
-              "clause": "((source = ANY (ARRAY['REGULATION_TEMPLATE'::text, 'USER_CREATED'::text, 'AI_PROPOSAL'::text])))"
+              "clause": "(source = ANY (ARRAY['REGULATION_TEMPLATE'::text, 'USER_CREATED'::text, 'AI_PROPOSAL'::text]))"
             }
           ],
           "indexes": [
@@ -34711,7 +34711,7 @@
           "check_constraints": [
             {
               "name": "legal_verification_approvals_status_check",
-              "clause": "((status = ANY (ARRAY['PENDING'::text, 'APPROVED'::text, 'REJECTED'::text, 'EXPIRED'::text])))"
+              "clause": "(status = ANY (ARRAY['PENDING'::text, 'APPROVED'::text, 'REJECTED'::text, 'EXPIRED'::text]))"
             }
           ],
           "indexes": [
@@ -34982,7 +34982,7 @@
           "check_constraints": [
             {
               "name": "regulation_sources_layer_check",
-              "clause": "((layer = ANY (ARRAY['CURRENT_LAW'::text, 'POLICY_WATCH'::text, 'PROFESSIONAL_REVIEW'::text])))"
+              "clause": "(layer = ANY (ARRAY['CURRENT_LAW'::text, 'POLICY_WATCH'::text, 'PROFESSIONAL_REVIEW'::text]))"
             }
           ],
           "indexes": [
@@ -35423,11 +35423,11 @@
           "check_constraints": [
             {
               "name": "workspace_ai_deployments_mode_check",
-              "clause": "((mode = 'ADVISORY_ONLY'::text))"
+              "clause": "(mode = 'ADVISORY_ONLY'::text)"
             },
             {
               "name": "workspace_ai_deployments_status_check",
-              "clause": "((status = ANY (ARRAY['DRAFT'::text, 'ASSESSED'::text, 'APPROVED_FOR_USE'::text, 'SUSPENDED'::text, 'REJECTED'::text, 'RETIRED'::text])))"
+              "clause": "(status = ANY (ARRAY['DRAFT'::text, 'ASSESSED'::text, 'APPROVED_FOR_USE'::text, 'SUSPENDED'::text, 'REJECTED'::text, 'RETIRED'::text]))"
             }
           ],
           "indexes": [
@@ -35679,7 +35679,7 @@
           "check_constraints": [
             {
               "name": "ai_governance_dossier_revisions_reason_code_check",
-              "clause": "(((reason_code)::text = ANY ((ARRAY['SNAPSHOT_INGESTED'::character varying, 'RISK_SIGNAL_UPDATED'::character varying, 'SOURCE_REF_UPDATED'::character varying, 'FOUNDER_REVIEW'::character varying])::text[])))"
+              "clause": "((reason_code)::text = ANY ((ARRAY['SNAPSHOT_INGESTED'::character varying, 'RISK_SIGNAL_UPDATED'::character varying, 'SOURCE_REF_UPDATED'::character varying, 'FOUNDER_REVIEW'::character varying])::text[]))"
             }
           ],
           "indexes": [
@@ -36452,7 +36452,7 @@
           "check_constraints": [
             {
               "name": "chk_automation_plan_proposals_status",
-              "clause": "((status = ANY (ARRAY['DRAFT'::text, 'APPROVED'::text, 'DISCARDED'::text])))"
+              "clause": "(status = ANY (ARRAY['DRAFT'::text, 'APPROVED'::text, 'DISCARDED'::text]))"
             }
           ],
           "indexes": [
@@ -37501,7 +37501,7 @@
           "check_constraints": [
             {
               "name": "data_governance_dossier_revisions_reason_code_check",
-              "clause": "(((reason_code)::text = ANY ((ARRAY['ASSET_CATALOGED'::character varying, 'CLASSIFICATION_UPDATED'::character varying, 'QUALITY_UPDATED'::character varying, 'SOURCE_REF_UPDATED'::character varying, 'FOUNDER_REVIEW'::character varying])::text[])))"
+              "clause": "((reason_code)::text = ANY ((ARRAY['ASSET_CATALOGED'::character varying, 'CLASSIFICATION_UPDATED'::character varying, 'QUALITY_UPDATED'::character varying, 'SOURCE_REF_UPDATED'::character varying, 'FOUNDER_REVIEW'::character varying])::text[]))"
             }
           ],
           "indexes": [
@@ -38687,15 +38687,15 @@
           "check_constraints": [
             {
               "name": "legal_issue_dossier_revisions_applicability_status_check",
-              "clause": "(((applicability_status)::text = ANY ((ARRAY['APPLICABLE'::character varying, 'NOT_APPLICABLE'::character varying, 'UNKNOWN'::character varying, 'ESCALATED'::character varying])::text[])))"
+              "clause": "((applicability_status)::text = ANY ((ARRAY['APPLICABLE'::character varying, 'NOT_APPLICABLE'::character varying, 'UNKNOWN'::character varying, 'ESCALATED'::character varying])::text[]))"
             },
             {
               "name": "legal_issue_dossier_revisions_issue_category_check",
-              "clause": "(((issue_category)::text = ANY ((ARRAY['CONTRACT_QUESTION'::character varying, 'REGULATORY_QUESTION'::character varying, 'IP_QUESTION'::character varying, 'EMPLOYMENT_QUESTION'::character varying, 'DATA_PRIVACY_QUESTION'::character varying, 'ENTITY_STRUCTURE_QUESTION'::character varying, 'DISPUTE_QUESTION'::character varying, 'OTHER'::character varying])::text[])))"
+              "clause": "((issue_category)::text = ANY ((ARRAY['CONTRACT_QUESTION'::character varying, 'REGULATORY_QUESTION'::character varying, 'IP_QUESTION'::character varying, 'EMPLOYMENT_QUESTION'::character varying, 'DATA_PRIVACY_QUESTION'::character varying, 'ENTITY_STRUCTURE_QUESTION'::character varying, 'DISPUTE_QUESTION'::character varying, 'OTHER'::character varying])::text[]))"
             },
             {
               "name": "legal_issue_dossier_revisions_reason_code_check",
-              "clause": "(((reason_code)::text = ANY ((ARRAY['ISSUE_RAISED'::character varying, 'REFERENCE_UPDATED'::character varying, 'APPLICABILITY_UPDATED'::character varying, 'ESCALATED'::character varying, 'FOUNDER_REVIEW'::character varying])::text[])))"
+              "clause": "((reason_code)::text = ANY ((ARRAY['ISSUE_RAISED'::character varying, 'REFERENCE_UPDATED'::character varying, 'APPLICABILITY_UPDATED'::character varying, 'ESCALATED'::character varying, 'FOUNDER_REVIEW'::character varying])::text[]))"
             }
           ],
           "indexes": [
@@ -39460,7 +39460,7 @@
           "check_constraints": [
             {
               "name": "people_risk_dossier_revisions_reason_code_check",
-              "clause": "(((reason_code)::text = ANY ((ARRAY['INITIAL_ASSESSMENT'::character varying, 'NEW_CAPACITY_DATA'::character varying, 'RISK_REASSESSMENT'::character varying, 'SOURCE_UPDATED'::character varying, 'FOUNDER_REVIEW'::character varying])::text[])))"
+              "clause": "((reason_code)::text = ANY ((ARRAY['INITIAL_ASSESSMENT'::character varying, 'NEW_CAPACITY_DATA'::character varying, 'RISK_REASSESSMENT'::character varying, 'SOURCE_UPDATED'::character varying, 'FOUNDER_REVIEW'::character varying])::text[]))"
             }
           ],
           "indexes": [
@@ -42584,11 +42584,11 @@
           "check_constraints": [
             {
               "name": "security_posture_dossier_revisions_reason_code_check",
-              "clause": "(((reason_code)::text = ANY ((ARRAY['INITIAL_ASSESSMENT'::character varying, 'CONTROL_UPDATED'::character varying, 'FINDING_ADDED'::character varying, 'EVIDENCE_UPDATED'::character varying, 'FOUNDER_REVIEW'::character varying])::text[])))"
+              "clause": "((reason_code)::text = ANY ((ARRAY['INITIAL_ASSESSMENT'::character varying, 'CONTROL_UPDATED'::character varying, 'FINDING_ADDED'::character varying, 'EVIDENCE_UPDATED'::character varying, 'FOUNDER_REVIEW'::character varying])::text[]))"
             },
             {
               "name": "security_posture_dossier_revisions_severity_check",
-              "clause": "(((severity)::text = ANY ((ARRAY['LOW'::character varying, 'MEDIUM'::character varying, 'HIGH'::character varying, 'CRITICAL'::character varying])::text[])))"
+              "clause": "((severity)::text = ANY ((ARRAY['LOW'::character varying, 'MEDIUM'::character varying, 'HIGH'::character varying, 'CRITICAL'::character varying])::text[]))"
             }
           ],
           "indexes": [
@@ -42953,11 +42953,11 @@
           "check_constraints": [
             {
               "name": "task_execution_records_status_check",
-              "clause": "((status = ANY (ARRAY['SUCCESS'::text, 'FAILED'::text])))"
+              "clause": "(status = ANY (ARRAY['SUCCESS'::text, 'FAILED'::text]))"
             },
             {
               "name": "task_execution_records_triggered_by_kind_check",
-              "clause": "((triggered_by_kind = ANY (ARRAY['agent'::text, 'founder'::text, 'workflow'::text, 'system'::text])))"
+              "clause": "(triggered_by_kind = ANY (ARRAY['agent'::text, 'founder'::text, 'workflow'::text, 'system'::text]))"
             }
           ],
           "indexes": []
@@ -43204,11 +43204,11 @@
           "check_constraints": [
             {
               "name": "task_outcome_contracts_outcome_type_check",
-              "clause": "(((outcome_type)::text = ANY (ARRAY[('DIRECT_KR'::character varying)::text, ('ENABLING_KR'::character varying)::text, ('VALIDATION'::character varying)::text, ('BAU'::character varying)::text])))"
+              "clause": "((outcome_type)::text = ANY (ARRAY[('DIRECT_KR'::character varying)::text, ('ENABLING_KR'::character varying)::text, ('VALIDATION'::character varying)::text, ('BAU'::character varying)::text]))"
             },
             {
               "name": "task_outcome_contracts_status_check",
-              "clause": "(((status)::text = ANY (ARRAY[('DRAFT'::character varying)::text, ('CONFIRMED'::character varying)::text, ('SUPERSEDED'::character varying)::text])))"
+              "clause": "((status)::text = ANY (ARRAY[('DRAFT'::character varying)::text, ('CONFIRMED'::character varying)::text, ('SUPERSEDED'::character varying)::text]))"
             }
           ],
           "indexes": []
@@ -43295,7 +43295,7 @@
           "check_constraints": [
             {
               "name": "task_outcome_kr_links_relation_type_check",
-              "clause": "(((relation_type)::text = ANY (ARRAY[('DIRECT'::character varying)::text, ('ENABLING'::character varying)::text, ('VALIDATION'::character varying)::text])))"
+              "clause": "((relation_type)::text = ANY (ARRAY[('DIRECT'::character varying)::text, ('ENABLING'::character varying)::text, ('VALIDATION'::character varying)::text]))"
             }
           ],
           "indexes": []
@@ -43422,7 +43422,7 @@
           "check_constraints": [
             {
               "name": "task_outcome_reviews_decision_check",
-              "clause": "(((decision)::text = ANY (ARRAY[('ACCEPT'::character varying)::text, ('REWORK'::character varying)::text, ('REJECT'::character varying)::text])))"
+              "clause": "((decision)::text = ANY (ARRAY[('ACCEPT'::character varying)::text, ('REWORK'::character varying)::text, ('REJECT'::character varying)::text]))"
             }
           ],
           "indexes": []
@@ -43953,15 +43953,15 @@
           "check_constraints": [
             {
               "name": "task_work_packages_effective_priority_check",
-              "clause": "(((effective_priority)::text = ANY (ARRAY[('P0'::character varying)::text, ('P1'::character varying)::text, ('P2'::character varying)::text, ('P3'::character varying)::text])))"
+              "clause": "((effective_priority)::text = ANY (ARRAY[('P0'::character varying)::text, ('P1'::character varying)::text, ('P2'::character varying)::text, ('P3'::character varying)::text]))"
             },
             {
               "name": "task_work_packages_requested_priority_check",
-              "clause": "(((requested_priority)::text = ANY (ARRAY[('P0'::character varying)::text, ('P1'::character varying)::text, ('P2'::character varying)::text, ('P3'::character varying)::text])))"
+              "clause": "((requested_priority)::text = ANY (ARRAY[('P0'::character varying)::text, ('P1'::character varying)::text, ('P2'::character varying)::text, ('P3'::character varying)::text]))"
             },
             {
               "name": "task_work_packages_status_check",
-              "clause": "(((status)::text = ANY (ARRAY[('QUEUED'::character varying)::text, ('LEASED'::character varying)::text, ('RUNNING'::character varying)::text, ('VALIDATION_PASSED'::character varying)::text, ('PENDING_MANAGER_REVIEW'::character varying)::text, ('ESCALATED_TO_FOUNDER'::character varying)::text, ('ACCEPTED'::character varying)::text, ('REWORK'::character varying)::text, ('REJECTED'::character varying)::text, ('BLOCKED'::character varying)::text, ('ON_HOLD'::character varying)::text, ('CANCELLED'::character varying)::text])))"
+              "clause": "((status)::text = ANY (ARRAY[('QUEUED'::character varying)::text, ('LEASED'::character varying)::text, ('RUNNING'::character varying)::text, ('VALIDATION_PASSED'::character varying)::text, ('PENDING_MANAGER_REVIEW'::character varying)::text, ('ESCALATED_TO_FOUNDER'::character varying)::text, ('ACCEPTED'::character varying)::text, ('REWORK'::character varying)::text, ('REJECTED'::character varying)::text, ('BLOCKED'::character varying)::text, ('ON_HOLD'::character varying)::text, ('CANCELLED'::character varying)::text]))"
             }
           ],
           "indexes": []
@@ -44649,7 +44649,7 @@
           "check_constraints": [
             {
               "name": "ck_cycle_duration",
-              "clause": "(((duration_weeks >= 1) AND (duration_weeks <= 12)))"
+              "clause": "((duration_weeks >= 1) AND (duration_weeks <= 12))"
             }
           ],
           "indexes": [
@@ -45220,7 +45220,7 @@
           "check_constraints": [
             {
               "name": "weekly_plans_decomposition_status_chk",
-              "clause": "(((decomposition_status IS NULL) OR (decomposition_status = ANY (ARRAY['pending'::text, 'done'::text, 'failed'::text]))))"
+              "clause": "((decomposition_status IS NULL) OR (decomposition_status = ANY (ARRAY['pending'::text, 'done'::text, 'failed'::text])))"
             }
           ],
           "indexes": [
@@ -45752,7 +45752,7 @@
           "check_constraints": [
             {
               "name": "work_package_reviews_decision_check",
-              "clause": "(((decision)::text = ANY (ARRAY[('ACCEPT'::character varying)::text, ('REWORK'::character varying)::text, ('REJECT'::character varying)::text])))"
+              "clause": "((decision)::text = ANY (ARRAY[('ACCEPT'::character varying)::text, ('REWORK'::character varying)::text, ('REJECT'::character varying)::text]))"
             }
           ],
           "indexes": []
@@ -49518,7 +49518,7 @@
           "check_constraints": [
             {
               "name": "chk_ai_budget_action",
-              "clause": "((action_on_breach = ANY (ARRAY['WARN'::text, 'REQUIRE_APPROVAL'::text, 'PAUSE_INITIATIVE'::text])))"
+              "clause": "(action_on_breach = ANY (ARRAY['WARN'::text, 'REQUIRE_APPROVAL'::text, 'PAUSE_INITIATIVE'::text]))"
             }
           ],
           "indexes": [
@@ -49746,11 +49746,11 @@
           "check_constraints": [
             {
               "name": "chk_ai_dra_retrieval_mode",
-              "clause": "((retrieval_mode = ANY (ARRAY['none'::text, 'lexical'::text, 'semantic'::text])))"
+              "clause": "(retrieval_mode = ANY (ARRAY['none'::text, 'lexical'::text, 'semantic'::text]))"
             },
             {
               "name": "chk_ai_dra_status",
-              "clause": "((assessment_status = ANY (ARRAY['NOT_READY'::text, 'CONDITIONAL'::text, 'READY'::text])))"
+              "clause": "(assessment_status = ANY (ARRAY['NOT_READY'::text, 'CONDITIONAL'::text, 'READY'::text]))"
             }
           ],
           "indexes": [
@@ -50430,7 +50430,7 @@
           "check_constraints": [
             {
               "name": "chk_ai_measurement_state",
-              "clause": "((state = ANY (ARRAY['PRESENT'::text, 'UNAVAILABLE'::text, 'INVALID'::text])))"
+              "clause": "(state = ANY (ARRAY['PRESENT'::text, 'UNAVAILABLE'::text, 'INVALID'::text]))"
             }
           ],
           "indexes": [
@@ -50705,11 +50705,11 @@
           "check_constraints": [
             {
               "name": "conversation_turns_dimension_check",
-              "clause": "((dimension = ANY (ARRAY['identity'::text, 'stage_scale'::text, 'founder'::text, 'team_culture'::text, 'market'::text, 'challenges'::text, 'goals_ambition'::text])))"
+              "clause": "(dimension = ANY (ARRAY['identity'::text, 'stage_scale'::text, 'founder'::text, 'team_culture'::text, 'market'::text, 'challenges'::text, 'goals_ambition'::text]))"
             },
             {
               "name": "conversation_turns_role_check",
-              "clause": "((role = ANY (ARRAY['user'::text, 'assistant'::text, 'system'::text])))"
+              "clause": "(role = ANY (ARRAY['user'::text, 'assistant'::text, 'system'::text]))"
             }
           ],
           "indexes": [
@@ -50855,7 +50855,7 @@
           "check_constraints": [
             {
               "name": "cosa_key_results_status_check",
-              "clause": "((status = ANY (ARRAY['active'::text, 'achieved'::text, 'missed'::text, 'archived'::text])))"
+              "clause": "(status = ANY (ARRAY['active'::text, 'achieved'::text, 'missed'::text, 'archived'::text]))"
             }
           ],
           "indexes": [
@@ -51109,11 +51109,11 @@
           "check_constraints": [
             {
               "name": "decision_records_created_by_kind_check",
-              "clause": "((created_by_kind = ANY (ARRAY['FOUNDER'::text, 'AI'::text, 'SYSTEM'::text])))"
+              "clause": "(created_by_kind = ANY (ARRAY['FOUNDER'::text, 'AI'::text, 'SYSTEM'::text]))"
             },
             {
               "name": "decision_records_founder_decision_check",
-              "clause": "((founder_decision = ANY (ARRAY['accepted'::text, 'rejected'::text, 'deferred'::text])))"
+              "clause": "(founder_decision = ANY (ARRAY['accepted'::text, 'rejected'::text, 'deferred'::text]))"
             }
           ],
           "indexes": [
@@ -51671,7 +51671,7 @@
           "check_constraints": [
             {
               "name": "evidence_ingestions_source_system_chk",
-              "clause": "(((source_system)::text = ANY (ARRAY[('interview'::character varying)::text, ('crm'::character varying)::text, ('telemetry'::character varying)::text, ('payment'::character varying)::text])))"
+              "clause": "((source_system)::text = ANY (ARRAY[('interview'::character varying)::text, ('crm'::character varying)::text, ('telemetry'::character varying)::text, ('payment'::character varying)::text]))"
             }
           ],
           "indexes": [
@@ -52066,15 +52066,15 @@
           "check_constraints": [
             {
               "name": "chk_goal_dates",
-              "clause": "((((start_date IS NULL) AND (end_date IS NULL)) OR ((start_date IS NOT NULL) AND (end_date IS NOT NULL))))"
+              "clause": "(((start_date IS NULL) AND (end_date IS NULL)) OR ((start_date IS NOT NULL) AND (end_date IS NOT NULL)))"
             },
             {
               "name": "goals_goal_type_check",
-              "clause": "((goal_type = ANY (ARRAY['vision'::text, 'strategic'::text, 'tactical'::text, 'sprint'::text])))"
+              "clause": "(goal_type = ANY (ARRAY['vision'::text, 'strategic'::text, 'tactical'::text, 'sprint'::text]))"
             },
             {
               "name": "goals_status_check",
-              "clause": "((status = ANY (ARRAY['draft'::text, 'active'::text, 'completed'::text, 'abandoned'::text])))"
+              "clause": "(status = ANY (ARRAY['draft'::text, 'active'::text, 'completed'::text, 'abandoned'::text]))"
             }
           ],
           "indexes": [
@@ -52536,27 +52536,27 @@
           "check_constraints": [
             {
               "name": "chk_initiatives_autonomy_tier",
-              "clause": "((autonomy_tier = ANY (ARRAY['A0'::text, 'A1'::text, 'A2'::text, 'A3'::text])))"
+              "clause": "(autonomy_tier = ANY (ARRAY['A0'::text, 'A1'::text, 'A2'::text, 'A3'::text]))"
             },
             {
               "name": "chk_initiatives_initiative_kind",
-              "clause": "((initiative_kind = ANY (ARRAY['GENERIC'::text, 'AI'::text])))"
+              "clause": "(initiative_kind = ANY (ARRAY['GENERIC'::text, 'AI'::text]))"
             },
             {
               "name": "chk_initiatives_legacy_remediation_state",
-              "clause": "((legacy_remediation_state = ANY (ARRAY['CLEAN'::text, 'NEEDS_REBIND'::text])))"
+              "clause": "(legacy_remediation_state = ANY (ARRAY['CLEAN'::text, 'NEEDS_REBIND'::text]))"
             },
             {
               "name": "chk_initiatives_lifecycle_state",
-              "clause": "((lifecycle_state = ANY (ARRAY['DISCOVER'::text, 'PILOT'::text, 'VALIDATE'::text, 'SCALE_CANDIDATE'::text, 'SCALED'::text, 'PAUSED'::text, 'RETIRED'::text])))"
+              "clause": "(lifecycle_state = ANY (ARRAY['DISCOVER'::text, 'PILOT'::text, 'VALIDATE'::text, 'SCALE_CANDIDATE'::text, 'SCALED'::text, 'PAUSED'::text, 'RETIRED'::text]))"
             },
             {
               "name": "chk_initiatives_risk_tier",
-              "clause": "((risk_tier = ANY (ARRAY['LOW'::text, 'MEDIUM'::text, 'HIGH'::text, 'CRITICAL'::text])))"
+              "clause": "(risk_tier = ANY (ARRAY['LOW'::text, 'MEDIUM'::text, 'HIGH'::text, 'CRITICAL'::text]))"
             },
             {
               "name": "initiatives_approval_status_check",
-              "clause": "((approval_status = ANY (ARRAY['DRAFT'::text, 'PENDING_APPROVAL'::text, 'APPROVED'::text, 'REJECTED'::text, 'CLOSED'::text])))"
+              "clause": "(approval_status = ANY (ARRAY['DRAFT'::text, 'PENDING_APPROVAL'::text, 'APPROVED'::text, 'REJECTED'::text, 'CLOSED'::text]))"
             }
           ],
           "indexes": [
@@ -53760,7 +53760,7 @@
           "check_constraints": [
             {
               "name": "objectives_status_check",
-              "clause": "((status = ANY (ARRAY['active'::text, 'completed'::text, 'abandoned'::text])))"
+              "clause": "(status = ANY (ARRAY['active'::text, 'completed'::text, 'abandoned'::text]))"
             }
           ],
           "indexes": [
@@ -54148,11 +54148,11 @@
           "check_constraints": [
             {
               "name": "chk_okr_objectives_scope",
-              "clause": "((scope = ANY (ARRAY['company'::text, 'project'::text])))"
+              "clause": "(scope = ANY (ARRAY['company'::text, 'project'::text]))"
             },
             {
               "name": "chk_okr_objectives_scope_shape",
-              "clause": "((((scope = 'company'::text) AND (project_id IS NULL) AND (parent_objective_id IS NULL) AND (goal_id IS NOT NULL)) OR ((scope = 'project'::text) AND (project_id IS NOT NULL))))"
+              "clause": "(((scope = 'company'::text) AND (project_id IS NULL) AND (parent_objective_id IS NULL) AND (goal_id IS NOT NULL)) OR ((scope = 'project'::text) AND (project_id IS NOT NULL)))"
             }
           ],
           "indexes": [
@@ -54354,23 +54354,23 @@
           "check_constraints": [
             {
               "name": "onboard_challenges_priority_growth_check",
-              "clause": "(((priority_growth >= 1) AND (priority_growth <= 5)))"
+              "clause": "((priority_growth >= 1) AND (priority_growth <= 5))"
             },
             {
               "name": "onboard_challenges_priority_money_check",
-              "clause": "(((priority_money >= 1) AND (priority_money <= 5)))"
+              "clause": "((priority_money >= 1) AND (priority_money <= 5))"
             },
             {
               "name": "onboard_challenges_priority_operations_check",
-              "clause": "(((priority_operations >= 1) AND (priority_operations <= 5)))"
+              "clause": "((priority_operations >= 1) AND (priority_operations <= 5))"
             },
             {
               "name": "onboard_challenges_priority_people_check",
-              "clause": "(((priority_people >= 1) AND (priority_people <= 5)))"
+              "clause": "((priority_people >= 1) AND (priority_people <= 5))"
             },
             {
               "name": "onboard_challenges_priority_product_check",
-              "clause": "(((priority_product >= 1) AND (priority_product <= 5)))"
+              "clause": "((priority_product >= 1) AND (priority_product <= 5))"
             }
           ],
           "indexes": [
@@ -54474,7 +54474,7 @@
           "check_constraints": [
             {
               "name": "onboard_competitors_threat_level_check",
-              "clause": "((threat_level = ANY (ARRAY['low'::text, 'medium'::text, 'high'::text, 'critical'::text])))"
+              "clause": "(threat_level = ANY (ARRAY['low'::text, 'medium'::text, 'high'::text, 'critical'::text]))"
             }
           ],
           "indexes": [
@@ -54656,7 +54656,7 @@
           "check_constraints": [
             {
               "name": "onboard_founders_archetype_check",
-              "clause": "((archetype = ANY (ARRAY['product'::text, 'sales'::text, 'technical'::text, 'operator'::text, 'hybrid'::text])))"
+              "clause": "(archetype = ANY (ARRAY['product'::text, 'sales'::text, 'technical'::text, 'operator'::text, 'hybrid'::text]))"
             }
           ],
           "indexes": [
@@ -54812,7 +54812,7 @@
           "check_constraints": [
             {
               "name": "onboard_goals_ambition_exit_orientation_check",
-              "clause": "((exit_orientation = ANY (ARRAY['exit'::text, 'build_forever'::text, 'undecided'::text])))"
+              "clause": "(exit_orientation = ANY (ARRAY['exit'::text, 'build_forever'::text, 'undecided'::text]))"
             }
           ],
           "indexes": [
@@ -55236,11 +55236,11 @@
           "check_constraints": [
             {
               "name": "onboard_review_cadence_cadence_check",
-              "clause": "((cadence = ANY (ARRAY['slow'::text, 'medium'::text, 'fast'::text, 'event'::text])))"
+              "clause": "(cadence = ANY (ARRAY['slow'::text, 'medium'::text, 'fast'::text, 'event'::text]))"
             },
             {
               "name": "onboard_review_cadence_dimension_check",
-              "clause": "((dimension = ANY (ARRAY['identity'::text, 'stage_scale'::text, 'founder'::text, 'team_culture'::text, 'market'::text, 'challenges'::text, 'goals_ambition'::text])))"
+              "clause": "(dimension = ANY (ARRAY['identity'::text, 'stage_scale'::text, 'founder'::text, 'team_culture'::text, 'market'::text, 'challenges'::text, 'goals_ambition'::text]))"
             }
           ],
           "indexes": [
@@ -55394,11 +55394,11 @@
           "check_constraints": [
             {
               "name": "onboard_sessions_session_type_check",
-              "clause": "((session_type = ANY (ARRAY['initial'::text, 'partial_update'::text, 'event_driven'::text])))"
+              "clause": "(session_type = ANY (ARRAY['initial'::text, 'partial_update'::text, 'event_driven'::text]))"
             },
             {
               "name": "onboard_sessions_status_check",
-              "clause": "((status = ANY (ARRAY['in_progress'::text, 'completed'::text, 'abandoned'::text])))"
+              "clause": "(status = ANY (ARRAY['in_progress'::text, 'completed'::text, 'abandoned'::text]))"
             }
           ],
           "indexes": [
@@ -55719,7 +55719,7 @@
           "check_constraints": [
             {
               "name": "onboard_stage_scale_stage_check",
-              "clause": "((stage = ANY (ARRAY['pre_pmf'::text, 'scaling'::text, 'optimizing'::text])))"
+              "clause": "(stage = ANY (ARRAY['pre_pmf'::text, 'scaling'::text, 'optimizing'::text]))"
             }
           ],
           "indexes": [
@@ -56016,7 +56016,7 @@
           "check_constraints": [
             {
               "name": "onboard_values_reality_status_check",
-              "clause": "((reality_status = ANY (ARRAY['real'::text, 'poster'::text, 'unclear'::text])))"
+              "clause": "(reality_status = ANY (ARRAY['real'::text, 'poster'::text, 'unclear'::text]))"
             }
           ],
           "indexes": [
@@ -56699,35 +56699,35 @@
           "check_constraints": [
             {
               "name": "project_operating_setups_ai_suggestion_status_check",
-              "clause": "((ai_suggestion_status = ANY (ARRAY['dispatched'::text, 'completed'::text, 'failed'::text])))"
+              "clause": "(ai_suggestion_status = ANY (ARRAY['dispatched'::text, 'completed'::text, 'failed'::text]))"
             },
             {
               "name": "project_operating_setups_evidence_level_check",
-              "clause": "((evidence_level = ANY (ARRAY['NONE'::text, 'ONE_TO_FOUR_INTERVIEWS'::text, 'FIVE_PLUS_INTERVIEWS'::text, 'PROTOTYPE_OR_REVENUE'::text])))"
+              "clause": "(evidence_level = ANY (ARRAY['NONE'::text, 'ONE_TO_FOUR_INTERVIEWS'::text, 'FIVE_PLUS_INTERVIEWS'::text, 'PROTOTYPE_OR_REVENUE'::text]))"
             },
             {
               "name": "project_operating_setups_recommended_stage_check",
-              "clause": "((recommended_stage = ANY (ARRAY['P0_DISCOVERY'::text, 'P1_PROBLEM_VALIDATION'::text])))"
+              "clause": "(recommended_stage = ANY (ARRAY['P0_DISCOVERY'::text, 'P1_PROBLEM_VALIDATION'::text]))"
             },
             {
               "name": "project_operating_setups_selected_stage_check",
-              "clause": "((selected_stage = ANY (ARRAY['P0_DISCOVERY'::text, 'P1_PROBLEM_VALIDATION'::text])))"
+              "clause": "(selected_stage = ANY (ARRAY['P0_DISCOVERY'::text, 'P1_PROBLEM_VALIDATION'::text]))"
             },
             {
               "name": "project_operating_setups_stage_duration_weeks_check",
-              "clause": "(((stage_duration_weeks >= 1) AND (stage_duration_weeks <= 4)))"
+              "clause": "((stage_duration_weeks >= 1) AND (stage_duration_weeks <= 4))"
             },
             {
               "name": "project_operating_setups_status_check",
-              "clause": "((status = ANY (ARRAY['NOT_STARTED'::text, 'IN_PROGRESS'::text, 'ACTIVE'::text])))"
+              "clause": "(status = ANY (ARRAY['NOT_STARTED'::text, 'IN_PROGRESS'::text, 'ACTIVE'::text]))"
             },
             {
               "name": "project_operating_setups_weekly_review_time_check",
-              "clause": "((weekly_review_time ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'::text))"
+              "clause": "(weekly_review_time ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'::text)"
             },
             {
               "name": "project_operating_setups_weekly_review_weekday_check",
-              "clause": "(((weekly_review_weekday >= 1) AND (weekly_review_weekday <= 7)))"
+              "clause": "((weekly_review_weekday >= 1) AND (weekly_review_weekday <= 7))"
             }
           ],
           "indexes": [
@@ -57001,19 +57001,19 @@
           "check_constraints": [
             {
               "name": "projects_lifecycle_stage_chk",
-              "clause": "(((lifecycle_stage)::text = ANY (ARRAY[('P0_DISCOVERY'::character varying)::text, ('P1_PROBLEM_VALIDATION'::character varying)::text, ('P2_SOLUTION_VALIDATION'::character varying)::text, ('P3_BUILD_VALIDATE'::character varying)::text, ('P4_GO_TO_MARKET'::character varying)::text, ('P5_OPERATE_GROWTH'::character varying)::text, ('P6_SCALE_GOVERN'::character varying)::text])))"
+              "clause": "((lifecycle_stage)::text = ANY (ARRAY[('P0_DISCOVERY'::character varying)::text, ('P1_PROBLEM_VALIDATION'::character varying)::text, ('P2_SOLUTION_VALIDATION'::character varying)::text, ('P3_BUILD_VALIDATE'::character varying)::text, ('P4_GO_TO_MARKET'::character varying)::text, ('P5_OPERATE_GROWTH'::character varying)::text, ('P6_SCALE_GOVERN'::character varying)::text]))"
             },
             {
               "name": "projects_link_status_check",
-              "clause": "((link_status = ANY (ARRAY['linked'::text, 'pending_review'::text, 'intentionally_unlinked'::text])))"
+              "clause": "(link_status = ANY (ARRAY['linked'::text, 'pending_review'::text, 'intentionally_unlinked'::text]))"
             },
             {
               "name": "projects_origin_check",
-              "clause": "((origin = ANY (ARRAY['okr_driven'::text, 'discovery'::text, 'maintenance'::text, 'reactive'::text])))"
+              "clause": "(origin = ANY (ARRAY['okr_driven'::text, 'discovery'::text, 'maintenance'::text, 'reactive'::text]))"
             },
             {
               "name": "projects_status_chk",
-              "clause": "(((status)::text = ANY (ARRAY[('ACTIVE'::character varying)::text, ('PAUSED'::character varying)::text, ('COMPLETED'::character varying)::text, ('ARCHIVED'::character varying)::text])))"
+              "clause": "((status)::text = ANY (ARRAY[('ACTIVE'::character varying)::text, ('PAUSED'::character varying)::text, ('COMPLETED'::character varying)::text, ('ARCHIVED'::character varying)::text]))"
             }
           ],
           "indexes": [
@@ -57536,11 +57536,11 @@
           "check_constraints": [
             {
               "name": "workspace_strategy_settings_approval_policy_check",
-              "clause": "((approval_policy = ANY (ARRAY['FOUNDER_ONLY'::text, 'DELEGATED_APPROVER'::text])))"
+              "clause": "(approval_policy = ANY (ARRAY['FOUNDER_ONLY'::text, 'DELEGATED_APPROVER'::text]))"
             },
             {
               "name": "workspace_strategy_settings_mid_cycle_review_policy_check",
-              "clause": "((mid_cycle_review_policy = ANY (ARRAY['OFF'::text, 'AUTO'::text, 'CUSTOM'::text])))"
+              "clause": "(mid_cycle_review_policy = ANY (ARRAY['OFF'::text, 'AUTO'::text, 'CUSTOM'::text]))"
             }
           ],
           "indexes": [

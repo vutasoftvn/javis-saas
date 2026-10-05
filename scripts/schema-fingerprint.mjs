@@ -16,6 +16,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { normalizeCheckClause } from "./schema-fingerprint-lib.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, "..");
@@ -369,7 +370,7 @@ async function introspectGroupSchema(groupConfig) {
       }
       checkByTable[tableKey].push({
         name: row.constraint_name,
-        clause: normalizeDefault(row.check_clause)
+        clause: normalizeCheckClause(row.check_clause)
       });
     }
 
