@@ -4,9 +4,6 @@ import {
   getGoalTreeService,
   getGoalsNeedingReviewService,
   completeGoalService,
-  createObjectiveService,
-  addKeyResultService,
-  updateKeyResultValueService,
   GoalType,
   GoalStatus,
   GoalTreeNode,
@@ -38,32 +35,6 @@ export interface CompleteGoalParams {
   id: string;
   workspaceId: string;
   forceCompleteActiveObjectives?: boolean;
-}
-
-export interface CreateCosaObjectiveParams {
-  workspaceId: string;
-  goalId: string;
-  title: string;
-  description?: string;
-  ownerUserId?: string;
-  weight?: number;
-  displayOrder?: number;
-}
-
-export interface AddCosaKeyResultParams {
-  id: string; // objectiveId
-  workspaceId: string;
-  metricName: string;
-  baseline?: number;
-  target: number;
-  unit?: string;
-  displayOrder?: number;
-}
-
-export interface CheckinKeyResultParams {
-  id: string; // keyResultId
-  workspaceId: string;
-  currentValue: number;
 }
 
 export interface TriageProjectParams {
@@ -111,19 +82,6 @@ export interface CompleteGoalResponse {
   success: boolean;
   completedObjectivesCount: number;
   reviewAmbitionPrompt?: string;
-}
-
-export interface CreateCosaObjectiveResponse {
-  objectiveId: string;
-}
-
-export interface AddCosaKeyResultResponse {
-  keyResultId: string;
-}
-
-export interface CheckinCosaKeyResultResponse {
-  keyResultId: string;
-  objectiveProgressPct: number;
 }
 
 export interface PendingReviewProject {
@@ -184,43 +142,6 @@ export const completeGoal = api(
       workspaceId: params.workspaceId,
       goalId: params.id,
       forceCompleteActiveObjectives: params.forceCompleteActiveObjectives,
-    });
-  }
-);
-
-export const createCosaObjective = api(
-  { method: "POST", path: "/operations/cosa/objectives", expose: true },
-  async (params: WithAuth<CreateCosaObjectiveParams>): Promise<CreateCosaObjectiveResponse> => {
-    await requireWorkspaceWrite(params.authorization, params.workspaceId);
-    const { authorization: _auth, ...input } = params;
-    return createObjectiveService(input);
-  }
-);
-
-export const addCosaKeyResult = api(
-  { method: "POST", path: "/operations/cosa/objectives/:id/key-results", expose: true },
-  async (params: WithAuth<AddCosaKeyResultParams>): Promise<AddCosaKeyResultResponse> => {
-    await requireWorkspaceWrite(params.authorization, params.workspaceId);
-    return addKeyResultService({
-      workspaceId: params.workspaceId,
-      objectiveId: params.id,
-      metricName: params.metricName,
-      baseline: params.baseline,
-      target: params.target,
-      unit: params.unit,
-      displayOrder: params.displayOrder,
-    });
-  }
-);
-
-export const checkinCosaKeyResult = api(
-  { method: "POST", path: "/operations/cosa/key-results/:id/checkin", expose: true },
-  async (params: WithAuth<CheckinKeyResultParams>): Promise<CheckinCosaKeyResultResponse> => {
-    await requireWorkspaceWrite(params.authorization, params.workspaceId);
-    return updateKeyResultValueService({
-      workspaceId: params.workspaceId,
-      keyResultId: params.id,
-      currentValue: params.currentValue,
     });
   }
 );

@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createTestWorkspaceWithMember } from "./_helpers";
 import {
-  addCosaKeyResult,
-  checkinCosaKeyResult,
   completeGoal,
-  createCosaObjective,
   createGoal,
   getGoalTree,
 } from "../handlers/goals.handler";
@@ -73,7 +70,7 @@ describe("startup OS endpoints require workspace auth", () => {
     ).rejects.toMatchObject({ code: "permission_denied" });
   });
 
-  it("does not let one workspace touch another workspace's goal, objective or KR", async () => {
+  it("does not let one workspace touch another workspace's goal", async () => {
     const a = await createTestWorkspaceWithMember({ role: "founder" });
     const b = await createTestWorkspaceWithMember({ role: "founder" });
 
@@ -83,20 +80,6 @@ describe("startup OS endpoints require workspace auth", () => {
       goalType: "strategic",
       authorization: a.bearerToken,
     });
-    const { objectiveId } = await createCosaObjective({
-      workspaceId: a.workspaceId,
-      goalId,
-      title: "Workspace A objective",
-      authorization: a.bearerToken,
-    });
-    const { keyResultId } = await addCosaKeyResult({
-      id: objectiveId,
-      workspaceId: a.workspaceId,
-      metricName: "MRR",
-      target: 100,
-      authorization: a.bearerToken,
-    });
-
     // B dùng quyền hợp lệ của chính mình nhưng gửi id của A.
     await expect(
       completeGoal({
@@ -106,40 +89,6 @@ describe("startup OS endpoints require workspace auth", () => {
         authorization: b.bearerToken,
       })
     ).rejects.toMatchObject({ code: "not_found" });
-    await expect(
-      createCosaObjective({
-        workspaceId: b.workspaceId,
-        goalId,
-        title: "Hijack",
-        authorization: b.bearerToken,
-      })
-    ).rejects.toMatchObject({ code: "not_found" });
-    await expect(
-      addCosaKeyResult({
-        id: objectiveId,
-        workspaceId: b.workspaceId,
-        metricName: "Hijack",
-        target: 1,
-        authorization: b.bearerToken,
-      })
-    ).rejects.toMatchObject({ code: "not_found" });
-    await expect(
-      checkinCosaKeyResult({
-        id: keyResultId,
-        workspaceId: b.workspaceId,
-        currentValue: 999,
-        authorization: b.bearerToken,
-      })
-    ).rejects.toMatchObject({ code: "not_found" });
-
-    // Chủ sở hữu vẫn thao tác bình thường.
-    const checkin = await checkinCosaKeyResult({
-      id: keyResultId,
-      workspaceId: a.workspaceId,
-      currentValue: 50,
-      authorization: a.bearerToken,
-    });
-    expect(checkin.objectiveProgressPct).toBe(50);
   });
 
   it("returns invalid_argument for a non-numeric workspace id instead of a 500", async () => {

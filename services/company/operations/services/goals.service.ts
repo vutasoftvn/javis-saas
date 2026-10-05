@@ -1,10 +1,12 @@
 import { APIError } from "encore.dev/api";
-import { eq, and, sql, desc, isNull } from "drizzle-orm";
+import { eq, and, sql, desc, isNull, inArray, notInArray } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { getCadenceStatusService } from "./onboard.service";
+import { computeKeyResultProgress, KrScoringType } from "./okr-scoring.service";
+import { loadGoalStats, loadObjectiveGoalMap } from "./goal-okr-stats.service";
 
-const { goals, objectives, cosaKeyResults, onboardSnapshots, projects } = schema;
+const { goals, objectives, cosaKeyResults, okrObjectives, keyResults, onboardSnapshots, projects } = schema;
 
 export type GoalType = "vision" | "strategic" | "tactical" | "sprint";
 export type GoalStatus = "draft" | "active" | "completed" | "abandoned";
@@ -145,27 +147,8 @@ export async function getGoalTreeService(workspaceId: string): Promise<{ tree: G
     .from(goals)
     .where(eq(goals.workspaceId, wsId));
 
-  // Lấy metrics thống kê cho từng goal (số objectives, tổng KRs, số KRs đạt)
-  const statsRows = await db
-    .select({
-      goalId: objectives.goalId,
-      objectiveCount: sql<number>`count(distinct ${objectives.id})::int`,
-      krTotal: sql<number>`count(${cosaKeyResults.id})::int`,
-      krAchieved: sql<number>`count(case when ${cosaKeyResults.currentValue} >= ${cosaKeyResults.target} then 1 end)::int`,
-    })
-    .from(objectives)
-    .leftJoin(cosaKeyResults, eq(objectives.id, cosaKeyResults.objectiveId))
-    .where(eq(objectives.workspaceId, wsId))
-    .groupBy(objectives.goalId);
-
-  const statsMap = new Map<string, { objectiveCount: number; krTotal: number; krAchieved: number }>();
-  for (const s of statsRows) {
-    statsMap.set(s.goalId.toString(), {
-      objectiveCount: s.objectiveCount || 0,
-      krTotal: s.krTotal || 0,
-      krAchieved: s.krAchieved || 0,
-    });
-  }
+  // Thống kê từ họ OKR hợp nhất
+  const statsMap = await loadGoalStats(wsId);
 
   // Xây dựng cây đệ quy
   const nodeMap = new Map<string, GoalTreeNode>();
@@ -294,56 +277,79 @@ export async function completeGoalService(params: {
 
   await assertGoalInWorkspace(wsId, gId);
 
-  // Kiểm tra xem có objective nào đang active không
-  const activeObjs = await db
-    .select()
-    .from(objectives)
-    .where(
-      and(
-        eq(objectives.goalId, gId),
-        eq(objectives.workspaceId, wsId),
-        eq(objectives.status, "active")
-      )
-    );
+  const goalOf = await loadObjectiveGoalMap(wsId);
+  const objectiveIds = [...goalOf.entries()]
+    .filter(([, g]) => g === gId.toString())
+    .map(([id]) => BigInt(id));
 
-  if (activeObjs.length > 0 && !params.forceCompleteActiveObjectives) {
+  const openObjectives = objectiveIds.length
+    ? await db
+        .select({ id: okrObjectives.id })
+        .from(okrObjectives)
+        .where(
+          and(
+            eq(okrObjectives.workspaceId, wsId),
+            inArray(okrObjectives.id, objectiveIds),
+            notInArray(okrObjectives.status, ["completed", "abandoned"]),
+          ),
+        )
+    : [];
+
+  if (openObjectives.length > 0 && !params.forceCompleteActiveObjectives) {
     throw APIError.failedPrecondition(
-      `Không thể hoàn thành Goal vì còn ${activeObjs.length} objective đang hoạt động. Hãy hoàn thành các objective trước hoặc chọn hoàn thành bắt buộc.`
+      `Không thể hoàn thành Goal vì còn ${openObjectives.length} objective đang hoạt động. Hãy hoàn thành các objective trước hoặc chọn hoàn thành bắt buộc.`,
     );
   }
 
   const now = new Date();
-
-  // 1. Cập nhật goal status sang completed
   await db
     .update(goals)
-    .set({
-      status: "completed",
-      completedAt: now,
-    })
+    .set({ status: "completed", completedAt: now })
     .where(and(eq(goals.id, gId), eq(goals.workspaceId, wsId)));
 
-  // 2. Cascade hoàn thành các objective con
-  if (activeObjs.length > 0) {
+  if (openObjectives.length > 0) {
     await db
-      .update(objectives)
-      .set({ status: "completed" })
-      .where(and(eq(objectives.goalId, gId), eq(objectives.workspaceId, wsId)));
+      .update(okrObjectives)
+      .set({ status: "completed", updatedAt: now })
+      .where(
+        and(
+          eq(okrObjectives.workspaceId, wsId),
+          inArray(okrObjectives.id, openObjectives.map((o) => o.id)),
+        ),
+      );
   }
 
-  // 3. Cascade cập nhật KRs con: nếu đạt -> achieved, nếu chưa -> missed
-  await db.execute(sql`
-    UPDATE strategy.cosa_key_results kr
-    SET status = CASE WHEN kr.current_value >= kr.target THEN 'achieved' ELSE 'missed' END
-    FROM strategy.objectives o
-    WHERE kr.objective_id = o.id AND o.goal_id = ${gId} AND o.workspace_id = ${wsId}
-      AND kr.status = 'active'
-  `);
+  if (objectiveIds.length > 0) {
+    const krRows = await db
+      .select()
+      .from(keyResults)
+      .where(
+        and(
+          eq(keyResults.workspaceId, wsId),
+          inArray(keyResults.objectiveId, objectiveIds),
+          isNull(keyResults.deletedAt),
+          notInArray(keyResults.status, ["achieved", "missed", "archived"]),
+        ),
+      );
+    for (const kr of krRows) {
+      const progress = computeKeyResultProgress({
+        baseline: kr.baselineValue,
+        target: kr.targetValue,
+        current: kr.currentValue,
+        scoringType: kr.scoringType as KrScoringType,
+      });
+      await db
+        .update(keyResults)
+        .set({ status: progress !== null && progress >= 1 ? "achieved" : "missed", updatedAt: now })
+        .where(and(eq(keyResults.id, kr.id), eq(keyResults.workspaceId, wsId)));
+    }
+  }
 
   return {
     success: true,
-    completedObjectivesCount: activeObjs.length,
-    reviewAmbitionPrompt: "Mục tiêu chiến lược đã hoàn thành. Hãy kiểm tra lại tham vọng (Goals & Ambition) để chuẩn bị cho chu kỳ tiếp theo.",
+    completedObjectivesCount: openObjectives.length,
+    reviewAmbitionPrompt:
+      "Mục tiêu chiến lược đã hoàn thành. Hãy kiểm tra lại tham vọng (Goals & Ambition) để chuẩn bị cho chu kỳ tiếp theo.",
   };
 }
 
