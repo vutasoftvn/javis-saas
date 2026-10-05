@@ -5,6 +5,7 @@ Hai bên được khóa bằng shared/contracts/done-criteria.fixtures.json (tes
 
 from __future__ import annotations
 
+import math
 import re
 from decimal import Decimal
 from typing import Any
@@ -62,7 +63,7 @@ def _js_number(value: int | float) -> str:
         x = float(value)
     except OverflowError:  # JSON.parse of such an integer yields Infinity
         return "null"
-    if x != x or x in (float("inf"), float("-inf")):
+    if math.isnan(x) or math.isinf(x):
         return "null"
     if x == 0:
         return "0"  # also -0
@@ -197,7 +198,9 @@ def _parse_criterion(raw: object, seen: set[str]) -> dict[str, Any]:
 
 def parse_done_criteria(raw: object) -> dict[str, Any]:
     # Version rule: number equal to 1 (1 and 1.0, as in JS ===); bool is rejected.
-    version = raw.get("version") if isinstance(raw, dict) else None
+    if not isinstance(raw, dict):
+        raise DoneCriteriaError("unsupported version")
+    version = raw.get("version")
     if isinstance(version, bool) or not isinstance(version, (int, float)) or version != 1:
         raise DoneCriteriaError("unsupported version")
     criteria = raw.get("criteria")
