@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { pgSchema, text, bigint, timestamp, doublePrecision, jsonb, varchar, integer, boolean, uniqueIndex, index, primaryKey, foreignKey, date, uuid, numeric } from "drizzle-orm/pg-core";
 
 export const operatingSchema = pgSchema("operating");
@@ -774,7 +775,7 @@ export const automationDefinitions = operatingSchema.table("automation_definitio
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
 }, (t) => ({
-  uixWsKey: uniqueIndex("uix_automation_definitions_ws_key").on(t.workspaceId, t.automationKey),
+  uixWsKey: uniqueIndex("uix_automation_definitions_ws_key").on(t.workspaceId, t.automationKey).where(sql`deleted_at IS NULL`),
   ixWorkspace: index("idx_automation_definitions_workspace").on(t.workspaceId),
 }));
 
@@ -797,7 +798,7 @@ export const automationRevisions = operatingSchema.table("automation_revisions",
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   uixDefinitionNo: uniqueIndex("uix_automation_revisions_definition_no").on(t.definitionId, t.revisionNo),
-  ixWsDefinition: index("idx_automation_revisions_ws_definition").on(t.workspaceId, t.definitionId),
+  ixWsDefinition: index("idx_automation_revisions_ws_definition").on(t.workspaceId, t.definitionId, t.revisionNo.desc().nullsFirst()),
 }));
 
 export const automationInvocations = operatingSchema.table("automation_invocations", {
@@ -825,7 +826,7 @@ export const automationInvocations = operatingSchema.table("automation_invocatio
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   uixIdentity: uniqueIndex("uix_automation_invocations_identity").on(t.workspaceId, t.revisionId, t.idempotencyKey),
-  ixWsState: index("idx_automation_invocations_ws_state").on(t.workspaceId, t.state),
+  ixWsState: index("idx_automation_invocations_ws_state").on(t.workspaceId, t.state, t.createdAt.desc().nullsFirst()),
   ixWsRun: index("idx_automation_invocations_ws_run").on(t.workspaceId, t.agentRunId),
 }));
 
