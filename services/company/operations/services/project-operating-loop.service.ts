@@ -206,7 +206,7 @@ function toObjective(row: typeof okrObjectives.$inferSelect): OkrObjectiveDto {
   return {
     id: row.id.toString(),
     workspaceId: row.workspaceId.toString(),
-    projectId: row.projectId.toString(),
+    projectId: row.projectId?.toString() ?? "",
     title: row.title,
     why: row.why,
     ownerMemberId: row.ownerMemberId ? row.ownerMemberId.toString() : null,

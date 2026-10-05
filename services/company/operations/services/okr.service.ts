@@ -138,7 +138,7 @@ function toObjective(row: typeof okrObjectives.$inferSelect, projectIds: string[
   return {
     id: row.id.toString(),
     workspaceId: row.workspaceId.toString(),
-    projectId: row.projectId.toString(),
+    projectId: row.projectId ? row.projectId.toString() : "",
     cycleId: "",
     title: row.title,
     why: row.why,
@@ -146,7 +146,7 @@ function toObjective(row: typeof okrObjectives.$inferSelect, projectIds: string[
     status: row.status,
     publishedByMemberId: row.publishedByMemberId ? row.publishedByMemberId.toString() : null,
     publishedAt: row.publishedAt ? row.publishedAt.toISOString() : null,
-    projectIds: [row.projectId.toString()],
+    projectIds: row.projectId ? [row.projectId.toString()] : [],
     createdAt: row.createdAt.toISOString(),
   };
 }

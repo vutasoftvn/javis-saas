@@ -367,7 +367,11 @@ export const okrCycles = strategySchema.table("okr_cycles", {
 export const okrObjectives = strategySchema.table("okr_objectives", {
   id: bigint("id", { mode: "bigint" }).primaryKey(),
   workspaceId: bigint("workspace_id", { mode: "bigint" }).notNull(),
-  projectId: bigint("project_id", { mode: "bigint" }).notNull(),
+  projectId: bigint("project_id", { mode: "bigint" }),
+  scope: text("scope").default("project").notNull(), // 'company' | 'project'
+  goalId: bigint("goal_id", { mode: "bigint" }),
+  cycleId: bigint("cycle_id", { mode: "bigint" }),
+  parentObjectiveId: bigint("parent_objective_id", { mode: "bigint" }),
   title: text("title").notNull(),
   why: text("why"),
   ownerMemberId: bigint("owner_member_id", { mode: "bigint" }),

@@ -41,7 +41,7 @@ export async function generateCycleFromObjective(
   }
 
   return createCycleAuthorized(ctx, {
-    projectId: objective.projectId.toString(),
+    projectId: objective.projectId?.toString() ?? "",
     durationWeeks,
     sourceObjectiveId: objectiveId,
   });
