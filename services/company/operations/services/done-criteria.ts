@@ -18,6 +18,20 @@ export interface DoneCriteria {
 const ID_PATTERN = /^[a-z0-9_-]{1,40}$/;
 const PREDICATE_KINDS: readonly PredicateKind[] = ["artifact_exists", "metric_gte", "field_present"];
 
+// Whitespace set shared with packages/agent/contracts/done_criteria.py (_WS):
+// JS WhiteSpace + LineTerminator. Keep both lists identical.
+const WS = "[\\t\\n\\v\\f\\r \\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]";
+const TRIM_RE = new RegExp(`^${WS}+|${WS}+$`, "g");
+
+function trimWs(s: string): string {
+  return s.replace(TRIM_RE, "");
+}
+
+/** Length in Unicode code points (matches Python len). */
+function cpLen(s: string): number {
+  return Array.from(s).length;
+}
+
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
@@ -29,8 +43,8 @@ function parseCriterion(raw: unknown, seen: Set<string>): DoneCriterion {
   if (seen.has(id)) throw new Error("duplicate criterion id");
   seen.add(id);
 
-  const description = typeof raw.description === "string" ? raw.description.trim() : "";
-  if (description.length < 1 || description.length > 300) {
+  const description = typeof raw.description === "string" ? trimWs(raw.description) : "";
+  if (cpLen(description) < 1 || cpLen(description) > 300) {
     throw new Error("description must be 1..300 chars");
   }
   const required = typeof raw.required === "boolean" ? raw.required : true;
@@ -49,8 +63,8 @@ function parseCriterion(raw: unknown, seen: Set<string>): DoneCriterion {
     };
   }
   if (raw.check === "rubric") {
-    const rubric = typeof raw.rubric === "string" ? raw.rubric.trim() : "";
-    if (rubric.length < 1 || rubric.length > 500) throw new Error("rubric criterion requires rubric");
+    const rubric = typeof raw.rubric === "string" ? trimWs(raw.rubric) : "";
+    if (cpLen(rubric) < 1 || cpLen(rubric) > 500) throw new Error("rubric criterion requires rubric");
     return { id, description, required, check: "rubric", rubric };
   }
   throw new Error("invalid check");

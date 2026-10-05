@@ -11,6 +11,12 @@ from typing import Any
 __all__ = ["DoneCriteriaError", "parse_done_criteria"]
 
 _ID = re.compile(r"^[a-z0-9_-]{1,40}$")
+# Whitespace set shared with done-criteria.ts (WS): JS WhiteSpace + LineTerminator.
+# Python's str.strip() default differs (\x1c-\x1f, \x85, no BOM), so strip explicitly.
+_WS = (
+    "\t\n\v\f\r \u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008"
+    "\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeff"
+)
 _PREDICATE_KINDS = ("artifact_exists", "metric_gte", "field_present")
 
 
@@ -22,14 +28,14 @@ def _parse_criterion(raw: object, seen: set[str]) -> dict[str, Any]:
     if not isinstance(raw, dict):
         raise DoneCriteriaError("invalid criterion id")
     cid = raw.get("id")
-    if not isinstance(cid, str) or not _ID.match(cid):
+    if not isinstance(cid, str) or not _ID.fullmatch(cid):
         raise DoneCriteriaError("invalid criterion id")
     if cid in seen:
         raise DoneCriteriaError("duplicate criterion id")
     seen.add(cid)
 
     description = raw.get("description")
-    description = description.strip() if isinstance(description, str) else ""
+    description = description.strip(_WS) if isinstance(description, str) else ""
     if not 1 <= len(description) <= 300:
         raise DoneCriteriaError("description must be 1..300 chars")
     required = raw["required"] if isinstance(raw.get("required"), bool) else True
@@ -52,7 +58,7 @@ def _parse_criterion(raw: object, seen: set[str]) -> dict[str, Any]:
         }
     if check == "rubric":
         rubric = raw.get("rubric")
-        rubric = rubric.strip() if isinstance(rubric, str) else ""
+        rubric = rubric.strip(_WS) if isinstance(rubric, str) else ""
         if not 1 <= len(rubric) <= 500:
             raise DoneCriteriaError("rubric criterion requires rubric")
         return {
@@ -66,7 +72,9 @@ def _parse_criterion(raw: object, seen: set[str]) -> dict[str, Any]:
 
 
 def parse_done_criteria(raw: object) -> dict[str, Any]:
-    if not isinstance(raw, dict) or raw.get("version") != 1:
+    # Version rule: number equal to 1 (1 and 1.0, as in JS ===); bool is rejected.
+    version = raw.get("version") if isinstance(raw, dict) else None
+    if isinstance(version, bool) or not isinstance(version, (int, float)) or version != 1:
         raise DoneCriteriaError("unsupported version")
     criteria = raw.get("criteria")
     if not isinstance(criteria, list) or not 1 <= len(criteria) <= 10:

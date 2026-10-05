@@ -21,7 +21,13 @@ describe("parseDoneCriteria (shared fixtures)", () => {
   }
   for (const c of fixtures.invalid) {
     it(`rejects: ${c.name}`, () => {
-      expect(() => parseDoneCriteria(c.input)).toThrow(c.error);
+      let message: string | undefined;
+      try {
+        parseDoneCriteria(c.input);
+      } catch (err) {
+        message = (err as Error).message;
+      }
+      expect(message).toBe(c.error);
     });
   }
 });

@@ -19,5 +19,6 @@ def test_valid_cases_normalize_like_typescript(case):
 
 @pytest.mark.parametrize("case", _FIXTURES["invalid"], ids=lambda c: c["name"])
 def test_invalid_cases_raise_with_shared_message(case):
-    with pytest.raises(DoneCriteriaError, match=case["error"]):
+    with pytest.raises(DoneCriteriaError) as exc:
         parse_done_criteria(case["input"])
+    assert str(exc.value) == case["error"]
