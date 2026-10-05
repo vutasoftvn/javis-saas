@@ -110,6 +110,7 @@ class CosaAgentPlane:
         model_routing_repository: Any | None = None,
         usage_ledger: Any | None = None,
         ai_initiative_snapshot_store: Any | None = None,
+        verification_report_repository: Any | None = None,
         project_activity_repository: ProjectActivityRepository | None = None,
         project_activity_service: ProjectActivityService | None = None,
         skill_candidate_store: SkillCandidateStore | None = None,
@@ -198,6 +199,9 @@ class CosaAgentPlane:
         # PHẢI là Postgres khi có DB — không được quên sau restart.
         self.ai_initiative_snapshot_store = ai_initiative_snapshot_store
 
+        # Dự án B — bằng chứng kiểm toán của Verifier (PASS/FAIL/INCONCLUSIVE theo run).
+        self.verification_report_repository = verification_report_repository
+
         # Task 3 (plan 2026-09-11-project-scoped-founder-hub) — durable
         # Project Activity repository, dùng bởi project_activity_routes.py
         # (list/detail/stream endpoints) để query durable activity events.
@@ -278,6 +282,18 @@ def _build_usage_ledger(session_factory: Any | None) -> Any:
     if session_factory is not None:
         return PostgresUsageLedger(session_factory)
     return InMemoryUsageLedger()
+
+
+def _build_verification_report_repository(session_factory: Any | None) -> Any:
+    """Postgres khi có DB (cùng session factory của model routing), InMemory cho test/dev."""
+    from agent.verification.repository import (
+        InMemoryVerificationReportRepository,
+        PostgresVerificationReportRepository,
+    )
+
+    if session_factory is not None:
+        return PostgresVerificationReportRepository(session_factory)
+    return InMemoryVerificationReportRepository()
 
 
 def _build_ai_initiative_snapshot_store(session_factory: Any | None) -> Any:
@@ -608,6 +624,9 @@ def build_cosa_agent_plane(
         model_routing_repository=storage.model_routing_repository,
         usage_ledger=_build_usage_ledger(storage.model_routing_session_factory),
         ai_initiative_snapshot_store=resolved_ai_initiative_snapshot_store,
+        verification_report_repository=_build_verification_report_repository(
+            storage.model_routing_session_factory
+        ),
         project_activity_repository=storage.project_activity_repository,
         project_activity_service=resolved_project_activity_service,
         skill_candidate_store=storage.skill_candidate_store,

@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "generated_at": "2026-10-05T09:46:58.497Z",
+  "generated_at": "2026-10-05T10:44:27.895Z",
   "groups": {
     "agent": {
-      "fingerprint": "f40955c3300d84d658e37e78ea5bdf5bb3a9053a3a2ee88bc38b53dd5aba3980",
+      "fingerprint": "2f3d0bff48413386072ef11ca861be4a40c281c9646881e5ffff4b4bdaf71e1e",
       "schemas": [
         "agent",
         "agent_artifact",
@@ -13,7 +13,7 @@
         "knowledge",
         "models"
       ],
-      "tables_count": 58,
+      "tables_count": 59,
       "enums": [],
       "tables": {
         "agent.agent_skill_candidates": {
@@ -4908,6 +4908,173 @@
             {
               "name": "skill_usage_observations_run_id_skill_id_skill_version_defi_key",
               "definition": "CREATE UNIQUE INDEX skill_usage_observations_run_id_skill_id_skill_version_defi_key ON agent.skill_usage_observations USING btree (run_id, skill_id, skill_version, definition_hash)"
+            }
+          ]
+        },
+        "agent.verification_reports": {
+          "schema": "agent",
+          "name": "verification_reports",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "report_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "workspace_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "project_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "task_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "run_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "verifier_run_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "verdict",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "mode",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "criteria_results",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'[]'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "criteria_hash",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "output_hash",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "verification_reports_pkey",
+            "columns": [
+              "report_id"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "uix_verification_reports_ws_run",
+              "columns": [
+                "workspace_id",
+                "run_id"
+              ]
+            }
+          ],
+          "foreign_keys": [],
+          "check_constraints": [
+            {
+              "name": "verification_reports_mode_check",
+              "clause": "(mode = ANY (ARRAY['deterministic'::text, 'deterministic+judge'::text]))"
+            },
+            {
+              "name": "verification_reports_verdict_check",
+              "clause": "(verdict = ANY (ARRAY['PASS'::text, 'FAIL'::text, 'INCONCLUSIVE'::text]))"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_verification_reports_ws_task",
+              "definition": "CREATE INDEX idx_verification_reports_ws_task ON agent.verification_reports USING btree (workspace_id, task_id, created_at DESC)"
+            },
+            {
+              "name": "uix_verification_reports_ws_run",
+              "definition": "CREATE UNIQUE INDEX uix_verification_reports_ws_run ON agent.verification_reports USING btree (workspace_id, run_id)"
+            },
+            {
+              "name": "verification_reports_pkey",
+              "definition": "CREATE UNIQUE INDEX verification_reports_pkey ON agent.verification_reports USING btree (report_id)"
             }
           ]
         },

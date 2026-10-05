@@ -341,3 +341,35 @@ async def test_build_cosa_agent_plane_wires_injected_knowledge_snapshot_repo_int
     assert result["status"] == "UNAVAILABLE"
     assert "unavailable" not in result["message"].lower()
     assert "not found" in result["message"].lower()
+
+
+def test_build_cosa_agent_plane_exposes_in_memory_verification_report_repository(monkeypatch):
+    from agent.conversations.repository import InMemoryConversationRepository
+    from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
+    from agent.registry.repository import InMemorySpecRegistryRepository
+    from agent.runs.repository import InMemoryRunRepository
+    from agent.runs.stream_events import InMemoryRunStreamEventRepository
+    from agent.verification.repository import InMemoryVerificationReportRepository
+    from apps.cosa.composition.agent_plane import build_cosa_agent_plane
+
+    monkeypatch.delenv("AGENT_DATABASE_URL", raising=False)
+
+    plane = build_cosa_agent_plane(
+        repository=InMemoryRunRepository(),
+        conversation_repository=InMemoryConversationRepository(),
+        spec_registry=InMemorySpecRegistryRepository(),
+        governance_store=InMemoryGovernanceStateStore(),
+        stream_event_repository=InMemoryRunStreamEventRepository(),
+        model=FakeSDKModel(),
+    )
+
+    assert isinstance(plane.verification_report_repository, InMemoryVerificationReportRepository)
+
+
+def test_build_cosa_agent_plane_exposes_postgres_verification_report_repository_with_database_url():
+    from agent.verification.repository import PostgresVerificationReportRepository
+    from apps.cosa.composition.agent_plane import build_cosa_agent_plane
+
+    plane = build_cosa_agent_plane(database_url="postgresql+asyncpg://x:x@localhost/x", model=FakeSDKModel())
+
+    assert isinstance(plane.verification_report_repository, PostgresVerificationReportRepository)
