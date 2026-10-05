@@ -1,6 +1,10 @@
 -- 039_okr_unification_contract.up.sql
 -- Dự án A0 (contract). Dữ liệu họ cũ chỉ là dữ liệu thử (đã xác nhận 2026-10-05).
 -- KHÔNG dùng TRUNCATE ... CASCADE: strategy.projects có FK vào strategy.objectives.
+--
+-- Việc DROP vật lý strategy.objectives / strategy.cosa_key_results được CHỦ ĐỘNG hoãn sang một
+-- migration sau (cần file evidence cho migration-compat allow-destructive). Migration này chỉ
+-- ngắt mọi tham chiếu vào hai bảng cũ và đánh dấu DEPRECATED; không xóa bảng, không xóa dòng.
 
 -- 1. Gỡ liên kết cũ: project phải được người dùng link lại vào objective công ty.
 UPDATE strategy.projects
@@ -10,10 +14,10 @@ UPDATE strategy.projects
 
 ALTER TABLE strategy.projects DROP CONSTRAINT IF EXISTS fk_projects_objective;
 
--- 2. Xóa họ cũ và view phụ thuộc.
+-- 2. Gỡ view phụ thuộc và đánh dấu họ cũ là DEPRECATED (chỉ projects từng có FK vào objectives).
 DROP VIEW IF EXISTS strategy.v_goal_tree;
-DROP TABLE IF EXISTS strategy.cosa_key_results;
-DROP TABLE IF EXISTS strategy.objectives;
+COMMENT ON TABLE strategy.objectives IS 'DEPRECATED (A0): replaced by strategy.okr_objectives/key_results; drop in a later migration with backup evidence';
+COMMENT ON TABLE strategy.cosa_key_results IS 'DEPRECATED (A0): replaced by strategy.okr_objectives/key_results; drop in a later migration with backup evidence';
 
 -- 3. FK mới: project phục vụ một objective cấp công ty.
 ALTER TABLE strategy.projects

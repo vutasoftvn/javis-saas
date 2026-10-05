@@ -1,27 +1,14 @@
 -- 039_okr_unification_contract.down.sql
--- Không khôi phục dữ liệu họ cũ (đã bị xóa). Chỉ dựng lại cấu trúc để down không hỏng chuỗi migration.
+-- Up không xóa bảng họ cũ nên down không dựng lại bảng; chỉ hoàn tác FK/trigger/comment.
+-- View v_goal_tree (đã bị DROP ở up, không được dùng trong mã) không được dựng lại.
 DROP TRIGGER IF EXISTS trg_project_objective_alignment ON strategy.projects;
 DROP FUNCTION IF EXISTS strategy.fn_project_objective_alignment();
 ALTER TABLE strategy.projects DROP CONSTRAINT IF EXISTS fk_projects_objective;
 UPDATE strategy.projects SET objective_id = NULL WHERE objective_id IS NOT NULL;
 
-CREATE TABLE IF NOT EXISTS strategy.objectives (
-    id BIGINT PRIMARY KEY,
-    goal_id BIGINT NOT NULL REFERENCES strategy.goals(id) ON DELETE CASCADE,
-    workspace_id BIGINT NOT NULL REFERENCES core.workspaces(id) ON DELETE CASCADE,
-    title TEXT NOT NULL, description TEXT, owner_user_id BIGINT,
-    weight NUMERIC(4,2) DEFAULT 1.0, display_order INT DEFAULT 0,
-    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','completed','abandoned')),
-    progress_pct NUMERIC(5,2) DEFAULT 0, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE TABLE IF NOT EXISTS strategy.cosa_key_results (
-    id BIGINT PRIMARY KEY,
-    objective_id BIGINT NOT NULL REFERENCES strategy.objectives(id) ON DELETE CASCADE,
-    metric_name TEXT NOT NULL, baseline NUMERIC, target NUMERIC NOT NULL,
-    current_value NUMERIC DEFAULT 0, unit TEXT,
-    status TEXT DEFAULT 'active' CHECK (status IN ('active','achieved','missed','archived')),
-    display_order INT DEFAULT 0
-);
+COMMENT ON TABLE strategy.objectives IS NULL;
+COMMENT ON TABLE strategy.cosa_key_results IS NULL;
+
 ALTER TABLE strategy.projects
     ADD CONSTRAINT fk_projects_objective FOREIGN KEY (objective_id) REFERENCES strategy.objectives(id) ON DELETE SET NULL;
 
