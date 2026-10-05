@@ -1,0 +1,47 @@
+{
+  "valid": [
+    {
+      "name": "deterministic + rubric",
+      "input": {"version": 1, "criteria": [
+        {"id": "c1", "description": "  Lưu tài liệu  ", "required": true, "check": "deterministic",
+         "predicate": {"kind": "artifact_exists", "args": {"type": "document"}}},
+        {"id": "c2", "description": "Nêu >= 3 rủi ro", "check": "rubric", "rubric": " Có >= 3 rủi ro ", "extra": "bị bỏ"}
+      ]},
+      "normalized": {"version": 1, "criteria": [
+        {"id": "c1", "description": "Lưu tài liệu", "required": true, "check": "deterministic",
+         "predicate": {"kind": "artifact_exists", "args": {"type": "document"}}},
+        {"id": "c2", "description": "Nêu >= 3 rủi ro", "required": true, "check": "rubric", "rubric": "Có >= 3 rủi ro"}
+      ]}
+    },
+    {
+      "name": "optional criterion keeps required=false",
+      "input": {"version": 1, "criteria": [
+        {"id": "a_b-1", "description": "x", "required": false, "check": "rubric", "rubric": "y"}
+      ]},
+      "normalized": {"version": 1, "criteria": [
+        {"id": "a_b-1", "description": "x", "required": false, "check": "rubric", "rubric": "y"}
+      ]}
+    }
+  ],
+  "invalid": [
+    {"name": "not an object", "input": "abc", "error": "unsupported version"},
+    {"name": "wrong version", "input": {"version": 2, "criteria": []}, "error": "unsupported version"},
+    {"name": "empty criteria", "input": {"version": 1, "criteria": []}, "error": "criteria must contain 1..10 items"},
+    {"name": "too many criteria", "input": {"version": 1, "criteria": [
+      {"id": "c01", "description": "d", "check": "rubric", "rubric": "r"}, {"id": "c02", "description": "d", "check": "rubric", "rubric": "r"},
+      {"id": "c03", "description": "d", "check": "rubric", "rubric": "r"}, {"id": "c04", "description": "d", "check": "rubric", "rubric": "r"},
+      {"id": "c05", "description": "d", "check": "rubric", "rubric": "r"}, {"id": "c06", "description": "d", "check": "rubric", "rubric": "r"},
+      {"id": "c07", "description": "d", "check": "rubric", "rubric": "r"}, {"id": "c08", "description": "d", "check": "rubric", "rubric": "r"},
+      {"id": "c09", "description": "d", "check": "rubric", "rubric": "r"}, {"id": "c10", "description": "d", "check": "rubric", "rubric": "r"},
+      {"id": "c11", "description": "d", "check": "rubric", "rubric": "r"}
+    ]}, "error": "criteria must contain 1..10 items"},
+    {"name": "bad id", "input": {"version": 1, "criteria": [{"id": "Bad Id", "description": "d", "check": "rubric", "rubric": "r"}]}, "error": "invalid criterion id"},
+    {"name": "duplicate id", "input": {"version": 1, "criteria": [
+      {"id": "c1", "description": "d", "check": "rubric", "rubric": "r"}, {"id": "c1", "description": "d", "check": "rubric", "rubric": "r"}]}, "error": "duplicate criterion id"},
+    {"name": "empty description", "input": {"version": 1, "criteria": [{"id": "c1", "description": "   ", "check": "rubric", "rubric": "r"}]}, "error": "description must be 1..300 chars"},
+    {"name": "invalid check", "input": {"version": 1, "criteria": [{"id": "c1", "description": "d", "check": "magic"}]}, "error": "invalid check"},
+    {"name": "deterministic without predicate", "input": {"version": 1, "criteria": [{"id": "c1", "description": "d", "check": "deterministic"}]}, "error": "deterministic criterion requires predicate"},
+    {"name": "unknown predicate kind", "input": {"version": 1, "criteria": [{"id": "c1", "description": "d", "check": "deterministic", "predicate": {"kind": "teleport", "args": {}}}]}, "error": "unknown predicate kind"},
+    {"name": "rubric without text", "input": {"version": 1, "criteria": [{"id": "c1", "description": "d", "check": "rubric"}]}, "error": "rubric criterion requires rubric"}
+  ]
+}
