@@ -233,4 +233,14 @@ describe("listAgentClaimableTasksService goal ancestry and done criteria", () =>
     expect(without.goalAncestry.resolvedVia).not.toBe("initiative");
     expect(without.goalAncestry.keyResult).toBeNull();
   });
+
+  it("keeps row order across ancestry batches (more than 8 tasks)", async () => {
+    const titles = Array.from({ length: 10 }, (_, i) => `T${i}`);
+    const s = await seedAcceptedPlan(titles.map((t) => autoItem(t)));
+    const claimable = await listAgentClaimableTasksService(s.workspaceId, 20, s.auth);
+    expect(claimable).toHaveLength(10);
+    expect(claimable.map((t) => t.title).sort()).toEqual([...titles].sort());
+    const again = await listAgentClaimableTasksService(s.workspaceId, 20, s.auth);
+    expect(again.map((t) => t.taskId)).toEqual(claimable.map((t) => t.taskId));
+  });
 });

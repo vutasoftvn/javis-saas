@@ -1,4 +1,5 @@
 import { APIError } from "encore.dev/api";
+import log from "encore.dev/log";
 import { eq, desc, and, isNull } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { getWorkspaceRecord } from "../../identity/services/workspace.service";
@@ -20,7 +21,7 @@ import {
 } from "../../shared/db/schema/operations";
 import { sql, inArray } from "drizzle-orm";
 import { assertInitiativeInWorkspace } from "./initiative.service";
-import { resolveGoalAncestry, type GoalAncestry } from "./goal-ancestry.service";
+import { resolveGoalAncestrySafe, type GoalAncestry } from "./goal-ancestry.service";
 import type { DoneCriteria } from "./done-criteria";
 import { verifyProjectInWorkspace } from "./project-operating-loop.service";
 import {
@@ -610,6 +611,9 @@ export async function advanceTaskByAgentService(
   });
 }
 
+/** Số task tối đa resolve ancestry song song (tránh thundering herd). */
+const ANCESTRY_BATCH = 8;
+
 export interface AgentClaimableTask {
   taskId: string;
   workspaceId: string;
@@ -725,7 +729,10 @@ export async function listAgentClaimableTasksService(
     .orderBy(tasks.priority, executionPlanItems.sortKey)
     .limit(cap);
 
-  return Promise.all(rows.map(async (r) => ({
+  const out: AgentClaimableTask[] = [];
+  for (let i = 0; i < rows.length; i += ANCESTRY_BATCH) {
+    const chunk = rows.slice(i, i + ANCESTRY_BATCH);
+    out.push(...(await Promise.all(chunk.map(async (r) => ({
     taskId: r.taskId.toString(),
     workspaceId: r.workspaceId.toString(),
     title: r.title,
@@ -741,12 +748,20 @@ export async function listAgentClaimableTasksService(
     planOrigin: r.planOrigin,
     planOriginRef: r.planOriginRef,
     doneCriteria: (r.doneCriteria as DoneCriteria | null) ?? null,
-    goalAncestry: await resolveGoalAncestry(wsId, {
-      projectId: r.projectId,
-      initiativeId: r.initiativeId,
-      keyResultId: r.keyResultId,
-    }),
-  })));
+    goalAncestry: await resolveGoalAncestrySafe(
+      wsId,
+      { projectId: r.projectId, initiativeId: r.initiativeId, keyResultId: r.keyResultId },
+      undefined,
+      (err) =>
+        log.warn("goal ancestry resolve failed", {
+          workspaceId: wsId.toString(),
+          taskId: r.taskId.toString(),
+          err: err instanceof Error ? err.message : String(err),
+        }),
+    ),
+  })))));
+  }
+  return out;
 }
 
 export interface StageRosterEntry {

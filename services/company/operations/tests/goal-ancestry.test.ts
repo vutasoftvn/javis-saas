@@ -6,7 +6,7 @@ import { generateSnowflake } from "../../shared/services/snowflake.service";
 import { createTestSession } from "../../identity/tests/helpers/test-session";
 import { createGoalService } from "../services/goals.service";
 import { createObjectiveService, addKeyResultService } from "../services/okr.service";
-import { resolveGoalAncestry, resolveProjectGoalAncestry } from "../services/goal-ancestry.service";
+import { resolveGoalAncestry, resolveGoalAncestrySafe, resolveProjectGoalAncestry } from "../services/goal-ancestry.service";
 
 async function world() {
   const user = await createTestSession({
@@ -121,5 +121,28 @@ describe("resolveGoalAncestry extra cases", () => {
     const a = await resolveProjectGoalAncestry(w.ws, w.project);
     expect(a.unlinkedReason).toBe("project_intentionally_unlinked");
     expect(a.goalChain).toEqual([]);
+  });
+});
+
+describe("resolveGoalAncestrySafe", () => {
+  it("degrades to an empty ancestry when the resolver throws", async () => {
+    const input = { projectId: 1n, initiativeId: null, keyResultId: null };
+    const errors: unknown[] = [];
+    const boom = async () => { throw new Error("db down"); };
+    const a = await resolveGoalAncestrySafe(1n, input, boom, (e) => errors.push(e));
+    const b = await resolveGoalAncestrySafe(1n, input, boom);
+    expect(a).toEqual({
+      resolvedVia: "none", project: null, keyResult: null, objective: null,
+      companyObjective: null, goalChain: [], unlinkedReason: "resolve_failed",
+    });
+    expect(errors).toHaveLength(1);
+    expect(a).not.toBe(b);
+    expect(a.goalChain).not.toBe(b.goalChain);
+  });
+
+  it("matches resolveGoalAncestry with the real resolver", async () => {
+    const w = await world();
+    const input = { projectId: w.project, initiativeId: w.initiativeId, keyResultId: null };
+    expect(await resolveGoalAncestrySafe(w.ws, input)).toEqual(await resolveGoalAncestry(w.ws, input));
   });
 });

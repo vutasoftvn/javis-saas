@@ -16,6 +16,11 @@ export interface GoalAncestry {
   objective: { id: string; title: string; scope: "company" | "project" } | null;
   companyObjective: { id: string; title: string } | null;
   goalChain: GoalAncestryGoal[];
+  /**
+   * Lý do không nối được tới goal: "project_not_found", "project_not_linked",
+   * "project_intentionally_unlinked", "objective_project_mismatch",
+   * "goal_not_found", "resolve_failed" (resolver lỗi, đã cô lập), hoặc null.
+   */
   unlinkedReason: string | null;
 }
 export interface GoalAncestryInput {
@@ -133,6 +138,21 @@ export async function resolveGoalAncestry(wsId: bigint, input: GoalAncestryInput
   }
   if (result.goalChain.length === 0) result.unlinkedReason ??= "goal_not_found";
   return result;
+}
+
+/** Cô lập lỗi theo từng task: lỗi resolver -> ancestry rỗng "resolve_failed", không throw. */
+export async function resolveGoalAncestrySafe(
+  wsId: bigint,
+  input: GoalAncestryInput,
+  resolve: (wsId: bigint, input: GoalAncestryInput) => Promise<GoalAncestry> = resolveGoalAncestry,
+  onError?: (err: unknown) => void,
+): Promise<GoalAncestry> {
+  try {
+    return await resolve(wsId, input);
+  } catch (err) {
+    onError?.(err);
+    return { ...EMPTY, goalChain: [], unlinkedReason: "resolve_failed" };
+  }
 }
 
 export function resolveProjectGoalAncestry(wsId: bigint, projectId: bigint): Promise<GoalAncestry> {
