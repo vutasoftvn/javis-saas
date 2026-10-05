@@ -150,7 +150,11 @@ export async function resolveGoalAncestrySafe(
   try {
     return await resolve(wsId, input);
   } catch (err) {
-    onError?.(err);
+    try {
+      onError?.(err);
+    } catch {
+      // logger lỗi không được phá vỡ cô lập
+    }
     return { ...EMPTY, goalChain: [], unlinkedReason: "resolve_failed" };
   }
 }

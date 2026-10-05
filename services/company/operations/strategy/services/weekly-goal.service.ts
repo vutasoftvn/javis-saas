@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { APIError } from "encore.dev/api";
+import log from "encore.dev/log";
 import { db } from "../../models/db";
 import { nextBestActions } from "../../../shared/db/schema/strategy";
 import {
@@ -99,6 +100,22 @@ export async function setWeeklyGoalService(
   const wsId = BigInt(ctx.workspaceId);
   const pId = BigInt(params.projectId);
   const mission = params.mission?.trim() || focus;
+
+  // Ngữ cảnh goal cho agent phân rã: resolve TRƯỚC khi mở transaction (không chiếm
+  // connection thứ hai khi tx đang mở); lỗi resolve không được chặn event.
+  const goalAncestry = params.triggerDecomposition
+    ? await resolveGoalAncestrySafe(
+        wsId,
+        { projectId: pId, initiativeId: null, keyResultId: null },
+        undefined,
+        (err) =>
+          log.warn("goal ancestry resolve failed", {
+            workspaceId: wsId.toString(),
+            projectId: pId.toString(),
+            err: err instanceof Error ? err.message : String(err),
+          }),
+      )
+    : null;
 
   return await db.transaction(async (tx) => {
     const [proj] = await tx
@@ -268,12 +285,6 @@ export async function setWeeklyGoalService(
         )
         .orderBy(desc(nextBestActions.priority), desc(nextBestActions.createdAt))
         .limit(DECOMPOSITION_NEXT_BEST_ACTIONS_LIMIT);
-      // Ngữ cảnh goal cho agent phân rã; lỗi resolve không được chặn event.
-      const goalAncestry = await resolveGoalAncestrySafe(wsId, {
-        projectId: pId,
-        initiativeId: null,
-        keyResultId: null,
-      });
       const event = makeBusinessEvent({
         eventType: WEEKLY_GOAL_SET,
         workspaceId: ctx.workspaceId,

@@ -94,6 +94,17 @@ describe("resolveGoalAncestry", () => {
 });
 
 describe("resolveGoalAncestry extra cases", () => {
+  it("stops the goal chain at the workspace boundary when parent_id points to another workspace", async () => {
+    const w = await world();
+    const other = await world();
+    await db.update(schema.goals)
+      .set({ parentId: BigInt(other.parent.goalId) })
+      .where(eq(schema.goals.id, BigInt(w.goal.goalId)));
+    const a = await resolveGoalAncestry(w.ws, { projectId: w.project, initiativeId: w.initiativeId, keyResultId: null });
+    expect(a.goalChain.map((g) => g.title)).toEqual(["Chiến lược Q4"]);
+    expect(a.goalChain.some((g) => g.title === "Vision")).toBe(false);
+  });
+
   it("truncates a goal chain deeper than 8 levels to 8", async () => {
     const w = await world();
     let parentId: string | undefined;
@@ -138,6 +149,15 @@ describe("resolveGoalAncestrySafe", () => {
     expect(errors).toHaveLength(1);
     expect(a).not.toBe(b);
     expect(a.goalChain).not.toBe(b.goalChain);
+  });
+
+  it("still returns the empty ancestry when onError itself throws", async () => {
+    const input = { projectId: 1n, initiativeId: null, keyResultId: null };
+    const a = await resolveGoalAncestrySafe(
+      1n, input, async () => { throw new Error("db down"); }, () => { throw new Error("logger down"); },
+    );
+    expect(a.unlinkedReason).toBe("resolve_failed");
+    expect(a.goalChain).toEqual([]);
   });
 
   it("matches resolveGoalAncestry with the real resolver", async () => {

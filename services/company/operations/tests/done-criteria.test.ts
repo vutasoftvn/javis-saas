@@ -31,3 +31,15 @@ describe("parseDoneCriteria (shared fixtures)", () => {
     });
   }
 });
+
+describe("parseDoneCriteria performance", () => {
+  it("rejects a 200k-space run quickly (linear trim)", () => {
+    const input = {
+      version: 1,
+      criteria: [{ id: "c1", description: `${" ".repeat(100_000)}x${" ".repeat(100_000)}`, check: "rubric", rubric: "r" }],
+    };
+    const t0 = performance.now();
+    expect(() => parseDoneCriteria(input)).toThrow("description must be 1..300 chars");
+    expect(performance.now() - t0).toBeLessThan(200);
+  });
+});

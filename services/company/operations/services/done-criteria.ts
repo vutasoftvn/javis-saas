@@ -20,12 +20,24 @@ const PREDICATE_KINDS: readonly PredicateKind[] = ["artifact_exists", "metric_gt
 
 // Whitespace set shared with packages/agent/contracts/done_criteria.py (_WS):
 // JS WhiteSpace + LineTerminator. Keep both lists identical.
-const WS = "[\\t\\n\\v\\f\\r \\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]";
-const TRIM_RE = new RegExp(`^${WS}+|${WS}+$`, "g");
+const WS_CHARS = new Set<string>(
+  "\t\n\v\f\r \u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeff".split(
+    "",
+  ),
+);
 
+/** Linear-time trim (a regex like ^WS+|WS+$ is quadratic on long internal runs). */
 function trimWs(s: string): string {
-  return s.replace(TRIM_RE, "");
+  let start = 0;
+  let end = s.length;
+  while (start < end && WS_CHARS.has(s[start]!)) start++;
+  while (end > start && WS_CHARS.has(s[end - 1]!)) end--;
+  return s.slice(start, end);
 }
+
+// Raw strings longer than 4x the limit are rejected before trimming (same rule in Python).
+const RAW_FACTOR = 4;
+const MAX_ARGS_BYTES = 2048;
 
 /** Length in Unicode code points (matches Python len). */
 function cpLen(s: string): number {
@@ -43,7 +55,9 @@ function parseCriterion(raw: unknown, seen: Set<string>): DoneCriterion {
   if (seen.has(id)) throw new Error("duplicate criterion id");
   seen.add(id);
 
-  const description = typeof raw.description === "string" ? trimWs(raw.description) : "";
+  const rawDescription = typeof raw.description === "string" ? raw.description : "";
+  if (cpLen(rawDescription) > 300 * RAW_FACTOR) throw new Error("description must be 1..300 chars");
+  const description = trimWs(rawDescription);
   if (cpLen(description) < 1 || cpLen(description) > 300) {
     throw new Error("description must be 1..300 chars");
   }
@@ -54,6 +68,9 @@ function parseCriterion(raw: unknown, seen: Set<string>): DoneCriterion {
     if (!isRecord(p)) throw new Error("deterministic criterion requires predicate");
     if (!PREDICATE_KINDS.includes(p.kind as PredicateKind)) throw new Error("unknown predicate kind");
     if (!isRecord(p.args)) throw new Error("deterministic criterion requires predicate");
+    if (new TextEncoder().encode(JSON.stringify(p.args)).length > MAX_ARGS_BYTES) {
+      throw new Error("predicate args too large");
+    }
     return {
       id,
       description,
@@ -63,7 +80,9 @@ function parseCriterion(raw: unknown, seen: Set<string>): DoneCriterion {
     };
   }
   if (raw.check === "rubric") {
-    const rubric = typeof raw.rubric === "string" ? trimWs(raw.rubric) : "";
+    const rawRubric = typeof raw.rubric === "string" ? raw.rubric : "";
+    if (cpLen(rawRubric) > 500 * RAW_FACTOR) throw new Error("rubric criterion requires rubric");
+    const rubric = trimWs(rawRubric);
     if (cpLen(rubric) < 1 || cpLen(rubric) > 500) throw new Error("rubric criterion requires rubric");
     return { id, description, required, check: "rubric", rubric };
   }

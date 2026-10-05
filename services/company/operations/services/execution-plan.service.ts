@@ -163,7 +163,10 @@ function toPlanView(
 function resolveItemDoneCriteria(item: CreatePlanItemInput): DoneCriteria | null {
   if (item.doneCriteria === undefined || item.doneCriteria === null) {
     // Đọc cờ lúc gọi (không phải lúc nạp module) để test bật/tắt được.
-    if (process.env.WGA_REQUIRE_DONE_CRITERIA === "1" && item.capabilityRisk !== "LOW") {
+    if (process.env.WGA_REQUIRE_DONE_CRITERIA === "1" &&
+      item.capabilityRisk != null && // null = việc thuần người / FOUNDER_ONLY: không bắt buộc
+      item.capabilityRisk !== "LOW"
+    ) {
       throw APIError.invalidArgument(
         `done_criteria is required for item "${item.title}" (capability risk ${item.capabilityRisk})`,
       );

@@ -5,6 +5,7 @@ Hai bên được khóa bằng shared/contracts/done-criteria.fixtures.json (tes
 
 from __future__ import annotations
 
+import json
 import re
 from typing import Any
 
@@ -17,6 +18,9 @@ _WS = (
     "\t\n\v\f\r \u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008"
     "\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeff"
 )
+# Raw strings longer than 4x the limit are rejected before trimming (same rule in TS).
+_RAW_FACTOR = 4
+_MAX_ARGS_BYTES = 2048
 _PREDICATE_KINDS = ("artifact_exists", "metric_gte", "field_present")
 
 
@@ -35,7 +39,10 @@ def _parse_criterion(raw: object, seen: set[str]) -> dict[str, Any]:
     seen.add(cid)
 
     description = raw.get("description")
-    description = description.strip(_WS) if isinstance(description, str) else ""
+    description = description if isinstance(description, str) else ""
+    if len(description) > 300 * _RAW_FACTOR:
+        raise DoneCriteriaError("description must be 1..300 chars")
+    description = description.strip(_WS)
     if not 1 <= len(description) <= 300:
         raise DoneCriteriaError("description must be 1..300 chars")
     required = raw["required"] if isinstance(raw.get("required"), bool) else True
@@ -49,6 +56,9 @@ def _parse_criterion(raw: object, seen: set[str]) -> dict[str, Any]:
             raise DoneCriteriaError("unknown predicate kind")
         if not isinstance(predicate.get("args"), dict):
             raise DoneCriteriaError("deterministic criterion requires predicate")
+        encoded = json.dumps(predicate["args"], ensure_ascii=False, separators=(",", ":"))
+        if len(encoded.encode("utf-8")) > _MAX_ARGS_BYTES:
+            raise DoneCriteriaError("predicate args too large")
         return {
             "id": cid,
             "description": description,
@@ -58,7 +68,10 @@ def _parse_criterion(raw: object, seen: set[str]) -> dict[str, Any]:
         }
     if check == "rubric":
         rubric = raw.get("rubric")
-        rubric = rubric.strip(_WS) if isinstance(rubric, str) else ""
+        rubric = rubric if isinstance(rubric, str) else ""
+        if len(rubric) > 500 * _RAW_FACTOR:
+            raise DoneCriteriaError("rubric criterion requires rubric")
+        rubric = rubric.strip(_WS)
         if not 1 <= len(rubric) <= 500:
             raise DoneCriteriaError("rubric criterion requires rubric")
         return {

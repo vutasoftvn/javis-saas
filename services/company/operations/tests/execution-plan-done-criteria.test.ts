@@ -93,6 +93,7 @@ describe("execution plan item done_criteria", () => {
         seedDraftPlan([autoItem("A", { capabilityRisk: "MEDIUM" })]),
       ).rejects.toThrow(/done_criteria is required/);
       await expect(seedDraftPlan([autoItem("B", { capabilityRisk: "LOW" })])).resolves.toBeTruthy();
+      await expect(seedDraftPlan([autoItem("C", { capabilityRisk: null })])).resolves.toBeTruthy();
     } finally {
       delete process.env.WGA_REQUIRE_DONE_CRITERIA;
     }

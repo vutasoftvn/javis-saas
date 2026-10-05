@@ -83,6 +83,7 @@ Schema đề xuất:
 
 ### Cách bật bắt buộc done_criteria
 - Biến môi trường `WGA_REQUIRE_DONE_CRITERIA=1` trên service Company: `POST /operations/execution-plans` từ chối (400 `invalid_argument`) item có `capabilityRisk` khác `LOW` mà thiếu `doneCriteria`.
+- Quy tắc: chỉ bắt buộc khi `capabilityRisk` khác null và khác `LOW`; item thuần người / FOUNDER_ONLY (`capabilityRisk` null) không bắt buộc. Prompt decomposition nêu cùng quy tắc nhưng JSON schema không đặt `required`.
 - Mặc định TẮT để không làm hỏng decomposition hiện có khi chưa phát hành bộ sinh tiêu chí ổn định. Project B sẽ bật cờ này.
 - Kiểm bằng unit test (`execution-plan-done-criteria.test.ts`); e2e không đổi được env của service đang chạy.
 

@@ -239,7 +239,7 @@ describe("listAgentClaimableTasksService goal ancestry and done criteria", () =>
     const s = await seedAcceptedPlan(titles.map((t) => autoItem(t)));
     const claimable = await listAgentClaimableTasksService(s.workspaceId, 20, s.auth);
     expect(claimable).toHaveLength(10);
-    expect(claimable.map((t) => t.title).sort()).toEqual([...titles].sort());
+    expect(claimable.map((t) => t.title)).toEqual(titles); // sortKey order T0..T9
     const again = await listAgentClaimableTasksService(s.workspaceId, 20, s.auth);
     expect(again.map((t) => t.taskId)).toEqual(claimable.map((t) => t.taskId));
   });

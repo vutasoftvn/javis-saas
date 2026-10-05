@@ -9,10 +9,13 @@ raw text to `parse_plan_output`.
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass, field
 from typing import Any
 
 from agent.contracts.done_criteria import DoneCriteriaError, parse_done_criteria
+
+_LOG = logging.getLogger(__name__)
 
 __all__ = [
     "OWNER_AGENT_PROFILES",
@@ -159,8 +162,10 @@ def build_decomposition_prompt(goal_text: str, context: dict) -> str:
         "(interviews, calls, meetings, strategic decisions -> null)\n"
         "- depends_on_titles: array of other item titles that must finish first\n"
         "- priority: 'low' | 'medium' | 'high' | 'urgent'\n"
-        "- done_criteria (optional but strongly preferred when the item changes data "
-        'outside your workspace): {"version":1,"criteria":[{"id":"c1",'
+        "- done_criteria: required for items whose expected_capability changes data "
+        "(risk above LOW); optional otherwise (do not invent one for purely human "
+        "items). Shape: "
+        '{"version":1,"criteria":[{"id":"c1",'
         '"description":"...","required":true,"check":"deterministic"|"rubric",'
         ' "predicate":{"kind":"artifact_exists"|"metric_gte"|"field_present",'
         '"args":{...}} | "rubric":"..."}]} - 1..10 verifiable criteria describing '
@@ -240,7 +245,9 @@ def parse_plan_output(raw: str) -> list[PlanItemDraft]:
             try:
                 done_criteria = parse_done_criteria(raw_dc)
             except DoneCriteriaError as exc:
-                raise PlanSchemaError(f"item[{i}].done_criteria invalid: {exc}") from exc
+                # Optional field: one malformed block must not fail the whole plan.
+                _LOG.warning("item[%d].done_criteria dropped: %s", i, exc)
+                done_criteria = None
 
         drafts.append(
             PlanItemDraft(
