@@ -180,3 +180,99 @@ def test_agent_automation_migration_never_touches_company():
     lowered = sql.lower()
     for company_token in ("operating.", "strategy.", "commercial.", "finance", "workspace_migrator", "company"):
         assert company_token not in lowered, company_token
+
+
+# --- CHECK value lists, partial index, DESC columns (hardened, content-level) ---
+
+COMPANY_042_UP = ROOT / "services/company/operations/migrations/042_automation_composite_tenancy.up.sql"
+COMPANY_042_DOWN = ROOT / "services/company/operations/migrations/042_automation_composite_tenancy.down.sql"
+COMPANY_SERVICES = ROOT / "services/company/operations/services"
+
+
+def _sql041() -> str:
+    return re.sub(r"\s+", " ", _strip_sql_comments(COMPANY_CONSTRAINTS_UP.read_text(encoding="utf-8")))
+
+
+def _check_values(sql: str, constraint: str) -> list[str]:
+    m = re.search(rf"ADD CONSTRAINT {constraint} CHECK \(\w+ IN \(([^)]*)\)\)", sql)
+    assert m, f"CHECK {constraint} not found"
+    return re.findall(r"'([^']+)'", m.group(1))
+
+
+def _ts_union(path: Path, type_name: str) -> list[str]:
+    src = path.read_text(encoding="utf-8")
+    m = re.search(rf"export type {type_name}\s*=\s*([^;]+);", src)
+    assert m, f"type {type_name} not found in {path.name}"
+    return re.findall(r'"([^"]+)"', m.group(1))
+
+
+def test_check_value_lists_match_sql_and_typescript_sources_of_truth():
+    sql = _sql041()
+    lifecycle = _check_values(sql, "chk_automation_definitions_lifecycle_state")
+    autonomy = _check_values(sql, "chk_automation_revisions_autonomy_class")
+    trigger = _check_values(sql, "chk_automation_invocations_trigger_kind")
+    state = _check_values(sql, "chk_automation_invocations_state")
+
+    assert lifecycle == ["DRAFT", "PUBLISHED", "SUSPENDED", "RETIRED"]
+    assert autonomy == ["read_only", "draft_only", "gated_effect"]
+    assert trigger == ["manual", "schedule", "business_event"]
+    assert len(state) == 10 and "CANCEL_REQUESTED" in state and len(set(state)) == 10
+
+    assert set(lifecycle) == set(_ts_union(COMPANY_SERVICES / "automation-definition.service.ts", "AutomationLifecycleState"))
+    assert set(autonomy) == set(_ts_union(COMPANY_SERVICES / "automation-blueprint-registry.ts", "AutonomyClass"))
+    assert set(trigger) == set(_ts_union(COMPANY_SERVICES / "automation-invocation.service.ts", "AutomationTriggerKind"))
+    envelope = json.loads(ENVELOPE.read_text(encoding="utf-8"))
+    assert set(trigger) == set(envelope["properties"]["trigger_kind"]["enum"])
+    # Every DB state maps to a UI run state (the inspector's RUN_STATE_UI table).
+    inspector = (COMPANY_SERVICES / "automation-inspector.service.ts").read_text(encoding="utf-8")
+    block = re.search(r"RUN_STATE_UI[^{]*\{([^}]*)\}", inspector).group(1)
+    assert set(state) == set(re.findall(r"^\s*([A-Z_]+):", block, re.MULTILINE))
+
+
+def test_definition_key_is_unique_only_among_live_rows():
+    sql = _sql041()
+    m = re.search(
+        r"CREATE UNIQUE INDEX IF NOT EXISTS uix_automation_definitions_ws_key ON operating\.automation_definitions "
+        r"\(workspace_id, automation_key\) WHERE deleted_at IS NULL",
+        sql,
+    )
+    assert m, "uix_automation_definitions_ws_key must be partial: WHERE deleted_at IS NULL"
+
+
+def test_desc_index_columns_are_preserved():
+    sql = _sql041()
+    assert re.search(
+        r"idx_automation_revisions_ws_definition ON operating\.automation_revisions "
+        r"\(workspace_id, definition_id, revision_no DESC\)",
+        sql,
+    )
+    assert re.search(
+        r"idx_automation_invocations_ws_state ON operating\.automation_invocations "
+        r"\(workspace_id, state, created_at DESC\)",
+        sql,
+    )
+
+
+def test_composite_tenancy_foreign_keys_and_parent_unique_indexes():
+    sql = re.sub(r"\s+", " ", _strip_sql_comments(COMPANY_042_UP.read_text(encoding="utf-8")))
+    parents = set(re.findall(r"CREATE UNIQUE INDEX IF NOT EXISTS (uix_automation_\w+_id_workspace) ON operating\.\w+ \(id, workspace_id\)", sql))
+    assert parents == {
+        "uix_automation_definitions_id_workspace",
+        "uix_automation_revisions_id_workspace",
+        "uix_automation_invocations_id_workspace",
+    }
+    fks = re.findall(
+        r"ADD CONSTRAINT (fk_\w+_ws) FOREIGN KEY \((\w+), workspace_id\) REFERENCES operating\.(\w+)\(id, workspace_id\) ON DELETE CASCADE",
+        sql,
+    )
+    assert {(n, col, parent) for n, col, parent in fks} == {
+        ("fk_automation_revisions_definition_ws", "definition_id", "automation_definitions"),
+        ("fk_automation_invocations_definition_ws", "definition_id", "automation_definitions"),
+        ("fk_automation_invocations_revision_ws", "revision_id", "automation_revisions"),
+        ("fk_automation_invocation_events_invocation_ws", "invocation_id", "automation_invocations"),
+    }
+    # Expand-only: 042 must not drop anything; down removes every object it adds.
+    assert not re.search(r"\bDROP\b", sql, re.IGNORECASE), "042 up must be expand-only"
+    down = COMPANY_042_DOWN.read_text(encoding="utf-8")
+    for name in parents | {n for n, _, _ in fks}:
+        assert name in down, name
