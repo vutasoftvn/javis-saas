@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-10-05T09:24:34.358Z",
+  "generated_at": "2026-10-05T09:46:58.497Z",
   "groups": {
     "agent": {
       "fingerprint": "f40955c3300d84d658e37e78ea5bdf5bb3a9053a3a2ee88bc38b53dd5aba3980",
@@ -14770,7 +14770,7 @@
       }
     },
     "workspace": {
-      "fingerprint": "3b59047d3b47ad75f5ed4d2c2aa7079c1e5d167e759f55b6fde2d0831c55362c",
+      "fingerprint": "e07b4fee378956f034a95e3e9784b9737656ab1b378721552da155fd813cce40",
       "schemas": [
         "commercial",
         "core",
@@ -35940,6 +35940,10 @@
               "definition": "CREATE INDEX idx_automation_definitions_workspace ON operating.automation_definitions USING btree (workspace_id)"
             },
             {
+              "name": "uix_automation_definitions_id_workspace",
+              "definition": "CREATE UNIQUE INDEX uix_automation_definitions_id_workspace ON operating.automation_definitions USING btree (id, workspace_id)"
+            },
+            {
               "name": "uix_automation_definitions_ws_key",
               "definition": "CREATE UNIQUE INDEX uix_automation_definitions_ws_key ON operating.automation_definitions USING btree (workspace_id, automation_key) WHERE (deleted_at IS NULL)"
             }
@@ -36037,6 +36041,20 @@
               "foreign_table": "operating.automation_invocations",
               "foreign_columns": [
                 "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            },
+            {
+              "name": "fk_automation_invocation_events_invocation_ws",
+              "columns": [
+                "invocation_id",
+                "workspace_id"
+              ],
+              "foreign_table": "operating.automation_invocations",
+              "foreign_columns": [
+                "id",
+                "workspace_id"
               ],
               "on_update": "NO ACTION",
               "on_delete": "CASCADE"
@@ -36301,6 +36319,20 @@
               "on_delete": "CASCADE"
             },
             {
+              "name": "fk_automation_invocations_definition_ws",
+              "columns": [
+                "definition_id",
+                "workspace_id"
+              ],
+              "foreign_table": "operating.automation_definitions",
+              "foreign_columns": [
+                "id",
+                "workspace_id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            },
+            {
               "name": "fk_automation_invocations_revision",
               "columns": [
                 "revision_id"
@@ -36308,6 +36340,20 @@
               "foreign_table": "operating.automation_revisions",
               "foreign_columns": [
                 "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            },
+            {
+              "name": "fk_automation_invocations_revision_ws",
+              "columns": [
+                "revision_id",
+                "workspace_id"
+              ],
+              "foreign_table": "operating.automation_revisions",
+              "foreign_columns": [
+                "id",
+                "workspace_id"
               ],
               "on_update": "NO ACTION",
               "on_delete": "CASCADE"
@@ -36335,6 +36381,10 @@
             {
               "name": "idx_automation_invocations_ws_state",
               "definition": "CREATE INDEX idx_automation_invocations_ws_state ON operating.automation_invocations USING btree (workspace_id, state, created_at DESC)"
+            },
+            {
+              "name": "uix_automation_invocations_id_workspace",
+              "definition": "CREATE UNIQUE INDEX uix_automation_invocations_id_workspace ON operating.automation_invocations USING btree (id, workspace_id)"
             },
             {
               "name": "uix_automation_invocations_identity",
@@ -36727,6 +36777,20 @@
               ],
               "on_update": "NO ACTION",
               "on_delete": "CASCADE"
+            },
+            {
+              "name": "fk_automation_revisions_definition_ws",
+              "columns": [
+                "definition_id",
+                "workspace_id"
+              ],
+              "foreign_table": "operating.automation_definitions",
+              "foreign_columns": [
+                "id",
+                "workspace_id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
             }
           ],
           "check_constraints": [
@@ -36747,6 +36811,10 @@
             {
               "name": "uix_automation_revisions_definition_no",
               "definition": "CREATE UNIQUE INDEX uix_automation_revisions_definition_no ON operating.automation_revisions USING btree (definition_id, revision_no)"
+            },
+            {
+              "name": "uix_automation_revisions_id_workspace",
+              "definition": "CREATE UNIQUE INDEX uix_automation_revisions_id_workspace ON operating.automation_revisions USING btree (id, workspace_id)"
             }
           ]
         },

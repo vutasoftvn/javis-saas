@@ -1,0 +1,8 @@
+-- 042_automation_composite_tenancy.down.sql
+ALTER TABLE operating.automation_invocation_events DROP CONSTRAINT IF EXISTS fk_automation_invocation_events_invocation_ws;
+ALTER TABLE operating.automation_invocations DROP CONSTRAINT IF EXISTS fk_automation_invocations_revision_ws;
+ALTER TABLE operating.automation_invocations DROP CONSTRAINT IF EXISTS fk_automation_invocations_definition_ws;
+ALTER TABLE operating.automation_revisions DROP CONSTRAINT IF EXISTS fk_automation_revisions_definition_ws;
+DROP INDEX IF EXISTS operating.uix_automation_invocations_id_workspace;
+DROP INDEX IF EXISTS operating.uix_automation_revisions_id_workspace;
+DROP INDEX IF EXISTS operating.uix_automation_definitions_id_workspace;

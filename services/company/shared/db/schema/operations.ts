@@ -777,6 +777,7 @@ export const automationDefinitions = operatingSchema.table("automation_definitio
 }, (t) => ({
   uixWsKey: uniqueIndex("uix_automation_definitions_ws_key").on(t.workspaceId, t.automationKey).where(sql`deleted_at IS NULL`),
   ixWorkspace: index("idx_automation_definitions_workspace").on(t.workspaceId),
+  uixIdWorkspace: uniqueIndex("uix_automation_definitions_id_workspace").on(t.id, t.workspaceId),
 }));
 
 export const automationRevisions = operatingSchema.table("automation_revisions", {
@@ -798,6 +799,12 @@ export const automationRevisions = operatingSchema.table("automation_revisions",
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   uixDefinitionNo: uniqueIndex("uix_automation_revisions_definition_no").on(t.definitionId, t.revisionNo),
+  uixIdWorkspace: uniqueIndex("uix_automation_revisions_id_workspace").on(t.id, t.workspaceId),
+  fkDefinitionWs: foreignKey({
+    columns: [t.definitionId, t.workspaceId],
+    foreignColumns: [automationDefinitions.id, automationDefinitions.workspaceId],
+    name: "fk_automation_revisions_definition_ws",
+  }).onDelete("cascade"),
   ixWsDefinition: index("idx_automation_revisions_ws_definition").on(t.workspaceId, t.definitionId, t.revisionNo.desc().nullsFirst()),
 }));
 
@@ -825,6 +832,17 @@ export const automationInvocations = operatingSchema.table("automation_invocatio
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
+  uixIdWorkspace: uniqueIndex("uix_automation_invocations_id_workspace").on(t.id, t.workspaceId),
+  fkDefinitionWs: foreignKey({
+    columns: [t.definitionId, t.workspaceId],
+    foreignColumns: [automationDefinitions.id, automationDefinitions.workspaceId],
+    name: "fk_automation_invocations_definition_ws",
+  }).onDelete("cascade"),
+  fkRevisionWs: foreignKey({
+    columns: [t.revisionId, t.workspaceId],
+    foreignColumns: [automationRevisions.id, automationRevisions.workspaceId],
+    name: "fk_automation_invocations_revision_ws",
+  }).onDelete("cascade"),
   uixIdentity: uniqueIndex("uix_automation_invocations_identity").on(t.workspaceId, t.revisionId, t.idempotencyKey),
   ixWsState: index("idx_automation_invocations_ws_state").on(t.workspaceId, t.state, t.createdAt.desc().nullsFirst()),
   ixWsRun: index("idx_automation_invocations_ws_run").on(t.workspaceId, t.agentRunId),
@@ -840,6 +858,11 @@ export const automationInvocationEvents = operatingSchema.table("automation_invo
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   uixSeq: uniqueIndex("uix_automation_invocation_events_seq").on(t.workspaceId, t.invocationId, t.seq),
+  fkInvocationWs: foreignKey({
+    columns: [t.invocationId, t.workspaceId],
+    foreignColumns: [automationInvocations.id, automationInvocations.workspaceId],
+    name: "fk_automation_invocation_events_invocation_ws",
+  }).onDelete("cascade"),
 }));
 
 export const projectAgentAssignmentStateEnum = operatingSchema.enum("project_agent_assignment_state", [
