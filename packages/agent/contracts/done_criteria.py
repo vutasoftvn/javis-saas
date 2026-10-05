@@ -5,11 +5,11 @@ Hai bên được khóa bằng shared/contracts/done-criteria.fixtures.json (tes
 
 from __future__ import annotations
 
-import json
 import re
+from decimal import Decimal
 from typing import Any
 
-__all__ = ["DoneCriteriaError", "parse_done_criteria"]
+__all__ = ["DoneCriteriaError", "js_canonical_json_size", "parse_done_criteria"]
 
 _ID = re.compile(r"^[a-z0-9_-]{1,40}$")
 # Whitespace set shared with done-criteria.ts (WS): JS WhiteSpace + LineTerminator.
@@ -26,6 +26,118 @@ _PREDICATE_KINDS = ("artifact_exists", "metric_gte", "field_present")
 
 class DoneCriteriaError(ValueError):
     """Tiêu chí hoàn thành không hợp lệ; thông điệp trùng với bản TypeScript."""
+
+
+# --- Canonical size of predicate.args -------------------------------------------------
+# Both languages measure the UTF-8 byte length of the *JavaScript* JSON.stringify form:
+#  - strings: JSON.stringify escapes (" \ \b \f \n \r \t, other < 0x20 as \u00xx, lone
+#    surrogates as \udxxx lowercase); everything else is emitted raw (UTF-8 encoded);
+#  - numbers: ECMAScript Number::toString (1.0 -> "1", 1e21 -> "1e+21", ints go through
+#    float64 like JSON.parse would); non-finite -> "null";
+#  - objects keep insertion order, separators "," and ":", no whitespace.
+_ESCAPE_RE = re.compile('[\x00-\x1f"\\\\\ud800-\udfff]')
+_SHORT_ESCAPES = {
+    '"': '\\"',
+    "\\": "\\\\",
+    "\b": "\\b",
+    "\f": "\\f",
+    "\n": "\\n",
+    "\r": "\\r",
+    "\t": "\\t",
+}
+
+
+def _escape_char(m: re.Match[str]) -> str:
+    ch = m.group(0)
+    return _SHORT_ESCAPES.get(ch) or f"\\u{ord(ch):04x}"
+
+
+def _js_string(s: str) -> str:
+    return '"' + _ESCAPE_RE.sub(_escape_char, s) + '"'
+
+
+def _js_number(value: int | float) -> str:
+    """ECMAScript Number::toString as used by JSON.stringify (non-finite -> null)."""
+    try:
+        x = float(value)
+    except OverflowError:  # JSON.parse of such an integer yields Infinity
+        return "null"
+    if x != x or x in (float("inf"), float("-inf")):
+        return "null"
+    if x == 0:
+        return "0"  # also -0
+    sign = "-" if x < 0 else ""
+    _, digit_tuple, exp = Decimal(repr(abs(x))).as_tuple()
+    raw_digits = "".join(map(str, digit_tuple))
+    digits = raw_digits.rstrip("0") or "0"
+    k = len(digits)
+    n = len(raw_digits) + int(exp)  # value = 0.<digits> * 10**n
+    if k <= n <= 21:
+        body = digits + "0" * (n - k)
+    elif 0 < n <= 21:
+        body = digits[:n] + "." + digits[n:]
+    elif -6 < n <= 0:
+        body = "0." + "0" * -n + digits
+    else:
+        e = n - 1
+        mant = digits[0] + ("." + digits[1:] if k > 1 else "")
+        body = f"{mant}e{'+' if e >= 0 else '-'}{abs(e)}"
+    return sign + body
+
+
+class _Raw:
+    __slots__ = ("text",)
+
+    def __init__(self, text: str) -> None:
+        self.text = text
+
+
+def js_canonical_json_size(value: object) -> int:
+    """UTF-8 byte length of JS JSON.stringify(value); DoneCriteriaError if not encodable.
+
+    Iterative, so nesting depth is not limited by the Python recursion limit.
+    """
+    out: list[str] = []
+    stack: list[object] = [value]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, _Raw):
+            out.append(item.text)
+        elif item is None:
+            out.append("null")
+        elif item is True:
+            out.append("true")
+        elif item is False:
+            out.append("false")
+        elif isinstance(item, (int, float)):
+            out.append(_js_number(item))
+        elif isinstance(item, str):
+            out.append(_js_string(item))
+        elif isinstance(item, list):
+            stack.append(_Raw("]"))
+            for i in range(len(item) - 1, -1, -1):
+                stack.append(item[i])
+                if i:
+                    stack.append(_Raw(","))
+            out.append("[")
+        elif isinstance(item, dict):
+            stack.append(_Raw("}"))
+            entries = list(item.items())
+            for i in range(len(entries) - 1, -1, -1):
+                key, val = entries[i]
+                if not isinstance(key, str):
+                    raise DoneCriteriaError("predicate args too large")
+                stack.append(val)
+                stack.append(_Raw(_js_string(key) + ":"))
+                if i:
+                    stack.append(_Raw(","))
+            out.append("{")
+        else:
+            raise DoneCriteriaError("predicate args too large")
+    try:
+        return len("".join(out).encode("utf-8"))
+    except UnicodeEncodeError as exc:  # unreachable: surrogates are escaped
+        raise DoneCriteriaError("predicate args too large") from exc
 
 
 def _parse_criterion(raw: object, seen: set[str]) -> dict[str, Any]:
@@ -56,8 +168,7 @@ def _parse_criterion(raw: object, seen: set[str]) -> dict[str, Any]:
             raise DoneCriteriaError("unknown predicate kind")
         if not isinstance(predicate.get("args"), dict):
             raise DoneCriteriaError("deterministic criterion requires predicate")
-        encoded = json.dumps(predicate["args"], ensure_ascii=False, separators=(",", ":"))
-        if len(encoded.encode("utf-8")) > _MAX_ARGS_BYTES:
+        if js_canonical_json_size(predicate["args"]) > _MAX_ARGS_BYTES:
             raise DoneCriteriaError("predicate args too large")
         return {
             "id": cid,

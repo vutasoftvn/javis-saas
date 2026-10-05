@@ -37,6 +37,7 @@ function trimWs(s: string): string {
 
 // Raw strings longer than 4x the limit are rejected before trimming (same rule in Python).
 const RAW_FACTOR = 4;
+// Canonical size = UTF-8 bytes of JSON.stringify(args); Python mirrors it in js_canonical_json_size.
 const MAX_ARGS_BYTES = 2048;
 
 /** Length in Unicode code points (matches Python len). */
