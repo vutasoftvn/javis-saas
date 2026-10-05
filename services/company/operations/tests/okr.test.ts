@@ -246,3 +246,82 @@ describe("getObjective", () => {
     await expect(getObjective({ id: objective.id, authorization: workspace2.authorization })).rejects.toThrow();
   });
 });
+
+describe("createObjective scope & alignment (A0)", () => {
+  async function makeGoal(workspaceId: string) {
+    const { createGoalService } = await import("../services/goals.service");
+    const { goalId } = await createGoalService({ workspaceId, title: "G", goalType: "strategic" });
+    return goalId;
+  }
+
+  it("creates a company objective bound to a goal", async () => {
+    const { workspace, authorization } = await makeCycle();
+    const goalId = await makeGoal(workspace.id);
+    const o = await createObjective({
+      workspaceId: workspace.id, scope: "company", goalId, title: "Company O", authorization,
+    });
+    expect(o.scope).toBe("company");
+    expect(o.goalId).toBe(goalId);
+    expect(o.projectId).toBeNull();
+  });
+
+  it("rejects a company objective without goalId", async () => {
+    const { workspace, authorization } = await makeCycle();
+    await expect(
+      createObjective({ workspaceId: workspace.id, scope: "company", title: "x", authorization }),
+    ).rejects.toThrow(/goalId is required/);
+  });
+
+  it("rejects a company objective that sets projectId", async () => {
+    const { workspace, authorization } = await makeCycle();
+    const goalId = await makeGoal(workspace.id);
+    await expect(
+      createObjective({
+        workspaceId: workspace.id, scope: "company", goalId, projectId: workspace.projectId, title: "x", authorization,
+      }),
+    ).rejects.toThrow(/cannot have projectId/);
+  });
+
+  it("creates a project objective aligned to a company objective and stores cycleId", async () => {
+    const { workspace, cycle, authorization } = await makeCycle();
+    const goalId = await makeGoal(workspace.id);
+    const company = await createObjective({
+      workspaceId: workspace.id, scope: "company", goalId, title: "C", authorization,
+    });
+    const o = await createObjective({
+      workspaceId: workspace.id, projectId: workspace.projectId, cycleId: cycle.id,
+      parentObjectiveId: company.id, title: "P", authorization,
+    });
+    expect(o.scope).toBe("project");
+    expect(o.parentObjectiveId).toBe(company.id);
+    expect(o.cycleId).toBe(cycle.id);
+  });
+
+  it("rejects goalId on a project objective", async () => {
+    const { workspace, authorization } = await makeCycle();
+    const goalId = await makeGoal(workspace.id);
+    await expect(
+      createObjective({
+        workspaceId: workspace.id, projectId: workspace.projectId, goalId, title: "x", authorization,
+      }),
+    ).rejects.toThrow(/goalId is derived/);
+  });
+
+  it("rejects a parent that is not a company objective", async () => {
+    const { workspace, authorization } = await makeCycle();
+    const a = await createObjective({ workspaceId: workspace.id, projectId: workspace.projectId, title: "A", authorization });
+    await expect(
+      createObjective({
+        workspaceId: workspace.id, projectId: workspace.projectId, parentObjectiveId: a.id, title: "B", authorization,
+      }),
+    ).rejects.toThrow(/company-scope objective/);
+  });
+
+  it("requires projectId when the workspace has more than one project", async () => {
+    const { workspace, authorization } = await makeCycle();
+    await createProject({ workspaceId: workspace.id, title: "Second", authorization });
+    await expect(
+      createObjective({ workspaceId: workspace.id, title: "ambiguous", authorization }),
+    ).rejects.toThrow(/projectId is required/);
+  });
+});

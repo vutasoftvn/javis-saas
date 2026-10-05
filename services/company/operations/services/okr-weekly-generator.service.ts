@@ -40,8 +40,12 @@ export async function generateCycleFromObjective(
     throw APIError.failedPrecondition("Objective must be published before generating a weekly cycle");
   }
 
+  if (objective.projectId === null) {
+    throw APIError.failedPrecondition("company-scope objectives cannot generate a project cycle");
+  }
+
   return createCycleAuthorized(ctx, {
-    projectId: objective.projectId?.toString() ?? "",
+    projectId: objective.projectId.toString(),
     durationWeeks,
     sourceObjectiveId: objectiveId,
   });

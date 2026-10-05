@@ -84,4 +84,31 @@ describe("generateCycleFromObjective", () => {
 
     await expect(generateCycleFromObjective(ctx, objective.id, 4)).rejects.toThrow();
   });
+
+  it("rejects a company-scope objective (no project to host the cycle)", async () => {
+    const session = await createTestSession({ displayName: "OKR Weekly Gen Company", role: "founder" });
+    const authorization = `Bearer ${session.accessToken}`;
+    const { createGoalService } = await import("../services/goals.service");
+    const { goalId } = await createGoalService({
+      workspaceId: session.workspaceId,
+      title: "Company goal",
+      goalType: "strategic",
+    });
+    const objective = await createObjective({
+      workspaceId: session.workspaceId,
+      scope: "company",
+      goalId,
+      title: "Company objective",
+      authorization,
+    });
+    await db
+      .update(schema.okrObjectives)
+      .set({ status: "published" })
+      .where(eq(schema.okrObjectives.id, BigInt(objective.id)));
+
+    const ctx = ctxFor(session.workspaceId, session.userId);
+    await expect(generateCycleFromObjective(ctx, objective.id, 4)).rejects.toThrow(
+      /company-scope objectives cannot generate/,
+    );
+  });
 });

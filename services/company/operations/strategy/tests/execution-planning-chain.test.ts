@@ -66,6 +66,7 @@ describe("Phase 2e: Execution & Planning Chain Integration Test", () => {
 
     const objective = await createObjective({
       workspaceId,
+      projectId: project.id,
       cycleId: okrCycle.id,
       authorization,
       title: "Achieve Initial Product-Market Fit with 50 paying teams",

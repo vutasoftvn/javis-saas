@@ -10,7 +10,7 @@ import { mvpList, mvpItem, MvpSuccess } from "../../shared/contracts/mvp-respons
 import { TenantContext } from "../../shared/types/tenant_context";
 import { requireStrategyGovernanceAuthority } from "../strategy/services/strategy-governance-authorization.service";
 
-const { okrCycles, okrObjectives, keyResults, projects } = schema;
+const { okrCycles, okrObjectives, keyResults, projects, goals } = schema;
 
 export interface OkrCycle {
   id: string;
@@ -26,11 +26,16 @@ export interface CreateOkrCycleParams {
   authorization?: string;
 }
 
+export type ObjectiveScope = "company" | "project";
+
 export interface Objective {
   id: string;
   workspaceId: string;
-  projectId: string;
-  cycleId?: string;
+  scope: ObjectiveScope;
+  projectId: string | null;
+  goalId: string | null;
+  parentObjectiveId: string | null;
+  cycleId: string | null;
   title: string;
   why: string | null;
   ownerMemberId: string | null;
@@ -43,7 +48,10 @@ export interface Objective {
 
 export interface CreateObjectiveParams {
   workspaceId: string;
+  scope?: ObjectiveScope;
   projectId?: string;
+  goalId?: string;
+  parentObjectiveId?: string;
   cycleId?: string;
   title: string;
   why?: string;
@@ -134,12 +142,15 @@ function toKeyResult(row: typeof keyResults.$inferSelect): KeyResult {
   };
 }
 
-function toObjective(row: typeof okrObjectives.$inferSelect, projectIds: string[] = []): Objective {
+function toObjective(row: typeof okrObjectives.$inferSelect): Objective {
   return {
     id: row.id.toString(),
     workspaceId: row.workspaceId.toString(),
-    projectId: row.projectId ? row.projectId.toString() : "",
-    cycleId: "",
+    scope: row.scope as ObjectiveScope,
+    projectId: row.projectId ? row.projectId.toString() : null,
+    goalId: row.goalId ? row.goalId.toString() : null,
+    parentObjectiveId: row.parentObjectiveId ? row.parentObjectiveId.toString() : null,
+    cycleId: row.cycleId ? row.cycleId.toString() : null,
     title: row.title,
     why: row.why,
     ownerMemberId: row.ownerMemberId ? row.ownerMemberId.toString() : null,
@@ -178,34 +189,83 @@ export async function createObjectiveService(params: CreateObjectiveParams): Pro
   await getWorkspaceRecord(params.workspaceId);
 
   const wsId = BigInt(params.workspaceId);
+  const scope: ObjectiveScope = params.scope ?? "project";
   const cycleId = params.cycleId ? BigInt(params.cycleId) : null;
 
   if (cycleId) {
-    // Validate cycle belongs to workspace
     const [cycle] = await db
-      .select()
+      .select({ id: okrCycles.id })
       .from(okrCycles)
       .where(and(eq(okrCycles.id, cycleId), eq(okrCycles.workspaceId, wsId)))
       .limit(1);
-
     if (!cycle) {
       throw APIError.notFound(`OKR cycle ${params.cycleId} not found in workspace`);
     }
   }
 
-  let pId: bigint;
-  if (params.projectId) {
-    pId = BigInt(params.projectId);
-  } else {
-    const [firstProject] = await db
-      .select({ id: projects.id })
-      .from(projects)
-      .where(and(eq(projects.workspaceId, wsId), isNull(projects.deletedAt)))
-      .limit(1);
-    if (!firstProject) {
-      throw APIError.invalidArgument("projectId is required or project must exist in workspace");
+  let projectId: bigint | null = null;
+  let goalId: bigint | null = null;
+  let parentObjectiveId: bigint | null = null;
+
+  if (scope === "company") {
+    if (!params.goalId) {
+      throw APIError.invalidArgument("goalId is required for a company objective");
     }
-    pId = firstProject.id;
+    if (params.projectId || params.parentObjectiveId) {
+      throw APIError.invalidArgument("a company objective cannot have projectId or parentObjectiveId");
+    }
+    goalId = BigInt(params.goalId);
+    const [goal] = await db
+      .select({ id: goals.id })
+      .from(goals)
+      .where(and(eq(goals.id, goalId), eq(goals.workspaceId, wsId)))
+      .limit(1);
+    if (!goal) throw APIError.notFound(`goal ${params.goalId} not found in workspace`);
+  } else {
+    if (params.goalId) {
+      throw APIError.invalidArgument(
+        "goalId is derived from the parent company objective; do not set it on a project objective",
+      );
+    }
+    if (params.projectId) {
+      projectId = BigInt(params.projectId);
+      const [project] = await db
+        .select({ id: projects.id })
+        .from(projects)
+        .where(and(eq(projects.id, projectId), eq(projects.workspaceId, wsId), isNull(projects.deletedAt)))
+        .limit(1);
+      if (!project) throw APIError.notFound(`project ${params.projectId} not found in workspace`);
+    } else {
+      // Chỉ suy ra project khi workspace có đúng một project; nhiều project thì phải chỉ rõ.
+      const candidates = await db
+        .select({ id: projects.id })
+        .from(projects)
+        .where(and(eq(projects.workspaceId, wsId), isNull(projects.deletedAt)))
+        .limit(2);
+      if (candidates.length !== 1) {
+        throw APIError.invalidArgument("projectId is required when the workspace has more than one project");
+      }
+      projectId = candidates[0]!.id;
+    }
+    if (params.parentObjectiveId) {
+      parentObjectiveId = BigInt(params.parentObjectiveId);
+      const [parent] = await db
+        .select({ scope: okrObjectives.scope })
+        .from(okrObjectives)
+        .where(
+          and(
+            eq(okrObjectives.id, parentObjectiveId),
+            eq(okrObjectives.workspaceId, wsId),
+            isNull(okrObjectives.deletedAt),
+          ),
+        )
+        .limit(1);
+      if (!parent || parent.scope !== "company") {
+        throw APIError.invalidArgument(
+          "parentObjectiveId must reference a company-scope objective in the same workspace",
+        );
+      }
+    }
   }
 
   const [row] = await db
@@ -213,7 +273,11 @@ export async function createObjectiveService(params: CreateObjectiveParams): Pro
     .values({
       id: generateSnowflake(),
       workspaceId: wsId,
-      projectId: pId,
+      scope,
+      projectId,
+      goalId,
+      cycleId,
+      parentObjectiveId,
       title: params.title,
       why: params.why || null,
       ownerMemberId: params.ownerMemberId ? BigInt(params.ownerMemberId) : null,
