@@ -107,7 +107,9 @@ def create_enterprise_knowledge_read_handler(
         if initiative_id and ai_initiative_snapshot_store is not None:
             from apps.cosa.knowledge.initiative_readiness import assert_initiative_knowledge_allowed
 
-            snapshot = await ai_initiative_snapshot_store.get_current(str(workspace_id), str(initiative_id))
+            snapshot = await ai_initiative_snapshot_store.get_current(
+                str(workspace_id), str(initiative_id)
+            )
             decision = assert_initiative_knowledge_allowed(snapshot, {"retrieval_mode": "lexical"})
             if not decision.allowed:
                 raise ValueError(

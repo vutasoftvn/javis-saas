@@ -8,9 +8,6 @@ initiative_id, workspace_id, state, risk_tier, autonomy_tier, gate_result.
 
 from __future__ import annotations
 
-import time
-from typing import Any
-
 from prometheus_client import Counter, Gauge, Histogram
 
 # Allowed label names for initiative metrics

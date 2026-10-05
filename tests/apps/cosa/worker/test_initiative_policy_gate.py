@@ -1,11 +1,10 @@
-import pytest
-from apps.cosa.governance.initiative_policy import (
-    InitiativeRunPolicyDecision,
-    assert_initiative_run_allowed,
-)
-from packages.agent.evaluations.initiative_suite import (
+from agent.evaluations.initiative_suite import (
     EvaluationPinSet,
     InitiativeEvaluationResult,
+)
+
+from apps.cosa.governance.initiative_policy import (
+    assert_initiative_run_allowed,
 )
 
 

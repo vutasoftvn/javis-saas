@@ -1328,7 +1328,9 @@ async def resume_waiting_approval(
                     workspace_id=workspace_id,
                     project_id=payload.get("project_id"),
                 )
-            return ResumeApprovalResult(status="failed", error="initiative_policy_revoked_on_resume")
+            return ResumeApprovalResult(
+                status="failed", error="initiative_policy_revoked_on_resume"
+            )
 
     if plane is not None and stream_mgr is not None:
         await execute_resume_task(plane, stream_mgr, payload)

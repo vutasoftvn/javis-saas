@@ -33,7 +33,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 AUTONOMY_LEVELS: dict[str, int] = {
     "A0": 0,
@@ -57,10 +57,7 @@ _MISSING = object()
 
 
 def _get_val(obj: Any, key: str, default: Any = None) -> Any:
-    if isinstance(obj, dict):
-        val = obj.get(key, _MISSING)
-    else:
-        val = getattr(obj, key, _MISSING)
+    val = obj.get(key, _MISSING) if isinstance(obj, dict) else getattr(obj, key, _MISSING)
     if val is not _MISSING and val is not None:
         return val
     metadata = obj.get("metadata") if isinstance(obj, dict) else getattr(obj, "metadata", None)
@@ -203,7 +200,7 @@ def assert_initiative_run_allowed(
                 **base_decision,
             )
     else:
-        from packages.agent.evaluations.initiative_suite import assert_evaluation_current
+        from agent.evaluations.initiative_suite import assert_evaluation_current
 
         drift_check = assert_evaluation_current(snapshot, evaluation_result)
         if not drift_check.is_current:

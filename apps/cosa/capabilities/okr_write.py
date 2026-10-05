@@ -225,6 +225,7 @@ def create_okr_key_result_checkin_handler(client: CompanyServiceClient):
 
     return handler
 
+
 def create_okr_key_result_update_handler(client: CompanyServiceClient):
     async def handler(payload: dict[str, Any], context: Any = None) -> dict[str, Any]:
         headers = {"X-Workspace-Id": context_workspace_id(context, OKR_KEY_RESULT_UPDATE_SPEC.id)}
@@ -246,4 +247,3 @@ def create_okr_key_result_update_handler(client: CompanyServiceClient):
         return {"key_result": _key_result_view(res, _context_value(context, "locale"))}
 
     return handler
-

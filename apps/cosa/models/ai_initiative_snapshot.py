@@ -101,7 +101,9 @@ def _row_to_snapshot(row: Any) -> AiInitiativePromotionSnapshot:
 class PostgresAiInitiativePromotionSnapshotStore:
     def __init__(self, session_factory: Any) -> None:
         if session_factory is None:
-            raise ValueError("PostgresAiInitiativePromotionSnapshotStore requires a session_factory")
+            raise ValueError(
+                "PostgresAiInitiativePromotionSnapshotStore requires a session_factory"
+            )
         self._session_factory = session_factory
 
     async def consume(
@@ -109,9 +111,10 @@ class PostgresAiInitiativePromotionSnapshotStore:
     ) -> tuple[AiInitiativePromotionSnapshot, bool]:
         async with self._session_factory() as session:
             existing_row = (
-                await session.execute(
-                    text(
-                        """
+                (
+                    await session.execute(
+                        text(
+                            """
                         SELECT workspace_id, project_id, initiative_id, initiative_revision,
                                decision_id, decision_hash, lifecycle_state, risk_tier, autonomy_tier,
                                pins, value_contract_revision, data_readiness_revision,
@@ -120,10 +123,13 @@ class PostgresAiInitiativePromotionSnapshotStore:
                         FROM models.ai_initiative_promotion_snapshots
                         WHERE idempotency_key = :idempotency_key
                         """
-                    ),
-                    {"idempotency_key": idempotency_key},
+                        ),
+                        {"idempotency_key": idempotency_key},
+                    )
                 )
-            ).mappings().first()
+                .mappings()
+                .first()
+            )
 
             if existing_row is not None:
                 return _row_to_snapshot(existing_row), True
@@ -161,9 +167,10 @@ class PostgresAiInitiativePromotionSnapshotStore:
     ) -> AiInitiativePromotionSnapshot | None:
         async with self._session_factory() as session:
             row = (
-                await session.execute(
-                    text(
-                        """
+                (
+                    await session.execute(
+                        text(
+                            """
                         SELECT workspace_id, project_id, initiative_id, initiative_revision,
                                decision_id, decision_hash, lifecycle_state, risk_tier, autonomy_tier,
                                pins, value_contract_revision, data_readiness_revision,
@@ -174,10 +181,13 @@ class PostgresAiInitiativePromotionSnapshotStore:
                         ORDER BY initiative_revision DESC
                         LIMIT 1
                         """
-                    ),
-                    {"workspace_id": workspace_id, "initiative_id": initiative_id},
+                        ),
+                        {"workspace_id": workspace_id, "initiative_id": initiative_id},
+                    )
                 )
-            ).mappings().first()
+                .mappings()
+                .first()
+            )
 
             if row is None:
                 return None

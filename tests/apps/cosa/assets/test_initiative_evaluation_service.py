@@ -3,17 +3,17 @@
 from __future__ import annotations
 
 import pytest
-
-from apps.cosa.assets.initiative_evaluation_service import InitiativeEvaluationService
-from packages.agent.evaluations.initiative_suite import (
+from agent.evaluations.initiative_suite import (
     AiEvaluationCase,
     AiEvaluationSuite,
     EvaluationCategoryStatus,
     EvaluationPinSet,
 )
-from packages.agent.evaluations.repository import (
+from agent.evaluations.repository import (
     InMemoryInitiativeEvaluationRepository,
 )
+
+from apps.cosa.assets.initiative_evaluation_service import InitiativeEvaluationService
 
 pytestmark = pytest.mark.asyncio
 

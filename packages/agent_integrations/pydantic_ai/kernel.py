@@ -425,7 +425,10 @@ class PydanticAIKernel:
 
             await self._repo.update_run_status(run_id, status=RunStatus.WAITING_APPROVAL)
             await self._emit_event(
-                run_id, "run.waiting", {"waits": [w.model_dump(mode="json") for w in waits]}, correlation_id
+                run_id,
+                "run.waiting",
+                {"waits": [w.model_dump(mode="json") for w in waits]},
+                correlation_id,
             )
             return RunResult(
                 run_id=run_id, status=RunStatus.WAITING_APPROVAL, interruptions_waits=waits

@@ -132,7 +132,9 @@ async def prepare_request(
         from apps.cosa.governance.initiative_policy import assert_initiative_run_allowed
 
         store = getattr(plane, "ai_initiative_snapshot_store", None)
-        snapshot = await store.get_current(workspace_id, str(initiative_id)) if store is not None else None
+        snapshot = (
+            await store.get_current(workspace_id, str(initiative_id)) if store is not None else None
+        )
         if snapshot is None:
             # Run tagged với initiative_id nhưng KHÔNG có snapshot promotion nào
             # (chưa từng promote, hoặc store chưa wire) — fail closed, không
@@ -424,8 +426,8 @@ async def _enforce_usage_budget(
     dựng client (review 2026-09-27 G-3) + Initiative budget check (Task 5)."""
     from apps.cosa.models.usage import (
         UsageBudgetExceeded,
-        check_usage_budget,
         check_initiative_budget,
+        check_usage_budget,
         month_start,
     )
 
@@ -448,7 +450,9 @@ async def _enforce_usage_budget(
         project_id = meta.get("project_id")
         if initiative_id:
             if not project_id:
-                raise RunCoreError("missing_project_scope", compliance_code="initiative_scope_mismatch")
+                raise RunCoreError(
+                    "missing_project_scope", compliance_code="initiative_scope_mismatch"
+                )
             budget_policy = meta.get("initiative_budget_policy") or meta.get("budget_policy")
             if budget_policy and isinstance(budget_policy, dict):
                 soft = budget_policy.get("soft_cost_threshold")

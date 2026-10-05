@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import pytest
-from packages.agent.evaluations.initiative_suite import (
+from agent.evaluations.initiative_suite import (
     AiEvaluationCase,
     AiEvaluationSuite,
-    EvaluationCategoryStatus,
     EvaluationPinSet,
     InitiativeEvaluationResult,
     assert_evaluation_current,

@@ -132,6 +132,8 @@ class CosaAgentPlane:
         self.workflow_definition_repository = workflow_definition_repository
         self.company_client = company_client
         self.tenant_policy_client = tenant_policy_client
+        # Gán sau khi plane dựng xong (C1: worker load asset AGENT đã PUBLISHED).
+        self.workspace_asset_repository: Any | None = None
         self.skill_candidate_store = skill_candidate_store
         self.skill_improvement_repository = skill_improvement_repository
         self.skill_usage_observer = skill_usage_observer

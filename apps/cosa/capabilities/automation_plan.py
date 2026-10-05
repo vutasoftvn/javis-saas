@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 import re
 from collections.abc import Callable, Coroutine
-from typing import Any
+from typing import Any, TypeGuard
 
 from agent.capabilities.grants import ConnectorGrantDeniedError
 from agent.contracts.capability import CapabilitySpec
@@ -161,7 +161,7 @@ def _context_project_id(context: Any) -> str:
     return project_id
 
 
-def _is_int(value: Any) -> bool:
+def _is_int(value: Any) -> TypeGuard[int]:
     return isinstance(value, int) and not isinstance(value, bool)
 
 

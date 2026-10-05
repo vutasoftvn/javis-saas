@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-
 from agent.prompts.bundle import PLATFORM_POLICY, PromptBundle, is_smalltalk
 from agent.prompts.locale import DEFAULT_LOCALE, render_locale_policy
 

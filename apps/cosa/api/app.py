@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from apps.cosa.agents.seed import seed_cosa_runtime_specs
+from apps.cosa.api.ai_initiative_internal_routes import router as ai_initiative_internal_router
 from apps.cosa.api.autopilot_metrics_routes import create_autopilot_metrics_router
 from apps.cosa.api.connector_routes import create_connector_router
 from apps.cosa.api.conversation_routes import create_conversation_router
@@ -28,7 +29,6 @@ from apps.cosa.api.settings_routes import router as settings_router
 from apps.cosa.api.skill_registry_routes import create_skill_registry_router
 from apps.cosa.api.vault_routes import router as vault_router
 from apps.cosa.api.workforce_internal_routes import router as workforce_internal_router
-from apps.cosa.api.ai_initiative_internal_routes import router as ai_initiative_internal_router
 from apps.cosa.api.workforce_routes import router as workforce_router
 from apps.cosa.assets import founder_assets_internal_router
 from apps.cosa.composition.agent_plane import (

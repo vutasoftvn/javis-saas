@@ -256,9 +256,7 @@ def register_cosa_capabilities(
     cap_registry.register(
         OKR_KEY_RESULT_CHECKIN_SPEC, create_okr_key_result_checkin_handler(client)
     )
-    cap_registry.register(
-        OKR_KEY_RESULT_UPDATE_SPEC, create_okr_key_result_update_handler(client)
-    )
+    cap_registry.register(OKR_KEY_RESULT_UPDATE_SPEC, create_okr_key_result_update_handler(client))
 
     # Finance
     cap_registry.register(

@@ -6,13 +6,13 @@ import os
 import uuid
 from typing import Any
 
-from packages.agent.evaluations.initiative_suite import (
+from agent.evaluations.initiative_suite import (
     AiEvaluationSuite,
     CategoryEvaluationOutcome,
     EvaluationCategoryStatus,
     InitiativeEvaluationResult,
 )
-from packages.agent.evaluations.repository import InitiativeEvaluationRepository
+from agent.evaluations.repository import InitiativeEvaluationRepository
 
 
 class InitiativeEvaluationService:
@@ -44,14 +44,14 @@ class InitiativeEvaluationService:
         structural_cases = [c for c in suite.cases if c.category == "structural"]
         if structural_cases:
             struct_passed = True
-            for c in structural_cases:
-                # verify pins are closed
-                if not suite.pins.agent_spec_ref and not suite.pins.workflow_ref:
-                    struct_passed = False
-                    break
+            # verify pins are closed (suite-wide: checked once per structural case)
+            if not suite.pins.agent_spec_ref and not suite.pins.workflow_ref:
+                struct_passed = False
             categories["structural"] = CategoryEvaluationOutcome(
                 category="structural",
-                status=EvaluationCategoryStatus.PASSED if struct_passed else EvaluationCategoryStatus.FAILED,
+                status=EvaluationCategoryStatus.PASSED
+                if struct_passed
+                else EvaluationCategoryStatus.FAILED,
                 score=1.0 if struct_passed else 0.0,
             )
             if not struct_passed:
@@ -68,7 +68,9 @@ class InitiativeEvaluationService:
             func_passed = True
             categories["functional"] = CategoryEvaluationOutcome(
                 category="functional",
-                status=EvaluationCategoryStatus.PASSED if func_passed else EvaluationCategoryStatus.FAILED,
+                status=EvaluationCategoryStatus.PASSED
+                if func_passed
+                else EvaluationCategoryStatus.FAILED,
                 score=1.0 if func_passed else 0.0,
             )
         else:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from packages.agent.evaluations.initiative_suite import (
+from agent.evaluations.initiative_suite import (
     AiEvaluationSuite,
     InitiativeEvaluationResult,
 )
@@ -51,9 +51,7 @@ class InMemoryInitiativeEvaluationRepository:
         matches.sort(key=lambda s: s.revision, reverse=True)
         return matches[0]
 
-    async def save_result(
-        self, result: InitiativeEvaluationResult
-    ) -> InitiativeEvaluationResult:
+    async def save_result(self, result: InitiativeEvaluationResult) -> InitiativeEvaluationResult:
         key = f"{result.workspace_id}:{result.initiative_id}"
         if key not in self._results:
             self._results[key] = []

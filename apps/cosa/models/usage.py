@@ -52,10 +52,10 @@ _LITELLM_PREFIX: dict[ProviderType, str] = {
 }
 
 
-from enum import Enum
+from enum import StrEnum
 
 
-class InitiativeBudgetAction(str, Enum):
+class InitiativeBudgetAction(StrEnum):
     ALLOW = "ALLOW"
     WARN = "WARN"
     REQUIRE_APPROVAL = "REQUIRE_APPROVAL"

@@ -11,10 +11,26 @@ from prometheus_client import (
     generate_latest,
 )
 
+# Importing registers the initiative collectors on the default REGISTRY, so the
+# /metrics payload built here exposes them; names are re-exported via __all__.
+from apps.cosa.observability.initiative_metrics import (
+    COSA_INITIATIVE_ACTIVE_GAUGE,
+    COSA_INITIATIVE_GATE_EVALUATIONS_TOTAL,
+    COSA_INITIATIVE_RUN_DURATION_SECONDS,
+    COSA_INITIATIVE_RUNS_TOTAL,
+    record_initiative_gate_evaluation,
+    record_initiative_run,
+    set_initiative_active_state,
+)
+
 __all__ = [
     "CONTENT_TYPE_LATEST",
     "COSA_APPROVALS_TOTAL",
     "COSA_APPROVAL_WAIT_SECONDS",
+    "COSA_INITIATIVE_ACTIVE_GAUGE",
+    "COSA_INITIATIVE_GATE_EVALUATIONS_TOTAL",
+    "COSA_INITIATIVE_RUNS_TOTAL",
+    "COSA_INITIATIVE_RUN_DURATION_SECONDS",
     "COSA_MODEL_COST_USD_TOTAL",
     "COSA_MODEL_TOKENS_TOTAL",
     "COSA_RUNS_TOTAL",
@@ -28,10 +44,13 @@ __all__ = [
     "get_prometheus_metrics_payload",
     "inc_active_leases",
     "record_approval",
+    "record_initiative_gate_evaluation",
+    "record_initiative_run",
     "record_model_tokens",
     "record_run_outcome",
     "record_tool_call",
     "set_active_leases",
+    "set_initiative_active_state",
     "set_scheduler_queue_depth",
 ]
 
@@ -209,13 +228,3 @@ def set_scheduler_queue_depth(depth: int) -> None:
 def get_prometheus_metrics_payload() -> tuple[bytes, str]:
     """Sinh payload Prometheus text exposition format và Content-Type header."""
     return generate_latest(REGISTRY), CONTENT_TYPE_LATEST
-
-from apps.cosa.observability.initiative_metrics import (
-    COSA_INITIATIVE_RUNS_TOTAL,
-    COSA_INITIATIVE_RUN_DURATION_SECONDS,
-    COSA_INITIATIVE_GATE_EVALUATIONS_TOTAL,
-    COSA_INITIATIVE_ACTIVE_GAUGE,
-    record_initiative_run,
-    record_initiative_gate_evaluation,
-    set_initiative_active_state,
-)

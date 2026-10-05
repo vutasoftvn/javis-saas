@@ -17,13 +17,13 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 
-class EvaluationCategoryStatus(str, Enum):
+class EvaluationCategoryStatus(StrEnum):
     PASSED = "PASSED"
     FAILED = "FAILED"
     NOT_REQUIRED = "NOT_REQUIRED"
@@ -166,7 +166,11 @@ def assert_evaluation_current(
 
     if snap_spec_ref and result.pins.agent_spec_ref and snap_spec_ref != result.pins.agent_spec_ref:
         drifted.append("agent_spec_ref")
-    if snap_spec_hash and result.pins.agent_spec_hash and snap_spec_hash != result.pins.agent_spec_hash:
+    if (
+        snap_spec_hash
+        and result.pins.agent_spec_hash
+        and snap_spec_hash != result.pins.agent_spec_hash
+    ):
         drifted.append("agent_spec_hash")
     if snap_prompt_hash and result.pins.prompt_hash and snap_prompt_hash != result.pins.prompt_hash:
         drifted.append("prompt_hash")
@@ -176,9 +180,17 @@ def assert_evaluation_current(
         drifted.append("workflow_ref")
     if snap_wf_hash and result.pins.workflow_hash and snap_wf_hash != result.pins.workflow_hash:
         drifted.append("workflow_hash")
-    if snap_know and result.pins.knowledge_snapshot_ref and snap_know != result.pins.knowledge_snapshot_ref:
+    if (
+        snap_know
+        and result.pins.knowledge_snapshot_ref
+        and snap_know != result.pins.knowledge_snapshot_ref
+    ):
         drifted.append("knowledge_snapshot_ref")
-    if snap_caps and result.pins.capability_refs and sorted(snap_caps) != sorted(result.pins.capability_refs):
+    if (
+        snap_caps
+        and result.pins.capability_refs
+        and sorted(snap_caps) != sorted(result.pins.capability_refs)
+    ):
         drifted.append("capability_refs")
 
     if drifted:

@@ -126,7 +126,11 @@ def _streamable_http_caller(
 
         async with (
             httpx2.AsyncClient(headers=headers, timeout=30.0) as http_client,
-            streamable_http_client(manifest.url, http_client=http_client) as (read, write),
+            streamable_http_client(manifest.url, http_client=http_client) as (
+                read,
+                write,
+                _get_session_id,
+            ),
             ClientSession(read, write) as session,
         ):
             await session.initialize()
