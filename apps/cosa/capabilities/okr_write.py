@@ -45,7 +45,8 @@ OKR_OBJECTIVE_LIST_SPEC = CapabilitySpec(
     id="okr.objective.list",
     description=(
         "List the workspace OKR Objectives with their Key Results (title, current/target "
-        "value, unit, status label). Use it before proposing or checking in a Key Result."
+        "value, unit, status label), plus each Objective's scope (company/project) and the "
+        "goal/parent it is aligned to. Use it before proposing or checking in a Key Result."
     ),
     risk=CapabilityRisk.LOW,
     approval_policy=ApprovalPolicy.NEVER,
@@ -174,7 +175,10 @@ def create_okr_objective_list_handler(client: CompanyServiceClient):
                     "id": obj.get("id"),
                     "title": obj.get("title"),
                     "why": obj.get("why"),
+                    "scope": obj.get("scope"),
                     "projectId": obj.get("projectId"),
+                    "goalId": obj.get("goalId"),
+                    "parentObjectiveId": obj.get("parentObjectiveId"),
                     "statusLabel": _status_label(obj.get("status"), locale),
                     "keyResults": by_objective.get(str(obj.get("id")), []),
                 }

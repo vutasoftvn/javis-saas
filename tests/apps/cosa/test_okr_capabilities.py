@@ -35,7 +35,19 @@ def test_specs_ids_and_risk() -> None:
 async def test_objective_list_nests_key_results_with_labels() -> None:
     client = AsyncMock()
     client.get.side_effect = [
-        {"data": [{"id": "o1", "title": "Tăng trưởng", "status": "published", "projectId": "p1"}]},
+        {
+            "data": [
+                {
+                    "id": "o1",
+                    "title": "Tăng trưởng",
+                    "status": "published",
+                    "projectId": "p1",
+                    "scope": "project",
+                    "goalId": None,
+                    "parentObjectiveId": "c1",
+                }
+            ]
+        },
         {
             "data": [
                 {
@@ -60,6 +72,9 @@ async def test_objective_list_nests_key_results_with_labels() -> None:
     assert [kr["title"] for kr in obj["keyResults"]] == ["MRR"]
     assert obj["keyResults"][0]["statusLabel"] == "Nháp"
     assert "status" not in obj  # không trả enum thô
+    assert obj["scope"] == "project"
+    assert obj["parentObjectiveId"] == "c1"
+    assert "goalId" in obj
 
 
 @pytest.mark.asyncio
