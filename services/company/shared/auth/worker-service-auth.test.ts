@@ -59,16 +59,56 @@ describe("worker-service-auth", () => {
       .rejects.toMatchObject({ code: "internal" });
   });
 
-  it("uses the fixture secret in the test runtime even when an ambient real secret is set", async () => {
-    // encore test kế thừa WORKER_SERVICE_JWT_SECRET thật từ .env của daemon.
-    process.env.WORKER_SERVICE_JWT_SECRET = "ambient-real-secret-0123456789-abcdefghijklmnop";
+  it("uses the fixture secret under the test predicate only when no secret is configured", async () => {
     process.env.NODE_ENV = "test";
+    process.env.WORKER_SERVICE_JWT_SECRET = "";
 
     expect(getWorkerServiceSecret()).toBe(TEST_SECRET);
     const claims = await requireWorkerServiceAuth({
-      authorization: `Bearer ${mintTestWorkerToken("worker-ambient")}`,
+      authorization: `Bearer ${mintTestWorkerToken("worker-fixture")}`,
     });
-    expect(claims.sub).toBe("worker-ambient");
+    expect(claims.sub).toBe("worker-fixture");
+  });
+
+  it("test process env has the ambient worker secret cleared by vitest.config", () => {
+    // Lý do tồn tại của env: { WORKER_SERVICE_JWT_SECRET: "" } trong vitest.config.ts.
+    expect(originalEnv.WORKER_SERVICE_JWT_SECRET ?? "").toBe("");
+  });
+
+  it("a configured secret wins over the public fixture under the test predicate", async () => {
+    const real = "ambient-real-secret-0123456789-abcdefghijklmnop";
+    process.env.NODE_ENV = "test";
+    process.env.ENVIRONMENT = "development";
+    process.env.WORKER_SERVICE_JWT_SECRET = real;
+
+    expect(getWorkerServiceSecret()).toBe(real);
+    await expect(() =>
+      requireWorkerServiceAuth({ authorization: `Bearer ${mintTestWorkerToken()}` })
+    ).rejects.toMatchObject({ code: "unauthenticated" });
+    const ok = await requireWorkerServiceAuth({
+      authorization: `Bearer ${mintTestWorkerToken("real-worker", real)}`,
+    });
+    expect(ok.sub).toBe("real-worker");
+  });
+
+  it("production with NODE_ENV=test and VITEST: real secret verifies, fixture token rejected", async () => {
+    const real = "ambient-real-secret-0123456789-abcdefghijklmnop";
+    process.env.ENVIRONMENT = "production";
+    process.env.NODE_ENV = "test";
+    process.env.VITEST = "true";
+    process.env.WORKER_SERVICE_JWT_SECRET = real;
+
+    expect(getWorkerServiceSecret()).toBe(real);
+    await expect(() =>
+      requireWorkerServiceAuth({ authorization: `Bearer ${mintTestWorkerToken()}` })
+    ).rejects.toMatchObject({ code: "unauthenticated" });
+    const ok = await requireWorkerServiceAuth({
+      authorization: `Bearer ${mintTestWorkerToken("prod-worker", real)}`,
+    });
+    expect(ok.sub).toBe("prod-worker");
+
+    delete process.env.WORKER_SERVICE_JWT_SECRET;
+    expect(() => getWorkerServiceSecret()).toThrow(/unconfigured or shorter/);
   });
 
   it("uses the ambient secret outside the test runtime and fails closed when missing", async () => {

@@ -45,5 +45,9 @@ export default defineConfig({
     globals: true,
     environment: "node",
     fileParallelism: false,
+    // Test process không được thấy WORKER_SERVICE_JWT_SECRET thật (encore test kế thừa từ
+    // .env): để trống thì getWorkerServiceSecret() dùng fixture, khớp mintTestWorkerToken.
+    // Verifier KHÔNG bỏ qua secret đã cấu hình (xem worker-service-auth.test.ts).
+    env: { WORKER_SERVICE_JWT_SECRET: "" },
   },
 });
