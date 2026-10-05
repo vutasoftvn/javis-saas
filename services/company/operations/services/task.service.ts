@@ -20,6 +20,8 @@ import {
 } from "../../shared/db/schema/operations";
 import { sql, inArray } from "drizzle-orm";
 import { assertInitiativeInWorkspace } from "./initiative.service";
+import { resolveGoalAncestry, type GoalAncestry } from "./goal-ancestry.service";
+import type { DoneCriteria } from "./done-criteria";
 import { verifyProjectInWorkspace } from "./project-operating-loop.service";
 import {
   CreateTaskOutcomeContractInput,
@@ -625,6 +627,10 @@ export interface AgentClaimableTask {
   /** Nguồn plan ('chat' | 'command_center') + conversation gốc để báo tiến độ (G9). */
   planOrigin: string;
   planOriginRef: string | null;
+  /** Chuỗi mục tiêu của task (initiative/KR/project -> objective -> goal). */
+  goalAncestry: GoalAncestry;
+  /** Tiêu chí hoàn thành của plan item (null nếu chưa cấu hình). */
+  doneCriteria: DoneCriteria | null;
 }
 
 /**
@@ -687,6 +693,9 @@ export async function listAgentClaimableTasksService(
       planOrigin: executionPlans.origin,
       planOriginRef: executionPlans.originRef,
       sortKey: executionPlanItems.sortKey,
+      initiativeId: tasks.initiativeId,
+      keyResultId: tasks.keyResultId,
+      doneCriteria: executionPlanItems.doneCriteria,
     })
     .from(tasks)
     .innerJoin(executionPlanItems, eq(executionPlanItems.materializedTaskId, tasks.id))
@@ -716,7 +725,7 @@ export async function listAgentClaimableTasksService(
     .orderBy(tasks.priority, executionPlanItems.sortKey)
     .limit(cap);
 
-  return rows.map((r) => ({
+  return Promise.all(rows.map(async (r) => ({
     taskId: r.taskId.toString(),
     workspaceId: r.workspaceId.toString(),
     title: r.title,
@@ -731,7 +740,13 @@ export async function listAgentClaimableTasksService(
     projectId: r.projectId.toString(),
     planOrigin: r.planOrigin,
     planOriginRef: r.planOriginRef,
-  }));
+    doneCriteria: (r.doneCriteria as DoneCriteria | null) ?? null,
+    goalAncestry: await resolveGoalAncestry(wsId, {
+      projectId: r.projectId,
+      initiativeId: r.initiativeId,
+      keyResultId: r.keyResultId,
+    }),
+  })));
 }
 
 export interface StageRosterEntry {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db, schema } from "../models/db";
 import { identityWorkforceMembers } from "../../shared/db/schema/identity";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
@@ -154,5 +154,83 @@ describe("listAgentClaimableTasksService", () => {
     } finally {
       process.env.WGA_MAX_TASK_RUNS_PER_WORKSPACE_PER_DAY = prev;
     }
+  });
+});
+
+describe("listAgentClaimableTasksService goal ancestry and done criteria", () => {
+  const criteria = {
+    version: 1,
+    criteria: [{ id: "c1", description: "Có tài liệu", check: "rubric", rubric: "Có tài liệu" }],
+  };
+  const normalized = {
+    version: 1,
+    criteria: [{ id: "c1", description: "Có tài liệu", required: true, check: "rubric", rubric: "Có tài liệu" }],
+  };
+
+  it("returns done criteria of the plan item and the goal ancestry of the task", async () => {
+    const s = await seedAcceptedPlan([autoItem("Có tiêu chí", { doneCriteria: criteria })]);
+    const { createGoalService } = await import("../services/goals.service");
+    const { createObjectiveService } = await import("../services/okr.service");
+    const goal = await createGoalService({ workspaceId: s.workspaceId, title: "Mục tiêu năm", goalType: "strategic" });
+    const company = await createObjectiveService({
+      workspaceId: s.workspaceId, scope: "company", goalId: goal.goalId, title: "Tăng trưởng", authorization: s.auth,
+    });
+    await db.update(schema.projects).set({ objectiveId: BigInt(company.id) })
+      .where(eq(schema.projects.id, BigInt(s.projectId)));
+
+    const [task] = await listAgentClaimableTasksService(s.workspaceId, 10, s.auth);
+    expect(task!.doneCriteria).toEqual(normalized);
+    expect(task!.goalAncestry.resolvedVia).toBe("project");
+    expect(task!.goalAncestry.goalChain[0]?.title).toBe("Mục tiêu năm");
+    expect(task!.goalAncestry.companyObjective?.title).toBe("Tăng trưởng");
+  });
+
+  it("returns null criteria and an unlinked ancestry when nothing is configured", async () => {
+    const s = await seedAcceptedPlan([autoItem("Trống", {})]);
+    const [task] = await listAgentClaimableTasksService(s.workspaceId, 10, s.auth);
+    expect(task!.doneCriteria).toBeNull();
+    expect(task!.goalAncestry.unlinkedReason).toBe("project_not_linked");
+  });
+
+  it("maps done criteria per plan item", async () => {
+    const s = await seedAcceptedPlan([
+      autoItem("Có tiêu chí", { doneCriteria: criteria }),
+      autoItem("Không tiêu chí", {}),
+    ]);
+    const claimable = await listAgentClaimableTasksService(s.workspaceId, 10, s.auth);
+    expect(claimable).toHaveLength(2);
+    expect(claimable.find((t) => t.title === "Có tiêu chí")!.doneCriteria).toEqual(normalized);
+    expect(claimable.find((t) => t.title === "Không tiêu chí")!.doneCriteria).toBeNull();
+  });
+
+  it("resolves ancestry per task using the task's own initiative", async () => {
+    const s = await seedAcceptedPlan([autoItem("Có initiative", {}), autoItem("Không initiative", {})]);
+    const { createGoalService } = await import("../services/goals.service");
+    const { createObjectiveService, addKeyResultService } = await import("../services/okr.service");
+    const goal = await createGoalService({ workspaceId: s.workspaceId, title: "Chiến lược", goalType: "strategic" });
+    const company = await createObjectiveService({
+      workspaceId: s.workspaceId, scope: "company", goalId: goal.goalId, title: "Tăng trưởng", authorization: s.auth,
+    });
+    const projObj = await createObjectiveService({
+      workspaceId: s.workspaceId, projectId: s.projectId, parentObjectiveId: company.id, title: "MRR dự án", authorization: s.auth,
+    });
+    const kr = await addKeyResultService({
+      objectiveId: projObj.id, title: "MRR", targetValue: 100, baselineValue: 10, unit: "triệu", authorization: s.auth,
+    });
+    const initiativeId = generateSnowflake();
+    await db.insert(schema.initiatives).values({
+      id: initiativeId, workspaceId: BigInt(s.workspaceId), projectId: BigInt(s.projectId),
+      keyResultId: BigInt(kr.id), title: "Chiến dịch",
+    });
+    await db.update(tasks).set({ initiativeId })
+      .where(and(eq(tasks.workspaceId, BigInt(s.workspaceId)), eq(tasks.title, "Có initiative")));
+
+    const claimable = await listAgentClaimableTasksService(s.workspaceId, 10, s.auth);
+    const withInit = claimable.find((t) => t.title === "Có initiative")!;
+    const without = claimable.find((t) => t.title === "Không initiative")!;
+    expect(withInit.goalAncestry.resolvedVia).toBe("initiative");
+    expect(withInit.goalAncestry.keyResult).toMatchObject({ id: kr.id });
+    expect(without.goalAncestry.resolvedVia).not.toBe("initiative");
+    expect(without.goalAncestry.keyResult).toBeNull();
   });
 });
