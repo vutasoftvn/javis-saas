@@ -6,7 +6,10 @@ from apps.cosa.company.executive_board_client import ExecutiveBoardClient
 from apps.cosa.company.project_team_client import ProjectTeamClient
 
 
-def test_mint_worker_service_jwt_claims():
+def test_mint_worker_service_jwt_claims(monkeypatch):
+    # Fixture secret chỉ được dùng khi biến môi trường trống; load-dev-env.sh export
+    # secret thật nên phải bỏ biến ambient để test không phụ thuộc môi trường chạy.
+    monkeypatch.delenv("WORKER_SERVICE_JWT_SECRET", raising=False)
     token = mint_worker_service_jwt(worker_id="test-worker-123", ttl_seconds=120)
     payload = jwt.decode(
         token,

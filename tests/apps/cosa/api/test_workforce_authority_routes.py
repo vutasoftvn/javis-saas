@@ -8,6 +8,7 @@ from agent.governance.providers.in_memory import InMemoryGovernanceStateStore
 from agent.registry.repository import InMemorySpecRegistryRepository
 from agent.runs.repository import InMemoryRunRepository
 from agent.runs.stream_events import InMemoryRunStreamEventRepository
+from agent.skills.candidate_store import InMemorySkillCandidateStore
 from agent.workforce.repository import InMemoryWorkforceRepository
 from agent_testkit.fake_sdk_model import FakeSDKModel
 from fastapi.testclient import TestClient
@@ -60,6 +61,9 @@ def app_env(mock_company_client):
         stream_event_repository=InMemoryRunStreamEventRepository(),
         model=FakeSDKModel(),
         workforce_repository=repo,
+        # Hermetic: không để AGENT_DATABASE_URL ambient (load-dev-env.sh) chọn Postgres
+        # candidate store gắn với event loop khác của TestClient.
+        skill_candidate_store=InMemorySkillCandidateStore(),
     )
     application = create_cosa_app(plane=plane)
     client = TestClient(application)
