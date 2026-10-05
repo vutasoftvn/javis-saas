@@ -34,6 +34,7 @@ import {
   CapabilityRisk,
   TenantPolicyDecision,
 } from "./autonomy-classifier";
+import { parseDoneCriteria, type DoneCriteria } from "./done-criteria";
 
 export interface CreatePlanItemInput {
   title: string;
@@ -45,6 +46,7 @@ export interface CreatePlanItemInput {
   tenantPolicyDecision: TenantPolicyDecision | null;
   dependsOnTitles: string[];
   priority?: "low" | "medium" | "high" | "urgent";
+  doneCriteria?: unknown;
 }
 
 export interface CreateExecutionPlanInput {
@@ -73,6 +75,7 @@ export interface ExecutionPlanItemView {
   materializedTaskId: string | null;
   /** Trạng thái task đã materialize (todo/in_progress/waiting_approval/blocked/done); null nếu chưa có. */
   taskStatus: string | null;
+  doneCriteria: DoneCriteria | null;
 }
 
 export interface ExecutionPlanView {
@@ -119,6 +122,7 @@ function toItemView(row: ItemRow, taskStatus: string | null = null): ExecutionPl
     status: row.status,
     materializedTaskId: row.materializedTaskId ? row.materializedTaskId.toString() : null,
     taskStatus,
+    doneCriteria: (row.doneCriteria as DoneCriteria | null) ?? null,
   };
 }
 
@@ -156,6 +160,23 @@ function toPlanView(
  * + classifier (thuần) gắn owner_agent_profile + autonomy_class. Nếu weeklyPlanId
  * đã có plan 'draft' thì plan cũ chuyển 'superseded' (chỉ 1 draft/weekly_plan).
  */
+function resolveItemDoneCriteria(item: CreatePlanItemInput): DoneCriteria | null {
+  if (item.doneCriteria === undefined || item.doneCriteria === null) {
+    // Đọc cờ lúc gọi (không phải lúc nạp module) để test bật/tắt được.
+    if (process.env.WGA_REQUIRE_DONE_CRITERIA === "1" && item.capabilityRisk !== "LOW") {
+      throw APIError.invalidArgument(
+        `done_criteria is required for item "${item.title}" (capability risk ${item.capabilityRisk})`,
+      );
+    }
+    return null;
+  }
+  try {
+    return parseDoneCriteria(item.doneCriteria);
+  } catch (e) {
+    throw APIError.invalidArgument(`item "${item.title}": ${(e as Error).message}`);
+  }
+}
+
 export async function createExecutionPlanService(
   input: CreateExecutionPlanInput,
   authorization: string | undefined,
@@ -279,6 +300,7 @@ export async function createExecutionPlanService(
           priority: it.priority ?? "medium",
           dependsOnItemIds: [],
           sortKey: idx,
+          doneCriteria: resolveItemDoneCriteria(it),
         })
         .returning();
       inserted.push(row!);
@@ -701,6 +723,7 @@ export async function acceptExecutionPlanService(
           title: it.title.slice(0, 255),
           commitmentOwnerType: klass === "FOUNDER_ONLY" ? "FOUNDER" : "AGENT",
           executionMode,
+          doneCriteria: (it.doneCriteria as DoneCriteria | null) ?? null,
         })
         .returning();
 

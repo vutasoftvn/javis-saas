@@ -665,6 +665,7 @@ export const executionPlanItems = operatingSchema.table("execution_plan_items", 
   title: text("title").notNull(),
   decisionReason: text("decision_reason").notNull(),
   evidenceRefs: jsonb("evidence_refs").default([]).notNull(),
+  doneCriteria: jsonb("done_criteria"),
   ownerAgentProfile: text("owner_agent_profile"), // 'operations' | 'finance' | 'marketing' | null (=founder)
   expectedCapability: text("expected_capability"),
   autonomyClass: text("autonomy_class").notNull(), // 'AUTO' | 'NEEDS_APPROVAL' | 'FOUNDER_ONLY'

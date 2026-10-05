@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 114 | 24 |
 | VALID_KEEP (giữ nguyên) | 139 | 38 |
-| REVIEW (chưa phân loại) | 1517 | 340 |
+| REVIEW (chưa phân loại) | 1518 | 341 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -309,6 +309,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | frontend/lib/shared/widgets/presenters/crm_lead_card.dart | 1 |
 | packages/agent/capabilities/grants.py | 1 |
 | packages/agent/contracts/context.py | 1 |
+| packages/agent/contracts/done_criteria.py | 1 |
 | packages/agent/conversations/models.py | 1 |
 | packages/agent/executive_board/runner.py | 1 |
 | packages/agent/knowledge/models.py | 1 |

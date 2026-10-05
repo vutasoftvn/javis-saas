@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-10-05T02:30:48.968Z",
+  "generated_at": "2026-10-05T03:11:18.314Z",
   "groups": {
     "agent": {
       "fingerprint": "f40955c3300d84d658e37e78ea5bdf5bb3a9053a3a2ee88bc38b53dd5aba3980",
@@ -14770,7 +14770,7 @@
       }
     },
     "workspace": {
-      "fingerprint": "3ced4ca0963a28f64ccfed4a4b4106ee84d58f192282b9e75ed6dced13661445",
+      "fingerprint": "808d7e12b6519502b37e053d1f0dc1122c722bcc74785f21da09b3df0b6d7a79",
       "schemas": [
         "commercial",
         "core",
@@ -37823,6 +37823,16 @@
               "udt": "timestamptz",
               "nullable": false,
               "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "done_criteria",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": true,
+              "default": null,
               "max_length": null,
               "precision": null,
               "scale": null
