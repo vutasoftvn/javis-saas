@@ -86,59 +86,72 @@ def _js_number(value: int | float) -> str:
     return sign + body
 
 
-class _Raw:
-    __slots__ = ("text",)
-
-    def __init__(self, text: str) -> None:
-        self.text = text
-
-
-def js_canonical_json_size(value: object) -> int:
+def js_canonical_json_size(value: object, limit: int | None = None) -> int:
     """UTF-8 byte length of JS JSON.stringify(value); DoneCriteriaError if not encodable.
 
-    Iterative, so nesting depth is not limited by the Python recursion limit.
+    Iterative (no recursion limit) and lazy: with ``limit`` it aborts with
+    DoneCriteriaError("predicate args too large") as soon as the running total exceeds
+    ``limit``; results for inputs within the limit are unchanged.
     """
-    out: list[str] = []
-    stack: list[object] = [value]
-    while stack:
-        item = stack.pop()
-        if isinstance(item, _Raw):
-            out.append(item.text)
-        elif item is None:
-            out.append("null")
+    total = 0
+
+    def emit(text: str) -> None:
+        nonlocal total
+        total += len(text) if text.isascii() else len(text.encode("utf-8"))
+        if limit is not None and total > limit:
+            raise DoneCriteriaError("predicate args too large")
+
+    # Frames: (iterator over children, closing bracket, is_object, index)
+    frames: list[list[Any]] = []
+
+    def scalar(item: object) -> bool:
+        if item is None:
+            emit("null")
         elif item is True:
-            out.append("true")
+            emit("true")
         elif item is False:
-            out.append("false")
+            emit("false")
         elif isinstance(item, (int, float)):
-            out.append(_js_number(item))
+            emit(_js_number(item))
         elif isinstance(item, str):
-            out.append(_js_string(item))
-        elif isinstance(item, list):
-            stack.append(_Raw("]"))
-            for i in range(len(item) - 1, -1, -1):
-                stack.append(item[i])
-                if i:
-                    stack.append(_Raw(","))
-            out.append("[")
+            if limit is not None and len(item) > limit:  # every char is >= 1 byte
+                raise DoneCriteriaError("predicate args too large")
+            emit(_js_string(item))
+        else:
+            return False
+        return True
+
+    def open_container(item: object) -> None:
+        if isinstance(item, list):
+            emit("[")
+            frames.append([iter(item), "]", False, 0])
         elif isinstance(item, dict):
-            stack.append(_Raw("}"))
-            entries = list(item.items())
-            for i in range(len(entries) - 1, -1, -1):
-                key, val = entries[i]
-                if not isinstance(key, str):
-                    raise DoneCriteriaError("predicate args too large")
-                stack.append(val)
-                stack.append(_Raw(_js_string(key) + ":"))
-                if i:
-                    stack.append(_Raw(","))
-            out.append("{")
+            emit("{")
+            frames.append([iter(item.items()), "}", True, 0])
         else:
             raise DoneCriteriaError("predicate args too large")
-    try:
-        return len("".join(out).encode("utf-8"))
-    except UnicodeEncodeError as exc:  # unreachable: surrogates are escaped
-        raise DoneCriteriaError("predicate args too large") from exc
+
+    if not scalar(value):
+        open_container(value)
+    while frames:
+        frame = frames[-1]
+        try:
+            child = next(frame[0])
+        except StopIteration:
+            emit(frame[1])
+            frames.pop()
+            continue
+        if frame[3]:
+            emit(",")
+        frame[3] += 1
+        if frame[2]:
+            key, child = child
+            if not isinstance(key, str):
+                raise DoneCriteriaError("predicate args too large")
+            emit(_js_string(key) + ":")
+        if not scalar(child):
+            open_container(child)
+    return total
 
 
 def _parse_criterion(raw: object, seen: set[str]) -> dict[str, Any]:
@@ -169,7 +182,7 @@ def _parse_criterion(raw: object, seen: set[str]) -> dict[str, Any]:
             raise DoneCriteriaError("unknown predicate kind")
         if not isinstance(predicate.get("args"), dict):
             raise DoneCriteriaError("deterministic criterion requires predicate")
-        if js_canonical_json_size(predicate["args"]) > _MAX_ARGS_BYTES:
+        if js_canonical_json_size(predicate["args"], _MAX_ARGS_BYTES) > _MAX_ARGS_BYTES:
             raise DoneCriteriaError("predicate args too large")
         return {
             "id": cid,

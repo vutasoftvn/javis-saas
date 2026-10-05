@@ -61,7 +61,7 @@ def test_lone_surrogate_args_never_escape_as_unicode_error():
             }
         ],
     }
-    with pytest.raises(DoneCriteriaError, match="^predicate args too large$"):
+    with pytest.raises(DoneCriteriaError, match=r"^predicate args too large$"):
         parse_done_criteria(raw)
 
 
@@ -70,3 +70,17 @@ def test_non_json_args_raise_done_criteria_error():
         js_canonical_json_size({"k": {1, 2}})
     with pytest.raises(DoneCriteriaError):
         js_canonical_json_size({1: "x"})
+
+
+def test_size_check_is_bounded_and_aborts_early():
+    import time
+
+    started = time.perf_counter()
+    with pytest.raises(DoneCriteriaError, match=r"^predicate args too large$"):
+        js_canonical_json_size(list(range(1_000_000)), 2048)
+    assert time.perf_counter() - started < 0.5
+
+
+def test_limit_does_not_change_results_within_cap():
+    value = {"a": [1.0, "é\u2028", {"b": None}], "c": "\ud800"}
+    assert js_canonical_json_size(value, 2048) == js_canonical_json_size(value)
