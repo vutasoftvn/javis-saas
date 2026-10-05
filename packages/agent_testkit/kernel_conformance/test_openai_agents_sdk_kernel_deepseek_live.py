@@ -13,10 +13,13 @@ pytest.importorskip("agents")
 
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
 
-pytestmark = pytest.mark.skipif(
-    not DEEPSEEK_API_KEY,
-    reason="DEEPSEEK_API_KEY not set — skipping live DeepSeek model call",
-)
+pytestmark = [
+    pytest.mark.live_provider,
+    pytest.mark.skipif(
+        not DEEPSEEK_API_KEY,
+        reason="DEEPSEEK_API_KEY not set — skipping live DeepSeek model call",
+    ),
+]
 
 
 @pytest.mark.asyncio
