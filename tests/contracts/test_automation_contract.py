@@ -1,8 +1,12 @@
 """COSA Automation MVP — cross-plane contract freeze (Task 1).
 
-Locks the shape of the Automation surface, the single dispatch envelope, and the
-002/003 persistence migrations before any handler is written. See
-docs/superpowers/plans/2026-09-10-cosa-automation-mvp.md.
+Locks the dispatch envelope and the persistence invariants of the Automation
+subsystem. The public Automation capabilities were intentionally removed from
+shared/contracts/mvp-surface.json by commit f083ed1b ("feat: define startup core
+public contract"; tests/contracts/test_startup_core_mvp_surface.py now asserts that
+no "automation" capability id exists). The storage was re-created by the clean-slate
+baseline reset (commit d8ed690d) as the restore migrations asserted below, replacing
+the deleted 003_cosa_automation_mvp.* files.
 """
 
 from __future__ import annotations
@@ -63,11 +67,6 @@ def _automation_rows() -> list[dict]:
     return [r for r in _surface() if r["id"] in AUTOMATION_IDS]
 
 
-def test_all_eleven_automation_capabilities_present():
-    ids = {r["id"] for r in _surface()}
-    assert AUTOMATION_IDS <= ids, f"missing: {AUTOMATION_IDS - ids}"
-
-
 def test_automation_capabilities_metadata_shape():
     for row in _automation_rows():
         assert row["plane"] == "company", row["id"]
@@ -87,18 +86,6 @@ def test_automation_routes_are_unique_within_surface():
         key = f"{row['plane']}:{row['method']} {row['path']}"
         assert key not in seen, f"duplicate route {key}"
         seen.add(key)
-
-
-# approval.decide has no Company handler in the MVP — no shipped blueprint
-# routes an approval (commercial.outbound-draft is draft_only). It stays
-# disabled until a separate send capability + approval E2E are accepted
-# (spec §9.1 / §11).
-_APPROVAL_DECIDE = "automation.approval.decide"
-
-
-def test_approval_decide_stays_disabled_until_a_blueprint_routes_an_approval():
-    row = next(r for r in _automation_rows() if r["id"] == _APPROVAL_DECIDE)
-    assert row["enabled"] is False
 
 
 def test_every_enabled_automation_capability_has_a_real_backend_handler_test():
@@ -126,48 +113,67 @@ def test_dispatch_envelope_is_strict_and_reference_only():
 
 
 # --- migrations ------------------------------------------------------------
+# The deleted 003_cosa_automation_mvp.* migrations (commit d8ed690d) were replayed
+# verbatim into the restore migrations below. Those files hold other tables too, so
+# each invariant is checked only against the statements touching automation objects.
 
-COMPANY_UP = ROOT / "services/company/operations/migrations/003_cosa_automation_mvp.up.sql"
-COMPANY_DOWN = ROOT / "services/company/operations/migrations/003_cosa_automation_mvp.down.sql"
-COSA_UP = ROOT / "services/cosa/migrations/003_cosa_automation_mvp.up.sql"
-COSA_DOWN = ROOT / "services/cosa/migrations/003_cosa_automation_mvp.down.sql"
-AGENT_UP = ROOT / "packages/agent/migrations/003_cosa_automation_mvp.sql"
-AGENT_DOWN = ROOT / "packages/agent/migrations/003_cosa_automation_mvp.down.sql"
-COSA_RESTORE = ROOT / "services/cosa/migrations/002_restore_control_plane_execution_substrate.up.sql"
-AGENT_RESTORE = ROOT / "packages/agent/migrations/002_restore_event_intake_substrate.sql"
-
-
-def test_all_automation_migration_files_exist():
-    for p in (
-        COMPANY_UP, COMPANY_DOWN, COSA_UP, COSA_DOWN, AGENT_UP, AGENT_DOWN,
-        COSA_RESTORE, AGENT_RESTORE,
-    ):
-        assert p.exists(), p
-
-
-def test_company_automation_migration_has_only_local_foreign_keys():
-    sql = COMPANY_UP.read_text(encoding="utf-8")
-    refs = re.findall(r"REFERENCES\s+([\w.]+)", sql, re.IGNORECASE)
-    assert refs, "expected at least one intra-DB FK"
-    for target in refs:
-        assert target.lower().startswith("operating.automation_"), target
+COMPANY_UP = ROOT / "services/company/operations/migrations/002_restore_baseline_gaps.up.sql"
+COMPANY_DOWN = ROOT / "services/company/operations/migrations/002_restore_baseline_gaps.down.sql"
+COSA_UP = ROOT / "services/cosa/migrations/002_restore_control_plane_dormant_tables.up.sql"
+COSA_DOWN = ROOT / "services/cosa/migrations/002_restore_control_plane_dormant_tables.down.sql"
+AGENT_UP = ROOT / "packages/agent/migrations/002_restore_knowledge_artifact_automation.sql"
+AGENT_DOWN = ROOT / "packages/agent/migrations/002_restore_knowledge_artifact_automation.down.sql"
 
 
 def _strip_sql_comments(sql: str) -> str:
     return "\n".join(line.split("--", 1)[0] for line in sql.splitlines())
 
 
+def _statements(path: Path, needle: str) -> list[str]:
+    """SQL statements (comments stripped) of ``path`` that mention ``needle``."""
+    body = _strip_sql_comments(path.read_text(encoding="utf-8"))
+    return [st for st in body.split(";") if needle in st.lower()]
+
+
+def test_all_automation_migration_files_exist():
+    for p in (COMPANY_UP, COMPANY_DOWN, COSA_UP, COSA_DOWN, AGENT_UP, AGENT_DOWN):
+        assert p.exists(), p
+
+
+def test_company_automation_migration_has_only_local_foreign_keys():
+    stmts = _statements(COMPANY_UP, "operating\".\"automation_")
+    created = {
+        m.lower()
+        for st in stmts
+        for m in re.findall(r'create table if not exists "operating"\."(automation_\w+)"', st, re.IGNORECASE)
+    }
+    assert created >= {
+        "automation_definitions",
+        "automation_revisions",
+        "automation_invocations",
+        "automation_invocation_events",
+    }, created
+    # The current schema declares these tables without FKs; if any is added it must
+    # stay inside the automation tables (no cross-schema coupling).
+    for st in stmts:
+        for target in re.findall(r"REFERENCES\s+([\w.\"]+)", st, re.IGNORECASE):
+            assert target.replace('"', "").lower().startswith("operating.automation_"), target
+
+
 def test_cosa_automation_dispatch_stores_opaque_references_only():
-    body = _strip_sql_comments(COSA_UP.read_text(encoding="utf-8")).lower()
+    stmts = _statements(COSA_UP, "automation_dispatches")
+    assert any("create table" in st.lower() for st in stmts), "dispatch table not restored"
+    body = "\n".join(stmts).lower()
     assert not re.search(r"\breferences\b", body), "control-plane dispatch must hold no FK"
     for leak in ("prompt", "credential", "input_payload", "connector", "business_"):
         assert leak not in body, leak
 
 
 def test_agent_automation_migration_never_touches_company():
-    sql = AGENT_UP.read_text(encoding="utf-8")
-    refs = re.findall(r"REFERENCES\s+([\w.]+)", sql, re.IGNORECASE)
-    for target in refs:
+    stmts = _statements(AGENT_UP, "manifest")
+    assert any("automation_run_manifests" in st.lower() for st in stmts), "manifest table not restored"
+    sql = "\n".join(stmts)
+    for target in re.findall(r"REFERENCES\s+([\w.]+)", sql, re.IGNORECASE):
         assert target.lower().startswith("agent."), target
     lowered = sql.lower()
     for company_token in ("operating.", "strategy.", "commercial.", "finance", "workspace_migrator", "company"):
