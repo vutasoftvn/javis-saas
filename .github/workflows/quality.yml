@@ -196,7 +196,11 @@ jobs:
           pip install --require-hashes -r packages/agent/requirements.txt -r apps/cosa/requirements.txt
       - name: Start Postgres (Homebrew, preinstalled on macos-latest runner image)
         run: |
-          brew services start postgresql@14 || brew services start postgresql
+          # PG >= 15 is required by migrations 038/039 (ON DELETE SET NULL (col)).
+          brew list postgresql@16 >/dev/null 2>&1 || brew install postgresql@16
+          export PATH="$(brew --prefix postgresql@16)/bin:$PATH"
+          echo "$(brew --prefix postgresql@16)/bin" >> "$GITHUB_PATH"
+          brew services start postgresql@16
           for i in $(seq 1 30); do
             pg_isready -h 127.0.0.1 -p 5432 -U "$(whoami)" && break
             sleep 2

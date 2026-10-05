@@ -136,4 +136,19 @@ describe("project triage on unified OKR", () => {
     }
     expect(message).toMatch(/company-scope objective/);
   });
+
+  it("createObjective with a parent different from the project's objective is failedPrecondition", async () => {
+    const { user, authorization, goalId, company } = await setup();
+    const other = await createObjectiveService({
+      workspaceId: user.workspaceId, scope: "company", goalId, title: "Other", authorization,
+    });
+    await triageProjectService({
+      workspaceId: user.workspaceId, projectId: user.projectId, action: "link", targetObjectiveId: company.id,
+    });
+    await expect(
+      createObjectiveService({
+        workspaceId: user.workspaceId, projectId: user.projectId, parentObjectiveId: other.id, title: "P", authorization,
+      }),
+    ).rejects.toMatchObject({ code: "failed_precondition" });
+  });
 });

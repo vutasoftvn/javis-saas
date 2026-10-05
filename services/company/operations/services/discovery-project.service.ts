@@ -1,6 +1,7 @@
 import { APIError } from "encore.dev/api";
 import { eq, and, isNull, ne, isNotNull } from "drizzle-orm";
 import { db, schema } from "../models/db";
+import { withOkrDbErrors } from "./okr-db-errors";
 import { generateSnowflake } from "../../shared/services/snowflake.service";
 
 const { projects, okrObjectives, goals } = schema;
@@ -109,7 +110,9 @@ export async function triageProjectService(params: {
       const objId = BigInt(params.targetObjectiveId);
       await assertCompanyObjective(wsId, objId);
       await assertNoConflictingChildren(wsId, pId, objId);
-      await db.update(projects).set({ objectiveId: objId, linkStatus: "linked" }).where(eq(projects.id, pId));
+      await withOkrDbErrors(() =>
+        db.update(projects).set({ objectiveId: objId, linkStatus: "linked" }).where(eq(projects.id, pId)),
+      );
       break;
     }
 
@@ -148,7 +151,7 @@ export async function triageProjectService(params: {
       await assertNoConflictingChildren(wsId, pId, null);
 
       const objectiveId = generateSnowflake();
-      await db.transaction(async (tx) => {
+      await withOkrDbErrors(() => db.transaction(async (tx) => {
         await tx.insert(okrObjectives).values({
           id: objectiveId,
           workspaceId: wsId,
@@ -157,7 +160,7 @@ export async function triageProjectService(params: {
           title: params.newObjectiveTitle!,
         });
         await tx.update(projects).set({ objectiveId, linkStatus: "linked" }).where(eq(projects.id, pId));
-      });
+      }));
       break;
     }
 

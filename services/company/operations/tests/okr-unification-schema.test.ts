@@ -97,4 +97,60 @@ describe("okr_objectives unification constraints (038)", () => {
       VALUES (${generateSnowflake()}, ${mine.ws}, 'company', ${other.goalId}, 'cross-tenant')`));
     expect(msg).toMatch(/fk_okr_objective_goal_ws/);
   });
+
+  describe("039 cross-table alignment triggers", () => {
+    async function company(ws: bigint, goalId: bigint, title: string) {
+      const id = generateSnowflake();
+      await db.execute(sql`
+        INSERT INTO strategy.okr_objectives (id, workspace_id, scope, goal_id, title)
+        VALUES (${id}, ${ws}, 'company', ${goalId}, ${title})`);
+      return id;
+    }
+
+    it("rejects a project objective whose parent differs from projects.objective_id", async () => {
+      const { ws, projectId, goalId } = await seed();
+      const a = await company(ws, goalId, "A");
+      const b = await company(ws, goalId, "B");
+      await db.execute(sql`UPDATE strategy.projects SET objective_id = ${a} WHERE id = ${projectId}`);
+      const msg = await dbError(db.execute(sql`
+        INSERT INTO strategy.okr_objectives (id, workspace_id, project_id, parent_objective_id, title)
+        VALUES (${generateSnowflake()}, ${ws}, ${projectId}, ${b}, 'mismatch')`));
+      expect(msg).toMatch(/must equal the project objective_id/);
+    });
+
+    it("rejects projects.objective_id pointing at a project-scope objective", async () => {
+      const { ws, projectId } = await seed();
+      const p = generateSnowflake();
+      await db.execute(sql`
+        INSERT INTO strategy.okr_objectives (id, workspace_id, project_id, title)
+        VALUES (${p}, ${ws}, ${projectId}, 'proj')`);
+      const msg = await dbError(db.execute(sql`UPDATE strategy.projects SET objective_id = ${p} WHERE id = ${projectId}`));
+      expect(msg).toMatch(/company-scope objective/);
+    });
+
+    it("rejects re-pointing a project to company B while a project objective is aligned to company A", async () => {
+      const { ws, projectId, goalId } = await seed();
+      const a = await company(ws, goalId, "A");
+      const b = await company(ws, goalId, "B");
+      await db.execute(sql`
+        INSERT INTO strategy.okr_objectives (id, workspace_id, project_id, parent_objective_id, title)
+        VALUES (${generateSnowflake()}, ${ws}, ${projectId}, ${a}, 'aligned to A')`);
+      const msg = await dbError(db.execute(sql`UPDATE strategy.projects SET objective_id = ${b} WHERE id = ${projectId}`));
+      expect(msg).toMatch(/different parent objective/);
+    });
+
+    it("allows project objectives with NULL parent or parent equal to projects.objective_id", async () => {
+      const { ws, projectId, goalId } = await seed();
+      const a = await company(ws, goalId, "A");
+      await db.execute(sql`UPDATE strategy.projects SET objective_id = ${a} WHERE id = ${projectId}`);
+      const noParent = await dbError(db.execute(sql`
+        INSERT INTO strategy.okr_objectives (id, workspace_id, project_id, title)
+        VALUES (${generateSnowflake()}, ${ws}, ${projectId}, 'no parent')`));
+      const withParent = await dbError(db.execute(sql`
+        INSERT INTO strategy.okr_objectives (id, workspace_id, project_id, parent_objective_id, title)
+        VALUES (${generateSnowflake()}, ${ws}, ${projectId}, ${a}, 'parent A')`));
+      expect(noParent).toBe("");
+      expect(withParent).toBe("");
+    });
+  });
 });

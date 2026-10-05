@@ -1,3 +1,4 @@
+import { withOkrDbErrors } from "./okr-db-errors";
 import { APIError } from "encore.dev/api";
 import { eq, and, desc, isNull } from "drizzle-orm";
 import { db, schema } from "../models/db";
@@ -242,7 +243,10 @@ export async function createObjectiveService(params: CreateObjectiveParams): Pro
         .from(projects)
         .where(and(eq(projects.workspaceId, wsId), isNull(projects.deletedAt)))
         .limit(2);
-      if (candidates.length !== 1) {
+      if (candidates.length === 0) {
+        throw APIError.failedPrecondition("workspace has no project; create one first");
+      }
+      if (candidates.length > 1) {
         throw APIError.invalidArgument("projectId is required when the workspace has more than one project");
       }
       projectId = candidates[0]!.id;
@@ -265,10 +269,18 @@ export async function createObjectiveService(params: CreateObjectiveParams): Pro
           "parentObjectiveId must reference a company-scope objective in the same workspace",
         );
       }
+      const [proj] = await db
+        .select({ objectiveId: projects.objectiveId })
+        .from(projects)
+        .where(and(eq(projects.id, projectId!), eq(projects.workspaceId, wsId)))
+        .limit(1);
+      if (proj?.objectiveId != null && proj.objectiveId !== parentObjectiveId) {
+        throw APIError.failedPrecondition("parentObjectiveId must equal the project's objective_id");
+      }
     }
   }
 
-  const [row] = await db
+  const [row] = await withOkrDbErrors(() => db
     .insert(okrObjectives)
     .values({
       id: generateSnowflake(),
@@ -282,7 +294,7 @@ export async function createObjectiveService(params: CreateObjectiveParams): Pro
       why: params.why || null,
       ownerMemberId: params.ownerMemberId ? BigInt(params.ownerMemberId) : null,
     })
-    .returning();
+    .returning());
 
   if (!row) throw APIError.internal("failed to create objective");
   return toObjective(row);
