@@ -4,7 +4,7 @@
 DROP TRIGGER IF EXISTS trg_project_objective_alignment ON strategy.projects;
 DROP FUNCTION IF EXISTS strategy.fn_project_objective_alignment();
 ALTER TABLE strategy.projects DROP CONSTRAINT IF EXISTS fk_projects_objective;
-UPDATE strategy.projects SET objective_id = NULL WHERE objective_id IS NOT NULL;
+UPDATE strategy.projects SET objective_id = NULL, link_status = 'pending_review' WHERE objective_id IS NOT NULL;
 
 COMMENT ON TABLE strategy.objectives IS NULL;
 COMMENT ON TABLE strategy.cosa_key_results IS NULL;

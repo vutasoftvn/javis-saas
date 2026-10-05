@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-10-05T01:41:47.330Z",
+  "generated_at": "2026-10-05T01:50:09.062Z",
   "groups": {
     "agent": {
       "fingerprint": "45255ceda7a9cc4cf47b458356a725b2badd48638d5f91ff80348ab7a341a538",
@@ -14770,7 +14770,7 @@
       }
     },
     "workspace": {
-      "fingerprint": "e65b245d6bfbdc22b32a3caef2ad1e70abc5129fc81eec2bb40c4a51321a391b",
+      "fingerprint": "49c6a5c343f261ad576027042031853d3938189843cc3c767f5e443d823e41fc",
       "schemas": [
         "commercial",
         "core",
@@ -50862,6 +50862,10 @@
             {
               "name": "cosa_key_results_pkey",
               "definition": "CREATE UNIQUE INDEX cosa_key_results_pkey ON strategy.cosa_key_results USING btree (id)"
+            },
+            {
+              "name": "idx_cosa_kr_objective",
+              "definition": "CREATE INDEX idx_cosa_kr_objective ON strategy.cosa_key_results USING btree (objective_id, display_order)"
             }
           ]
         },
@@ -53760,6 +53764,18 @@
             }
           ],
           "indexes": [
+            {
+              "name": "idx_objectives_goal",
+              "definition": "CREATE INDEX idx_objectives_goal ON strategy.objectives USING btree (goal_id, display_order)"
+            },
+            {
+              "name": "idx_objectives_owner",
+              "definition": "CREATE INDEX idx_objectives_owner ON strategy.objectives USING btree (owner_user_id) WHERE (owner_user_id IS NOT NULL)"
+            },
+            {
+              "name": "idx_objectives_workspace",
+              "definition": "CREATE INDEX idx_objectives_workspace ON strategy.objectives USING btree (workspace_id, status)"
+            },
             {
               "name": "objectives_pkey",
               "definition": "CREATE UNIQUE INDEX objectives_pkey ON strategy.objectives USING btree (id)"

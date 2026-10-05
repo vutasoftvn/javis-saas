@@ -75,6 +75,51 @@ describe("project triage on unified OKR", () => {
     const row = await projectObjectiveId(user.projectId);
     expect(row.objective_id).not.toBeNull();
     expect(row.link_status).toBe("linked");
+    const o = (await db.execute(sql`SELECT scope, goal_id, workspace_id FROM strategy.okr_objectives WHERE id = ${BigInt(row.objective_id as string)}`));
+    const obj = (o.rows ?? o)[0] as { scope: string; goal_id: string; workspace_id: string };
+    expect(obj.scope).toBe("company");
+    expect(String(obj.goal_id)).toBe(newGoal);
+    expect(String(obj.workspace_id)).toBe(user.workspaceId);
+  });
+
+  it("roll_to_new_goal rejects a project with objectives aligned elsewhere and creates no orphan", async () => {
+    const { user, authorization, goalId, company } = await setup();
+    await createObjectiveService({
+      workspaceId: user.workspaceId, projectId: user.projectId, parentObjectiveId: company.id, title: "P", authorization,
+    });
+    const { goalId: newGoal } = await createGoalService({
+      workspaceId: user.workspaceId, title: "Next", goalType: "tactical",
+    });
+    const count = async () => {
+      const r = await db.execute(sql`SELECT count(*)::int AS n FROM strategy.okr_objectives WHERE workspace_id = ${BigInt(user.workspaceId)} AND scope = 'company'`);
+      return Number(((r.rows ?? r)[0] as { n: number }).n);
+    };
+    const before = await count();
+    expect(goalId).toBeTruthy();
+    await expect(
+      triageProjectService({
+        workspaceId: user.workspaceId, projectId: user.projectId, action: "roll_to_new_goal",
+        newGoalId: newGoal, newObjectiveTitle: "Rolled",
+      }),
+    ).rejects.toThrow(/parent/);
+    expect(await count()).toBe(before);
+    expect((await projectObjectiveId(user.projectId)).objective_id).toBeNull();
+  });
+
+  it("cross-workspace targetObjectiveId and newGoalId are not found", async () => {
+    const a = await setup();
+    const b = await setup();
+    await expect(
+      triageProjectService({
+        workspaceId: a.user.workspaceId, projectId: a.user.projectId, action: "link", targetObjectiveId: b.company.id,
+      }),
+    ).rejects.toMatchObject({ code: "not_found" });
+    await expect(
+      triageProjectService({
+        workspaceId: a.user.workspaceId, projectId: a.user.projectId, action: "roll_to_new_goal",
+        newGoalId: b.goalId, newObjectiveTitle: "X",
+      }),
+    ).rejects.toMatchObject({ code: "not_found" });
   });
 
   it("DB trigger blocks pointing projects.objective_id at a project-scope objective", async () => {

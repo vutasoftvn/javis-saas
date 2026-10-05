@@ -23,7 +23,8 @@ async function assertCompanyObjective(wsId: bigint, objectiveId: bigint): Promis
   }
 }
 
-async function assertNoConflictingChildren(wsId: bigint, projectId: bigint, parentId: bigint): Promise<void> {
+// parentId = null: objective cha chưa tồn tại → mọi child đã căn chỉnh đều xung đột.
+async function assertNoConflictingChildren(wsId: bigint, projectId: bigint, parentId: bigint | null): Promise<void> {
   const conflicts = await db
     .select({ id: okrObjectives.id })
     .from(okrObjectives)
@@ -32,7 +33,7 @@ async function assertNoConflictingChildren(wsId: bigint, projectId: bigint, pare
         eq(okrObjectives.workspaceId, wsId),
         eq(okrObjectives.projectId, projectId),
         isNotNull(okrObjectives.parentObjectiveId),
-        ne(okrObjectives.parentObjectiveId, parentId),
+        parentId === null ? undefined : ne(okrObjectives.parentObjectiveId, parentId),
       ),
     )
     .limit(1);
@@ -144,16 +145,19 @@ export async function triageProjectService(params: {
         .limit(1);
       if (!goal) throw APIError.notFound("Không tìm thấy Goal trong workspace này.");
 
+      await assertNoConflictingChildren(wsId, pId, null);
+
       const objectiveId = generateSnowflake();
-      await db.insert(okrObjectives).values({
-        id: objectiveId,
-        workspaceId: wsId,
-        scope: "company",
-        goalId: newGoalId,
-        title: params.newObjectiveTitle,
+      await db.transaction(async (tx) => {
+        await tx.insert(okrObjectives).values({
+          id: objectiveId,
+          workspaceId: wsId,
+          scope: "company",
+          goalId: newGoalId,
+          title: params.newObjectiveTitle!,
+        });
+        await tx.update(projects).set({ objectiveId, linkStatus: "linked" }).where(eq(projects.id, pId));
       });
-      await assertNoConflictingChildren(wsId, pId, objectiveId);
-      await db.update(projects).set({ objectiveId, linkStatus: "linked" }).where(eq(projects.id, pId));
       break;
     }
 
