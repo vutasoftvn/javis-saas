@@ -50,10 +50,13 @@ export function getWorkerServiceSecret(): string {
   if (testSecretOverride !== null && isTestRuntime()) {
     return testSecretOverride;
   }
-  const secret = process.env.WORKER_SERVICE_JWT_SECRET ?? "";
-  if (!secret && isTestRuntime()) {
+  // Test runtime là deterministic: token do mintTestWorkerToken ký bằng fixture, nên
+  // verifier cũng luôn dùng fixture — bỏ qua biến môi trường của daemon (encore test
+  // kế thừa secret thật từ .env). isTestRuntime() đã false khi staging/production.
+  if (isTestRuntime()) {
     return TEST_WORKER_SERVICE_JWT_SECRET;
   }
+  const secret = process.env.WORKER_SERVICE_JWT_SECRET ?? "";
   // Mọi môi trường ngoài test (kể cả development) phải cấu hình secret thật;
   // thiếu hoặc quá ngắn thì fail-closed trước khi chạm business lookup.
   if (secret.length < MIN_SECRET_LENGTH) {
