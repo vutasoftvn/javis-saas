@@ -122,10 +122,31 @@ describe("automation invocations — idempotent, outbox-only handoff", () => {
         definitionId,
         command: { triggerKind: "manual", clientRequestId: "req-race2", businessScope: { a: scope } },
       });
-    const settled = await Promise.allSettled([mk(1), mk(2), mk(1), mk(2)]);
-    const rejected = settled.filter((r) => r.status === "rejected") as PromiseRejectedResult[];
-    expect(settled.filter((r) => r.status === "fulfilled").length).toBeGreaterThanOrEqual(1);
-    for (const r of rejected) expect(String(r.reason?.message)).toMatch(/different fingerprint/);
+    const scopes = [1, 2, 1, 2];
+    const settled = await Promise.allSettled(scopes.map(mk));
+
+    const rows = await db
+      .select()
+      .from(schema.automationInvocations)
+      .where(eq(schema.automationInvocations.workspaceId, BigInt(w.workspaceId)));
+    expect(rows).toHaveLength(1); // exactly one winner for this identity
+    const winner = rows[0];
+    const winnerScope = (winner.businessScopeJson as { a: number }).a;
+
+    const fulfilled = settled.flatMap((r, i) => (r.status === "fulfilled" ? [{ i, res: r.value }] : []));
+    expect(fulfilled.length).toBeGreaterThanOrEqual(1);
+    for (const { i, res } of fulfilled) {
+      expect(res.data.id).toBe(winner.id.toString());
+      expect(scopes[i]).toBe(winnerScope); // only callers with the winner's fingerprint may succeed
+    }
+    const rejected = settled.flatMap((r) => (r.status === "rejected" ? [r.reason] : []));
+    expect(rejected.length + fulfilled.length).toBe(scopes.length);
+    for (const reason of rejected) {
+      expect(reason?.code).toBe("already_exists");
+      expect(String(reason?.message)).toMatch(/different fingerprint/);
+    }
+    // Both fingerprints cannot have won: every caller with the other scope was rejected.
+    expect(rejected.length).toBe(scopes.filter((x) => x !== winnerScope).length);
   });
 
   it("the same idempotency key with a changed fingerprint is rejected", async () => {

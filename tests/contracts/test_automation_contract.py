@@ -225,8 +225,9 @@ def test_check_value_lists_match_sql_and_typescript_sources_of_truth():
     assert set(trigger) == set(envelope["properties"]["trigger_kind"]["enum"])
     # Every DB state maps to a UI run state (the inspector's RUN_STATE_UI table).
     inspector = (COMPANY_SERVICES / "automation-inspector.service.ts").read_text(encoding="utf-8")
-    block = re.search(r"RUN_STATE_UI[^{]*\{([^}]*)\}", inspector).group(1)
-    assert set(state) == set(re.findall(r"^\s*([A-Z_]+):", block, re.MULTILINE))
+    match = re.search(r"RUN_STATE_UI[^{]*\{([^}]*)\}", inspector)
+    assert match, "RUN_STATE_UI map not found in automation-inspector.service.ts (renamed or moved?)"
+    assert set(state) == set(re.findall(r"^\s*([A-Z_]+):", match.group(1), re.MULTILINE))
 
 
 def test_definition_key_is_unique_only_among_live_rows():
@@ -276,3 +277,16 @@ def test_composite_tenancy_foreign_keys_and_parent_unique_indexes():
     down = COMPANY_042_DOWN.read_text(encoding="utf-8")
     for name in parents | {n for n, _, _ in fks}:
         assert name in down, name
+
+
+def test_drizzle_declares_the_partial_and_desc_automation_indexes():
+    src = (ROOT / "services/company/shared/db/schema/operations.ts").read_text(encoding="utf-8")
+    assert re.search(
+        r'uniqueIndex\("uix_automation_definitions_ws_key"\)\.on\([^)]*\)\.where\(sql`deleted_at IS NULL`\)', src
+    ), "Drizzle must declare the partial unique index (WHERE deleted_at IS NULL)"
+    assert re.search(
+        r'index\("idx_automation_revisions_ws_definition"\)\.on\([^)]*t\.revisionNo\.desc\(\)', src
+    ), "Drizzle must declare revision_no DESC"
+    assert re.search(
+        r'index\("idx_automation_invocations_ws_state"\)\.on\([^)]*t\.createdAt\.desc\(\)', src
+    ), "Drizzle must declare created_at DESC"

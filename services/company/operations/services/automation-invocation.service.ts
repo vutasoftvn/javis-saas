@@ -282,6 +282,8 @@ export async function createAutomationInvocation(
       )) as unknown as InvocationRow[];
     } catch (err) {
       if (!isUniqueViolation(err, "uix_automation_invocations_identity")) throw err;
+      // Relies on READ COMMITTED: each statement takes a fresh snapshot, so it sees the winner's committed row.
+      // Under REPEATABLE READ/SERIALIZABLE the next line would throw and surface a 500.
       const winner = await selectExisting();
       if (!winner) throw err; // violation but no row visible: do not mask it
       return replay(winner);

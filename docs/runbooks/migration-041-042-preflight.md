@@ -51,8 +51,11 @@ UNION ALL SELECT 'bad state', count(*) FROM operating.automation_invocations WHE
 
 ## Khoá và thời điểm chạy
 
-- `CREATE UNIQUE INDEX` (không `CONCURRENTLY`) chặn ghi vào bảng đó trong thời gian ngắn; `ADD CONSTRAINT ... NOT VALID`
-  chỉ lấy khoá ngắn, `VALIDATE CONSTRAINT` không chặn ghi. Chạy trong khung giờ thấp tải.
+- `services/company/scripts/migrate.mjs` bọc **mỗi file migration trong một `BEGIN ... COMMIT`**. Khoá lấy bởi
+  `CREATE UNIQUE INDEX` (SHARE) và `ADD FOREIGN KEY ... NOT VALID` (SHARE ROW EXCLUSIVE) được giữ **đến COMMIT của cả file**,
+  nên 4 bảng automation (và bảng cha liên quan) bị chặn ghi trong suốt thời gian chạy file.
+- `NOT VALID` rồi `VALIDATE` trong cùng một transaction **không có lợi ích về khoá** (041 cũng vậy); chỉ có giá trị
+  về thứ tự kiểm tra. Hạn chế duy nhất là bảng nhỏ. Chạy trong khung giờ thấp tải.
 - Bảng automation nhỏ nên thời gian khoá dự kiến tính bằng giây; kiểm tra `SELECT count(*)` mỗi bảng trước khi chạy.
 
 ## Rollback
