@@ -90,6 +90,44 @@ describe("automation invocations — idempotent, outbox-only handoff", () => {
     expect(rows).toHaveLength(1);
   });
 
+  it("N concurrent identical creates yield exactly one row and the same invocation for every caller", async () => {
+    const { w, definitionId } = await publishedDefinition();
+    const N = 8;
+    // Several rounds (fresh identity each) so the race window is hit reliably.
+    for (let round = 0; round < 5; round++) {
+      const cmd = { triggerKind: "manual" as const, clientRequestId: `req-race-${round}` };
+      const results = await Promise.all(
+        Array.from({ length: N }, () =>
+          createAutomationInvocation({ workspaceId: w.workspaceId, authorization: w.bearerToken, definitionId, command: cmd })
+        )
+      );
+      const ids = new Set(results.map((r) => r.data.id));
+      expect(ids.size).toBe(1);
+      expect(results.filter((r) => r.data.deduplicated === false)).toHaveLength(1);
+      expect(await outboxRowsFor(w.workspaceId, [...ids][0])).toHaveLength(1);
+    }
+    const rows = await db
+      .select()
+      .from(schema.automationInvocations)
+      .where(eq(schema.automationInvocations.workspaceId, BigInt(w.workspaceId)));
+    expect(rows).toHaveLength(5);
+  });
+
+  it("a concurrent loser with a changed fingerprint is still rejected, not replayed", async () => {
+    const { w, definitionId } = await publishedDefinition();
+    const mk = (scope: number) =>
+      createAutomationInvocation({
+        workspaceId: w.workspaceId,
+        authorization: w.bearerToken,
+        definitionId,
+        command: { triggerKind: "manual", clientRequestId: "req-race2", businessScope: { a: scope } },
+      });
+    const settled = await Promise.allSettled([mk(1), mk(2), mk(1), mk(2)]);
+    const rejected = settled.filter((r) => r.status === "rejected") as PromiseRejectedResult[];
+    expect(settled.filter((r) => r.status === "fulfilled").length).toBeGreaterThanOrEqual(1);
+    for (const r of rejected) expect(String(r.reason?.message)).toMatch(/different fingerprint/);
+  });
+
   it("the same idempotency key with a changed fingerprint is rejected", async () => {
     const { w, definitionId } = await publishedDefinition();
     await createAutomationInvocation({

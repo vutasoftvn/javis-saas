@@ -18,6 +18,7 @@ import { makeBusinessEvent } from "../../shared/events/envelope";
 import { appendOutboxEvent } from "../../shared/events/outbox.repository";
 import { getCuratedBlueprint } from "./automation-blueprint-registry";
 import type { AutomationTriggerContract } from "./automation-definition.service";
+import { isUniqueViolation } from "./pg-unique-violation";
 
 const { automationDefinitions, automationRevisions, automationInvocations, automationInvocationEvents } =
   schema;
@@ -221,51 +222,70 @@ export async function createAutomationInvocation(
       )
       .digest("hex");
 
-    const [existing] = (await tx
-      .select()
-      .from(automationInvocations)
-      .where(
-        and(
-          eq(automationInvocations.workspaceId, wsId),
-          eq(automationInvocations.revisionId, revision.id as bigint),
-          eq(automationInvocations.idempotencyKey, key)
+    const selectExisting = async (): Promise<InvocationRow | undefined> => {
+      const [found] = (await tx
+        .select()
+        .from(automationInvocations)
+        .where(
+          and(
+            eq(automationInvocations.workspaceId, wsId),
+            eq(automationInvocations.revisionId, revision.id as bigint),
+            eq(automationInvocations.idempotencyKey, key)
+          )
         )
-      )
-      .limit(1)) as unknown as InvocationRow[];
-
-    if (existing) {
+        .limit(1)) as unknown as InvocationRow[];
+      return found;
+    };
+    // Idempotent replay of an already-recorded invocation (same identity).
+    const replay = (existing: InvocationRow) => {
       if (existing.fingerprintHash !== fingerprint) {
         throw APIError.alreadyExists(
           "an invocation with this idempotency key already exists with a different fingerprint"
         );
       }
       return mvpItem(toView(existing, true), [SOURCE_REF]);
-    }
+    };
+
+    const existing = await selectExisting();
+    if (existing) return replay(existing);
 
     const id = generateSnowflake();
     const correlationId = ctx.correlationId || `auto-${id.toString()}`;
-    const [row] = (await tx
-      .insert(automationInvocations)
-      .values({
-        id,
-        workspaceId: wsId,
-        definitionId: defRow.id,
-        revisionId: revision.id as bigint,
-        automationKey: defRow.automationKey,
-        revisionNo: revision.revisionNo,
-        revisionHash: revision.revisionHash,
-        idempotencyKey: key,
-        triggerKind: cmd.triggerKind,
-        triggerIdentity,
-        callerPrincipal: `user:${ctx.userId}`,
-        source: cmd.triggerKind,
-        businessScopeJson: cmd.businessScope ?? {},
-        validatedInputRef: cmd.validatedInputRef ?? null,
-        fingerprintHash: fingerprint,
-        state: "REQUESTED",
-        correlationId,
-      })
-      .returning()) as unknown as InvocationRow[];
+    let row: InvocationRow;
+    try {
+      // Savepoint: a concurrent creator that wins the race makes this insert fail with
+      // 23505 on uix_automation_invocations_identity, which would otherwise abort the
+      // whole transaction and prevent the re-select below.
+      [row] = (await tx.transaction(async (sp) =>
+        sp
+          .insert(automationInvocations)
+          .values({
+            id,
+            workspaceId: wsId,
+            definitionId: defRow.id,
+            revisionId: revision.id as bigint,
+            automationKey: defRow.automationKey,
+            revisionNo: revision.revisionNo,
+            revisionHash: revision.revisionHash,
+            idempotencyKey: key,
+            triggerKind: cmd.triggerKind,
+            triggerIdentity,
+            callerPrincipal: `user:${ctx.userId}`,
+            source: cmd.triggerKind,
+            businessScopeJson: cmd.businessScope ?? {},
+            validatedInputRef: cmd.validatedInputRef ?? null,
+            fingerprintHash: fingerprint,
+            state: "REQUESTED",
+            correlationId,
+          })
+          .returning()
+      )) as unknown as InvocationRow[];
+    } catch (err) {
+      if (!isUniqueViolation(err, "uix_automation_invocations_identity")) throw err;
+      const winner = await selectExisting();
+      if (!winner) throw err; // violation but no row visible: do not mask it
+      return replay(winner);
+    }
 
     await tx.insert(automationInvocationEvents).values({
       id: generateSnowflake(),
