@@ -1,0 +1,17 @@
+-- 041_restore_automation_constraints.down.sql
+DROP INDEX IF EXISTS operating.uix_automation_invocation_events_seq;
+DROP INDEX IF EXISTS operating.idx_automation_invocations_ws_run;
+DROP INDEX IF EXISTS operating.idx_automation_invocations_ws_state;
+DROP INDEX IF EXISTS operating.uix_automation_invocations_identity;
+DROP INDEX IF EXISTS operating.idx_automation_revisions_ws_definition;
+DROP INDEX IF EXISTS operating.uix_automation_revisions_definition_no;
+DROP INDEX IF EXISTS operating.idx_automation_definitions_workspace;
+DROP INDEX IF EXISTS operating.uix_automation_definitions_ws_key;
+ALTER TABLE operating.automation_invocations DROP CONSTRAINT IF EXISTS chk_automation_invocations_state;
+ALTER TABLE operating.automation_invocations DROP CONSTRAINT IF EXISTS chk_automation_invocations_trigger_kind;
+ALTER TABLE operating.automation_revisions DROP CONSTRAINT IF EXISTS chk_automation_revisions_autonomy_class;
+ALTER TABLE operating.automation_definitions DROP CONSTRAINT IF EXISTS chk_automation_definitions_lifecycle_state;
+ALTER TABLE operating.automation_invocation_events DROP CONSTRAINT IF EXISTS fk_automation_invocation_events_invocation;
+ALTER TABLE operating.automation_invocations DROP CONSTRAINT IF EXISTS fk_automation_invocations_revision;
+ALTER TABLE operating.automation_invocations DROP CONSTRAINT IF EXISTS fk_automation_invocations_definition;
+ALTER TABLE operating.automation_revisions DROP CONSTRAINT IF EXISTS fk_automation_revisions_definition;

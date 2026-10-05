@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-10-05T03:11:18.314Z",
+  "generated_at": "2026-10-05T09:24:34.358Z",
   "groups": {
     "agent": {
       "fingerprint": "f40955c3300d84d658e37e78ea5bdf5bb3a9053a3a2ee88bc38b53dd5aba3980",
@@ -14770,7 +14770,7 @@
       }
     },
     "workspace": {
-      "fingerprint": "808d7e12b6519502b37e053d1f0dc1122c722bcc74785f21da09b3df0b6d7a79",
+      "fingerprint": "3b59047d3b47ad75f5ed4d2c2aa7079c1e5d167e759f55b6fde2d0831c55362c",
       "schemas": [
         "commercial",
         "core",
@@ -35924,11 +35924,24 @@
           },
           "unique_constraints": [],
           "foreign_keys": [],
-          "check_constraints": [],
+          "check_constraints": [
+            {
+              "name": "chk_automation_definitions_lifecycle_state",
+              "clause": "(lifecycle_state = ANY (ARRAY['DRAFT'::text, 'PUBLISHED'::text, 'SUSPENDED'::text, 'RETIRED'::text]))"
+            }
+          ],
           "indexes": [
             {
               "name": "automation_definitions_pkey",
               "definition": "CREATE UNIQUE INDEX automation_definitions_pkey ON operating.automation_definitions USING btree (id)"
+            },
+            {
+              "name": "idx_automation_definitions_workspace",
+              "definition": "CREATE INDEX idx_automation_definitions_workspace ON operating.automation_definitions USING btree (workspace_id)"
+            },
+            {
+              "name": "uix_automation_definitions_ws_key",
+              "definition": "CREATE UNIQUE INDEX uix_automation_definitions_ws_key ON operating.automation_definitions USING btree (workspace_id, automation_key) WHERE (deleted_at IS NULL)"
             }
           ]
         },
@@ -36015,12 +36028,29 @@
             ]
           },
           "unique_constraints": [],
-          "foreign_keys": [],
+          "foreign_keys": [
+            {
+              "name": "fk_automation_invocation_events_invocation",
+              "columns": [
+                "invocation_id"
+              ],
+              "foreign_table": "operating.automation_invocations",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
           "check_constraints": [],
           "indexes": [
             {
               "name": "automation_invocation_events_pkey",
               "definition": "CREATE UNIQUE INDEX automation_invocation_events_pkey ON operating.automation_invocation_events USING btree (id)"
+            },
+            {
+              "name": "uix_automation_invocation_events_seq",
+              "definition": "CREATE UNIQUE INDEX uix_automation_invocation_events_seq ON operating.automation_invocation_events USING btree (workspace_id, invocation_id, seq)"
             }
           ]
         },
@@ -36257,12 +36287,58 @@
             ]
           },
           "unique_constraints": [],
-          "foreign_keys": [],
-          "check_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "fk_automation_invocations_definition",
+              "columns": [
+                "definition_id"
+              ],
+              "foreign_table": "operating.automation_definitions",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            },
+            {
+              "name": "fk_automation_invocations_revision",
+              "columns": [
+                "revision_id"
+              ],
+              "foreign_table": "operating.automation_revisions",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [
+            {
+              "name": "chk_automation_invocations_state",
+              "clause": "(state = ANY (ARRAY['REQUESTED'::text, 'QUEUED'::text, 'LEASED'::text, 'RUNNING'::text, 'WAITING_APPROVAL'::text, 'COMPLETED'::text, 'FAILED'::text, 'CANCELLED'::text, 'BLOCKED'::text, 'CANCEL_REQUESTED'::text]))"
+            },
+            {
+              "name": "chk_automation_invocations_trigger_kind",
+              "clause": "(trigger_kind = ANY (ARRAY['manual'::text, 'schedule'::text, 'business_event'::text]))"
+            }
+          ],
           "indexes": [
             {
               "name": "automation_invocations_pkey",
               "definition": "CREATE UNIQUE INDEX automation_invocations_pkey ON operating.automation_invocations USING btree (id)"
+            },
+            {
+              "name": "idx_automation_invocations_ws_run",
+              "definition": "CREATE INDEX idx_automation_invocations_ws_run ON operating.automation_invocations USING btree (workspace_id, agent_run_id)"
+            },
+            {
+              "name": "idx_automation_invocations_ws_state",
+              "definition": "CREATE INDEX idx_automation_invocations_ws_state ON operating.automation_invocations USING btree (workspace_id, state, created_at DESC)"
+            },
+            {
+              "name": "uix_automation_invocations_identity",
+              "definition": "CREATE UNIQUE INDEX uix_automation_invocations_identity ON operating.automation_invocations USING btree (workspace_id, revision_id, idempotency_key)"
             }
           ]
         },
@@ -36639,12 +36715,38 @@
             ]
           },
           "unique_constraints": [],
-          "foreign_keys": [],
-          "check_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "fk_automation_revisions_definition",
+              "columns": [
+                "definition_id"
+              ],
+              "foreign_table": "operating.automation_definitions",
+              "foreign_columns": [
+                "id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "CASCADE"
+            }
+          ],
+          "check_constraints": [
+            {
+              "name": "chk_automation_revisions_autonomy_class",
+              "clause": "(autonomy_class = ANY (ARRAY['read_only'::text, 'draft_only'::text, 'gated_effect'::text]))"
+            }
+          ],
           "indexes": [
             {
               "name": "automation_revisions_pkey",
               "definition": "CREATE UNIQUE INDEX automation_revisions_pkey ON operating.automation_revisions USING btree (id)"
+            },
+            {
+              "name": "idx_automation_revisions_ws_definition",
+              "definition": "CREATE INDEX idx_automation_revisions_ws_definition ON operating.automation_revisions USING btree (workspace_id, definition_id, revision_no DESC)"
+            },
+            {
+              "name": "uix_automation_revisions_definition_no",
+              "definition": "CREATE UNIQUE INDEX uix_automation_revisions_definition_no ON operating.automation_revisions USING btree (definition_id, revision_no)"
             }
           ]
         },

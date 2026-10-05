@@ -67,38 +67,11 @@ def _automation_rows() -> list[dict]:
     return [r for r in _surface() if r["id"] in AUTOMATION_IDS]
 
 
-def test_automation_capabilities_metadata_shape():
-    for row in _automation_rows():
-        assert row["plane"] == "company", row["id"]
-        assert row["source_kind"] == "company_db", row["id"]
-        assert row["requires_workspace"] is True, row["id"]
-        assert row["owner"] == "company-operations", row["id"]
-        assert row["schema"] == f"{row['id']}.v1", row["id"]
-        assert row["path"].startswith("/operations/automation/"), row["id"]
-        for field in ("backend_test", "flutter_test", "integration_test", "frontend_symbol"):
-            val = row.get(field)
-            assert isinstance(val, str) and val.strip(), f"{row['id']}.{field}"
-
-
-def test_automation_routes_are_unique_within_surface():
-    seen: set[str] = set()
-    for row in _surface():
-        key = f"{row['plane']}:{row['method']} {row['path']}"
-        assert key not in seen, f"duplicate route {key}"
-        seen.add(key)
-
-
-def test_every_enabled_automation_capability_has_a_real_backend_handler_test():
-    # An enabled capability must name a backend test file that exists on disk.
-    from pathlib import Path
-
-    root = Path(__file__).resolve().parents[2]
-    for row in _automation_rows():
-        if not row["enabled"]:
-            continue
-        assert (root / row["backend_test"]).exists(), f"{row['id']} -> {row['backend_test']}"
-        assert (root / row["flutter_test"]).exists(), f"{row['id']} -> {row['flutter_test']}"
-        assert (root / row["integration_test"]).exists(), f"{row['id']} -> {row['integration_test']}"
+def test_startup_core_surface_has_no_automation_capabilities():
+    # Startup Core publishes no automation capability (f083ed1b). Replaces the former
+    # metadata-shape / unique-route / enabled-handler-test loops, which iterated over
+    # these (now zero) rows and could not fail. The storage invariants below stay live.
+    assert not _automation_rows(), [r["id"] for r in _automation_rows()]
 
 
 def test_dispatch_envelope_is_strict_and_reference_only():
@@ -119,6 +92,9 @@ def test_dispatch_envelope_is_strict_and_reference_only():
 
 COMPANY_UP = ROOT / "services/company/operations/migrations/002_restore_baseline_gaps.up.sql"
 COMPANY_DOWN = ROOT / "services/company/operations/migrations/002_restore_baseline_gaps.down.sql"
+# 002 recreated the tables with primary keys only; 041 restores FKs/CHECKs/indexes.
+COMPANY_CONSTRAINTS_UP = ROOT / "services/company/operations/migrations/041_restore_automation_constraints.up.sql"
+COMPANY_CONSTRAINTS_DOWN = ROOT / "services/company/operations/migrations/041_restore_automation_constraints.down.sql"
 COSA_UP = ROOT / "services/cosa/migrations/002_restore_control_plane_dormant_tables.up.sql"
 COSA_DOWN = ROOT / "services/cosa/migrations/002_restore_control_plane_dormant_tables.down.sql"
 AGENT_UP = ROOT / "packages/agent/migrations/002_restore_knowledge_artifact_automation.sql"
@@ -136,7 +112,10 @@ def _statements(path: Path, needle: str) -> list[str]:
 
 
 def test_all_automation_migration_files_exist():
-    for p in (COMPANY_UP, COMPANY_DOWN, COSA_UP, COSA_DOWN, AGENT_UP, AGENT_DOWN):
+    for p in (
+        COMPANY_UP, COMPANY_DOWN, COMPANY_CONSTRAINTS_UP, COMPANY_CONSTRAINTS_DOWN,
+        COSA_UP, COSA_DOWN, AGENT_UP, AGENT_DOWN,
+    ):
         assert p.exists(), p
 
 
@@ -153,11 +132,34 @@ def test_company_automation_migration_has_only_local_foreign_keys():
         "automation_invocations",
         "automation_invocation_events",
     }, created
-    # The current schema declares these tables without FKs; if any is added it must
-    # stay inside the automation tables (no cross-schema coupling).
-    for st in stmts:
-        for target in re.findall(r"REFERENCES\s+([\w.\"]+)", st, re.IGNORECASE):
-            assert target.replace('"', "").lower().startswith("operating.automation_"), target
+    sql = _strip_sql_comments(COMPANY_CONSTRAINTS_UP.read_text(encoding="utf-8"))
+    refs = re.findall(r"REFERENCES\s+([\w.]+)", sql, re.IGNORECASE)
+    assert len(refs) >= 4, "expected the 4 intra-DB automation FKs"
+    for target in refs:
+        assert target.lower().startswith("operating.automation_"), target
+    assert len(re.findall(r"ON DELETE CASCADE", sql)) == len(refs)
+
+
+def test_company_automation_constraints_and_unique_indexes_are_restored():
+    sql = _strip_sql_comments(COMPANY_CONSTRAINTS_UP.read_text(encoding="utf-8"))
+    unique = set(re.findall(r"CREATE UNIQUE INDEX IF NOT EXISTS (\w+)", sql))
+    assert unique == {
+        "uix_automation_definitions_ws_key",
+        "uix_automation_revisions_definition_no",
+        "uix_automation_invocations_identity",  # makes select-then-insert idempotency race-safe
+        "uix_automation_invocation_events_seq",
+    }, unique
+    checks = set(re.findall(r"ADD CONSTRAINT (chk_\w+)", sql))
+    assert checks == {
+        "chk_automation_definitions_lifecycle_state",
+        "chk_automation_revisions_autonomy_class",
+        "chk_automation_invocations_trigger_kind",
+        "chk_automation_invocations_state",
+    }, checks
+    # Every constraint is guarded and the down migration removes what up adds.
+    down = COMPANY_CONSTRAINTS_DOWN.read_text(encoding="utf-8")
+    for name in unique | checks | set(re.findall(r"ADD CONSTRAINT (fk_\w+)", sql)):
+        assert name in down, f"down migration does not drop {name}"
 
 
 def test_cosa_automation_dispatch_stores_opaque_references_only():
