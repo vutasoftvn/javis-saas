@@ -145,6 +145,14 @@ class MvpObjective {
   final List<String> projectIds;
   final String createdAt;
 
+  /// 'company' | 'project'. Objective công ty không thuộc project nào.
+  final String scope;
+  final String? goalId;
+  final String? parentObjectiveId;
+
+  /// Null với objective công ty (`projectId` có thể null từ API).
+  final String? projectId;
+
   const MvpObjective({
     required this.id,
     required this.workspaceId,
@@ -155,6 +163,10 @@ class MvpObjective {
     required this.status,
     required this.projectIds,
     required this.createdAt,
+    this.scope = 'project',
+    this.goalId,
+    this.parentObjectiveId,
+    this.projectId,
   });
 
   factory MvpObjective.fromJson(Map<String, dynamic> json) {
@@ -169,6 +181,10 @@ class MvpObjective {
       status: json['status'] as String? ?? 'DRAFT',
       projectIds: rawProjects.map((p) => p.toString()).toList(),
       createdAt: json['createdAt'] as String? ?? '',
+      scope: json['scope']?.toString() ?? 'project',
+      goalId: json['goalId']?.toString(),
+      parentObjectiveId: json['parentObjectiveId']?.toString(),
+      projectId: json['projectId']?.toString(),
     );
   }
 }
