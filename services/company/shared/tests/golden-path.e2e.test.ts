@@ -81,6 +81,10 @@ describe("golden path: Quốc Gia Khởi Nghiệp", () => {
     const initiative = await createInitiative({
       workspaceId,
       title: "Ra mắt COSA Agent Platform bản beta",
+      // Initiative gắn project + Key Result (initiative.service: projectId và
+      // keyResultIds bắt buộc). Project mặc định do createTestSession seed (id === workspaceId).
+      projectId: workspaceId,
+      keyResultIds: [keyResult.id],
       authorization: auth,
     });
     expect(initiative.workspaceId).toBe(workspaceId);
