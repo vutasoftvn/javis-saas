@@ -13,8 +13,9 @@ from apps.cosa.agents.specs import (
 
 
 def test_direct_chat_capable_agent_specs_use_new_immutable_version() -> None:
-    # operations 1.9.0 (1.6.0 business.read + hành động T2 có duyệt; 1.7.0 founder.notify.send;
-    # 1.8.0 email.digest.read; 1.9.0 automation.plan.propose); finance 1.2.0 (sửa id
+    # operations 1.10.0 (1.6.0 business.read + hành động T2 có duyệt; 1.7.0 founder.notify.send;
+    # 1.8.0 email.digest.read; 1.9.0 automation.plan.propose;
+    # 1.10.0 okr.key_result.update); finance 1.2.0 (sửa id
     # capability classify_propose); marketing 1.2.0 (sửa id capability
     # commercial.campaign_asset.write / commercial.experiment.write).
     # Invariant: all are a Wave-M2b immutable version (>= 1.1.0), none left at 1.0.0.
@@ -22,8 +23,8 @@ def test_direct_chat_capable_agent_specs_use_new_immutable_version() -> None:
         COSA_OPERATIONS_AGENT_SPEC.version,
         COSA_FINANCE_AGENT_SPEC.version,
         COSA_MARKETING_AGENT_SPEC.version,
-    ) == ("1.9.0", "1.2.0", "1.2.0")
-    assert COSA_OPERATIONS_AGENT_SPEC.version == "1.9.0"
+    ) == ("1.10.0", "1.2.0", "1.2.0")
+    assert COSA_OPERATIONS_AGENT_SPEC.version == "1.10.0"
     assert "operations.task.create_draft" in COSA_OPERATIONS_AGENT_SPEC.capability_refs
     assert "workspace.context.read" in COSA_OPERATIONS_AGENT_SPEC.capability_refs
     assert (
@@ -81,3 +82,11 @@ def test_agent_specs_have_stable_definition_hash():
     # idempotent ở Task 2 không bị lỗi SpecVersionHashConflictError.
     assert COSA_OPERATIONS_AGENT_SPEC.compute_hash() == COSA_OPERATIONS_AGENT_SPEC.compute_hash()
     assert COSA_FINANCE_AGENT_SPEC.compute_hash() == COSA_FINANCE_AGENT_SPEC.compute_hash()
+
+
+def test_operations_spec_okr_key_result_update_requires_version_bump() -> None:
+    # Thêm một capability_ref vào spec đổi compute_hash(): BẮT BUỘC nâng `version` và cập nhật
+    # pin company (AGENT_PROFILE_SPEC_VERSION/HASH trong ai-member.service.ts). Trước đây
+    # okr.key_result.update được thêm mà không nâng 1.9.0 ⇒ spec_hash_mismatch lúc chạy.
+    assert "okr.key_result.update" in COSA_OPERATIONS_AGENT_SPEC.capability_refs
+    assert COSA_OPERATIONS_AGENT_SPEC.version == "1.10.0"

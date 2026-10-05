@@ -265,7 +265,8 @@ COSA_OPERATIONS_AGENT_SPEC = AgentSpec(
     # 1.9.0 (plan hub đợt 2 B4): automation.plan.propose — T1 lưu NHÁP kế hoạch tự động hoá (tái
     # dùng agent trong Project, skill operations.email-digest, connector, kênh, lịch, ngân sách
     # token) cho founder duyệt ở thẻ kế hoạch; không tạo lịch thật.
-    version="1.9.0",
+    # 1.10.0: okr.key_result.update (T2 — sửa Key Result qua company; quyền cấp bởi migration 035).
+    version="1.10.0",
     autonomy_level=AutonomyLevel.L2_EXECUTE,
     instructions=COSA_OPERATIONS_INSTRUCTIONS,
     capability_refs=[
