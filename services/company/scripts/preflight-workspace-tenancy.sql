@@ -31,4 +31,5 @@ WHERE p.workspace_id <> i.workspace_id;
 SELECT 'projects' AS tbl, count(*) FROM strategy.projects WHERE workspace_id IS NULL
 UNION ALL SELECT 'portfolios', count(*) FROM strategy.portfolios WHERE workspace_id IS NULL
 UNION ALL SELECT 'okr_objectives', count(*) FROM strategy.okr_objectives WHERE workspace_id IS NULL
+UNION ALL SELECT 'okr_objectives.goal_id_cross_tenant', count(*) FROM strategy.okr_objectives o JOIN strategy.goals g ON g.id = o.goal_id WHERE g.workspace_id <> o.workspace_id
 UNION ALL SELECT 'tasks', count(*) FROM operating.tasks WHERE workspace_id IS NULL;

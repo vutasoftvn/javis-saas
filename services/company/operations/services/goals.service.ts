@@ -6,7 +6,7 @@ import { getCadenceStatusService } from "./onboard.service";
 import { computeKeyResultProgress, KrScoringType } from "./okr-scoring.service";
 import { loadGoalStats, loadObjectiveGoalMap } from "./goal-okr-stats.service";
 
-const { goals, objectives, cosaKeyResults, okrObjectives, keyResults, onboardSnapshots, projects } = schema;
+const { goals, okrObjectives, keyResults, onboardSnapshots, projects } = schema;
 
 export type GoalType = "vision" | "strategic" | "tactical" | "sprint";
 export type GoalStatus = "draft" | "active" | "completed" | "abandoned";
@@ -42,17 +42,6 @@ async function assertGoalInWorkspace(wsId: bigint, goalId: bigint): Promise<void
     .limit(1);
   if (!row) {
     throw APIError.notFound("Không tìm thấy Goal trong workspace này.");
-  }
-}
-
-export async function assertObjectiveInWorkspace(wsId: bigint, objectiveId: bigint): Promise<void> {
-  const [row] = await db
-    .select({ id: objectives.id })
-    .from(objectives)
-    .where(and(eq(objectives.id, objectiveId), eq(objectives.workspaceId, wsId)))
-    .limit(1);
-  if (!row) {
-    throw APIError.notFound("Không tìm thấy Objective trong workspace này.");
   }
 }
 
@@ -350,130 +339,5 @@ export async function completeGoalService(params: {
     completedObjectivesCount: openObjectives.length,
     reviewAmbitionPrompt:
       "Mục tiêu chiến lược đã hoàn thành. Hãy kiểm tra lại tham vọng (Goals & Ambition) để chuẩn bị cho chu kỳ tiếp theo.",
-  };
-}
-
-export async function createObjectiveService(params: {
-  workspaceId: string;
-  goalId: string;
-  title: string;
-  description?: string;
-  ownerUserId?: string;
-  weight?: number;
-  displayOrder?: number;
-}): Promise<{ objectiveId: string }> {
-  const wsId = BigInt(params.workspaceId);
-  const gId = BigInt(params.goalId);
-  await assertGoalInWorkspace(wsId, gId);
-  const objId = generateSnowflake();
-
-  await db.insert(objectives).values({
-    id: objId,
-    goalId: gId,
-    workspaceId: wsId,
-    title: params.title,
-    description: params.description,
-    ownerUserId: params.ownerUserId ? BigInt(params.ownerUserId) : null,
-    weight: params.weight !== undefined ? String(params.weight) : "1.0",
-    displayOrder: params.displayOrder || 0,
-    status: "active",
-    progressPct: "0",
-  });
-
-  return { objectiveId: objId.toString() };
-}
-
-export async function addKeyResultService(params: {
-  workspaceId: string;
-  objectiveId: string;
-  metricName: string;
-  baseline?: number;
-  target: number;
-  unit?: string;
-  displayOrder?: number;
-}): Promise<{ keyResultId: string }> {
-  const objId = BigInt(params.objectiveId);
-  await assertObjectiveInWorkspace(BigInt(params.workspaceId), objId);
-  const krId = generateSnowflake();
-
-  await db.insert(cosaKeyResults).values({
-    id: krId,
-    objectiveId: objId,
-    metricName: params.metricName,
-    baseline: params.baseline !== undefined ? String(params.baseline) : null,
-    target: String(params.target),
-    currentValue: "0",
-    unit: params.unit,
-    status: "active",
-    displayOrder: params.displayOrder || 0,
-  });
-
-  return { keyResultId: krId.toString() };
-}
-
-export async function updateKeyResultValueService(params: {
-  workspaceId: string;
-  keyResultId: string;
-  currentValue: number;
-}): Promise<{ keyResultId: string; objectiveProgressPct: number }> {
-  const krId = BigInt(params.keyResultId);
-
-  // KR không có cột workspace_id — xác định tenant qua objective cha.
-  const [joined] = await db
-    .select({ kr: cosaKeyResults })
-    .from(cosaKeyResults)
-    .innerJoin(objectives, eq(objectives.id, cosaKeyResults.objectiveId))
-    .where(
-      and(eq(cosaKeyResults.id, krId), eq(objectives.workspaceId, BigInt(params.workspaceId)))
-    )
-    .limit(1);
-  const kr = joined?.kr;
-
-  if (!kr) {
-    throw APIError.notFound("Không tìm thấy Key Result.");
-  }
-
-  const target = Number(kr.target);
-  const isAchieved = params.currentValue >= target;
-
-  await db
-    .update(cosaKeyResults)
-    .set({
-      currentValue: String(params.currentValue),
-      status: isAchieved ? "achieved" : "active",
-    })
-    .where(eq(cosaKeyResults.id, krId));
-
-  // Tính lại tiến độ của Objective
-  const krs = await db
-    .select()
-    .from(cosaKeyResults)
-    .where(eq(cosaKeyResults.objectiveId, kr.objectiveId));
-
-  let totalPct = 0;
-  for (const item of krs) {
-    const t = Number(item.target);
-    const c = item.id === krId ? params.currentValue : Number(item.currentValue || 0);
-    const b = Number(item.baseline || 0);
-
-    let pct = 0;
-    if (t > b) {
-      pct = Math.min(100, Math.max(0, ((c - b) / (t - b)) * 100));
-    } else if (t === b) {
-      pct = c >= t ? 100 : 0;
-    }
-    totalPct += pct;
-  }
-
-  const avgPct = krs.length > 0 ? totalPct / krs.length : 0;
-
-  await db
-    .update(objectives)
-    .set({ progressPct: String(avgPct.toFixed(2)) })
-    .where(eq(objectives.id, kr.objectiveId));
-
-  return {
-    keyResultId: krId.toString(),
-    objectiveProgressPct: Number(avgPct.toFixed(2)),
   };
 }

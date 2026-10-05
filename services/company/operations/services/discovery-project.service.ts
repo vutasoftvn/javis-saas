@@ -1,9 +1,47 @@
 import { APIError } from "encore.dev/api";
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNull, ne, isNotNull } from "drizzle-orm";
 import { db, schema } from "../models/db";
-import { assertObjectiveInWorkspace, createObjectiveService } from "./goals.service";
+import { generateSnowflake } from "../../shared/services/snowflake.service";
 
-const { projects, objectives } = schema;
+const { projects, okrObjectives, goals } = schema;
+
+async function assertCompanyObjective(wsId: bigint, objectiveId: bigint): Promise<void> {
+  const [row] = await db
+    .select({ scope: okrObjectives.scope })
+    .from(okrObjectives)
+    .where(
+      and(
+        eq(okrObjectives.id, objectiveId),
+        eq(okrObjectives.workspaceId, wsId),
+        isNull(okrObjectives.deletedAt),
+      ),
+    )
+    .limit(1);
+  if (!row) throw APIError.notFound("Không tìm thấy Objective trong workspace này.");
+  if (row.scope !== "company") {
+    throw APIError.invalidArgument("Dự án chỉ có thể liên kết với Objective cấp công ty (company).");
+  }
+}
+
+async function assertNoConflictingChildren(wsId: bigint, projectId: bigint, parentId: bigint): Promise<void> {
+  const conflicts = await db
+    .select({ id: okrObjectives.id })
+    .from(okrObjectives)
+    .where(
+      and(
+        eq(okrObjectives.workspaceId, wsId),
+        eq(okrObjectives.projectId, projectId),
+        isNotNull(okrObjectives.parentObjectiveId),
+        ne(okrObjectives.parentObjectiveId, parentId),
+      ),
+    )
+    .limit(1);
+  if (conflicts.length > 0) {
+    throw APIError.failedPrecondition(
+      "Dự án đang có objective căn chỉnh với parent objective khác; hãy đổi parent trước khi liên kết.",
+    );
+  }
+}
 
 export type ProjectTriageAction = "link" | "mark_rd" | "archive" | "roll_to_new_goal";
 
@@ -68,14 +106,9 @@ export async function triageProjectService(params: {
         throw APIError.invalidArgument("Cần cung cấp targetObjectiveId để liên kết dự án.");
       }
       const objId = BigInt(params.targetObjectiveId);
-      await assertObjectiveInWorkspace(wsId, objId);
-      await db
-        .update(projects)
-        .set({
-          objectiveId: objId,
-          linkStatus: "linked",
-        })
-        .where(eq(projects.id, pId));
+      await assertCompanyObjective(wsId, objId);
+      await assertNoConflictingChildren(wsId, pId, objId);
+      await db.update(projects).set({ objectiveId: objId, linkStatus: "linked" }).where(eq(projects.id, pId));
       break;
     }
 
@@ -103,21 +136,24 @@ export async function triageProjectService(params: {
       if (!params.newGoalId || !params.newObjectiveTitle) {
         throw APIError.invalidArgument("Cần cung cấp newGoalId và newObjectiveTitle để đưa dự án vào chu kỳ mới.");
       }
-      // Tạo objective mới trong Goal mới
-      const { objectiveId } = await createObjectiveService({
-        workspaceId: params.workspaceId,
-        goalId: params.newGoalId,
+      const newGoalId = BigInt(params.newGoalId);
+      const [goal] = await db
+        .select({ id: goals.id })
+        .from(goals)
+        .where(and(eq(goals.id, newGoalId), eq(goals.workspaceId, wsId)))
+        .limit(1);
+      if (!goal) throw APIError.notFound("Không tìm thấy Goal trong workspace này.");
+
+      const objectiveId = generateSnowflake();
+      await db.insert(okrObjectives).values({
+        id: objectiveId,
+        workspaceId: wsId,
+        scope: "company",
+        goalId: newGoalId,
         title: params.newObjectiveTitle,
       });
-
-      // Liên kết dự án vào objective mới
-      await db
-        .update(projects)
-        .set({
-          objectiveId: BigInt(objectiveId),
-          linkStatus: "linked",
-        })
-        .where(eq(projects.id, pId));
+      await assertNoConflictingChildren(wsId, pId, objectiveId);
+      await db.update(projects).set({ objectiveId, linkStatus: "linked" }).where(eq(projects.id, pId));
       break;
     }
 

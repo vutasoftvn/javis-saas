@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "generated_at": "2026-09-28T12:47:51.786Z",
+  "generated_at": "2026-10-05T01:29:23.087Z",
   "groups": {
     "agent": {
-      "fingerprint": "a0c2d2cd22cef284647631ba1ea8826a9c4475e752316d27dff3e8e644f8d6ec",
+      "fingerprint": "45255ceda7a9cc4cf47b458356a725b2badd48638d5f91ff80348ab7a341a538",
       "schemas": [
         "agent",
         "agent_artifact",
@@ -13,7 +13,7 @@
         "knowledge",
         "models"
       ],
-      "tables_count": 57,
+      "tables_count": 58,
       "enums": [],
       "tables": {
         "agent.agent_skill_candidates": {
@@ -8250,6 +8250,212 @@
             }
           ]
         },
+        "models.ai_initiative_promotion_snapshots": {
+          "schema": "models",
+          "name": "ai_initiative_promotion_snapshots",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "idempotency_key",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "workspace_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "project_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "initiative_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "initiative_revision",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "decision_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "decision_hash",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "lifecycle_state",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "risk_tier",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "autonomy_tier",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "pins",
+              "type": "jsonb",
+              "udt": "jsonb",
+              "nullable": false,
+              "default": "'{}'::jsonb",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "value_contract_revision",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "data_readiness_revision",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "budget_policy_revision",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "evaluation_suite_revision",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "data_readiness_status",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "retrieval_mode",
+              "type": "text",
+              "udt": "text",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "consumed_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "ai_initiative_promotion_snapshots_pkey",
+            "columns": [
+              "idempotency_key"
+            ]
+          },
+          "unique_constraints": [],
+          "foreign_keys": [],
+          "check_constraints": [],
+          "indexes": [
+            {
+              "name": "ai_initiative_promotion_snapshots_pkey",
+              "definition": "CREATE UNIQUE INDEX ai_initiative_promotion_snapshots_pkey ON models.ai_initiative_promotion_snapshots USING btree (idempotency_key)"
+            },
+            {
+              "name": "idx_ai_initiative_snapshots_ws_init_rev",
+              "definition": "CREATE INDEX idx_ai_initiative_snapshots_ws_init_rev ON models.ai_initiative_promotion_snapshots USING btree (workspace_id, initiative_id, initiative_revision DESC)"
+            }
+          ]
+        },
         "models.model_provider_profiles": {
           "schema": "models",
           "name": "model_provider_profiles",
@@ -14564,7 +14770,7 @@
       }
     },
     "workspace": {
-      "fingerprint": "d3a9a36c9f3abbb4b82841376a0aa01f755dda6858bc88c7fc419434288a557a",
+      "fingerprint": "ebc22e97fbebb89240312fe6edef41991b0a8c857bb4b43401c623626ccc7d2f",
       "schemas": [
         "commercial",
         "core",
@@ -14576,7 +14782,7 @@
         "sales",
         "strategy"
       ],
-      "tables_count": 251,
+      "tables_count": 248,
       "enums": [
         {
           "schema": "operating",
@@ -50529,140 +50735,6 @@
             }
           ]
         },
-        "strategy.cosa_key_results": {
-          "schema": "strategy",
-          "name": "cosa_key_results",
-          "type": "BASE TABLE",
-          "columns": [
-            {
-              "name": "id",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "objective_id",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "metric_name",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "baseline",
-              "type": "numeric",
-              "udt": "numeric",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "target",
-              "type": "numeric",
-              "udt": "numeric",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "current_value",
-              "type": "numeric",
-              "udt": "numeric",
-              "nullable": true,
-              "default": "0",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "unit",
-              "type": "text",
-              "udt": "text",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "status",
-              "type": "text",
-              "udt": "text",
-              "nullable": true,
-              "default": "'active'::text",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "display_order",
-              "type": "integer",
-              "udt": "int4",
-              "nullable": true,
-              "default": "0",
-              "max_length": null,
-              "precision": 32,
-              "scale": 0
-            }
-          ],
-          "primary_key": {
-            "name": "cosa_key_results_pkey",
-            "columns": [
-              "id"
-            ]
-          },
-          "unique_constraints": [],
-          "foreign_keys": [
-            {
-              "name": "cosa_key_results_objective_id_fkey",
-              "columns": [
-                "objective_id"
-              ],
-              "foreign_table": "strategy.objectives",
-              "foreign_columns": [
-                "id"
-              ],
-              "on_update": "NO ACTION",
-              "on_delete": "CASCADE"
-            }
-          ],
-          "check_constraints": [
-            {
-              "name": "cosa_key_results_status_check",
-              "clause": "((status = ANY (ARRAY['active'::text, 'achieved'::text, 'missed'::text, 'archived'::text])))"
-            }
-          ],
-          "indexes": [
-            {
-              "name": "cosa_key_results_pkey",
-              "definition": "CREATE UNIQUE INDEX cosa_key_results_pkey ON strategy.cosa_key_results USING btree (id)"
-            },
-            {
-              "name": "idx_cosa_kr_objective",
-              "definition": "CREATE INDEX idx_cosa_kr_objective ON strategy.cosa_key_results USING btree (objective_id, display_order)"
-            }
-          ]
-        },
         "strategy.decision_records": {
           "schema": "strategy",
           "name": "decision_records",
@@ -51810,7 +51882,15 @@
               "id"
             ]
           },
-          "unique_constraints": [],
+          "unique_constraints": [
+            {
+              "name": "uix_goals_id_workspace",
+              "columns": [
+                "id",
+                "workspace_id"
+              ]
+            }
+          ],
           "foreign_keys": [
             {
               "name": "goals_onboard_snapshot_id_fkey",
@@ -51883,6 +51963,10 @@
             {
               "name": "idx_goals_workspace_active",
               "definition": "CREATE INDEX idx_goals_workspace_active ON strategy.goals USING btree (workspace_id, status) WHERE (status = 'active'::text)"
+            },
+            {
+              "name": "uix_goals_id_workspace",
+              "definition": "CREATE UNIQUE INDEX uix_goals_id_workspace ON strategy.goals USING btree (id, workspace_id)"
             }
           ]
         },
@@ -53390,180 +53474,6 @@
             }
           ]
         },
-        "strategy.objectives": {
-          "schema": "strategy",
-          "name": "objectives",
-          "type": "BASE TABLE",
-          "columns": [
-            {
-              "name": "id",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "goal_id",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "workspace_id",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "title",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "description",
-              "type": "text",
-              "udt": "text",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "owner_user_id",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "weight",
-              "type": "numeric",
-              "udt": "numeric",
-              "nullable": true,
-              "default": "1.0",
-              "max_length": null,
-              "precision": 4,
-              "scale": 2
-            },
-            {
-              "name": "display_order",
-              "type": "integer",
-              "udt": "int4",
-              "nullable": true,
-              "default": "0",
-              "max_length": null,
-              "precision": 32,
-              "scale": 0
-            },
-            {
-              "name": "status",
-              "type": "text",
-              "udt": "text",
-              "nullable": false,
-              "default": "'active'::text",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "progress_pct",
-              "type": "numeric",
-              "udt": "numeric",
-              "nullable": true,
-              "default": "0",
-              "max_length": null,
-              "precision": 5,
-              "scale": 2
-            },
-            {
-              "name": "created_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": false,
-              "default": "now()",
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            }
-          ],
-          "primary_key": {
-            "name": "objectives_pkey",
-            "columns": [
-              "id"
-            ]
-          },
-          "unique_constraints": [],
-          "foreign_keys": [
-            {
-              "name": "objectives_goal_id_fkey",
-              "columns": [
-                "goal_id"
-              ],
-              "foreign_table": "strategy.goals",
-              "foreign_columns": [
-                "id"
-              ],
-              "on_update": "NO ACTION",
-              "on_delete": "CASCADE"
-            },
-            {
-              "name": "objectives_workspace_id_fkey",
-              "columns": [
-                "workspace_id"
-              ],
-              "foreign_table": "core.workspaces",
-              "foreign_columns": [
-                "id"
-              ],
-              "on_update": "NO ACTION",
-              "on_delete": "CASCADE"
-            }
-          ],
-          "check_constraints": [
-            {
-              "name": "objectives_status_check",
-              "clause": "((status = ANY (ARRAY['active'::text, 'completed'::text, 'abandoned'::text])))"
-            }
-          ],
-          "indexes": [
-            {
-              "name": "idx_objectives_goal",
-              "definition": "CREATE INDEX idx_objectives_goal ON strategy.objectives USING btree (goal_id, display_order)"
-            },
-            {
-              "name": "idx_objectives_owner",
-              "definition": "CREATE INDEX idx_objectives_owner ON strategy.objectives USING btree (owner_user_id) WHERE (owner_user_id IS NOT NULL)"
-            },
-            {
-              "name": "idx_objectives_workspace",
-              "definition": "CREATE INDEX idx_objectives_workspace ON strategy.objectives USING btree (workspace_id, status)"
-            },
-            {
-              "name": "objectives_pkey",
-              "definition": "CREATE UNIQUE INDEX objectives_pkey ON strategy.objectives USING btree (id)"
-            }
-          ]
-        },
         "strategy.okr_cycles": {
           "schema": "strategy",
           "name": "okr_cycles",
@@ -53666,13 +53576,25 @@
               "id"
             ]
           },
-          "unique_constraints": [],
+          "unique_constraints": [
+            {
+              "name": "uix_okr_cycles_id_workspace",
+              "columns": [
+                "id",
+                "workspace_id"
+              ]
+            }
+          ],
           "foreign_keys": [],
           "check_constraints": [],
           "indexes": [
             {
               "name": "okr_cycles_pkey",
               "definition": "CREATE UNIQUE INDEX okr_cycles_pkey ON strategy.okr_cycles USING btree (id)"
+            },
+            {
+              "name": "uix_okr_cycles_id_workspace",
+              "definition": "CREATE UNIQUE INDEX uix_okr_cycles_id_workspace ON strategy.okr_cycles USING btree (id, workspace_id)"
             }
           ]
         },
@@ -53705,7 +53627,7 @@
               "name": "project_id",
               "type": "bigint",
               "udt": "int8",
-              "nullable": false,
+              "nullable": true,
               "default": null,
               "max_length": null,
               "precision": 64,
@@ -53800,6 +53722,46 @@
               "max_length": null,
               "precision": null,
               "scale": null
+            },
+            {
+              "name": "scope",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": "'project'::text",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "goal_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "cycle_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
+            },
+            {
+              "name": "parent_objective_id",
+              "type": "bigint",
+              "udt": "int8",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": 64,
+              "scale": 0
             }
           ],
           "primary_key": {
@@ -53819,6 +53781,48 @@
           ],
           "foreign_keys": [
             {
+              "name": "fk_okr_objective_cycle_ws",
+              "columns": [
+                "cycle_id",
+                "workspace_id"
+              ],
+              "foreign_table": "strategy.okr_cycles",
+              "foreign_columns": [
+                "id",
+                "workspace_id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "SET NULL"
+            },
+            {
+              "name": "fk_okr_objective_goal_ws",
+              "columns": [
+                "goal_id",
+                "workspace_id"
+              ],
+              "foreign_table": "strategy.goals",
+              "foreign_columns": [
+                "id",
+                "workspace_id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "RESTRICT"
+            },
+            {
+              "name": "fk_okr_objective_parent_ws",
+              "columns": [
+                "parent_objective_id",
+                "workspace_id"
+              ],
+              "foreign_table": "strategy.okr_objectives",
+              "foreign_columns": [
+                "id",
+                "workspace_id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "SET NULL"
+            },
+            {
               "name": "fk_okr_objective_project_ws",
               "columns": [
                 "project_id",
@@ -53833,8 +53837,29 @@
               "on_delete": "CASCADE"
             }
           ],
-          "check_constraints": [],
+          "check_constraints": [
+            {
+              "name": "chk_okr_objectives_scope",
+              "clause": "((scope = ANY (ARRAY['company'::text, 'project'::text])))"
+            },
+            {
+              "name": "chk_okr_objectives_scope_shape",
+              "clause": "((((scope = 'company'::text) AND (project_id IS NULL) AND (parent_objective_id IS NULL) AND (goal_id IS NOT NULL)) OR ((scope = 'project'::text) AND (project_id IS NOT NULL))))"
+            }
+          ],
           "indexes": [
+            {
+              "name": "idx_okr_objectives_cycle",
+              "definition": "CREATE INDEX idx_okr_objectives_cycle ON strategy.okr_objectives USING btree (workspace_id, cycle_id) WHERE (cycle_id IS NOT NULL)"
+            },
+            {
+              "name": "idx_okr_objectives_goal",
+              "definition": "CREATE INDEX idx_okr_objectives_goal ON strategy.okr_objectives USING btree (workspace_id, goal_id) WHERE (goal_id IS NOT NULL)"
+            },
+            {
+              "name": "idx_okr_objectives_parent",
+              "definition": "CREATE INDEX idx_okr_objectives_parent ON strategy.okr_objectives USING btree (parent_objective_id) WHERE (parent_objective_id IS NOT NULL)"
+            },
             {
               "name": "idx_okr_objectives_project",
               "definition": "CREATE INDEX idx_okr_objectives_project ON strategy.okr_objectives USING btree (workspace_id, project_id)"
@@ -56653,11 +56678,13 @@
             {
               "name": "fk_projects_objective",
               "columns": [
-                "objective_id"
+                "objective_id",
+                "workspace_id"
               ],
-              "foreign_table": "strategy.objectives",
+              "foreign_table": "strategy.okr_objectives",
               "foreign_columns": [
-                "id"
+                "id",
+                "workspace_id"
               ],
               "on_update": "NO ACTION",
               "on_delete": "SET NULL"
@@ -56738,188 +56765,6 @@
               "max_length": null,
               "precision": null,
               "scale": null
-            },
-            {
-              "name": "snapshot_at",
-              "type": "timestamp with time zone",
-              "udt": "timestamptz",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            }
-          ],
-          "primary_key": null,
-          "unique_constraints": [],
-          "foreign_keys": [],
-          "check_constraints": [],
-          "indexes": []
-        },
-        "strategy.v_goal_tree": {
-          "schema": "strategy",
-          "name": "v_goal_tree",
-          "type": "VIEW",
-          "columns": [
-            {
-              "name": "id",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "parent_id",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "workspace_id",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "title",
-              "type": "text",
-              "udt": "text",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "goal_type",
-              "type": "text",
-              "udt": "text",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "status",
-              "type": "text",
-              "udt": "text",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "start_date",
-              "type": "date",
-              "udt": "date",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "end_date",
-              "type": "date",
-              "udt": "date",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "duration_weeks",
-              "type": "numeric",
-              "udt": "numeric",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": 4,
-              "scale": 1
-            },
-            {
-              "name": "onboard_snapshot_id",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "depth",
-              "type": "integer",
-              "udt": "int4",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": 32,
-              "scale": 0
-            },
-            {
-              "name": "path",
-              "type": "ARRAY",
-              "udt": "_int8",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "hierarchy",
-              "type": "text",
-              "udt": "text",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": null,
-              "scale": null
-            },
-            {
-              "name": "objective_count",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "kr_achieved",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
-            },
-            {
-              "name": "kr_total",
-              "type": "bigint",
-              "udt": "int8",
-              "nullable": true,
-              "default": null,
-              "max_length": null,
-              "precision": 64,
-              "scale": 0
             },
             {
               "name": "snapshot_at",
