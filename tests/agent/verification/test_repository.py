@@ -121,3 +121,35 @@ async def test_concurrent_create_if_absent_creates_one_row(repo):
 def test_postgres_repository_requires_session_factory():
     with pytest.raises(ValueError):
         PostgresVerificationReportRepository(None)
+
+
+async def test_list_for_task_clamps_limit_to_at_least_one(repo):
+    ws = _ws("clamp")
+    for i in range(3):
+        await repo.create_if_absent(
+            _report(
+                report_id=f"vr_{i}",
+                run_id=f"r{i}",
+                workspace_id=ws,
+                created_at=datetime(2026, 1, 1 + i, tzinfo=UTC),
+            )
+        )
+    assert [r.report_id for r in await repo.list_for_task(ws, "t1", limit=0)] == ["vr_2"]
+    assert len(await repo.list_for_task(ws, "t1", limit=-5)) == 1
+    assert len(await repo.list_for_task(ws, "t1", limit=10_000)) == 3
+
+
+async def test_list_for_task_breaks_created_at_ties_by_report_id_desc(repo):
+    ws = _ws("tie")
+    same = datetime(2026, 1, 1, tzinfo=UTC)
+    for rid in ("vr_a", "vr_c", "vr_b"):
+        await repo.create_if_absent(
+            _report(report_id=rid, run_id=f"run_{rid}", workspace_id=ws, created_at=same)
+        )
+    out = await repo.list_for_task(ws, "t1")
+    assert [r.report_id for r in out] == ["vr_c", "vr_b", "vr_a"]
+
+
+async def test_naive_created_at_is_rejected():
+    with pytest.raises(ValueError):
+        _report(created_at=datetime(2026, 1, 1))

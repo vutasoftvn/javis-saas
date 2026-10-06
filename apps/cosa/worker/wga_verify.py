@@ -42,6 +42,11 @@ logger = logging.getLogger(__name__)
 
 _JUDGE_MAX_ATTEMPTS = 2
 
+# Danh tính artifact evidence tự động của nền tảng — định nghĩa MỘT lần, dùng ở
+# `record_wga_task_evidence` (wga_run) và `_is_platform_evidence`.
+WGA_TASK_OUTPUT_DISPLAY_NAME = "WGA task output"
+WGA_TASK_OUTPUT_REF_TEMPLATE = "artifact://run/{run_id}/task-output"
+
 
 @dataclass(frozen=True)
 class JudgeResult:
@@ -166,10 +171,10 @@ def _is_platform_evidence(artifact: Any, task_run_id: str) -> bool:
     object_ref thì khớp kind=report + tên cố định)."""
     object_ref = getattr(artifact, "object_ref", None)
     if object_ref:
-        return bool(object_ref == f"artifact://run/{task_run_id}/task-output")
+        return bool(object_ref == WGA_TASK_OUTPUT_REF_TEMPLATE.format(run_id=task_run_id))
     return (
         getattr(artifact, "artifact_kind", None) == "report"
-        and getattr(artifact, "display_name", None) == "WGA task output"
+        and getattr(artifact, "display_name", None) == WGA_TASK_OUTPUT_DISPLAY_NAME
     )
 
 

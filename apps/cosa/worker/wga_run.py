@@ -50,6 +50,8 @@ from apps.cosa.policies.evaluator import REQUIRE_APPROVAL_CAPABILITIES_KEY
 from apps.cosa.worker.provider_errors import classify_run_error
 from apps.cosa.worker.run_core import RunCoreError, prepare_run, run_kernel
 from apps.cosa.worker.wga_verify import (
+    WGA_TASK_OUTPUT_DISPLAY_NAME,
+    WGA_TASK_OUTPUT_REF_TEMPLATE,
     VerificationOutcome,
     verification_enabled,
     verify_task_result,
@@ -147,9 +149,9 @@ async def record_wga_task_evidence(
             conversation_id=f"wga_task_{run_id}",
             run_id=run_id,
             artifact_kind="report",
-            display_name="WGA task output",
+            display_name=WGA_TASK_OUTPUT_DISPLAY_NAME,
             media_type="text/plain",
-            object_ref=f"artifact://run/{run_id}/task-output",
+            object_ref=WGA_TASK_OUTPUT_REF_TEMPLATE.format(run_id=run_id),
             checksum=hashlib.sha256(data).hexdigest(),
             size_bytes=len(data),
         )

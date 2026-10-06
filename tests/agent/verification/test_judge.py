@@ -300,3 +300,11 @@ def test_reason_strips_control_and_bidi_characters():
     )
     reason = parse_judge_output(raw, ["c1"])["c1"][1]
     assert reason == "[31m[click]"
+
+
+def test_reason_strips_lone_surrogates_so_it_is_valid_utf8():
+    raw = json.dumps({"results": [{"id": "c1", "verdict": "fail", "reason": "x\ud800y"}]})
+    reason = parse_judge_output(raw, ["c1"])["c1"][1]
+    assert reason == "xy"
+    reason.encode("utf-8")
+    assert json.loads(json.dumps(reason, ensure_ascii=False).encode("utf-8")) == reason

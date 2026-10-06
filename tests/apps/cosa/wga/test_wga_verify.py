@@ -396,3 +396,40 @@ async def test_all_optional_criteria_auto_pass_by_design():
     )
     out = await _verify(_plane(), _dc(optional))
     assert out.verdict is Verdict.PASS and out.results[0].verdict is CriterionVerdict.FAIL
+
+
+async def test_same_display_name_but_different_object_ref_counts_as_real_artifact():
+    other = _evidence(object_ref="artifact://tool/created/other")
+    assert (await _verify(_plane([other]), _dc(_ART_EXISTS))).verdict is Verdict.PASS
+
+
+async def test_stored_fail_wins_over_newly_computed_pass():
+    from datetime import UTC, datetime
+
+    from agent.verification.repository import VerificationReport
+
+    plane = _plane([_art()])  # lần này sẽ PASS
+    await plane.verification_report_repository.create_if_absent(
+        VerificationReport(
+            report_id="vr_fail",
+            workspace_id="ws1",
+            task_id="123",
+            run_id=_RUN,
+            verdict="FAIL",
+            mode="deterministic",
+            criteria_results=[
+                {
+                    "id": "c1",
+                    "required": True,
+                    "check": "deterministic",
+                    "verdict": "fail",
+                    "reason": "artifact_not_found",
+                }
+            ],
+            criteria_hash="a" * 64,
+            output_hash="b" * 64,
+            created_at=datetime.now(UTC),
+        )
+    )
+    out = await _verify(plane, _dc(_ART_EXISTS))
+    assert out.report_id == "vr_fail" and out.verdict is Verdict.FAIL

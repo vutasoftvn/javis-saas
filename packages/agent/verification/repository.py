@@ -7,10 +7,9 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
 from typing import Any, Protocol
 
-from pydantic import BaseModel, Field
+from pydantic import AwareDatetime, BaseModel, Field
 from sqlalchemy import text
 
 
@@ -26,7 +25,14 @@ class VerificationReport(BaseModel):
     criteria_results: list[dict[str, Any]] = Field(default_factory=list)
     criteria_hash: str
     output_hash: str
-    created_at: datetime
+    created_at: AwareDatetime
+
+
+_MAX_LIST_LIMIT = 200
+
+
+def _clamp_limit(limit: int) -> int:
+    return max(1, min(limit, _MAX_LIST_LIMIT))
 
 
 class VerificationReportRepository(Protocol):
@@ -62,8 +68,8 @@ class InMemoryVerificationReportRepository:
             for r in self._by_run.values()
             if r.workspace_id == workspace_id and r.task_id == task_id
         ]
-        rows.sort(key=lambda r: r.created_at, reverse=True)
-        return rows[:limit]
+        rows.sort(key=lambda r: (r.created_at, r.report_id), reverse=True)
+        return rows[: _clamp_limit(limit)]
 
 
 _COLUMNS = """report_id, workspace_id, project_id, task_id, run_id, verifier_run_id, verdict,
@@ -93,7 +99,7 @@ _SELECT_FOR_TASK = text(
     SELECT {_COLUMNS}
     FROM agent.verification_reports
     WHERE workspace_id = :workspace_id AND task_id = :task_id
-    ORDER BY created_at DESC
+    ORDER BY created_at DESC, report_id DESC
     LIMIT :limit
     """
 )
@@ -154,7 +160,11 @@ class PostgresVerificationReportRepository:
                 (
                     await session.execute(
                         _SELECT_FOR_TASK,
-                        {"workspace_id": workspace_id, "task_id": task_id, "limit": limit},
+                        {
+                            "workspace_id": workspace_id,
+                            "task_id": task_id,
+                            "limit": _clamp_limit(limit),
+                        },
                     )
                 )
                 .mappings()

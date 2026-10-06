@@ -32,8 +32,8 @@ def _clean(value: object, limit: int = _MAX_FIELD) -> str:
 
 
 def _strip_controls(text: str) -> str:
-    """Bỏ ký tự điều khiển (Cc: NUL, ESC...) và định dạng (Cf: bidi override, zero-width)."""
-    return "".join(ch for ch in text if unicodedata.category(ch) not in ("Cc", "Cf"))
+    """Bỏ ký tự điều khiển (Cc: NUL, ESC...), định dạng (Cf: bidi override, zero-width) và surrogate lẻ (Cs)."""
+    return "".join(ch for ch in text if unicodedata.category(ch) not in ("Cc", "Cf", "Cs"))
 
 
 def _clean_reason(value: object) -> str:
