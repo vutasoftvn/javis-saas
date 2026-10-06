@@ -210,6 +210,7 @@ async def prepare_run(
     extra_metadata: dict[str, Any] | None = None,
     project_id: str | None = None,
     initiative_id: str | None = None,
+    compliance_spec: AgentSpec | None = None,
 ) -> RunCorePrep:
     """Tiện ích cho headless caller (WGA task) — resolve_spec + prepare_request
     một lượt, không cần chèn UI emit ở giữa.
@@ -233,6 +234,7 @@ async def prepare_run(
         extra_metadata=extra_metadata,
         project_id=project_id,
         initiative_id=initiative_id,
+        compliance_spec=compliance_spec,
     )
 
 

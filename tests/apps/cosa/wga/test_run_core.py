@@ -167,3 +167,39 @@ async def test_prepare_run_fails_closed_without_project_scope():
             conversation_id="c",
         )
     assert exc.value.reason_code == "missing_project_scope"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("passed", [False, True])
+async def test_prepare_run_forwards_compliance_spec_to_apply_compliance(monkeypatch, passed):
+    from apps.cosa.worker import run_core
+
+    resolver = AsyncMock()
+    resolver.resolve_for_run.return_value = {"_company_delegation_token": "jwt"}
+    plane = SimpleNamespace(compliance_resolver=resolver)
+    spec = _spec()
+    seen: dict = {}
+
+    async def fake_resolve_spec(plane, *, run_id, local_spec):
+        return spec
+
+    async def fake_apply(plane, *, req, spec, compliance_spec):
+        seen["compliance_spec"] = compliance_spec
+        return SimpleNamespace(spec=spec, req=req)
+
+    monkeypatch.setattr(run_core, "resolve_spec", fake_resolve_spec)
+    monkeypatch.setattr(run_core, "apply_compliance", fake_apply)
+    marker = SimpleNamespace(id="other") if passed else None
+    kwargs = {"compliance_spec": marker} if passed else {}
+    await run_core.prepare_run(
+        plane,
+        run_id="r9",
+        local_spec=spec,
+        prompt="p",
+        principal="u",
+        workspace_id="ws1",
+        conversation_id="c1",
+        project_id="p1",
+        **kwargs,
+    )
+    assert seen["compliance_spec"] is marker

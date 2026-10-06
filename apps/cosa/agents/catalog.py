@@ -79,6 +79,8 @@ from apps.cosa.agents.specs import (
     COSA_SECURITY_PROMPT,
     COSA_STRATEGY_AGENT_SPEC,
     COSA_STRATEGY_PROMPT,
+    COSA_VERIFIER_AGENT_SPEC,
+    COSA_VERIFIER_PROMPT,
 )
 
 AvailabilityKind = Literal["public", "deployed_not_public", "declared_only"]
@@ -313,6 +315,13 @@ _RAW_ENTRIES: tuple[RuntimeAgentCatalogEntry, ...] = (
         profile_key="kickoff_suggestion",
         agent_spec=COSA_KICKOFF_SUGGESTION_AGENT_SPEC,
         prompt_spec=COSA_KICKOFF_SUGGESTION_PROMPT,
+        availability="deployed_not_public",
+        deployment_kind="system",
+    ),
+    RuntimeAgentCatalogEntry(
+        profile_key="verifier",
+        agent_spec=COSA_VERIFIER_AGENT_SPEC,
+        prompt_spec=COSA_VERIFIER_PROMPT,
         availability="deployed_not_public",
         deployment_kind="system",
     ),
