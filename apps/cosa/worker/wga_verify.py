@@ -2,15 +2,30 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
+import os
+import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
+from agent.contracts.done_criteria import DoneCriteriaError, parse_done_criteria
 from agent.contracts.spec import AgentSpec
-from agent.runs.models import RunStatus
+from agent.runs.models import RunEventRecord, RunStatus
+from agent.verification.combine import combine
+from agent.verification.deterministic import evaluate_deterministic
 from agent.verification.judge import JudgeOutputError, build_judge_prompt, parse_judge_output
-from agent.verification.models import CriterionVerdict
+from agent.verification.models import (
+    ArtifactFact,
+    CriterionResult,
+    CriterionVerdict,
+    RunFacts,
+    Verdict,
+)
+from agent.verification.repository import VerificationReport
 
 from apps.cosa.agents.specs import COSA_VERIFIER_AGENT_SPEC
 from apps.cosa.models.resolver import ModelRouteNotFound
@@ -113,3 +128,277 @@ async def run_judge(
         except JudgeOutputError as exc:
             last_error = str(exc)
     return JudgeResult(None, verifier_run_id, f"judge_output_invalid:{last_error}")
+
+
+_SUMMARY_MAX = 300
+_REASON_MAX = 80
+
+
+@dataclass(frozen=True)
+class VerificationOutcome:
+    verdict: Verdict
+    report_id: str | None
+    summary: str  # <= 300 ký tự, hiển thị cho founder
+    results: list[CriterionResult]
+
+
+def verification_enabled() -> bool:
+    """Cờ đọc LÚC GỌI (không cache ở import)."""
+    return os.environ.get("WGA_VERIFY_ON_COMPLETE") == "1"
+
+
+def _valid_id(criterion: object) -> bool:
+    return (
+        isinstance(criterion, dict)
+        and isinstance(criterion.get("id"), str)
+        and bool(criterion["id"].strip())
+    )
+
+
+async def collect_run_facts(
+    plane: Any, *, workspace_id: str, task_run_id: str, run_result: Any, output_text: str
+) -> RunFacts:
+    final = getattr(run_result, "final_output", None)
+    structured = final if isinstance(final, dict) and set(final) != {"response"} else None
+    artifacts: list[ArtifactFact] = []
+    repo = getattr(plane, "artifact_repository", None)
+    if repo is not None:
+        try:
+            rows = await repo.list_for_conversation(workspace_id, f"wga_task_{task_run_id}")
+            artifacts = [
+                ArtifactFact(kind=str(a.artifact_kind), display_name=str(a.display_name))
+                for a in rows
+                if a.run_id == task_run_id
+                and getattr(a, "archived_at", None) is None
+                and getattr(a, "status", "available") != "archived"
+            ]
+        except Exception as exc:
+            logger.warning(
+                "verify: listing artifacts failed ws=%s run=%s: %s",
+                workspace_id,
+                task_run_id,
+                exc.__class__.__name__,
+            )
+            artifacts = []
+    return RunFacts(
+        output_text=output_text, structured_output=structured, artifacts=tuple(artifacts)
+    )
+
+
+def _summarise(results: Sequence[CriterionResult]) -> str:
+    required = [r for r in results if r.required]
+    ok = sum(1 for r in required if r.verdict is CriterionVerdict.PASS)
+    parts = [f"{ok}/{len(required)} tiêu chí bắt buộc đạt"]
+    for label, verdict in (
+        ("không đạt", CriterionVerdict.FAIL),
+        ("chưa rõ", CriterionVerdict.UNCLEAR),
+    ):
+        bad = [
+            f"{r.id or '?'} ({' '.join(r.reason.split())[:_REASON_MAX]})"
+            for r in required
+            if r.verdict is verdict
+        ]
+        if bad:
+            parts.append(f"{label}: " + ", ".join(bad))
+    return "; ".join(parts)[:_SUMMARY_MAX]
+
+
+def _sha256(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+async def _store_report(
+    plane: Any, report: VerificationReport, *, workspace_id: str, task_run_id: str
+) -> str | None:
+    repo = getattr(plane, "verification_report_repository", None)
+    if repo is None:
+        return None
+    try:
+        stored = await repo.create_if_absent(report)
+        return stored.report_id
+    except Exception as exc:
+        logger.warning(
+            "verify: storing report failed ws=%s run=%s: %s",
+            workspace_id,
+            task_run_id,
+            exc.__class__.__name__,
+        )
+        return None
+
+
+async def _emit_event(
+    plane: Any,
+    *,
+    project_id: str,
+    task_run_id: str,
+    workspace_id: str,
+    payload: dict[str, Any],
+) -> None:
+    try:
+        await plane.run_repository.append_event(
+            RunEventRecord(
+                run_id=task_run_id,
+                project_id=project_id,
+                event_type="verification.completed",
+                payload=payload,
+            )
+        )
+    except Exception as exc:
+        logger.warning(
+            "verify: appending event failed ws=%s run=%s: %s",
+            workspace_id,
+            task_run_id,
+            exc.__class__.__name__,
+        )
+
+
+async def verify_task_result(
+    plane: Any,
+    *,
+    producer_spec: AgentSpec,
+    workspace_id: str,
+    project_id: str,
+    task_id: str,
+    task_run_id: str,
+    task_title: str,
+    decision_reason: str,
+    done_criteria: dict[str, Any],
+    run_result: Any,
+    output_text: str,
+) -> VerificationOutcome:
+    """Kiểm tra kết quả task theo doneCriteria. KHÔNG BAO GIỜ ném: mọi lỗi => INCONCLUSIVE."""
+    try:
+        return await _verify_task_result(
+            plane,
+            producer_spec=producer_spec,
+            workspace_id=workspace_id,
+            project_id=project_id,
+            task_id=task_id,
+            task_run_id=task_run_id,
+            task_title=task_title,
+            decision_reason=decision_reason,
+            done_criteria=done_criteria,
+            run_result=run_result,
+            output_text=output_text,
+        )
+    except Exception as exc:
+        logger.exception(
+            "verification failed ws=%s task=%s run=%s", workspace_id, task_id, task_run_id
+        )
+        return VerificationOutcome(
+            Verdict.INCONCLUSIVE, None, f"verification_error:{exc.__class__.__name__}", []
+        )
+
+
+async def _verify_task_result(
+    plane: Any,
+    *,
+    producer_spec: AgentSpec,
+    workspace_id: str,
+    project_id: str,
+    task_id: str,
+    task_run_id: str,
+    task_title: str,
+    decision_reason: str,
+    done_criteria: dict[str, Any],
+    run_result: Any,
+    output_text: str,
+) -> VerificationOutcome:
+    try:
+        parsed = parse_done_criteria(done_criteria)
+    except DoneCriteriaError:
+        return VerificationOutcome(Verdict.INCONCLUSIVE, None, "criteria_invalid", [])
+    criteria: list[Any] = parsed["criteria"]
+
+    facts = await collect_run_facts(
+        plane,
+        workspace_id=workspace_id,
+        task_run_id=task_run_id,
+        run_result=run_result,
+        output_text=output_text,
+    )
+
+    # Tiêu chí có id hợp lệ mới được chấm; id hỏng => UNCLEAR `invalid_criterion` (fail-closed, hiển thị).
+    slots: list[CriterionResult | None] = [None] * len(criteria)
+    rubric: list[tuple[int, dict[str, Any]]] = []
+    for i, c in enumerate(criteria):
+        if not _valid_id(c):
+            raw = c if isinstance(c, dict) else {}
+            slots[i] = CriterionResult(
+                id="",
+                required=bool(raw.get("required", True)),
+                check="rubric" if raw.get("check") == "rubric" else "deterministic",
+                verdict=CriterionVerdict.UNCLEAR,
+                reason="invalid_criterion",
+            )
+        elif c.get("check") == "rubric":
+            rubric.append((i, c))
+        else:
+            slots[i] = evaluate_deterministic(c, facts)
+
+    judge: JudgeResult | None = None
+    if rubric:
+        judge = await run_judge(
+            plane,
+            producer_spec=producer_spec,
+            workspace_id=workspace_id,
+            project_id=project_id,
+            task_run_id=task_run_id,
+            task_title=task_title,
+            decision_reason=decision_reason,
+            rubric_criteria=[c for _, c in rubric],
+            output_text=output_text,
+        )
+        for i, c in rubric:
+            if judge.verdicts is None:
+                crit_verdict, reason = CriterionVerdict.UNCLEAR, judge.error or "judge_failed"
+            else:
+                crit_verdict, reason = judge.verdicts.get(
+                    c["id"], (CriterionVerdict.UNCLEAR, "judge_omitted")
+                )
+            slots[i] = CriterionResult(
+                id=c["id"],
+                required=bool(c.get("required", True)),
+                check="rubric",
+                verdict=crit_verdict,
+                reason=reason,
+            )
+
+    results = [r for r in slots if r is not None]
+    verdict = combine(results)
+    mode = "deterministic+judge" if judge is not None else "deterministic"
+    summary = _summarise(results)
+
+    report = VerificationReport(
+        report_id=f"vr_{uuid.uuid4().hex}",
+        workspace_id=workspace_id,
+        project_id=project_id,
+        task_id=task_id,
+        run_id=task_run_id,
+        verifier_run_id=judge.verifier_run_id if judge is not None else None,
+        verdict=verdict.value,
+        mode=mode,
+        criteria_results=[r.to_dict() for r in results],
+        criteria_hash=_sha256(
+            json.dumps(parsed, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+        ),
+        output_hash=_sha256(output_text),
+        created_at=datetime.now(UTC),
+    )
+    report_id = await _store_report(
+        plane, report, workspace_id=workspace_id, task_run_id=task_run_id
+    )
+    await _emit_event(
+        plane,
+        project_id=project_id,
+        task_run_id=task_run_id,
+        workspace_id=workspace_id,
+        payload={
+            "verdict": verdict.value,
+            "report_id": report_id,
+            "mode": mode,
+            "failed": [r.id for r in results if r.verdict is CriterionVerdict.FAIL],
+            "unclear": [r.id for r in results if r.verdict is CriterionVerdict.UNCLEAR],
+        },
+    )
+    return VerificationOutcome(verdict, report_id, summary, results)

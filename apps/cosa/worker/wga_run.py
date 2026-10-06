@@ -31,6 +31,7 @@ from typing import Any
 from agent.artifacts import WorkspaceArtifact
 from agent.contracts.run import RunStatus
 from agent.conversations.models import MessageRecord
+from agent.verification.models import Verdict
 
 from apps.cosa.agents.agent_profile_specs import AGENT_PROFILE_SPECS
 from apps.cosa.agents.capability_risk_map import capability_risk
@@ -48,6 +49,11 @@ from apps.cosa.composition.agent_plane import CosaAgentPlane
 from apps.cosa.policies.evaluator import REQUIRE_APPROVAL_CAPABILITIES_KEY
 from apps.cosa.worker.provider_errors import classify_run_error
 from apps.cosa.worker.run_core import RunCoreError, prepare_run, run_kernel
+from apps.cosa.worker.wga_verify import (
+    VerificationOutcome,
+    verification_enabled,
+    verify_task_result,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -731,6 +737,47 @@ async def _execute_claimed_task(
         evidence = await record_wga_task_evidence(
             plane, workspace_id=workspace_id, run_id=task_run_id, output_text=output_text
         )
+        # Xác minh doneCriteria (sau cờ WGA_VERIFY_ON_COMPLETE; đọc lúc gọi). Chỉ đường AUTO ban đầu:
+        # đường resume sau duyệt và task NEEDS_APPROVAL giữ nguyên, không xác minh (quyết định có chủ đích).
+        done_criteria = t.get("doneCriteria")
+        verification: VerificationOutcome | None = None
+        if verification_enabled() and done_criteria and not needs_approval:
+            try:
+                verification = await verify_task_result(
+                    plane,
+                    producer_spec=spec,
+                    workspace_id=workspace_id,
+                    project_id=task_project_id,
+                    task_id=task_id,
+                    task_run_id=task_run_id,
+                    task_title=t.get("title", ""),
+                    decision_reason=t.get("decisionReason", ""),
+                    done_criteria=done_criteria,
+                    run_result=run_result,
+                    output_text=output_text,
+                )
+            except Exception as exc:  # hợp đồng: verify không ném; nếu vẫn ném thì fail-closed
+                logger.exception("wga verification crashed task=%s run=%s", task_id, task_run_id)
+                verification = VerificationOutcome(
+                    Verdict.INCONCLUSIVE,
+                    None,
+                    f"verification_error:{exc.__class__.__name__}",
+                    [],
+                )
+        if verification is not None and verification.verdict is not Verdict.PASS:
+            # FAIL/INCONCLUSIVE: không bao giờ đóng 'done'; giữ in_progress để founder xem lại.
+            await _advance_task(
+                plane,
+                workspace_id=workspace_id,
+                task_id=task_id,
+                to_status="in_progress",
+                run_id=task_run_id,
+                token=adv_token,
+                note=f"verification_{verification.verdict.value.lower()}: {verification.summary[:300]}",
+            )
+            return "pending_review"
+        if verification is not None and verification.report_id and evidence:
+            evidence = [*evidence, f"verification:{verification.report_id}"]
         # NEEDS_APPROVAL mà run xong không qua checkpoint duyệt (agent không
         # gọi capability cần duyệt) -> không tự đóng; founder xác nhận.
         done = await finalize_wga_task_completion(

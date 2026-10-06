@@ -6,9 +6,11 @@ from unittest.mock import AsyncMock
 
 import pytest
 from agent.contracts.run import RunStatus
+from agent.verification.models import Verdict
 
 from apps.cosa.capabilities.client import CompanyServiceError
 from apps.cosa.worker import wga_run
+from apps.cosa.worker.wga_verify import VerificationOutcome
 
 
 def _run_result(status, final_output="", errors=None):
@@ -121,9 +123,7 @@ _DC_PLAN = json.dumps(
 async def _post_body(plan_text, extra=None):
     company = AsyncMock()
     company.post.return_value = {"id": "plan-1", "status": "draft"}
-    plane = _plane(
-        company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": plan_text})
-    )
+    plane = _plane(company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": plan_text}))
     await wga_run.execute_goal_decomposition_task(
         plane,
         None,
@@ -151,7 +151,13 @@ async def test_goal_decomposition_post_body_carries_done_criteria():
     assert body["items"][0]["doneCriteria"] == {
         "version": 1,
         "criteria": [
-            {"id": "c1", "description": "Có SOP", "required": True, "check": "rubric", "rubric": "Có SOP"}
+            {
+                "id": "c1",
+                "description": "Có SOP",
+                "required": True,
+                "check": "rubric",
+                "rubric": "Có SOP",
+            }
         ],
     }
 
@@ -867,7 +873,13 @@ _ANCESTRY = {
 _CRITERIA = {
     "version": 1,
     "criteria": [
-        {"id": "c1", "description": "Có tài liệu", "required": True, "check": "rubric", "rubric": "r"}
+        {
+            "id": "c1",
+            "description": "Có tài liệu",
+            "required": True,
+            "check": "rubric",
+            "rubric": "r",
+        }
     ],
 }
 
@@ -916,3 +928,142 @@ async def test_sweep_omits_goal_keys_when_task_has_none():
     for call in plane.kernel.run.await_args_list:
         md = call.args[0].metadata
         assert "goal_ancestry" not in md and "done_criteria" not in md
+
+
+# --- Hook xác minh khi hoàn thành (WGA_VERIFY_ON_COMPLETE) ---
+
+_DONE_CRITERIA = {
+    "version": 1,
+    "criteria": [
+        {"id": "c1", "description": "d", "required": True, "check": "rubric", "rubric": "r"}
+    ],
+}
+
+
+async def _sweep_with_verification(monkeypatch, *, task, outcome=None, side_effect=None, flag="1"):
+    if flag is None:
+        monkeypatch.delenv("WGA_VERIFY_ON_COMPLETE", raising=False)
+    else:
+        monkeypatch.setenv("WGA_VERIFY_ON_COMPLETE", flag)
+    verify = AsyncMock(return_value=outcome, side_effect=side_effect)
+    monkeypatch.setattr(wga_run, "verify_task_result", verify)
+    company = AsyncMock()
+    company.get.return_value = {"tasks": [task]}
+    company.post.return_value = {"status": "ok"}
+    plane = _plane(company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": "3 stale"}))
+    result = await wga_run._execute_claimed_task(
+        plane, task, workspace_id="ws1", sub="42", sweep_project_id="proj1"
+    )
+    calls = [c for c in company.post.await_args_list if "advance" in c.args[0]]
+    return result, verify, [c.kwargs["json"] for c in calls]
+
+
+def _outcome(verdict, report_id="vr_1", summary="1/1 ok"):
+    return VerificationOutcome(verdict, report_id, summary, [])
+
+
+@pytest.mark.asyncio
+async def test_hook_flag_off_does_not_verify_and_closes_task(monkeypatch):
+    task = {**_AUTO_TASK, "doneCriteria": _DONE_CRITERIA}
+    result, verify, bodies = await _sweep_with_verification(monkeypatch, task=task, flag=None)
+    verify.assert_not_awaited()
+    assert result == "done"
+    assert [b["toStatus"] for b in bodies] == ["in_progress", "done"]
+    assert not any(r.startswith("verification:") for r in bodies[1]["evidenceRefs"])
+
+
+@pytest.mark.asyncio
+async def test_hook_flag_must_be_exactly_one(monkeypatch):
+    task = {**_AUTO_TASK, "doneCriteria": _DONE_CRITERIA}
+    result, verify, _ = await _sweep_with_verification(monkeypatch, task=task, flag="true")
+    verify.assert_not_awaited()
+    assert result == "done"
+
+
+@pytest.mark.asyncio
+async def test_hook_without_done_criteria_does_not_verify(monkeypatch):
+    result, verify, bodies = await _sweep_with_verification(monkeypatch, task=dict(_AUTO_TASK))
+    verify.assert_not_awaited()
+    assert result == "done" and [b["toStatus"] for b in bodies] == ["in_progress", "done"]
+
+
+@pytest.mark.asyncio
+async def test_hook_pass_closes_task_with_verification_evidence(monkeypatch):
+    task = {**_AUTO_TASK, "doneCriteria": _DONE_CRITERIA}
+    result, verify, bodies = await _sweep_with_verification(
+        monkeypatch, task=task, outcome=_outcome(Verdict.PASS)
+    )
+    verify.assert_awaited_once()
+    kw = verify.await_args.kwargs
+    assert kw["workspace_id"] == "ws1" and kw["project_id"] == "proj1" and kw["task_id"] == "t1"
+    assert kw["done_criteria"] == _DONE_CRITERIA and kw["output_text"] == "3 stale"
+    assert kw["task_run_id"].startswith("wga_task_t1_")
+    assert result == "done"
+    assert [b["toStatus"] for b in bodies] == ["in_progress", "done"]
+    assert "verification:vr_1" in bodies[1]["evidenceRefs"]
+
+
+@pytest.mark.asyncio
+async def test_hook_pass_without_report_id_adds_no_verification_ref(monkeypatch):
+    task = {**_AUTO_TASK, "doneCriteria": _DONE_CRITERIA}
+    result, _, bodies = await _sweep_with_verification(
+        monkeypatch, task=task, outcome=_outcome(Verdict.PASS, report_id=None)
+    )
+    assert result == "done"
+    assert not any(r.startswith("verification:") for r in bodies[1]["evidenceRefs"])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("verdict", "prefix"),
+    [(Verdict.FAIL, "verification_fail: "), (Verdict.INCONCLUSIVE, "verification_inconclusive: ")],
+)
+async def test_hook_non_pass_never_closes_task(monkeypatch, verdict, prefix):
+    task = {**_AUTO_TASK, "doneCriteria": _DONE_CRITERIA}
+    result, _, bodies = await _sweep_with_verification(
+        monkeypatch, task=task, outcome=_outcome(verdict, summary="x" * 300)
+    )
+    assert result == "pending_review"
+    assert [b["toStatus"] for b in bodies] == ["in_progress", "in_progress"]
+    assert not any(b["toStatus"] == "done" for b in bodies)
+    assert bodies[1]["note"].startswith(prefix) and len(bodies[1]["note"]) <= 500
+
+
+@pytest.mark.asyncio
+async def test_hook_non_pass_survives_company_rejection(monkeypatch):
+    task = {**_AUTO_TASK, "doneCriteria": _DONE_CRITERIA}
+    monkeypatch.setenv("WGA_VERIFY_ON_COMPLETE", "1")
+    monkeypatch.setattr(
+        wga_run, "verify_task_result", AsyncMock(return_value=_outcome(Verdict.FAIL))
+    )
+    company = AsyncMock()
+    company.post.side_effect = [{"status": "ok"}, CompanyServiceError("rejected")]
+    plane = _plane(company, kernel_result=_run_result(RunStatus.COMPLETED, {"response": "x"}))
+    result = await wga_run._execute_claimed_task(
+        plane, task, workspace_id="ws1", sub="42", sweep_project_id="proj1"
+    )
+    assert result == "pending_review"
+
+
+@pytest.mark.asyncio
+async def test_hook_needs_approval_task_is_not_verified(monkeypatch):
+    task = {**_AUTO_TASK, "autonomyClass": "NEEDS_APPROVAL", "doneCriteria": _DONE_CRITERIA}
+    result, verify, bodies = await _sweep_with_verification(
+        monkeypatch, task=task, outcome=_outcome(Verdict.PASS)
+    )
+    verify.assert_not_awaited()
+    assert result == "pending_review"
+    assert [b["toStatus"] for b in bodies] == ["in_progress", "in_progress"]
+    assert bodies[1]["note"] == "completion_pending_founder_review"
+
+
+@pytest.mark.asyncio
+async def test_hook_unexpected_verifier_exception_does_not_crash_sweep(monkeypatch):
+    # Hợp đồng: verify_task_result không ném. Nếu vẫn ném, hook phải fail-closed (không đóng task).
+    task = {**_AUTO_TASK, "doneCriteria": _DONE_CRITERIA}
+    result, _, bodies = await _sweep_with_verification(
+        monkeypatch, task=task, side_effect=RuntimeError("boom")
+    )
+    assert result == "pending_review"
+    assert not any(b["toStatus"] == "done" for b in bodies)
+    assert bodies[-1]["note"].startswith("verification_inconclusive")
