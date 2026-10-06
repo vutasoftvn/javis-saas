@@ -1026,7 +1026,7 @@ async def test_hook_non_pass_never_closes_task(monkeypatch, verdict, prefix):
     assert result == "pending_review"
     assert [b["toStatus"] for b in bodies] == ["in_progress", "in_progress"]
     assert not any(b["toStatus"] == "done" for b in bodies)
-    assert bodies[1]["note"].startswith(prefix) and len(bodies[1]["note"]) <= 500
+    assert bodies[1]["note"] == prefix + "x" * 300
 
 
 @pytest.mark.asyncio
@@ -1043,6 +1043,8 @@ async def test_hook_non_pass_survives_company_rejection(monkeypatch):
         plane, task, workspace_id="ws1", sub="42", sweep_project_id="proj1"
     )
     assert result == "pending_review"
+    statuses = [c.kwargs["json"]["toStatus"] for c in company.post.await_args_list]
+    assert statuses == ["in_progress", "in_progress"]
 
 
 @pytest.mark.asyncio
@@ -1066,4 +1068,14 @@ async def test_hook_unexpected_verifier_exception_does_not_crash_sweep(monkeypat
     )
     assert result == "pending_review"
     assert not any(b["toStatus"] == "done" for b in bodies)
-    assert bodies[-1]["note"].startswith("verification_inconclusive")
+    assert bodies[-1]["note"] == "verification_inconclusive: verification_error:RuntimeError"
+
+
+@pytest.mark.asyncio
+async def test_hook_all_optional_criteria_pass_closes_task_by_design(monkeypatch):
+    # combine() = PASS khi không có tiêu chí bắt buộc: task tự đóng (thiết kế có tài liệu).
+    task = {**_AUTO_TASK, "doneCriteria": _DONE_CRITERIA}
+    result, _, bodies = await _sweep_with_verification(
+        monkeypatch, task=task, outcome=_outcome(Verdict.PASS, summary="0/0 tiêu chí bắt buộc đạt")
+    )
+    assert result == "done" and bodies[-1]["toStatus"] == "done"

@@ -56,10 +56,34 @@ async def _verify(plane, dc, *, output_text="out", run_result=None):
     )
 
 
-def _art(kind="report", name="WGA task output", run_id=_RUN, status="available", archived=None):
+def _art(
+    kind="report",
+    name="Tool report",
+    run_id=_RUN,
+    status="available",
+    archived=None,
+    object_ref="artifact://tool/created/1",
+):
+    """Artifact do công cụ của agent tạo ra."""
     return SimpleNamespace(
-        artifact_kind=kind, display_name=name, run_id=run_id, status=status, archived_at=archived
+        artifact_kind=kind,
+        display_name=name,
+        run_id=run_id,
+        status=status,
+        archived_at=archived,
+        object_ref=object_ref,
     )
+
+
+def _evidence(**over):
+    """Artifact output tự động của nền tảng (record_wga_task_evidence)."""
+    base = dict(
+        kind="report",
+        name="WGA task output",
+        object_ref=f"artifact://run/{_RUN}/task-output",
+    )
+    base.update(over)
+    return _art(**base)
 
 
 _ART_EXISTS = _crit("c1", "deterministic", predicate={"kind": "artifact_exists", "args": {}})
@@ -248,3 +272,127 @@ async def test_flag_is_read_at_call_time(monkeypatch):
     assert wga_verify.verification_enabled() is True
     monkeypatch.setenv("WGA_VERIFY_ON_COMPLETE", "true")
     assert wga_verify.verification_enabled() is False
+
+
+async def test_platform_evidence_artifact_never_satisfies_artifact_exists():
+    # (a) chỉ có artifact evidence của nền tảng => FAIL
+    out = await _verify(_plane([_evidence()]), _dc(_ART_EXISTS))
+    assert out.verdict is Verdict.FAIL and out.results[0].reason == "artifact_not_found"
+    # (c) {kind: report} chỉ với evidence => FAIL; display_name_contains cũng không đạt
+    by_kind = _crit(
+        "c1", "deterministic", predicate={"kind": "artifact_exists", "args": {"kind": "report"}}
+    )
+    assert (await _verify(_plane([_evidence()]), _dc(by_kind))).verdict is Verdict.FAIL
+    by_name = _crit(
+        "c1",
+        "deterministic",
+        predicate={"kind": "artifact_exists", "args": {"display_name_contains": "output"}},
+    )
+    assert (await _verify(_plane([_evidence()]), _dc(by_name))).verdict is Verdict.FAIL
+
+
+async def test_evidence_without_object_ref_is_matched_by_kind_and_name():
+    ev = _evidence(object_ref=None)
+    assert (await _verify(_plane([ev]), _dc(_ART_EXISTS))).verdict is Verdict.FAIL
+    # cùng tên nhưng khác kind => là artifact thật
+    other = _evidence(object_ref=None, kind="table")
+    assert (await _verify(_plane([other]), _dc(_ART_EXISTS))).verdict is Verdict.PASS
+
+
+async def test_real_file_export_passes_next_to_evidence():
+    crit = _crit(
+        "c1",
+        "deterministic",
+        predicate={"kind": "artifact_exists", "args": {"kind": "file_export"}},
+    )
+    real = _art(kind="file_export", name="plan.xlsx")
+    out = await _verify(_plane([_evidence(), real]), _dc(crit))
+    assert out.verdict is Verdict.PASS
+
+
+async def test_reason_is_sanitised_in_report_and_absent_from_summary(monkeypatch):
+    nasty = "\x00\x1b[31m\u202e[click](http://x.y)"
+
+    async def fake_judge(plane, **kw):
+        return wga_verify.JudgeResult({"c1": (CriterionVerdict.FAIL, nasty)}, "v", None)
+
+    monkeypatch.setattr(wga_verify, "run_judge", fake_judge)
+    plane = _plane()
+    out = await _verify(plane, _dc(_crit("c1")))
+    saved = await plane.verification_report_repository.get_for_run("ws1", _RUN)
+    reason = saved.criteria_results[0]["reason"]
+    assert not any(ord(ch) < 32 or ch == "\u202e" for ch in reason)
+    assert "click" in reason
+    assert out.summary == "0/1 tiêu chí bắt buộc đạt c1(fail)"
+    assert "click" not in out.summary
+
+
+async def test_summary_carries_codes_only(monkeypatch):
+    async def fake_judge(plane, **kw):
+        return wga_verify.JudgeResult(
+            {
+                "c2": (CriterionVerdict.FAIL, "SECRET free text"),
+                "c3": (CriterionVerdict.UNCLEAR, "judge_omitted"),
+            },
+            "v",
+            None,
+        )
+
+    monkeypatch.setattr(wga_verify, "run_judge", fake_judge)
+    out = await _verify(_plane(), _dc(_crit("c2"), _crit("c3")))
+    assert out.summary == "0/2 tiêu chí bắt buộc đạt c2(fail) c3(unclear:judge_omitted)"
+
+
+async def test_summary_is_truncated_on_token_boundary(monkeypatch):
+    ids = [f"criterion_{i:02d}" for i in range(10)]
+
+    async def fake_judge(plane, **kw):
+        return wga_verify.JudgeResult({i: (CriterionVerdict.FAIL, "x") for i in ids}, "v", None)
+
+    monkeypatch.setattr(wga_verify, "run_judge", fake_judge)
+    monkeypatch.setattr(wga_verify, "_SUMMARY_MAX", 60)
+    out = await _verify(_plane(), _dc(*[_crit(i) for i in ids]))
+    assert len(out.summary) <= 60 and out.summary.endswith("(fail)")
+
+
+async def test_existing_stored_report_wins_when_verdict_differs():
+    plane = _plane()  # không artifact => lần này FAIL
+    from datetime import UTC, datetime
+
+    from agent.verification.repository import VerificationReport
+
+    await plane.verification_report_repository.create_if_absent(
+        VerificationReport(
+            report_id="vr_old",
+            workspace_id="ws1",
+            task_id="123",
+            run_id=_RUN,
+            verdict="PASS",
+            mode="deterministic",
+            criteria_results=[
+                {
+                    "id": "c1",
+                    "required": True,
+                    "check": "deterministic",
+                    "verdict": "pass",
+                    "reason": "artifact_found",
+                }
+            ],
+            criteria_hash="a" * 64,
+            output_hash="b" * 64,
+            created_at=datetime.now(UTC),
+        )
+    )
+    out = await _verify(plane, _dc(_ART_EXISTS))
+    assert out.report_id == "vr_old" and out.verdict is Verdict.PASS
+    ev = plane.run_repository.append_event.await_args.args[0]
+    assert ev.payload["verdict"] == "PASS" and ev.payload["report_id"] == "vr_old"
+
+
+async def test_all_optional_criteria_auto_pass_by_design():
+    # Thiết kế có tài liệu: không có tiêu chí bắt buộc nào thì combine = PASS và task tự đóng.
+    optional = _crit(
+        "c1", "deterministic", required=False, predicate={"kind": "artifact_exists", "args": {}}
+    )
+    out = await _verify(_plane(), _dc(optional))
+    assert out.verdict is Verdict.PASS and out.results[0].verdict is CriterionVerdict.FAIL

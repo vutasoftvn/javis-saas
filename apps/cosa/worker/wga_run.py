@@ -764,6 +764,7 @@ async def _execute_claimed_task(
                     f"verification_error:{exc.__class__.__name__}",
                     [],
                 )
+        # Lưu ý thiết kế: nếu MỌI tiêu chí đều không bắt buộc thì combine() = PASS và task tự đóng.
         if verification is not None and verification.verdict is not Verdict.PASS:
             # FAIL/INCONCLUSIVE: không bao giờ đóng 'done'; giữ in_progress để founder xem lại.
             await _advance_task(

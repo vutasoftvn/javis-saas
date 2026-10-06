@@ -7,12 +7,13 @@
 from __future__ import annotations
 
 import json
+import unicodedata
 from collections.abc import Collection, Sequence
 from typing import Any
 
 from agent.verification.models import CriterionVerdict
 
-__all__ = ["JudgeOutputError", "build_judge_prompt", "parse_judge_output"]
+__all__ = ["JudgeOutputError", "build_judge_prompt", "clean_reason", "parse_judge_output"]
 
 _BEGIN = "<<<PRODUCER_OUTPUT_BEGIN>>>"
 _END = "<<<PRODUCER_OUTPUT_END>>>"
@@ -30,8 +31,18 @@ def _clean(value: object, limit: int = _MAX_FIELD) -> str:
     return " ".join(str(value).split())[:limit]
 
 
+def _strip_controls(text: str) -> str:
+    """Bỏ ký tự điều khiển (Cc: NUL, ESC...) và định dạng (Cf: bidi override, zero-width)."""
+    return "".join(ch for ch in text if unicodedata.category(ch) not in ("Cc", "Cf"))
+
+
 def _clean_reason(value: object) -> str:
-    return _clean(value, _MAX_REASON) if isinstance(value, str) else ""
+    if not isinstance(value, str):
+        return ""
+    return _strip_controls(_clean(value, _MAX_REASON)).strip()
+
+
+clean_reason = _clean_reason
 
 
 def _parse_verdict(value: object) -> CriterionVerdict:

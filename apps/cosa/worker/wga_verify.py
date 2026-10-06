@@ -6,6 +6,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -17,7 +18,12 @@ from agent.contracts.spec import AgentSpec
 from agent.runs.models import RunEventRecord, RunStatus
 from agent.verification.combine import combine
 from agent.verification.deterministic import evaluate_deterministic
-from agent.verification.judge import JudgeOutputError, build_judge_prompt, parse_judge_output
+from agent.verification.judge import (
+    JudgeOutputError,
+    build_judge_prompt,
+    clean_reason,
+    parse_judge_output,
+)
 from agent.verification.models import (
     ArtifactFact,
     CriterionResult,
@@ -155,9 +161,26 @@ def _valid_id(criterion: object) -> bool:
     )
 
 
+def _is_platform_evidence(artifact: Any, task_run_id: str) -> bool:
+    """Artifact output tự động do `record_wga_task_evidence` tạo (khớp object_ref; nếu thiếu
+    object_ref thì khớp kind=report + tên cố định)."""
+    object_ref = getattr(artifact, "object_ref", None)
+    if object_ref:
+        return bool(object_ref == f"artifact://run/{task_run_id}/task-output")
+    return (
+        getattr(artifact, "artifact_kind", None) == "report"
+        and getattr(artifact, "display_name", None) == "WGA task output"
+    )
+
+
 async def collect_run_facts(
     plane: Any, *, workspace_id: str, task_run_id: str, run_result: Any, output_text: str
 ) -> RunFacts:
+    """Dữ kiện có thật của run để chấm tiêu chí tất định.
+
+    `artifacts` chỉ gồm artifact do công cụ của agent tạo ra: artifact output tự động của nền tảng
+    (`record_wga_task_evidence`, chạy TRƯỚC khi xác minh) KHÔNG BAO GIỜ được tính, nếu không
+    `artifact_exists` luôn đạt."""
     final = getattr(run_result, "final_output", None)
     structured = final if isinstance(final, dict) and set(final) != {"response"} else None
     artifacts: list[ArtifactFact] = []
@@ -169,6 +192,7 @@ async def collect_run_facts(
                 ArtifactFact(kind=str(a.artifact_kind), display_name=str(a.display_name))
                 for a in rows
                 if a.run_id == task_run_id
+                and not _is_platform_evidence(a, task_run_id)
                 and getattr(a, "archived_at", None) is None
                 and getattr(a, "status", "available") != "archived"
             ]
@@ -185,22 +209,31 @@ async def collect_run_facts(
     )
 
 
-def _summarise(results: Sequence[CriterionResult]) -> str:
-    required = [r for r in results if r.required]
-    ok = sum(1 for r in required if r.verdict is CriterionVerdict.PASS)
-    parts = [f"{ok}/{len(required)} tiêu chí bắt buộc đạt"]
-    for label, verdict in (
-        ("không đạt", CriterionVerdict.FAIL),
-        ("chưa rõ", CriterionVerdict.UNCLEAR),
-    ):
-        bad = [
-            f"{r.id or '?'} ({' '.join(r.reason.split())[:_REASON_MAX]})"
-            for r in required
-            if r.verdict is verdict
-        ]
-        if bad:
-            parts.append(f"{label}: " + ", ".join(bad))
-    return "; ".join(parts)[:_SUMMARY_MAX]
+_CODE_RE = re.compile(r"[^A-Za-z0-9_.:\-]")
+
+
+def _code(reason: str) -> str:
+    return _CODE_RE.sub("", reason)[:_REASON_MAX]
+
+
+def _summarise(results: Sequence[CriterionResult], free_text: frozenset[int] = frozenset()) -> str:
+    """Tóm tắt hiển thị cho founder: CHỈ mã (id tiêu chí + mã cố định), không chứa lời giải thích tự do
+    của thẩm phán (nằm riêng trong báo cáo đã lưu)."""
+    ok = sum(1 for r in results if r.required and r.verdict is CriterionVerdict.PASS)
+    total = sum(1 for r in results if r.required)
+    tokens: list[str] = []
+    for i, r in enumerate(results):
+        if not r.required or r.verdict is CriterionVerdict.PASS:
+            continue
+        label = f"{r.id or '?'}({r.verdict.value}"
+        code = "" if i in free_text else _code(r.reason)
+        tokens.append(label + (f":{code}" if code else "") + ")")
+    out = f"{ok}/{total} tiêu chí bắt buộc đạt"
+    for token in tokens:
+        if len(out) + 1 + len(token) > _SUMMARY_MAX:
+            break
+        out += " " + token
+    return out
 
 
 def _sha256(text: str) -> str:
@@ -209,13 +242,12 @@ def _sha256(text: str) -> str:
 
 async def _store_report(
     plane: Any, report: VerificationReport, *, workspace_id: str, task_run_id: str
-) -> str | None:
+) -> VerificationReport | None:
     repo = getattr(plane, "verification_report_repository", None)
     if repo is None:
         return None
     try:
-        stored = await repo.create_if_absent(report)
-        return stored.report_id
+        return await repo.create_if_absent(report)
     except Exception as exc:
         logger.warning(
             "verify: storing report failed ws=%s run=%s: %s",
@@ -320,6 +352,7 @@ async def _verify_task_result(
 
     # Tiêu chí có id hợp lệ mới được chấm; id hỏng => UNCLEAR `invalid_criterion` (fail-closed, hiển thị).
     slots: list[CriterionResult | None] = [None] * len(criteria)
+    free_text: set[int] = set()  # kết quả có `reason` là lời tự do của thẩm phán (không vào note)
     rubric: list[tuple[int, dict[str, Any]]] = []
     for i, c in enumerate(criteria):
         if not _valid_id(c):
@@ -356,6 +389,9 @@ async def _verify_task_result(
                 crit_verdict, reason = judge.verdicts.get(
                     c["id"], (CriterionVerdict.UNCLEAR, "judge_omitted")
                 )
+                if reason != "judge_omitted":
+                    free_text.add(i)
+                reason = clean_reason(reason)
             slots[i] = CriterionResult(
                 id=c["id"],
                 required=bool(c.get("required", True)),
@@ -367,7 +403,7 @@ async def _verify_task_result(
     results = [r for r in slots if r is not None]
     verdict = combine(results)
     mode = "deterministic+judge" if judge is not None else "deterministic"
-    summary = _summarise(results)
+    summary = _summarise(results, frozenset(free_text))
 
     report = VerificationReport(
         report_id=f"vr_{uuid.uuid4().hex}",
@@ -385,9 +421,34 @@ async def _verify_task_result(
         output_hash=_sha256(output_text),
         created_at=datetime.now(UTC),
     )
-    report_id = await _store_report(
-        plane, report, workspace_id=workspace_id, task_run_id=task_run_id
-    )
+    stored = await _store_report(plane, report, workspace_id=workspace_id, task_run_id=task_run_id)
+    report_id = stored.report_id if stored is not None else None
+    if (
+        stored is not None
+        and stored.report_id != report.report_id
+        and stored.verdict != verdict.value
+    ):
+        # Báo cáo của run này đã được lưu trước đó với kết luận khác: giữ bản đã lưu (nguồn sự thật).
+        logger.warning(
+            "verify: stored report verdict differs ws=%s run=%s stored=%s new=%s",
+            workspace_id,
+            task_run_id,
+            stored.verdict,
+            verdict.value,
+        )
+        verdict = Verdict(stored.verdict)
+        mode = stored.mode
+        results = [
+            CriterionResult(
+                id=str(d.get("id", "")),
+                required=bool(d.get("required", True)),
+                check=str(d.get("check", "rubric")),
+                verdict=CriterionVerdict(d.get("verdict", "unclear")),
+                reason=str(d.get("reason", "")),
+            )
+            for d in stored.criteria_results
+        ]
+        summary = _summarise(results, frozenset(range(len(results))))
     await _emit_event(
         plane,
         project_id=project_id,

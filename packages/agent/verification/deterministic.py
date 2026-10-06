@@ -26,6 +26,8 @@ def _result(criterion: Any, verdict: CriterionVerdict, reason: str) -> Criterion
 def _artifact_exists(
     criterion: dict[str, Any], args: dict[str, Any], facts: RunFacts
 ) -> CriterionResult:
+    """Có artifact do công cụ của chính agent tạo ra (artifact output tự động của nền tảng
+    không bao giờ được tính; việc loại trừ do `collect_run_facts` đảm nhiệm)."""
     kind = args.get("kind")
     needle = args.get("display_name_contains")
     if (kind is not None and (not isinstance(kind, str) or kind not in _ARTIFACT_KINDS)) or (

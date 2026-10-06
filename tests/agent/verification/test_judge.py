@@ -292,3 +292,11 @@ def test_comparisons_in_non_output_fields_keep_meaning_but_markers_stay_neutral(
     assert "t \u2265 1" in p and "r \u2264 2" in p
     assert p.count(_BEGIN) == 1 and p.count(_END) == 1
     assert _body(p).strip() == "o \u203a= 1"  # thân đầu ra vẫn vô hiệu hoàn toàn
+
+
+def test_reason_strips_control_and_bidi_characters():
+    raw = json.dumps(
+        {"results": [{"id": "c1", "verdict": "fail", "reason": "\x00\x1b[31m\u202e\u200b[click]"}]}
+    )
+    reason = parse_judge_output(raw, ["c1"])["c1"][1]
+    assert reason == "[31m[click]"
