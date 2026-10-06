@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
+from typing import Any
 
 from agent.workforce.catalog import FUNCTIONAL_AGENT_CATALOG, build_functional_spec
 from agent.workforce.repository import WorkforceRepository, WorkforceScheduleRecord
@@ -918,6 +919,72 @@ async def list_approvals(
     # Trả về đúng MVP envelope (data/meta) thay vì object thô {items,total} —
     # tránh vi phạm contract chung mà mọi consumer MvpRequestClient đang giả định.
     return mvp_list(items, [MvpSourceRef(kind="agent_db", ref="agent.approvals")])
+
+
+_VERIFICATION_REPORT_MAX_LIMIT = 50
+_VERIFICATION_REASON_MAX = 300
+
+
+def _verification_report_view(report: Any) -> dict[str, Any]:
+    """Chỉ các trường công khai — không lộ criteria_hash/output_hash (nội bộ)."""
+    created = report.created_at
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=UTC)
+    return {
+        "reportId": report.report_id,
+        "taskId": report.task_id,
+        "runId": report.run_id,
+        "verifierRunId": report.verifier_run_id,
+        "verdict": report.verdict,
+        "mode": report.mode,
+        "criteriaResults": [
+            {
+                "id": c.get("id"),
+                "required": c.get("required"),
+                "check": c.get("check"),
+                "verdict": c.get("verdict"),
+                "reason": str(c.get("reason") or "")[:_VERIFICATION_REASON_MAX],
+            }
+            for c in report.criteria_results
+            if isinstance(c, dict)
+        ],
+        "createdAt": created.astimezone(UTC).isoformat().replace("+00:00", "Z"),
+    }
+
+
+@router.get("/verification-reports")
+async def list_verification_reports(
+    request: Request,
+    task_id: str | None = Query(None, alias="taskId"),
+    run_id: str | None = Query(None, alias="runId"),
+    limit: int = Query(20),
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+) -> MvpSuccess[list[dict[str, Any]]]:
+    """Báo cáo kiểm tra tiêu chí hoàn thành theo task (`taskId`) hoặc run (`runId`).
+
+    Workspace chỉ lấy từ principal đã xác thực.
+    """
+    if not task_id and not run_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Cần taskId hoặc runId",
+        )
+    plane = _get_plane(request)
+    repo = getattr(plane, "verification_report_repository", None)
+    reports: list[Any] = []
+    if repo is not None:
+        if run_id:
+            one = await repo.get_for_run(identity.workspace_id, run_id)
+            if one is not None and (not task_id or one.task_id == task_id):
+                reports = [one]
+        else:
+            assert task_id is not None
+            clamped = max(1, min(limit, _VERIFICATION_REPORT_MAX_LIMIT))
+            reports = await repo.list_for_task(identity.workspace_id, task_id, limit=clamped)
+    return mvp_list(
+        [_verification_report_view(r) for r in reports],
+        [MvpSourceRef(kind="agent_db", ref="agent.verification_reports")],
+    )
 
 
 @router.post("/approvals/{approval_id}/decision")
