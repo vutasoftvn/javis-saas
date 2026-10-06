@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
+import math
 import os
 import re
 import uuid
@@ -138,7 +140,41 @@ async def run_judge(
             )
         except JudgeOutputError as exc:
             last_error = str(exc)
-    return JudgeResult(None, verifier_run_id, f"judge_output_invalid:{last_error}")
+    logger.warning("verify: judge output invalid run=%s: %s", task_run_id, last_error[:200])
+    return JudgeResult(None, verifier_run_id, "judge_output_invalid")
+
+
+_JUDGE_TIMEOUT_DEFAULT = 120.0
+_JUDGE_TIMEOUT_MIN = 5.0
+_JUDGE_TIMEOUT_MAX = 600.0
+
+
+def _judge_timeout_sec() -> float:
+    """`WGA_VERIFY_JUDGE_TIMEOUT_SEC` đọc lúc gọi; mặc định 120, kẹp 5..600, sai => mặc định."""
+    raw = os.environ.get("WGA_VERIFY_JUDGE_TIMEOUT_SEC")
+    if raw is None:
+        return _JUDGE_TIMEOUT_DEFAULT
+    try:
+        value = float(raw)
+    except ValueError:
+        return _JUDGE_TIMEOUT_DEFAULT
+    if math.isnan(value):
+        return _JUDGE_TIMEOUT_DEFAULT
+    return max(_JUDGE_TIMEOUT_MIN, min(value, _JUDGE_TIMEOUT_MAX))
+
+
+async def run_judge_with_timeout(
+    plane: Any, *, timeout_sec: float | None = None, **kwargs: Any
+) -> JudgeResult:
+    """`run_judge` có giới hạn thời gian. Hết giờ => JudgeResult(error="judge_timeout").
+    `timeout_sec` (nội bộ, dùng cho test) bỏ qua phần kẹp của biến môi trường.
+    CancelledError vẫn lan truyền."""
+    seconds = _judge_timeout_sec() if timeout_sec is None else timeout_sec
+    try:
+        async with asyncio.timeout(seconds):
+            return await run_judge(plane, **kwargs)
+    except TimeoutError:
+        return JudgeResult(None, f"{kwargs.get('task_run_id', '')}__verify", "judge_timeout")
 
 
 _SUMMARY_MAX = 300
@@ -376,7 +412,7 @@ async def _verify_task_result(
 
     judge: JudgeResult | None = None
     if rubric:
-        judge = await run_judge(
+        judge = await run_judge_with_timeout(
             plane,
             producer_spec=producer_spec,
             workspace_id=workspace_id,
@@ -428,6 +464,22 @@ async def _verify_task_result(
     )
     stored = await _store_report(plane, report, workspace_id=workspace_id, task_run_id=task_run_id)
     report_id = stored.report_id if stored is not None else None
+    if verdict is Verdict.PASS and report_id is None:
+        # Fail-closed khi mất dấu vết kiểm toán: không có báo cáo thì không đóng task.
+        await _emit_event(
+            plane,
+            project_id=project_id,
+            task_run_id=task_run_id,
+            workspace_id=workspace_id,
+            payload={
+                "verdict": Verdict.INCONCLUSIVE.value,
+                "report_id": None,
+                "mode": mode,
+                "failed": [],
+                "unclear": ["report_store_failed"],
+            },
+        )
+        return VerificationOutcome(Verdict.INCONCLUSIVE, None, "report_store_failed", results)
     if (
         stored is not None
         and stored.report_id != report.report_id

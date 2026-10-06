@@ -289,3 +289,48 @@ async def test_flag_off_skips_verification_and_closes_as_before(monkeypatch):
         assert not any(r.startswith("verification:") for r in adv[tid][1]["evidenceRefs"])
     assert await plane.verification_report_repository.list_for_task("ws1", "tA") == []
     assert _events(plane) == []
+
+
+async def test_report_store_failure_keeps_task_in_progress(monkeypatch):
+    monkeypatch.setenv("WGA_VERIFY_ON_COMPLETE", "1")
+    _install_judge(monkeypatch, {"tA": "pass"})
+    company = AsyncMock()
+    company.get.return_value = {"tasks": [_task("tA", [_artifact_crit("ca1"), _rubric("ca2")])]}
+    company.post.return_value = {"status": "ok"}
+    plane = _plane(company)
+    plane.verification_report_repository = SimpleNamespace(
+        create_if_absent=AsyncMock(side_effect=RuntimeError("db"))
+    )
+
+    await _sweep(plane)
+
+    adv = _advances(company)
+    assert [b["toStatus"] for b in adv["tA"]] == ["in_progress", "in_progress"]
+    assert adv["tA"][1]["note"] == "verification_inconclusive: report_store_failed"
+
+
+async def test_delegation_token_is_reminted_after_verification(monkeypatch):
+    monkeypatch.setenv("WGA_VERIFY_ON_COMPLETE", "1")
+    _install_judge(monkeypatch, {"tA": "pass"})
+    minted: list[str] = []
+
+    def _mint(**kw):
+        minted.append(f"tok{len(minted)}")
+        return minted[-1]
+
+    monkeypatch.setattr(wga_run, "mint_company_delegation", _mint)
+    company = AsyncMock()
+    company.get.return_value = {"tasks": [_task("tA", [_rubric("ca1")])]}
+    company.post.return_value = {"status": "ok"}
+    plane = _plane(company)
+
+    await _sweep(plane)
+
+    # list token, claim token, token cấp lại sau xác minh
+    assert minted == ["tok0", "tok1", "tok2"]
+    auth = [
+        c.kwargs["headers"]["Authorization"]
+        for c in company.post.await_args_list
+        if c.args[0].endswith("/advance")
+    ]
+    assert auth == ["Bearer tok1", "Bearer tok2"]

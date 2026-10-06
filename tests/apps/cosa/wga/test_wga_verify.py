@@ -242,20 +242,92 @@ async def test_report_is_idempotent_per_run():
     assert a.report_id == b.report_id
 
 
-async def test_report_store_failure_keeps_verdict_but_no_report_id():
+async def test_report_store_failure_on_pass_is_inconclusive_fail_closed():
     plane = _plane([_art()])
     plane.verification_report_repository = SimpleNamespace(
         create_if_absent=AsyncMock(side_effect=RuntimeError("db"))
     )
     out = await _verify(plane, _dc(_ART_EXISTS))
-    assert out.verdict is Verdict.PASS and out.report_id is None
+    assert out.verdict is Verdict.INCONCLUSIVE and out.report_id is None
+    assert out.summary == "report_store_failed"
+    plane.run_repository.append_event.assert_awaited_once()  # sự kiện vẫn ghi (best-effort)
 
 
-async def test_missing_report_repository_keeps_verdict():
+async def test_missing_report_repository_on_pass_is_inconclusive():
     plane = _plane([_art()])
     del plane.verification_report_repository
     out = await _verify(plane, _dc(_ART_EXISTS))
-    assert out.verdict is Verdict.PASS and out.report_id is None
+    assert out.verdict is Verdict.INCONCLUSIVE and out.report_id is None
+
+
+async def test_report_store_failure_on_fail_keeps_fail():
+    plane = _plane([])
+    plane.verification_report_repository = SimpleNamespace(
+        create_if_absent=AsyncMock(side_effect=RuntimeError("db"))
+    )
+    out = await _verify(plane, _dc(_ART_EXISTS))
+    assert out.verdict is Verdict.FAIL and out.report_id is None
+
+
+async def test_judge_error_codes_are_fixed_not_mangled(monkeypatch):
+    async def _judge(plane, **kw):
+        return wga_verify.JudgeResult(None, "x__verify", "judge_output_invalid")
+
+    monkeypatch.setattr(wga_verify, "run_judge", _judge)
+    out = await _verify(_plane(), _dc(_crit("c1")))
+    assert out.verdict is Verdict.INCONCLUSIVE
+    assert "c1(unclear:judge_output_invalid)" in out.summary
+
+
+async def test_judge_timeout_is_inconclusive(monkeypatch):
+    import asyncio
+
+    async def _slow(plane, **kw):
+        await asyncio.sleep(5)
+
+    monkeypatch.setattr(wga_verify, "run_judge", _slow)
+    res = await wga_verify.run_judge_with_timeout(
+        _plane(), timeout_sec=0.05, task_run_id=_RUN
+    )
+    assert res.verdicts is None and res.error == "judge_timeout"
+
+    monkeypatch.setenv("WGA_VERIFY_JUDGE_TIMEOUT_SEC", "0.05")
+    assert wga_verify._judge_timeout_sec() == 5.0  # kẹp
+    monkeypatch.setenv("WGA_VERIFY_JUDGE_TIMEOUT_SEC", "abc")
+    assert wga_verify._judge_timeout_sec() == 120.0
+    monkeypatch.setenv("WGA_VERIFY_JUDGE_TIMEOUT_SEC", "9999")
+    assert wga_verify._judge_timeout_sec() == 600.0
+    monkeypatch.delenv("WGA_VERIFY_JUDGE_TIMEOUT_SEC")
+    assert wga_verify._judge_timeout_sec() == 120.0
+
+
+async def test_orchestrator_turns_judge_timeout_into_inconclusive(monkeypatch):
+    import asyncio
+
+    async def _slow(plane, **kw):
+        await asyncio.sleep(5)
+
+    monkeypatch.setattr(wga_verify, "run_judge", _slow)
+    monkeypatch.setattr(wga_verify, "_judge_timeout_sec", lambda: 0.05)
+    out = await _verify(_plane(), _dc(_crit("c1")))
+    assert out.verdict is Verdict.INCONCLUSIVE
+    assert "c1(unclear:judge_timeout)" in out.summary
+
+
+async def test_judge_cancellation_propagates(monkeypatch):
+    import asyncio
+
+    async def _slow(plane, **kw):
+        await asyncio.sleep(5)
+
+    monkeypatch.setattr(wga_verify, "run_judge", _slow)
+    task = asyncio.create_task(
+        wga_verify.run_judge_with_timeout(_plane(), timeout_sec=30, task_run_id=_RUN)
+    )
+    await asyncio.sleep(0.01)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
 
 
 async def test_event_failure_does_not_change_verdict():

@@ -752,8 +752,8 @@ async def _execute_claimed_task(
                     project_id=task_project_id,
                     task_id=task_id,
                     task_run_id=task_run_id,
-                    task_title=t.get("title", ""),
-                    decision_reason=t.get("decisionReason", ""),
+                    task_title=t.get("title") or "",
+                    decision_reason=t.get("decisionReason") or "",
                     done_criteria=done_criteria,
                     run_result=run_result,
                     output_text=output_text,
@@ -766,6 +766,10 @@ async def _execute_claimed_task(
                     f"verification_error:{exc.__class__.__name__}",
                     [],
                 )
+        # Token ủy quyền sống 600s; run + thẩm phán có thể làm nó hết hạn: cấp lại ngay trước advance.
+        adv_token = mint_company_delegation(
+            sub=sub, workspace_id=workspace_id, run_id=task_run_id, capability_ids=caps
+        )
         # Lưu ý thiết kế: nếu MỌI tiêu chí đều không bắt buộc thì combine() = PASS và task tự đóng.
         if verification is not None and verification.verdict is not Verdict.PASS:
             # FAIL/INCONCLUSIVE: không bao giờ đóng 'done'; giữ in_progress để founder xem lại.

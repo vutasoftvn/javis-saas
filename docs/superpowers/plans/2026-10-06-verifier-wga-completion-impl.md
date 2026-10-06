@@ -16,7 +16,7 @@ Thiết kế gốc đã lỗi thời: `docs/superpowers/plans/2026-10-05-agent-s
 2. **Chỉ kiểm đường chạy đầu tiên của task AUTO.** Task `NEEDS_APPROVAL` đã bắt founder duyệt checkpoint và đường resume đã có người duyệt; xác minh ở đó để dành về sau (ghi trong tài liệu).
 3. **Hợp đồng kết quả** (chỉ khi cờ bật và task có `doneCriteria`):
    - `PASS` (mọi tiêu chí bắt buộc đạt) ⇒ đóng `done` như hiện nay, thêm `verification:{report_id}` vào evidence refs.
-   - `FAIL` (có tiêu chí bắt buộc không đạt) ⇒ **không** đóng; `advance in_progress` với note `verification_failed: ...`.
+   - `FAIL` (có tiêu chí bắt buộc không đạt) ⇒ **không** đóng; `advance in_progress` với note `verification_fail: ...`.
    - `INCONCLUSIVE` (có tiêu chí bắt buộc không kiểm được: thẩm phán lỗi, hết ngân sách, `metric_gte`, `field_present` trên đầu ra không có cấu trúc…) ⇒ **fail-closed**: không đóng, note `verification_inconclusive: ...`; founder có thể xác nhận bằng đường thủ công sẵn có.
    - Tiêu chí `required: false` được ghi lại nhưng không chặn.
    - Không có `doneCriteria` hoặc cờ tắt ⇒ hành vi cũ, không kiểm.

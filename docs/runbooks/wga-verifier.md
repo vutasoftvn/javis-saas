@@ -53,6 +53,18 @@ Thẩm phán dùng route mặc định (có thể cùng mô hình với producer
 2. Theo dõi tỉ lệ FAIL/INCONCLUSIVE bất thường (nhiều INCONCLUSIVE thường là lỗi route/ngân sách thẩm phán).
 3. Rollback: tắt cờ; task mới trở lại hành vi cũ. Báo cáo đã lưu giữ nguyên.
 
+## Cập nhật sau review cuối
+
+- **Prompt phân rã** giờ yêu cầu LLM dùng tiêu chí `rubric`: ở v1 `field_present`/`metric_gte` luôn INCONCLUSIVE và `artifact_exists` gần như luôn FAIL (chỉ công cụ tạo file/web_search mới sinh artifact), nên tiêu chí tất định chỉ dành cho việc agent chứng minh được bằng công cụ. Parser vẫn chấp nhận tiêu chí tất định do founder/nguồn khác đặt.
+- **Timeout thẩm phán:** `WGA_VERIFY_JUDGE_TIMEOUT_SEC` (đọc lúc gọi; mặc định 120, kẹp 5..600, giá trị sai => mặc định). Hết giờ => tiêu chí rubric `UNCLEAR` mã `judge_timeout` => INCONCLUSIVE.
+- **Cấp lại token ủy quyền** (TTL 600 s) ngay sau xác minh, trước khi advance/finalize, để run dài + thẩm phán không làm advance bị Company từ chối âm thầm.
+- **Mất dấu vết kiểm toán:** nếu verdict là PASS nhưng không lưu được báo cáo (`report_id` rỗng) thì kết quả là INCONCLUSIVE, note `verification_inconclusive: report_store_failed`, task không đóng (sự kiện vẫn ghi best-effort).
+- Mã lỗi thẩm phán cố định: `judge_output_invalid`, `judge_run_failed:<reason_code>`, `judge_timeout`, `judge_omitted`.
+
+## Ràng buộc cần lưu ý (compliance)
+
+Producer WGA và thẩm phán đều khai `model_input_capability_ref` mà không có `direct_message_data_access`, nên ở production cổng data-model hiện ném `DATA_ACCESS_CLAIM_MISSING` cho cả hai. Ai sửa claim cho producer WGA **phải** thêm cùng metadata vào `extra_metadata` của `run_judge`, nếu không mọi task có rubric đều INCONCLUSIVE.
+
 ## Giới hạn đã biết
 
 - `reason` trong báo cáo là văn bản tự do của thẩm phán đã làm sạch (bỏ ký tự điều khiển, cắt độ dài), không đưa vào note.

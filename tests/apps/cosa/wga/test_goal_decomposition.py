@@ -275,3 +275,27 @@ def test_prompt_without_goal_ancestry_has_no_goal_context_block():
     for ancestry in (None, {}, {"goalChain": [], "companyObjective": None}):
         prompt = build_decomposition_prompt("G", {"goal_ancestry": ancestry})
         assert "GOAL CONTEXT" not in prompt
+
+
+def test_prompt_asks_for_rubric_criteria_and_reserves_deterministic():
+    prompt = build_decomposition_prompt("G", {})
+    assert 'ALWAYS use "check":"rubric"' in prompt
+    assert "NEVER use metric_gte or field_present" in prompt
+    assert '"check":"rubric"' in prompt and '"check":"deterministic"' not in prompt
+    assert '"predicate"' not in prompt
+
+
+def test_parser_still_accepts_deterministic_criteria():
+    crit = {
+        "version": 1,
+        "criteria": [
+            {
+                "id": "c1",
+                "description": "Có file",
+                "required": True,
+                "check": "deterministic",
+                "predicate": {"kind": "artifact_exists", "args": {"kind": "file_export"}},
+            }
+        ],
+    }
+    assert parse_plan_output(_plan(done_criteria=crit))[0].done_criteria is not None

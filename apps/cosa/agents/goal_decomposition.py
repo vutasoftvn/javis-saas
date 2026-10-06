@@ -166,10 +166,14 @@ def build_decomposition_prompt(goal_text: str, context: dict) -> str:
         "(risk above LOW); optional otherwise (do not invent one for purely human "
         "items). Shape: "
         '{"version":1,"criteria":[{"id":"c1",'
-        '"description":"...","required":true,"check":"deterministic"|"rubric",'
-        ' "predicate":{"kind":"artifact_exists"|"metric_gte"|"field_present",'
-        '"args":{...}} | "rubric":"..."}]} - 1..10 verifiable criteria describing '
-        "when the item is done.\n\n"
+        '"description":"...","required":true,"check":"rubric",'
+        '"rubric":"..."}]} - 1..10 verifiable criteria describing '
+        "when the item is done.\n"
+        'In this version ALWAYS use "check":"rubric" for criteria. Deterministic '
+        "predicates are reserved for criteria the agent's tools can demonstrably "
+        'satisfy: use "artifact_exists" only when the task explicitly asks to '
+        "produce a file/document artifact via a tool; NEVER use metric_gte or "
+        "field_present.\n\n"
         "If an item is purely human work (e.g. 'Interview 3 customers'), set both "
         "suggested_domain and expected_capability to null.\n\n"
         "Return ONLY a JSON object of the form "
