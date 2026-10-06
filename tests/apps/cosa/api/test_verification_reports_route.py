@@ -156,3 +156,22 @@ def test_empty_repository_and_missing_repository(env):
     env["plane"].verification_report_repository = None
     resp = env["client"].get(_URL, params={"taskId": "t1"})
     assert resp.status_code == 200 and resp.json()["data"] == []
+
+
+def test_non_integer_limit_is_422(env):
+    assert env["client"].get(_URL, params={"taskId": "t1", "limit": "abc"}).status_code == 422
+
+
+def test_over_long_ids_are_422(env):
+    assert env["client"].get(_URL, params={"taskId": "t" * 129}).status_code == 422
+    assert env["client"].get(_URL, params={"runId": "r" * 129}).status_code == 422
+    assert env["client"].get(_URL, params={"taskId": "t" * 128}).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_task_and_run_mismatch_returns_empty(env):
+    await env["repo"].create_if_absent(_report())
+    resp = env["client"].get(_URL, params={"taskId": "other_task", "runId": "run_1"})
+    assert resp.status_code == 200 and resp.json()["data"] == []
+    ok = env["client"].get(_URL, params={"taskId": "t1", "runId": "run_1"}).json()["data"]
+    assert [d["reportId"] for d in ok] == ["vr_1"]

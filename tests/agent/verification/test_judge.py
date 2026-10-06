@@ -308,3 +308,9 @@ def test_reason_strips_lone_surrogates_so_it_is_valid_utf8():
     assert reason == "xy"
     reason.encode("utf-8")
     assert json.loads(json.dumps(reason, ensure_ascii=False).encode("utf-8")) == reason
+
+
+def test_reason_keeps_valid_astral_emoji():
+    from agent.verification.judge import clean_reason
+
+    assert clean_reason("tốt \U0001f600 ok") == "tốt \U0001f600 ok"

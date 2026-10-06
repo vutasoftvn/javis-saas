@@ -928,8 +928,6 @@ _VERIFICATION_REASON_MAX = 300
 def _verification_report_view(report: Any) -> dict[str, Any]:
     """Chỉ các trường công khai — không lộ criteria_hash/output_hash (nội bộ)."""
     created = report.created_at
-    if created.tzinfo is None:
-        created = created.replace(tzinfo=UTC)
     return {
         "reportId": report.report_id,
         "taskId": report.task_id,
@@ -955,14 +953,15 @@ def _verification_report_view(report: Any) -> dict[str, Any]:
 @router.get("/verification-reports")
 async def list_verification_reports(
     request: Request,
-    task_id: str | None = Query(None, alias="taskId"),
-    run_id: str | None = Query(None, alias="runId"),
+    task_id: str | None = Query(None, alias="taskId", max_length=128),
+    run_id: str | None = Query(None, alias="runId", max_length=128),
     limit: int = Query(20),
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ) -> MvpSuccess[list[dict[str, Any]]]:
     """Báo cáo kiểm tra tiêu chí hoàn thành theo task (`taskId`) hoặc run (`runId`).
 
-    Workspace chỉ lấy từ principal đã xác thực.
+    Workspace chỉ lấy từ principal đã xác thực. `limit` bị bỏ qua khi có `runId` (tối đa 1 báo cáo
+    mỗi run); khi chỉ có `taskId` thì `limit` được kẹp vào [1, tối đa].
     """
     if not task_id and not run_id:
         raise HTTPException(
@@ -977,8 +976,7 @@ async def list_verification_reports(
             one = await repo.get_for_run(identity.workspace_id, run_id)
             if one is not None and (not task_id or one.task_id == task_id):
                 reports = [one]
-        else:
-            assert task_id is not None
+        elif task_id:
             clamped = max(1, min(limit, _VERIFICATION_REPORT_MAX_LIMIT))
             reports = await repo.list_for_task(identity.workspace_id, task_id, limit=clamped)
     return mvp_list(
