@@ -53,8 +53,12 @@ def _neutralise_markers(text: str) -> str:
 
 
 def _safe(value: object, limit: int = _MAX_FIELD) -> str:
-    """Trường chèn vào prompt: làm sạch + vô hiệu dấu góc để không tạo thêm marker."""
-    return _neutralise_markers(_clean(value, limit))
+    """Trường chèn vào prompt: làm sạch + vô hiệu dấu góc để không tạo thêm marker.
+
+    `>=` và `<=` được đổi sang ký tự toán học (U+2265/U+2264) TRƯỚC khi vô hiệu dấu góc, để so sánh
+    trong tiêu chí ("có >= 3 rủi ro") giữ nguyên ý nghĩa; thân đầu ra producer vẫn vô hiệu hoàn toàn."""
+    cleaned = _clean(value, limit).replace(">=", "\u2265").replace("<=", "\u2264")
+    return _neutralise_markers(cleaned)
 
 
 def _criterion_line(criterion: object) -> str | None:

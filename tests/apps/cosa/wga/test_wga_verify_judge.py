@@ -78,6 +78,7 @@ async def test_judge_success_uses_verifier_spec_and_producer_compliance(stub_cor
     assert kw["conversation_id"] == "wga_verify_wga_task_123_ab12cd34"
     assert len(kw["conversation_id"]) <= 64
     assert kw["project_id"] == "p1"
+    assert kw["principal"] == "system:wga:ws1" and kw["policy_snapshot"] is None
     assert res.verifier_run_id == "wga_task_123_ab12cd34__verify"
 
 
@@ -122,7 +123,7 @@ async def test_judge_never_raises_on_route_not_found(stub_core):
 async def test_judge_failed_run_is_an_error_not_a_verdict(stub_core):
     stub_core.outputs.append(_result(None, status=RunStatus.FAILED))
     res = await wga_verify.run_judge(SimpleNamespace(), **_args())
-    assert res.verdicts is None and res.error
+    assert res.verdicts is None and res.error.startswith("judge_run_failed:")
 
 
 async def test_judge_prepare_failure_is_an_error(monkeypatch):
@@ -157,3 +158,23 @@ async def test_model_route_falls_back_to_system_default_for_verifier_spec():
     resolver = ModelRouteResolver(InMemoryModelRoutingRepository(), sd)
     route = await resolver.resolve_route("ws-no-policy", "cosa.agents.verifier")
     assert route.profile_id == "system-default"
+
+
+async def test_compliance_spec_keeps_model_input_capability(stub_core):
+    stub_core.outputs.append(_ok())
+    await wga_verify.run_judge(SimpleNamespace(), **_args())
+    cs = stub_core.calls["prepare"][0]["compliance_spec"]
+    assert list(cs.capability_refs) == [] and cs.model_input_capability_ref
+
+    stub_core.outputs.append(_ok())
+    bare = COSA_OPERATIONS_AGENT_SPEC.model_copy(update={"model_input_capability_ref": None})
+    await wga_verify.run_judge(SimpleNamespace(), **_args(producer_spec=bare))
+    cs2 = stub_core.calls["prepare"][1]["compliance_spec"]
+    assert cs2.model_input_capability_ref
+
+
+async def test_malformed_criteria_do_not_crash_expected_ids(stub_core):
+    stub_core.outputs.append(_ok())
+    crit = [*_RUBRIC, {"description": "no id"}, {"id": 7}, "junk", {"id": "  "}]
+    res = await wga_verify.run_judge(SimpleNamespace(), **_args(rubric_criteria=crit))
+    assert res.error is None and list(res.verdicts) == ["c1"]

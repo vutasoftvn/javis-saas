@@ -48,15 +48,29 @@ async def run_judge(
     rubric_criteria: Sequence[dict[str, Any]],
     output_text: str,
 ) -> JudgeResult:
-    """Chạy thẩm phán độc lập; KHÔNG bao giờ ném: mọi lỗi trở thành JudgeResult(error=...)."""
-    expected = [str(c["id"]) for c in rubric_criteria]
+    """Chạy thẩm phán độc lập.
+
+    Chuyển RunCoreError, ModelRouteNotFound, run thất bại/không hoàn tất và JSON sai thành
+    JudgeResult(error=...). KHÔNG bắt lỗi hạ tầng bất ngờ (httpx, asyncpg, RuntimeError...): người gọi
+    phải bọc (xem `verify_task_result`)."""
+    expected = [
+        str(c["id"])
+        for c in rubric_criteria
+        if isinstance(c, dict) and isinstance(c.get("id"), str) and c["id"].strip()
+    ]
     base_prompt = build_judge_prompt(
         task_title=task_title,
         decision_reason=decision_reason,
         criteria=rubric_criteria,
         output_text=output_text,
     )
-    compliance_spec = producer_spec.model_copy(update={"capability_refs": []})
+    compliance_spec = producer_spec.model_copy(
+        update={
+            "capability_refs": [],
+            "model_input_capability_ref": producer_spec.model_input_capability_ref
+            or COSA_VERIFIER_AGENT_SPEC.model_input_capability_ref,
+        }
+    )
     last_error = "judge_not_run"
     verifier_run_id: str | None = None
     for attempt in range(_JUDGE_MAX_ATTEMPTS):
