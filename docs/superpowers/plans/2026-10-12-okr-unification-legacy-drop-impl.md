@@ -3,7 +3,7 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 
-> **Trạng thái thực thi (2026-10-12):** các task đã được thực thi bằng subagent-driven-development, mỗi task có review riêng và có review cuối toàn nhánh; commit nằm trên `main`. Các bước kiểm tay trên stack chạy thật (nếu có trong Step cổng chất lượng) **chưa được chạy**; các cổng tự động đã chạy và pass như ghi trong runbook/báo cáo.
+> **Trạng thái thực thi (2026-10-12):** các task đã được thực thi bằng subagent-driven-development, mỗi task có review riêng và có review cuối toàn nhánh; commit nằm trên `main`. Các bước kiểm tay trên stack chạy thật (nếu có trong Step cổng chất lượng) **chưa được chạy, theo quyết định của chủ dự án 2026-10-12** (không dựng stack và không gọi DeepSeek thật ở đợt này); các cổng tự động đã chạy và pass như ghi trong runbook/báo cáo. Chạy kiểm tay khi có môi trường phù hợp.
 
 **Goal:** Đóng nốt hai điểm spec A0 (`docs/superpowers/specs/2026-10-05-okr-goals-unification-design.md`) chưa làm: xóa vật lý hai bảng họ cũ `strategy.objectives` / `strategy.cosa_key_results`, và chốt số phận view `strategy.v_goal_tree` / hàm `fn_goals_needing_review`.
 
