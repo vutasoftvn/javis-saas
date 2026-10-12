@@ -111,6 +111,7 @@ class CosaAgentPlane:
         usage_ledger: Any | None = None,
         ai_initiative_snapshot_store: Any | None = None,
         verification_report_repository: Any | None = None,
+        wakeup_ledger_repository: Any | None = None,
         project_activity_repository: ProjectActivityRepository | None = None,
         project_activity_service: ProjectActivityService | None = None,
         skill_candidate_store: SkillCandidateStore | None = None,
@@ -201,6 +202,9 @@ class CosaAgentPlane:
 
         # Dự án B — bằng chứng kiểm toán của Verifier (PASS/FAIL/INCONCLUSIVE theo run).
         self.verification_report_repository = verification_report_repository
+
+        # Dự án C — sổ cái wakeup (dedup/rate cap/hop cap/lý do) của workforce.
+        self.wakeup_ledger_repository = wakeup_ledger_repository
 
         # Task 3 (plan 2026-09-11-project-scoped-founder-hub) — durable
         # Project Activity repository, dùng bởi project_activity_routes.py
@@ -294,6 +298,15 @@ def _build_verification_report_repository(session_factory: Any | None) -> Any:
     if session_factory is not None:
         return PostgresVerificationReportRepository(session_factory)
     return InMemoryVerificationReportRepository()
+
+
+def _build_wakeup_ledger(session_factory: Any | None) -> Any:
+    """Postgres khi có DB (cùng session factory của model routing), InMemory cho test/dev."""
+    from agent.workforce.wakeup_ledger import InMemoryWakeupLedger, PostgresWakeupLedger
+
+    if session_factory is not None:
+        return PostgresWakeupLedger(session_factory)
+    return InMemoryWakeupLedger()
 
 
 def _build_ai_initiative_snapshot_store(session_factory: Any | None) -> Any:
@@ -627,6 +640,7 @@ def build_cosa_agent_plane(
         verification_report_repository=_build_verification_report_repository(
             storage.model_routing_session_factory
         ),
+        wakeup_ledger_repository=_build_wakeup_ledger(storage.model_routing_session_factory),
         project_activity_repository=storage.project_activity_repository,
         project_activity_service=resolved_project_activity_service,
         skill_candidate_store=storage.skill_candidate_store,

@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "generated_at": "2026-10-12T06:10:31.149Z",
+  "generated_at": "2026-10-12T06:15:23.297Z",
   "groups": {
     "agent": {
-      "fingerprint": "b60f7a4ef70ca56e535a78dcf744e3c20de737b5fefc19de30365da2c6fc153c",
+      "fingerprint": "071548007183d937bcc66564503563677922624884da5fc73330eb42cde694a7",
       "schemas": [
         "agent",
         "agent_artifact",
@@ -13,7 +13,7 @@
         "knowledge",
         "models"
       ],
-      "tables_count": 59,
+      "tables_count": 60,
       "enums": [],
       "tables": {
         "agent.agent_skill_candidates": {
@@ -6058,6 +6058,144 @@
             {
               "name": "workforce_schedules_pkey",
               "definition": "CREATE UNIQUE INDEX workforce_schedules_pkey ON agent.workforce_schedules USING btree (schedule_id)"
+            }
+          ]
+        },
+        "agent.workforce_wakeups": {
+          "schema": "agent",
+          "name": "workforce_wakeups",
+          "type": "BASE TABLE",
+          "columns": [
+            {
+              "name": "wake_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "workspace_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "assignment_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "project_id",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "reason_kind",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "source_ref",
+              "type": "text",
+              "udt": "text",
+              "nullable": false,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "hop",
+              "type": "integer",
+              "udt": "int4",
+              "nullable": false,
+              "default": "0",
+              "max_length": null,
+              "precision": 32,
+              "scale": 0
+            },
+            {
+              "name": "created_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": false,
+              "default": "now()",
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            },
+            {
+              "name": "handled_at",
+              "type": "timestamp with time zone",
+              "udt": "timestamptz",
+              "nullable": true,
+              "default": null,
+              "max_length": null,
+              "precision": null,
+              "scale": null
+            }
+          ],
+          "primary_key": {
+            "name": "workforce_wakeups_pkey",
+            "columns": [
+              "wake_id"
+            ]
+          },
+          "unique_constraints": [
+            {
+              "name": "uix_workforce_wakeups_ws_assignment_source",
+              "columns": [
+                "workspace_id",
+                "assignment_id",
+                "source_ref"
+              ]
+            }
+          ],
+          "foreign_keys": [],
+          "check_constraints": [
+            {
+              "name": "workforce_wakeups_hop_check",
+              "clause": "(hop >= 0)"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_workforce_wakeups_unhandled",
+              "definition": "CREATE INDEX idx_workforce_wakeups_unhandled ON agent.workforce_wakeups USING btree (workspace_id, assignment_id, project_id, created_at) WHERE (handled_at IS NULL)"
+            },
+            {
+              "name": "idx_workforce_wakeups_ws_assignment_created",
+              "definition": "CREATE INDEX idx_workforce_wakeups_ws_assignment_created ON agent.workforce_wakeups USING btree (workspace_id, assignment_id, created_at DESC)"
+            },
+            {
+              "name": "uix_workforce_wakeups_ws_assignment_source",
+              "definition": "CREATE UNIQUE INDEX uix_workforce_wakeups_ws_assignment_source ON agent.workforce_wakeups USING btree (workspace_id, assignment_id, source_ref)"
+            },
+            {
+              "name": "workforce_wakeups_pkey",
+              "definition": "CREATE UNIQUE INDEX workforce_wakeups_pkey ON agent.workforce_wakeups USING btree (wake_id)"
             }
           ]
         },
