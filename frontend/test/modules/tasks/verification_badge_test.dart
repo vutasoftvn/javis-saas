@@ -66,4 +66,27 @@ void main() {
     expect(find.byType(ListTile), findsNothing);
     expect(find.text('Không có tiêu chí'), findsOneWidget);
   });
+
+  test('isVerificationReasonCode chỉ nhận mã', () {
+    for (final ok in ['artifact_not_found', 'metric_below_threshold', 'judge_run_failed:usage_budget_exceeded']) {
+      expect(isVerificationReasonCode(ok), isTrue, reason: ok);
+    }
+    for (final bad in ['The report lacks risk mitigations.', 'ok', 'Có 3 rủi ro', 'Abc_def', 'a_b\nc', '']) {
+      expect(isVerificationReasonCode(bad), isFalse, reason: bad);
+    }
+  });
+
+  testWidgets('sheet hiện mã lý do và ẩn văn bản tự do', (tester) async {
+    await tester.pumpWidget(_host(VerificationBadge(
+      report: _report(VerificationVerdict.fail, criteria: const [
+        VerificationCriterion(id: 'c1', required: true, check: 'rubric', verdict: 'fail', reason: 'artifact_not_found'),
+        VerificationCriterion(id: 'c2', required: true, check: 'rubric', verdict: 'fail', reason: 'The report lacks risk mitigations.'),
+      ]),
+    )));
+    await tester.tap(find.text('Không đạt'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('artifact_not_found'), findsOneWidget);
+    expect(find.textContaining('lacks risk'), findsNothing);
+  });
 }

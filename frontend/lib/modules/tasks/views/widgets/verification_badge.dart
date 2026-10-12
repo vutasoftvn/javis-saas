@@ -4,6 +4,12 @@ import '../../../../core/localization/app_translations.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../data/models/verification_report_model.dart';
 
+final _reasonCodePattern = RegExp(r'^[a-z][a-z0-9]*(?:[_:.\-][a-z0-9]+)+$');
+
+/// Chỉ mã lý do cố định (vd. `artifact_not_found`) mới được hiển thị; văn bản
+/// tự do của LLM judge bị ẩn.
+bool isVerificationReasonCode(String reason) => _reasonCodePattern.hasMatch(reason);
+
 /// Huy hiệu kết quả Verifier trên thẻ Kanban. Chạm để xem từng tiêu chí.
 /// Chỉ hiển thị mã (id tiêu chí, kết quả, mã lý do) — không diễn giải tự do.
 class VerificationBadge extends StatelessWidget {
@@ -99,7 +105,7 @@ class _VerificationSheet extends StatelessWidget {
                                 ? L10nKey.tasksVerifyRequired.tr
                                 : L10nKey.tasksVerifyOptional.tr,
                             c.verdict,
-                            if (c.reason.isNotEmpty) c.reason,
+                            if (isVerificationReasonCode(c.reason)) c.reason,
                           ].join(' · '),
                           style: const TextStyle(fontSize: 11, color: AppTheme.textMutedDark),
                         ),
