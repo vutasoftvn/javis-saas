@@ -7,7 +7,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 |---|---|---|
 | LEGACY_TENANCY (M2 xóa) | 114 | 24 |
 | VALID_KEEP (giữ nguyên) | 139 | 38 |
-| REVIEW (chưa phân loại) | 1539 | 343 |
+| REVIEW (chưa phân loại) | 1550 | 344 |
 
 ## Legacy tenancy — M2 xóa Company aggregate
 
@@ -45,10 +45,10 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | frontend/lib/core/network/mvp_endpoints.g.dart | 107 |
 | apps/cosa/auth/jwt.py | 39 |
 | services/cosa/services/automation-plan-approval.service.ts | 34 |
+| apps/cosa/worker/wga_run.py | 29 |
 | apps/cosa/policies/company_policy_client.py | 27 |
-| apps/cosa/worker/wga_run.py | 26 |
+| apps/cosa/api/workforce_routes.py | 24 |
 | services/company/shared/auth/cosa-delegation.service.ts | 24 |
-| apps/cosa/api/workforce_routes.py | 22 |
 | packages/agent/workforce/repository.py | 22 |
 | apps/cosa/worker/copilot_run.py | 20 |
 | apps/cosa/worker/handlers.py | 20 |
@@ -111,6 +111,7 @@ Phân loại heuristic theo path + token. `REVIEW` = cần mắt người khi M2
 | apps/cosa/policies/evaluator.py | 6 |
 | apps/cosa/tests/test_worker_jwt.py | 6 |
 | apps/cosa/worker/main.py | 6 |
+| apps/cosa/worker/wga_verify.py | 6 |
 | apps/cosa/workflows/conversational_onboarding.py | 6 |
 | apps/cosa/workflows/onboarding_dimensions.py | 6 |
 | frontend/lib/core/localization/locales/en/en_auth.dart | 6 |
