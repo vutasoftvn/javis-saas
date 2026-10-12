@@ -42,9 +42,15 @@ class WakeConfig:
         )
 
 
+# Tuyến tính, không lặp (theo verification/judge.py): đổi MỌI dấu < và > sang dấu ngoặc góc đơn nên
+# không thể ghép lại marker "<<<WAKE_..." dù payload lồng nhau hay bị cắt ở đâu.
+_NEUTRALISE_ANGLES = str.maketrans({"<": "\u2039", ">": "\u203a"})
+
+
 def _clean(value: object) -> str:
-    text = " ".join(str(value).split()).replace(_BEGIN, "").replace(_END, "")
-    return text[:_MAX_FIELD]
+    # Chặn đầu vào trước (giới hạn CPU), gộp khoảng trắng/xuống dòng, vô hiệu dấu góc, rồi mới cắt.
+    text = " ".join(str(value)[: _MAX_FIELD * 4].split())
+    return text.translate(_NEUTRALISE_ANGLES)[:_MAX_FIELD]
 
 
 def build_wake_prompt(reasons: Sequence[tuple[str, str]]) -> str:
