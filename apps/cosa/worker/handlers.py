@@ -1633,7 +1633,9 @@ async def execute_resume_task(
         # Từ chối không bao giờ đóng task (chỉ run chat mới resume khi từ chối).
         if not rejected:
             with contextlib.suppress(Exception):
-                _sub = str(payload.get("principal") or "0").split(":")[-1]
+                _sub = str(payload.get("actor_id") or payload.get("principal") or "0").split(":")[
+                    -1
+                ]
                 await advance_wga_task_after_resume(
                     plane,
                     run_id=run_id,

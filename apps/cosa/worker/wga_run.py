@@ -215,16 +215,24 @@ async def fetch_task_agent_context(
     plane: CosaAgentPlane, *, workspace_id: str, task_id: str, sub: str, run_id: str
 ) -> dict[str, Any] | None:
     """Ngữ cảnh task (tiêu chí, tiêu đề, profile, project) cho đường resume. None khi không lấy được."""
-    token = mint_company_delegation(
-        sub=sub, workspace_id=workspace_id, run_id=run_id, capability_ids=[_CAP_TASK_LIST]
-    )
     try:
+        token = mint_company_delegation(
+            sub=sub, workspace_id=workspace_id, run_id=run_id, capability_ids=[_CAP_TASK_LIST]
+        )
         resp = await plane.company_client.get(
             f"/operations/tasks/{task_id}/agent-context",
             headers={"X-Workspace-Id": workspace_id, "Authorization": f"Bearer {token}"},
         )
     except CompanyServiceError as exc:
         logger.warning("agent-context fetch failed ws=%s task=%s: %s", workspace_id, task_id, exc)
+        return None
+    except Exception as exc:  # token/secret, lỗi mạng, phản hồi không phải JSON: fail-closed
+        logger.warning(
+            "agent-context fetch failed ws=%s task=%s: %s",
+            workspace_id,
+            task_id,
+            exc.__class__.__name__,
+        )
         return None
     return resp if isinstance(resp, dict) else None
 

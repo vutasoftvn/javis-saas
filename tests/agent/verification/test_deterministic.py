@@ -157,9 +157,6 @@ def test_result_keeps_required_flag():
     assert r.required is False
 
 
-import pytest
-
-
 @pytest.mark.parametrize(
     "crit",
     [

@@ -1190,6 +1190,9 @@ async def decide_approval(
                     "tool_call_id": decided.tool_call_id,
                     "approval_id": approval_id,
                     "decision": "approved" if approved_flag else "rejected",
+                    # Company LOCAL user id của người duyệt — worker dùng làm `sub`
+                    # khi verifier WGA đọc KR/task qua company_client trên đường resume.
+                    "actor_id": identity.platform_user_id,
                 },
             )
 
