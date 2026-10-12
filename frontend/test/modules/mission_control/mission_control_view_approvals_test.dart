@@ -10,6 +10,7 @@ import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:frontend/core/network/api_result.dart';
+import 'package:frontend/data/models/verification_report_model.dart';
 import 'package:frontend/modules/mission_control/controllers/mission_control_controller.dart';
 import 'package:frontend/modules/mission_control/services/mission_control_service.dart';
 import 'package:frontend/modules/mission_control/views/mission_control_view.dart';
@@ -37,6 +38,13 @@ class _FakeWorkforceMvpService implements WorkforceMvpService {
     String? reason,
   }) async {
     throw UnimplementedError();
+  }
+
+  @override
+  Future<Map<String, VerificationReportModel>> listVerificationReports(
+    List<String> taskIds,
+  ) async {
+    return const {};
   }
 
   @override

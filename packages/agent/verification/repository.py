@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from typing import Any, Protocol
 
 from pydantic import AwareDatetime, BaseModel, Field
@@ -29,6 +30,16 @@ class VerificationReport(BaseModel):
 
 
 _MAX_LIST_LIMIT = 200
+MAX_LATEST_TASK_IDS = 50
+
+
+def _normalize_task_ids(task_ids: Sequence[str]) -> list[str]:
+    """Khử trùng (giữ thứ tự), bỏ id rỗng, tối đa `MAX_LATEST_TASK_IDS`."""
+    seen: dict[str, None] = {}
+    for tid in task_ids:
+        if tid and tid not in seen:
+            seen[tid] = None
+    return list(seen)[:MAX_LATEST_TASK_IDS]
 
 
 def _clamp_limit(limit: int) -> int:
@@ -42,6 +53,10 @@ class VerificationReportRepository(Protocol):
 
     async def list_for_task(
         self, workspace_id: str, task_id: str, limit: int = 20
+    ) -> list[VerificationReport]: ...
+
+    async def list_latest_for_tasks(
+        self, workspace_id: str, task_ids: Sequence[str]
     ) -> list[VerificationReport]: ...
 
 
@@ -70,6 +85,19 @@ class InMemoryVerificationReportRepository:
         ]
         rows.sort(key=lambda r: (r.created_at, r.report_id), reverse=True)
         return rows[: _clamp_limit(limit)]
+
+    async def list_latest_for_tasks(
+        self, workspace_id: str, task_ids: Sequence[str]
+    ) -> list[VerificationReport]:
+        wanted = set(_normalize_task_ids(task_ids))
+        latest: dict[str, VerificationReport] = {}
+        for r in self._by_run.values():
+            if r.workspace_id != workspace_id or r.task_id not in wanted:
+                continue
+            cur = latest.get(r.task_id)
+            if cur is None or (r.created_at, r.report_id) > (cur.created_at, cur.report_id):
+                latest[r.task_id] = r
+        return list(latest.values())
 
 
 _COLUMNS = """report_id, workspace_id, project_id, task_id, run_id, verifier_run_id, verdict,
@@ -101,6 +129,15 @@ _SELECT_FOR_TASK = text(
     WHERE workspace_id = :workspace_id AND task_id = :task_id
     ORDER BY created_at DESC, report_id DESC
     LIMIT :limit
+    """
+)
+
+_LATEST_FOR_TASKS = text(
+    f"""
+    SELECT DISTINCT ON (task_id) {_COLUMNS}
+    FROM agent.verification_reports
+    WHERE workspace_id = :workspace_id AND task_id = ANY(:task_ids)
+    ORDER BY task_id, created_at DESC, report_id DESC
     """
 )
 
@@ -165,6 +202,24 @@ class PostgresVerificationReportRepository:
                             "task_id": task_id,
                             "limit": _clamp_limit(limit),
                         },
+                    )
+                )
+                .mappings()
+                .all()
+            )
+        return [_row_to_report(r) for r in rows]
+
+    async def list_latest_for_tasks(
+        self, workspace_id: str, task_ids: Sequence[str]
+    ) -> list[VerificationReport]:
+        ids = _normalize_task_ids(task_ids)
+        if not ids:
+            return []
+        async with self._session_factory() as session:
+            rows = (
+                (
+                    await session.execute(
+                        _LATEST_FOR_TASKS, {"workspace_id": workspace_id, "task_ids": ids}
                     )
                 )
                 .mappings()

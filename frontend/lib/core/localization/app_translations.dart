@@ -80,6 +80,15 @@ abstract final class L10nKey {
   static const tasksDialogSave = 'tasks.dialog.save';
   static const tasksDialogCancel = 'tasks.dialog.cancel';
 
+  // Tasks - Verifier verdict
+  static const tasksVerifyPass = 'tasks.verify.pass';
+  static const tasksVerifyFail = 'tasks.verify.fail';
+  static const tasksVerifyInconclusive = 'tasks.verify.inconclusive';
+  static const tasksVerifyDetailTitle = 'tasks.verify.detailTitle';
+  static const tasksVerifyRequired = 'tasks.verify.required';
+  static const tasksVerifyOptional = 'tasks.verify.optional';
+  static const tasksVerifyNoCriteria = 'tasks.verify.noCriteria';
+
   // Chat UI
   static const chatNewConversation = 'chat.newConversation';
   static const chatHistory = 'chat.history';

@@ -175,3 +175,38 @@ async def test_task_and_run_mismatch_returns_empty(env):
     assert resp.status_code == 200 and resp.json()["data"] == []
     ok = env["client"].get(_URL, params={"taskId": "t1", "runId": "run_1"}).json()["data"]
     assert [d["reportId"] for d in ok] == ["vr_1"]
+
+
+@pytest.mark.asyncio
+async def test_task_ids_returns_newest_report_per_task_and_is_scoped(env):
+    repo = env["repo"]
+    await repo.create_if_absent(
+        _report(report_id="old", run_id="r1", created_at=datetime(2026, 1, 1, tzinfo=UTC))
+    )
+    await repo.create_if_absent(
+        _report(report_id="new", run_id="r2", created_at=datetime(2026, 1, 2, tzinfo=UTC))
+    )
+    await repo.create_if_absent(_report(report_id="t2r", task_id="t2", run_id="r3"))
+    await repo.create_if_absent(
+        _report(report_id="foreign", task_id="t3", run_id="r4", workspace_id="ws-other")
+    )
+    resp = env["client"].get(_URL, params={"taskIds": " t1, t2,t3,t1,,"})
+    assert resp.status_code == 200
+    assert sorted(d["reportId"] for d in resp.json()["data"]) == ["new", "t2r"]
+
+
+def test_task_ids_limits_and_conflicts_are_422(env):
+    client = env["client"]
+    ids51 = ",".join(f"t{i}" for i in range(51))
+    ids50 = ",".join(f"t{i}" for i in range(50))
+    assert client.get(_URL, params={"taskIds": ids51}).status_code == 422
+    assert client.get(_URL, params={"taskIds": ids50}).status_code == 200
+    assert client.get(_URL, params={"taskIds": "t1", "taskId": "t1"}).status_code == 422
+    assert client.get(_URL, params={"taskIds": "t1", "runId": "r1"}).status_code == 422
+    assert client.get(_URL, params={"taskIds": "x" * 2001}).status_code == 422
+
+
+def test_task_ids_with_missing_repository_is_empty(env):
+    env["plane"].verification_report_repository = None
+    resp = env["client"].get(_URL, params={"taskIds": "t1,t2"})
+    assert resp.status_code == 200 and resp.json()["data"] == []

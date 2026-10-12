@@ -19,4 +19,12 @@ const Map<String, String> enTasks = {
   L10nKey.tasksDialogHintDescription: 'Description (optional)',
   L10nKey.tasksDialogSave: 'Save',
   L10nKey.tasksDialogCancel: 'Cancel',
+  // Verifier verdict
+  L10nKey.tasksVerifyPass: 'Verified',
+  L10nKey.tasksVerifyFail: 'Failed',
+  L10nKey.tasksVerifyInconclusive: 'Inconclusive',
+  L10nKey.tasksVerifyDetailTitle: 'Criteria check results',
+  L10nKey.tasksVerifyRequired: 'Required',
+  L10nKey.tasksVerifyOptional: 'Optional',
+  L10nKey.tasksVerifyNoCriteria: 'No criteria',
 };

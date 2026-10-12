@@ -19,4 +19,12 @@ const Map<String, String> viTasks = {
   L10nKey.tasksDialogHintDescription: 'Mô tả (tùy chọn)',
   L10nKey.tasksDialogSave: 'Lưu',
   L10nKey.tasksDialogCancel: 'Hủy',
+  // Verifier verdict
+  L10nKey.tasksVerifyPass: 'Đã kiểm',
+  L10nKey.tasksVerifyFail: 'Không đạt',
+  L10nKey.tasksVerifyInconclusive: 'Chưa kết luận',
+  L10nKey.tasksVerifyDetailTitle: 'Kết quả kiểm tra tiêu chí',
+  L10nKey.tasksVerifyRequired: 'Bắt buộc',
+  L10nKey.tasksVerifyOptional: 'Tùy chọn',
+  L10nKey.tasksVerifyNoCriteria: 'Không có tiêu chí',
 };

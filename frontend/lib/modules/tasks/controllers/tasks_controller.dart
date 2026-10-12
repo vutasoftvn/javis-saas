@@ -1,16 +1,25 @@
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/runtime/mutation_gate.dart';
 import '../../../data/models/task_kanban_model.dart';
+import '../../../data/models/verification_report_model.dart';
+import '../../workforce/services/workforce_mvp_service.dart';
 import '../../../modules/tasks/services/task_service.dart';
 import '../../hologram_hub/controllers/founder_command_center_controller.dart';
 
 class TasksController extends GetxController {
-  TasksController({MutationGate? mutationGate, TaskService? taskService})
-      : _mutationGate = mutationGate ?? SessionMutationGate(),
-        _taskService = taskService ?? TaskService();
+  TasksController({
+    MutationGate? mutationGate,
+    TaskService? taskService,
+    WorkforceMvpService? workforceService,
+  })  : _mutationGate = mutationGate ?? SessionMutationGate(),
+        _taskService = taskService ?? TaskService(),
+        _workforceService = workforceService ?? WorkforceMvpService();
 
   final TaskService _taskService;
+  final WorkforceMvpService _workforceService;
+  static const _maxVerificationIds = 50;
   // Task 5 — cùng nguyên tắc với ApprovalsController: gate DUY NHẤT trước
   // khi đổi trạng thái task (kéo-thả Kanban hoặc nút pause/resume/approve/
   // cancel), đọc `SessionController.active.runtime`.
@@ -20,6 +29,8 @@ class TasksController extends GetxController {
 
   final isLoading = false.obs;
   final tasks = <TaskKanbanModel>[].obs;
+  /// Báo cáo Verifier mới nhất theo `task.id` (chỉ task `in_progress`/`done`).
+  final verificationByTask = <String, VerificationReportModel>{}.obs;
   final activeFilter = 'all'.obs; // 'all', 'active', 'approval_blocked', 'completed'
 
   @override
@@ -35,6 +46,25 @@ class TasksController extends GetxController {
       tasks.value = list;
     } finally {
       isLoading.value = false;
+    }
+    await loadVerificationReports();
+  }
+
+  /// Một request theo lô cho các task đã chạy/hoàn thành. Lỗi chỉ được log và
+  /// giữ nguyên map cũ — bảng task không bao giờ hỏng vì huy hiệu verdict.
+  Future<void> loadVerificationReports() async {
+    final ids = tasks
+        .where((t) => t.status == TaskKanbanStatus.inProgress || t.status == TaskKanbanStatus.done)
+        .map((t) => t.id)
+        .where((id) => id.isNotEmpty && !id.startsWith('temp_'))
+        .take(_maxVerificationIds)
+        .toList();
+    if (ids.isEmpty) return;
+    try {
+      final reports = await _workforceService.listVerificationReports(ids);
+      verificationByTask.assignAll(reports);
+    } catch (e) {
+      debugPrint('TasksController: không tải được verdict Verifier: $e');
     }
   }
 

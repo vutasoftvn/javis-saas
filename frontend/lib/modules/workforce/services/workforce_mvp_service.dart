@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import '../../../core/network/api_result.dart';
 import '../../../core/network/mvp_endpoints.g.dart';
 import '../../../core/network/mvp_request_client.dart';
+import '../../../data/models/verification_report_model.dart';
 import '../models/workforce_mvp_models.dart';
 
 /// Task 3 — service canonical duy nhất cho Mission Control / Workforce UI,
@@ -65,6 +66,30 @@ class WorkforceMvpService {
       pathParams: {'approvalId': approvalId},
       body: {'approved': approved, 'reason': ?reason},
       decode: (raw) => WorkforceApprovalDecision.fromJson(_asMap(raw)),
+    );
+  }
+
+  /// Báo cáo Verifier mới nhất của mỗi task (một request theo lô, `taskIds`).
+  /// Trả map `taskId -> báo cáo`; `taskIds` rỗng ⇒ map rỗng, không gọi mạng.
+  /// Lỗi (403, 5xx, offline...) ném [StateError] để caller tự quyết định.
+  Future<Map<String, VerificationReportModel>> listVerificationReports(
+    List<String> taskIds,
+  ) async {
+    final ids = taskIds.where((id) => id.isNotEmpty).toSet().toList();
+    if (ids.isEmpty) return const {};
+    final result = await _client.request<List<VerificationReportModel>>(
+      MvpEndpoint.workforceVerificationReportsList,
+      query: {'taskIds': ids.join(',')},
+      decode: (raw) => _asList(raw).map(VerificationReportModel.fromJson).toList(),
+    );
+    return result.when(
+      success: (reports, _) => {
+        for (final r in reports)
+          if (r.taskId.isNotEmpty) r.taskId: r,
+      },
+      failure: (f) => throw StateError(
+        'Không tải được báo cáo kiểm tra (${f.code.name}, HTTP ${f.statusCode})',
+      ),
     );
   }
 

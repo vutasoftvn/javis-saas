@@ -1762,6 +1762,22 @@
       "integration_test": "tests/integration/test_mvp_workforce_in_process.py"
     },
     {
+      "id": "workforce.verification_reports.list",
+      "enabled": true,
+      "owner": "cosa-workforce",
+      "plane": "agent",
+      "method": "GET",
+      "path": "/agent/workforce/verification-reports",
+      "schema": "workforce.verification_reports.list.v1",
+      "source_kind": "agent_db",
+      "requires_workspace": true,
+      "requires_project": false,
+      "frontend_symbol": "WorkforceMvpService.listVerificationReports",
+      "backend_test": "tests/apps/cosa/test_workforce_routes.py",
+      "flutter_test": "frontend/test/modules/workforce/workforce_mvp_service_test.dart",
+      "integration_test": "tests/integration/test_mvp_workforce_in_process.py"
+    },
+    {
       "id": "workforce.run.events",
       "enabled": true,
       "owner": "cosa-workforce",

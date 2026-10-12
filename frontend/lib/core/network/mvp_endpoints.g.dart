@@ -1427,6 +1427,15 @@ enum MvpEndpoint {
     requiresWorkspace: true,
     requiresProject: false,
   ),
+  workforceVerificationReportsList(
+    id: 'workforce.verification_reports.list',
+    enabled: true,
+    plane: ApiPlane.agent,
+    method: 'GET',
+    path: '/agent/workforce/verification-reports',
+    requiresWorkspace: true,
+    requiresProject: false,
+  ),
   workforceWorkProductsList(
     id: 'workforce.work_products.list',
     enabled: true,

@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend/core/network/api_result.dart';
 import 'package:frontend/core/network/mvp_request_client.dart';
 import 'package:frontend/core/services/secure_storage_service.dart';
+import 'package:frontend/data/models/verification_report_model.dart';
 import 'package:frontend/modules/agents/models/workforce_models.dart' as agent_models;
 import 'package:frontend/modules/agents/services/workforce_service.dart';
 import 'package:frontend/modules/workforce/models/workforce_mvp_models.dart';
@@ -114,5 +115,74 @@ void main() {
     final result = await service.listSchedules();
 
     expect(result, isA<ApiFailure<List<agent_models.WorkforceSchedule>>>());
+  });
+
+  group('listVerificationReports', () {
+    test('một request theo lô, phân tích verdict/criteria theo taskId', () async {
+      var calls = 0;
+      final mockHttp = MockClient((request) async {
+        calls++;
+        expect(request.method, 'GET');
+        expect(request.url.path, '/agent/workforce/verification-reports');
+        expect(request.url.queryParameters['taskIds'], 't1,t2');
+        return _envelope([
+          {
+            'reportId': 'vr_1',
+            'taskId': 't1',
+            'runId': 'run_1',
+            'verifierRunId': null,
+            'verdict': 'FAIL',
+            'mode': 'deterministic',
+            'criteriaResults': [
+              {
+                'id': 'c1',
+                'required': true,
+                'check': 'deterministic',
+                'verdict': 'fail',
+                'reason': 'artifact_not_found',
+              },
+            ],
+            'createdAt': '2026-01-01T12:00:00Z',
+          },
+          {
+            'reportId': 'vr_2',
+            'taskId': 't2',
+            'runId': 'run_2',
+            'verdict': 'weird',
+            'mode': 'llm',
+            'criteriaResults': null,
+            'createdAt': 'not-a-date',
+          },
+        ]);
+      });
+      final service = WorkforceMvpService(client: MvpRequestClient(httpClient: mockHttp));
+
+      final map = await service.listVerificationReports(['t1', 't2', 't1', '']);
+
+      expect(calls, 1);
+      expect(map.keys, unorderedEquals(['t1', 't2']));
+      expect(map['t1']!.verdict, VerificationVerdict.fail);
+      expect(map['t1']!.criteria.single.id, 'c1');
+      expect(map['t1']!.criteria.single.required, isTrue);
+      expect(map['t1']!.criteria.single.reason, 'artifact_not_found');
+      expect(map['t1']!.createdAt, DateTime.utc(2026, 1, 1, 12));
+      expect(map['t2']!.verdict, VerificationVerdict.inconclusive);
+      expect(map['t2']!.criteria, isEmpty);
+      expect(map['t2']!.createdAt, isNull);
+    });
+
+    test('danh sách rỗng không gọi mạng', () async {
+      final mockHttp = MockClient((_) async => fail('không được gọi mạng'));
+      final service = WorkforceMvpService(client: MvpRequestClient(httpClient: mockHttp));
+
+      expect(await service.listVerificationReports(const []), isEmpty);
+    });
+
+    test('403 ném StateError', () async {
+      final mockHttp = MockClient((_) async => http.Response('{"detail":"no"}', 403));
+      final service = WorkforceMvpService(client: MvpRequestClient(httpClient: mockHttp));
+
+      await expectLater(service.listVerificationReports(['t1']), throwsStateError);
+    });
   });
 }

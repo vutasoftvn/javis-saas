@@ -4,6 +4,7 @@ import '../../../../core/runtime/mutation_gate.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../data/models/task_kanban_model.dart';
 import '../../controllers/tasks_controller.dart';
+import 'verification_badge.dart';
 
 class KanbanTaskCard extends StatelessWidget {
   final TaskKanbanModel task;
@@ -100,6 +101,17 @@ class KanbanTaskCard extends StatelessWidget {
               ],
             ),
           ],
+          Obx(() {
+            final report = controller.verificationByTask[task.id];
+            if (report == null) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: VerificationBadge(report: report),
+              ),
+            );
+          }),
           const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,

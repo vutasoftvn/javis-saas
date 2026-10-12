@@ -922,6 +922,7 @@ async def list_approvals(
 
 
 _VERIFICATION_REPORT_MAX_LIMIT = 50
+_VERIFICATION_REPORT_MAX_TASK_IDS = 50
 _VERIFICATION_REASON_MAX = 300
 
 
@@ -955,24 +956,43 @@ async def list_verification_reports(
     request: Request,
     task_id: str | None = Query(None, alias="taskId", max_length=128),
     run_id: str | None = Query(None, alias="runId", max_length=128),
+    task_ids: str | None = Query(None, alias="taskIds", max_length=2000),
     limit: int = Query(20),
     identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
 ) -> MvpSuccess[list[dict[str, Any]]]:
     """Báo cáo kiểm tra tiêu chí hoàn thành theo task (`taskId`) hoặc run (`runId`).
 
+    `taskIds` (CSV, tối đa 50, loại trùng/rỗng) trả báo cáo mới nhất của mỗi task; không dùng chung
+    với `taskId`/`runId`.
+
     Workspace chỉ lấy từ principal đã xác thực. `limit` bị bỏ qua khi có `runId` (tối đa 1 báo cáo
     mỗi run); khi chỉ có `taskId` thì `limit` được kẹp vào [1, tối đa].
     """
-    if not task_id and not run_id:
+    batch_ids: list[str] | None = None
+    if task_ids is not None:
+        if task_id or run_id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="taskIds không dùng chung với taskId/runId",
+            )
+        batch_ids = list(dict.fromkeys(p for p in (x.strip() for x in task_ids.split(",")) if p))
+        if len(batch_ids) > _VERIFICATION_REPORT_MAX_TASK_IDS:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"taskIds tối đa {_VERIFICATION_REPORT_MAX_TASK_IDS} phần tử",
+            )
+    elif not task_id and not run_id:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Cần taskId hoặc runId",
+            detail="Cần taskId, taskIds hoặc runId",
         )
     plane = _get_plane(request)
     repo = getattr(plane, "verification_report_repository", None)
     reports: list[Any] = []
     if repo is not None:
-        if run_id:
+        if batch_ids is not None:
+            reports = await repo.list_latest_for_tasks(identity.workspace_id, batch_ids)
+        elif run_id:
             one = await repo.get_for_run(identity.workspace_id, run_id)
             if one is not None and (not task_id or one.task_id == task_id):
                 reports = [one]

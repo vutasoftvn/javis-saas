@@ -153,3 +153,34 @@ async def test_list_for_task_breaks_created_at_ties_by_report_id_desc(repo):
 async def test_naive_created_at_is_rejected():
     with pytest.raises(ValueError):
         _report(created_at=datetime(2026, 1, 1))
+
+
+async def test_list_latest_for_tasks_returns_one_newest_per_task_and_is_scoped(repo):
+    ws = _ws("a")
+    await repo.create_if_absent(
+        _report(
+            report_id="old",
+            task_id="t1",
+            run_id="r1",
+            workspace_id=ws,
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+    )
+    await repo.create_if_absent(
+        _report(
+            report_id="new",
+            task_id="t1",
+            run_id="r2",
+            workspace_id=ws,
+            created_at=datetime(2026, 1, 2, tzinfo=UTC),
+        )
+    )
+    await repo.create_if_absent(
+        _report(report_id="other", task_id="t2", run_id="r3", workspace_id=ws)
+    )
+    await repo.create_if_absent(
+        _report(report_id="foreign", task_id="t1", run_id="r4", workspace_id=_ws("b"))
+    )
+    got = await repo.list_latest_for_tasks(ws, ["t1", "t2", "t3", "t1", ""])
+    assert sorted(r.report_id for r in got) == ["new", "other"]
+    assert await repo.list_latest_for_tasks(ws, []) == []
