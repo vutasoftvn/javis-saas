@@ -14,6 +14,8 @@ import {
   advanceTaskByAgentService,
   listAgentClaimableTasksService,
   AgentClaimableTask,
+  getTaskAgentContextService,
+  TaskAgentContext,
   listStageRosterService,
   StageRosterView,
   getWorkspaceExecutionSettingsService,
@@ -188,6 +190,27 @@ export const listAgentClaimableTasks = api(
       trimmedProjectId || undefined
     );
     return { tasks };
+  }
+);
+
+// Gọi bởi worker apps/cosa (đường resume sau duyệt) — cosa delegation, tái dùng
+// capability operations.task.list (chỉ đọc).
+export const getTaskAgentContext = api(
+  { method: "GET", path: "/operations/tasks/:id/agent-context", expose: true },
+  async ({
+    id,
+    workspaceId,
+    authorization,
+  }: {
+    id: string;
+    workspaceId: Header<"X-Workspace-Id">;
+    authorization?: Header<"Authorization">;
+  }): Promise<TaskAgentContext> => {
+    const ctx = resolveCosaTaskContext(authorization, {
+      workspaceId,
+      capabilityId: WGA_CAP_TASK_LIST,
+    });
+    return getTaskAgentContextService(BigInt(ctx.workspaceId), id);
   }
 );
 

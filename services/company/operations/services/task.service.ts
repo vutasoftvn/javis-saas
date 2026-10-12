@@ -764,6 +764,55 @@ export async function listAgentClaimableTasksService(
   return out;
 }
 
+export interface TaskAgentContext {
+  taskId: string;
+  workspaceId: string;
+  title: string;
+  projectId: string;
+  autonomyClass: "AUTO" | "NEEDS_APPROVAL";
+  ownerAgentProfile: string;
+  decisionReason: string;
+  doneCriteria: DoneCriteria | null;
+}
+
+/**
+ * Ngữ cảnh để worker xác minh một task đã chạy (đường resume sau duyệt không còn dòng
+ * agent-claimable vì task không còn 'todo'). Chỉ task sinh từ execution plan item.
+ */
+export async function getTaskAgentContextService(
+  wsId: bigint,
+  taskId: string,
+): Promise<TaskAgentContext> {
+  if (!/^\d+$/.test(taskId)) throw APIError.invalidArgument("task id must be numeric");
+  const [row] = await db
+    .select({
+      taskId: tasks.id,
+      workspaceId: tasks.workspaceId,
+      title: tasks.title,
+      projectId: executionPlans.projectId,
+      autonomyClass: executionPlanItems.autonomyClass,
+      ownerAgentProfile: executionPlanItems.ownerAgentProfile,
+      decisionReason: executionPlanItems.decisionReason,
+      doneCriteria: executionPlanItems.doneCriteria,
+    })
+    .from(tasks)
+    .innerJoin(executionPlanItems, eq(executionPlanItems.materializedTaskId, tasks.id))
+    .innerJoin(executionPlans, eq(executionPlans.id, executionPlanItems.planId))
+    .where(and(eq(tasks.id, BigInt(taskId)), eq(tasks.workspaceId, wsId), isNull(tasks.deletedAt)))
+    .limit(1);
+  if (!row) throw APIError.notFound(`task ${taskId} not found`);
+  return {
+    taskId: row.taskId.toString(),
+    workspaceId: row.workspaceId.toString(),
+    title: row.title,
+    projectId: row.projectId.toString(),
+    autonomyClass: row.autonomyClass as "AUTO" | "NEEDS_APPROVAL",
+    ownerAgentProfile: row.ownerAgentProfile ?? "",
+    decisionReason: row.decisionReason ?? "",
+    doneCriteria: (row.doneCriteria as DoneCriteria | null) ?? null,
+  };
+}
+
 export interface StageRosterEntry {
   taskId: string;
   title: string;
