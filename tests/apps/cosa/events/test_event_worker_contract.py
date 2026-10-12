@@ -180,7 +180,9 @@ async def test_same_event_two_rules_schedule_two_distinct_runs():
     client._sched.schedule = fake_schedule  # type: ignore
 
     rule_1 = _FakeRule(rule_id="rule_copilot", spec=_FakeSpec(id="cosa.agents.customer_support"))
-    rule_2 = _FakeRule(rule_id="rule_autopilot", spec=_FakeSpec(id="cosa.agents.customer_support_autopilot"))
+    rule_2 = _FakeRule(
+        rule_id="rule_autopilot", spec=_FakeSpec(id="cosa.agents.customer_support_autopilot")
+    )
     env = _FakeEnvelope(event_id="evt_shared", workspace_id="ws_1")
 
     task_id_1 = await client.schedule_reference_task(rule_1, env)
@@ -314,3 +316,34 @@ async def test_legacy_envelope_adapter_and_quarantine():
     adapted_unmapped, reason_unmapped = adapt_event_task_payload(unmapped)
     assert adapted_unmapped is None
     assert "unsupported agent profile" in reason_unmapped
+
+
+@pytest.mark.asyncio
+async def test_agent_wakeup_task_type_is_dispatched_and_noop_when_flag_off(monkeypatch):
+    """agent_wakeup không rơi vào nhánh run/unknown; cờ tắt ⇒ hoàn tất success, không chạy run."""
+    monkeypatch.delenv("AGENT_WAKEUP_ENABLED", raising=False)
+    scheduler = RunScheduler()
+    plane = _build_plane(scheduler=scheduler)
+    await scheduler.schedule(
+        target_spec_id="cosa.agents.operations",
+        input_payload={
+            "task_type": "agent_wakeup",
+            "workspace_id": "ws_wake",
+            "assignment_id": "a1",
+            "project_id": "p1",
+        },
+        coalescing_key="wake:ws_wake:a1:p1",
+    )
+    (task,) = await scheduler.poll_due_tasks()
+
+    with (
+        patch("apps.cosa.worker.main.execute_run_task", new_callable=AsyncMock) as mock_run,
+        patch.object(
+            scheduler, "complete_task", new_callable=AsyncMock, return_value=True
+        ) as mock_complete,
+    ):
+        await dispatch_one_task(plane, task)
+
+    mock_run.assert_not_called()
+    mock_complete.assert_awaited_once()
+    assert mock_complete.call_args.kwargs["success"] is True

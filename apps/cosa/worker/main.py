@@ -239,6 +239,39 @@ async def _dispatch_wga_task(plane: CosaAgentPlane, task, payload: dict, task_ty
         )
 
 
+async def _dispatch_agent_wakeup_task(plane: CosaAgentPlane, task, payload: dict) -> None:
+    """Dispatch agent_wakeup (Dự án C) — runless, chỉ dùng task claim fencing như
+    WGA sweep. Handler không ném lỗi nghiệp vụ; cờ tắt ⇒ no-op thành công."""
+    try:
+        from apps.cosa.worker.agent_wakeup import execute_agent_wakeup_task
+
+        stream_mgr = get_cosa_event_stream_manager()
+
+        async def _execute_handler():
+            await execute_agent_wakeup_task(plane, stream_mgr, payload)
+
+        await _heartbeat_task_claim_only(plane, task.task_id, task.claim_token, _execute_handler())
+
+        ok = await plane.scheduler.complete_task(
+            task.task_id, worker_id=WORKER_ID, claim_token=task.claim_token, success=True
+        )
+        if not ok:
+            logger.warning(
+                "worker=%s task=%s (agent_wakeup) completed but fencing rejected",
+                WORKER_ID,
+                task.task_id,
+            )
+    except Exception as exc:
+        logger.exception("task=%s (agent_wakeup) failed during execution", task.task_id)
+        await plane.scheduler.complete_task(
+            task.task_id,
+            worker_id=WORKER_ID,
+            claim_token=task.claim_token,
+            success=False,
+            error=str(exc),
+        )
+
+
 async def _dispatch_approval_action_task(plane: CosaAgentPlane, task, payload: dict) -> None:
     """Dispatch durable approval action task — no run lease needed. Two
     subject_kinds are supported: `skill_candidate` (promotion) and, since
@@ -493,6 +526,11 @@ async def dispatch_one_task(plane: CosaAgentPlane, task) -> None:
             # idempotency qua coalescing_key ở scheduler; không dùng RunLeaseManager.
             if task_type in ("goal_decomposition", "workspace_task_sweep"):
                 await _dispatch_wga_task(plane, task, payload, task_type)
+                return
+
+            # Branch: agent_wakeup (Dự án C) — runless, chỉ dùng task claim fencing như sweep.
+            if task_type == "agent_wakeup":
+                await _dispatch_agent_wakeup_task(plane, task, payload)
                 return
 
             # Branch: approval_action (Task 6) — durable worker promotion of approved custom skills
