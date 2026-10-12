@@ -281,12 +281,6 @@ async def advance_wga_task_after_resume(
     if not m or not workspace_id:
         return
     task_id = m.group(1)
-    token = mint_company_delegation(
-        sub=sub or "0",
-        workspace_id=workspace_id,
-        run_id=run_id,
-        capability_ids=[_CAP_TASK_ADVANCE],
-    )
     evidence = await record_wga_task_evidence(
         plane, workspace_id=workspace_id, run_id=run_id, output_text=output_text
     )
@@ -322,6 +316,13 @@ async def advance_wga_task_after_resume(
                     run_result=SimpleNamespace(final_output=final_output),
                     output_text=output_text,
                 )
+    # Token ủy quyền sống 600s; thẩm phán có thể làm nó hết hạn: cấp ngay trước advance.
+    token = mint_company_delegation(
+        sub=sub or "0",
+        workspace_id=workspace_id,
+        run_id=run_id,
+        capability_ids=[_CAP_TASK_ADVANCE],
+    )
     if verification is not None and verification.verdict is not Verdict.PASS:
         await _advance_task(
             plane,

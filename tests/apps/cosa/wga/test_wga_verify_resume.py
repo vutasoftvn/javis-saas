@@ -97,3 +97,24 @@ async def test_non_wga_run_id_is_a_noop(stubs):
     await _go(run_id="chat_run_1")
     stubs.ctx.assert_not_awaited()
     stubs.finalize.assert_not_awaited()
+
+
+@pytest.mark.parametrize("verdict", [Verdict.PASS, Verdict.FAIL])
+async def test_advance_token_is_minted_after_verification(stubs, monkeypatch, verdict):
+    order: list[str] = []
+
+    async def _verify(*_a, **_k):
+        order.append("verify")
+        return VerificationOutcome(verdict, "vr_1", "s", [])
+
+    def _mint(**kw):
+        order.append("mint")
+        return f"tok{len(order)}"
+
+    stubs.verify.side_effect = _verify
+    monkeypatch.setattr(wga_run, "mint_company_delegation", _mint)
+    await _go()
+    # mint đầu thuộc fetch_task_agent_context (đã stub nên không có); chỉ còn mint cho advance, sau verify.
+    assert order == ["verify", "mint"]
+    target = stubs.finalize if verdict is Verdict.PASS else stubs.advance
+    assert target.await_args.kwargs["token"] == "tok2"
