@@ -11,6 +11,11 @@ from agent.workforce.composition import (
     EligibleAgent,
     compose_workforce,
 )
+from agent.workforce.escalation import (
+    DEFAULT_HOP_CAP,
+    EscalationTarget,
+    next_escalation_target,
+)
 from agent.workforce.governance import (
     CapabilityBoundaryError,
     WorkforceAssignment,
@@ -45,6 +50,7 @@ from agent.workforce.repository import (
 )
 
 __all__ = [
+    "DEFAULT_HOP_CAP",
     "FUNCTIONAL_AGENT_CATALOG",
     "OUTCOME_ANALYSIS_SKILL_ID",
     "OUTCOME_ANALYST_CAPABILITY_REFS",
@@ -53,6 +59,7 @@ __all__ = [
     "DuplicateEmployeeCodeError",
     "EligibleAgent",
     "EmployeeNotAssignableError",
+    "EscalationTarget",
     "FunctionalAgentEntry",
     "InMemoryWorkforceRepository",
     "OutcomeAnalysisBinding",
@@ -73,5 +80,6 @@ __all__ = [
     "direct_reports",
     "execution_capabilities",
     "manager_chain",
+    "next_escalation_target",
     "resolve_outcome_analysis_binding",
 ]
