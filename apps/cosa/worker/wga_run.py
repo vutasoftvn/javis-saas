@@ -34,6 +34,7 @@ from agent.contracts.run import RunStatus
 from agent.contracts.spec import AgentSpec
 from agent.conversations.models import MessageRecord
 from agent.verification.models import Verdict
+from agent.workforce.wakeup import wakeup_enabled
 
 from apps.cosa.agents.agent_profile_specs import AGENT_PROFILE_SPECS
 from apps.cosa.agents.capability_risk_map import capability_risk
@@ -51,6 +52,7 @@ from apps.cosa.composition.agent_plane import CosaAgentPlane
 from apps.cosa.policies.evaluator import REQUIRE_APPROVAL_CAPABILITIES_KEY
 from apps.cosa.worker.provider_errors import classify_run_error
 from apps.cosa.worker.run_core import RunCoreError, prepare_run, run_kernel
+from apps.cosa.worker.wakeup_service import WAKE_PROFILE_BY_FUNCTIONAL_KEY, WakeupService
 from apps.cosa.worker.wga_verify import (
     WGA_TASK_OUTPUT_DISPLAY_NAME,
     WGA_TASK_OUTPUT_REF_TEMPLATE,
@@ -973,6 +975,43 @@ async def _execute_claimed_task(
     return "blocked"
 
 
+async def _maybe_escalate_blocked(
+    plane: CosaAgentPlane, t: dict[str, Any], *, workspace_id: str
+) -> None:
+    """Task bị chặn -> đánh thức người phụ trách (sau cờ AGENT_WAKEUP_ENABLED). Lỗi wakeup
+    không được làm hỏng sweep."""
+    if not wakeup_enabled():
+        return
+    try:
+        repo = getattr(plane, "workforce_repository", None)
+        ledger = getattr(plane, "wakeup_ledger_repository", None)
+        profile = t.get("ownerAgentProfile")
+        project_id = str(t.get("projectId") or "")
+        if repo is None or ledger is None or not profile or not project_id:
+            return
+        keys = {k for k, p in WAKE_PROFILE_BY_FUNCTIONAL_KEY.items() if p == profile}
+        owners = [
+            a
+            for a in await repo.list_assignments(workspace_id, status="ACTIVE")
+            if a.functional_key in keys
+        ]
+        if not owners:
+            return
+        owner = min(owners, key=lambda a: a.created_at)
+        outcome = await WakeupService(
+            workforce_repo=repo, ledger=ledger, scheduler=plane.scheduler
+        ).request_wakeup(
+            workspace_id=workspace_id,
+            assignment_id=str(owner.assignment_id),
+            project_id=project_id,
+            reason_kind="task_blocked",
+            source_ref=f"task:{t['taskId']}",
+        )
+        logger.info("blocked task=%s wakeup -> %s", t.get("taskId"), outcome.status)
+    except Exception:  # wakeup là phụ trợ, không phá sweep
+        logger.exception("blocked-task wakeup failed ws=%s task=%s", workspace_id, t.get("taskId"))
+
+
 async def execute_workspace_task_sweep_task(
     plane: CosaAgentPlane,
     stream_mgr: Any,
@@ -1024,6 +1063,8 @@ async def execute_workspace_task_sweep_task(
             plane, t, workspace_id=workspace_id, sub=sub, sweep_project_id=sweep_project_id
         )
         progress.record(t, outcome)
+        if outcome == "blocked":
+            await _maybe_escalate_blocked(plane, t, workspace_id=workspace_id)
     await progress.post_to_origin_chats(plane)
 
     # Còn task chưa xử (batch đầy hoặc dependency mở khoá sau) → re-schedule.

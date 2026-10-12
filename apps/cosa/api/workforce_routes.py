@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 from typing import Any
+from uuid import uuid4
 
 from agent.workforce.catalog import FUNCTIONAL_AGENT_CATALOG, build_functional_spec
 from agent.workforce.reporting import ReportingLineError
@@ -23,6 +24,8 @@ from apps.cosa.api.workforce_schemas import (
     CreateScheduleRequest,
     RunScheduleNowOut,
     ScheduleOut,
+    WakeupOutcomeOut,
+    WakeupRequestIn,
     WorkforceAssignmentOut,
     WorkforceCapabilityOut,
     WorkforceCompositionEntry,
@@ -53,6 +56,7 @@ from apps.cosa.auth.jwt import MissingPlatformIdentityError
 from apps.cosa.capabilities.client import CompanyServiceError
 from apps.cosa.composition.agent_plane import CosaAgentPlane
 from apps.cosa.policies.locale_policy import ProfileLocaleUnavailable
+from apps.cosa.worker.wakeup_service import WakeupService, evaluate_wake_target
 
 logger = logging.getLogger(__name__)
 
@@ -236,6 +240,55 @@ async def create_assignment(
         company_workforce_member_id=rec.company_workforce_member_id,
     )
     return mvp_item(out, [MvpSourceRef(kind="agent_db", ref="agent.workforce_assignments")])
+
+
+@router.post("/assignments/{assignment_id}/wakeups")
+async def request_assignment_wakeup(
+    assignment_id: str,
+    req: WakeupRequestIn,
+    request: Request,
+    identity: AuthenticatedIdentity = Depends(get_authenticated_identity),
+) -> MvpSuccess[WakeupOutcomeOut]:
+    if identity.role_id not in ("founder", "co-founder"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="founder authority required",
+        )
+    plane = _get_plane(request)
+    repo = _get_workforce_repo(request)
+    ledger = getattr(plane, "wakeup_ledger_repository", None)
+    if ledger is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Wakeup ledger is not configured",
+        )
+    # Workspace chỉ lấy từ principal; assignment ngoài workspace => 404 (không lộ tồn tại).
+    _, ineligible = await evaluate_wake_target(repo, identity.workspace_id, assignment_id)
+    if ineligible == "assignment_not_found":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Assignment '{assignment_id}' not found in workspace",
+        )
+    # Lý do tự do chỉ vào log (cắt ngắn), không vào sổ cái/prompt.
+    logger.info(
+        "manual wakeup ws=%s assignment=%s reason=%r",
+        identity.workspace_id,
+        assignment_id,
+        req.reason[:80],
+    )
+    outcome = await WakeupService(
+        workforce_repo=repo, ledger=ledger, scheduler=plane.scheduler
+    ).request_wakeup(
+        workspace_id=identity.workspace_id,
+        assignment_id=assignment_id,
+        project_id=req.project_id,
+        reason_kind="manual",
+        source_ref=f"manual:{uuid4().hex}",
+    )
+    return mvp_item(
+        WakeupOutcomeOut(status=outcome.status, reason=outcome.reason),
+        [MvpSourceRef(kind="agent_db", ref="agent.workforce_wakeups")],
+    )
 
 
 @router.post("/assignments/{assignment_id}/retire")
@@ -541,6 +594,8 @@ async def get_org_chart(
         if node.reports_to_assignment_id and node.reports_to_assignment_id in node_map:
             node_map[node.reports_to_assignment_id].direct_reports.append(node)
         else:
+            if node.reports_to_assignment_id:
+                node.warning = "manager_not_active"
             roots.append(node)
 
     out = WorkforceOrgChartOut(roots=roots, total_assignments=len(active_assignments))

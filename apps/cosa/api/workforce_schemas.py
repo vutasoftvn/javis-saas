@@ -127,6 +127,7 @@ class WorkforceOrgChartNode(BaseModel):
     status: str
     reports_to_assignment_id: str | None = None
     direct_reports: list[WorkforceOrgChartNode] = Field(default_factory=list)
+    warning: str | None = None
 
 
 class WorkforceOrgChartOut(BaseModel):
@@ -256,4 +257,14 @@ class ApprovalDecisionOut(BaseModel):
     approval_id: str
     status: str
     decided_at: str
+    reason: str | None = None
+
+
+class WakeupRequestIn(BaseModel):
+    project_id: str = Field(min_length=1, max_length=64)
+    reason: str = Field(min_length=1, max_length=200)
+
+
+class WakeupOutcomeOut(BaseModel):
+    status: str
     reason: str | None = None
