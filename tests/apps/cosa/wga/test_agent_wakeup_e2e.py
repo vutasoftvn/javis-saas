@@ -4,13 +4,15 @@ leo thang theo org chart -> operator, không còn schedule.
 Số lần schedule (hop_cap=3, request hợp lệ khi hop <= 3; leo thang dừng khi hop >= cap):
 - Chuỗi 3 nút dev <- lead <- ceo: dev (hop 0), lead (hop 1), ceo (hop 2) = 3 schedule; ceo
   thất bại thì không còn quản lý => operator (no_manager).
-- Chuỗi 4 nút: thêm nút hop 3 = 4 schedule; nút hop 3 thất bại thì hop >= cap => operator
-  (hop_cap_reached).
+- Chuỗi 3 nút với AGENT_WAKEUP_HOP_CAP=1: dev (hop 0), lead (hop 1) = 2 schedule; lead
+  thất bại thì hop 1 >= cap => operator (hop_cap_reached) dù ceo còn ở trên.
+Kết quả cuối của escalate được bắt qua spy và kiểm status/reason.
 """
 
 from __future__ import annotations
 
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
@@ -70,13 +72,22 @@ async def _build(monkeypatch, nodes: int):
 
     monkeypatch.setattr(agent_wakeup, "prepare_run", fake_prepare)
     monkeypatch.setattr(agent_wakeup, "run_kernel", fake_run)
+    outcomes: list[Any] = []
+    orig = ws_mod.WakeupService.escalate
+
+    async def spy(self, **kw):
+        out = await orig(self, **kw)
+        outcomes.append(out)
+        return out
+
+    monkeypatch.setattr(ws_mod.WakeupService, "escalate", spy)
     plane = SimpleNamespace(
         company_client=AsyncMock(),
         scheduler=sched,
         workforce_repository=repo,
         wakeup_ledger_repository=ledger,
     )
-    return SimpleNamespace(plane=plane, ledger=ledger, sched=sched, runs=runs, repo=repo)
+    return SimpleNamespace(plane=plane, ledger=ledger, sched=sched, runs=runs, repo=repo, outcomes=outcomes)
 
 
 def _blocked_task():
@@ -108,17 +119,22 @@ async def test_three_node_chain_escalates_to_operator_with_three_schedules(monke
     assert len(env.sched.calls) == 3  # dev, lead, ceo; ceo thất bại => operator, hết schedule
     assert len(env.runs) == 3
     await _all_handled(env)
+    assert [o.status for o in env.outcomes] == ["scheduled", "scheduled", "operator"]
+    assert env.outcomes[-1].reason == "no_manager"
     # Cùng source_ref không đánh thức hai lần.
     await wga_run._maybe_escalate_blocked(env.plane, _blocked_task(), workspace_id=WS)
     assert len(env.sched.calls) == 3
 
 
-async def test_four_node_chain_stops_at_hop_cap(monkeypatch):
-    env = await _build(monkeypatch, 4)
+async def test_hop_cap_one_stops_escalation_at_operator(monkeypatch):
+    env = await _build(monkeypatch, 3)
+    monkeypatch.setenv("AGENT_WAKEUP_HOP_CAP", "1")
     await wga_run._maybe_escalate_blocked(env.plane, _blocked_task(), workspace_id=WS)
     await _drain(env)
-    assert len(env.sched.calls) == 4  # hop 0..3; nút hop 3 thất bại => hop_cap_reached
+    assert len(env.sched.calls) == 2  # dev (hop 0), lead (hop 1); ceo không được đánh thức
     await _all_handled(env)
+    assert env.outcomes[-1].status == "operator"
+    assert env.outcomes[-1].reason == "hop_cap_reached"
 
 
 async def test_disabling_flag_midway_stops_new_schedules(monkeypatch):
@@ -133,6 +149,9 @@ async def test_disabling_flag_midway_stops_new_schedules(monkeypatch):
         env.plane, None, env.sched.calls[1]["input_payload"]
     )
     assert len(env.sched.calls) == 2 and len(env.runs) == 1
+    lead = env.sched.calls[1]["input_payload"]
+    # Hàng sổ cái của lead chưa xử lý được giữ nguyên khi cờ tắt.
+    assert len(await env.ledger.list_unhandled(WS, lead["assignment_id"], "p1")) == 1
     await wga_run._maybe_escalate_blocked(
         env.plane, {**_blocked_task(), "taskId": "8"}, workspace_id=WS
     )

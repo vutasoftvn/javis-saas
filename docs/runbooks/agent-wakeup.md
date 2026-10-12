@@ -11,7 +11,7 @@ Mục đích: khi một task WGA bị `blocked` (hoặc founder yêu cầu thủ
 | `AGENT_WAKEUP_DEBOUNCE_SEC` | 30 | Độ trễ `run_at`; các sự kiện trong khoảng này gộp vào một lần chạy (coalescing key `wake:{ws}:{assignment}:{project}`). |
 | `AGENT_WAKEUP_HOP_CAP` | 3 | Số bước leo thang tối đa; chạm trần thì dừng ở operator. |
 
-Cờ **mặc định tắt**. Khuyến cáo: chỉ bật ở workspace/môi trường dev trước. Tắt cờ giữa chừng: handler thoát sớm, không chạy và không lên lịch mới; các hàng sổ cái chưa xử lý được giữ nguyên.
+Cờ chỉ bật khi `AGENT_WAKEUP_ENABLED` bằng đúng chuỗi `1`; các giá trị khác (như `true`) im lặng bị coi là tắt. Cờ **mặc định tắt**. Khuyến cáo: chỉ bật ở workspace/môi trường dev trước. Tắt cờ giữa chừng: handler thoát sớm, không chạy và không lên lịch mới; các hàng sổ cái chưa xử lý được giữ nguyên.
 
 **Run wakeup v1 CHỈ ĐỌC** (`READ_ONLY_RUN_KEY`); không có quyền ghi nào được mở thêm. Org chart chỉ là đường leo thang, không nới capability hay autonomy của ai.
 
