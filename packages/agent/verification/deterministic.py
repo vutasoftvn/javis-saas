@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from agent.verification.models import CriterionResult, CriterionVerdict, RunFacts
@@ -64,6 +65,35 @@ def _field_present(
     return _result(criterion, CriterionVerdict.PASS, "field_present")
 
 
+def _metric_gte(
+    criterion: dict[str, Any], args: dict[str, Any], facts: RunFacts
+) -> CriterionResult:
+    kr_id = args.get("key_result_id")
+    threshold = args.get("threshold")
+    must_change = args.get("must_change", False)
+    if (
+        not isinstance(kr_id, str)
+        or not kr_id.strip()
+        or not isinstance(threshold, (int, float))
+        or isinstance(threshold, bool)
+        or not math.isfinite(threshold)
+        or not isinstance(must_change, bool)
+    ):
+        return _result(criterion, CriterionVerdict.UNCLEAR, "invalid_args")
+    value = facts.metrics.get(kr_id)
+    if value is None:
+        return _result(criterion, CriterionVerdict.UNCLEAR, "metric_unavailable")
+    if must_change:
+        before = facts.metrics_before.get(kr_id)
+        if before is None:
+            return _result(criterion, CriterionVerdict.UNCLEAR, "baseline_unavailable")
+        if value == before:
+            return _result(criterion, CriterionVerdict.FAIL, "metric_unchanged")
+    if value >= threshold:
+        return _result(criterion, CriterionVerdict.PASS, "metric_met")
+    return _result(criterion, CriterionVerdict.FAIL, "metric_below_threshold")
+
+
 def evaluate_deterministic(criterion: Any, facts: RunFacts) -> CriterionResult:
     """Không bao giờ ném lỗi: đầu vào sai dạng trả về UNCLEAR."""
     if not isinstance(criterion, dict):
@@ -82,6 +112,5 @@ def evaluate_deterministic(criterion: Any, facts: RunFacts) -> CriterionResult:
     if kind == "field_present":
         return _field_present(criterion, args, facts)
     if kind == "metric_gte":
-        # Giá trị KR chỉ đổi khi người check-in và worker chưa có capability đọc KR (v1).
-        return _result(criterion, CriterionVerdict.UNCLEAR, "metric_gte_not_evaluable")
+        return _metric_gte(criterion, args, facts)
     return _result(criterion, CriterionVerdict.UNCLEAR, "unknown_predicate")

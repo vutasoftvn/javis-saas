@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
@@ -52,3 +53,6 @@ class RunFacts:
     output_text: str
     structured_output: dict[str, Any] | None
     artifacts: tuple[ArtifactFact, ...]
+    # Giá trị KR hiện tại / trước khi chạy, khóa = key_result_id (chuỗi); None = không đọc được.
+    metrics: Mapping[str, float | None] = field(default_factory=dict)
+    metrics_before: Mapping[str, float | None] = field(default_factory=dict)

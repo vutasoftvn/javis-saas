@@ -1,3 +1,4 @@
+import pytest
 from agent.verification.deterministic import evaluate_deterministic
 from agent.verification.models import ArtifactFact, CriterionVerdict, RunFacts
 
@@ -93,11 +94,62 @@ def test_field_present_invalid_path_is_unclear():
     assert r.verdict is CriterionVerdict.UNCLEAR and "invalid_args" in r.reason
 
 
-def test_metric_gte_is_not_evaluable_in_v1():
-    r = evaluate_deterministic(
-        _crit("metric_gte", {"key_result_id": "1", "threshold": 3}), _facts()
+def _mf(metrics, before=None):
+    return RunFacts(
+        output_text="x",
+        structured_output=None,
+        artifacts=(),
+        metrics=metrics,
+        metrics_before=before or {},
     )
-    assert r.verdict is CriterionVerdict.UNCLEAR and "metric_gte_not_evaluable" in r.reason
+
+
+def _metric(args, **kw):
+    return _crit("metric_gte", args, **kw)
+
+
+def test_metric_gte_passes_when_value_meets_threshold():
+    r = evaluate_deterministic(_metric({"key_result_id": "7", "threshold": 3}), _mf({"7": 3.0}))
+    assert r.verdict is CriterionVerdict.PASS
+
+
+def test_metric_gte_fails_below_threshold():
+    r = evaluate_deterministic(_metric({"key_result_id": "7", "threshold": 3}), _mf({"7": 2.9}))
+    assert r.verdict is CriterionVerdict.FAIL and "metric_below_threshold" in r.reason
+
+
+def test_metric_gte_unavailable_value_is_unclear():
+    for facts in (_mf({}), _mf({"7": None})):
+        r = evaluate_deterministic(_metric({"key_result_id": "7", "threshold": 3}), facts)
+        assert r.verdict is CriterionVerdict.UNCLEAR and "metric_unavailable" in r.reason
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        {"key_result_id": 7, "threshold": 3},
+        {"key_result_id": "", "threshold": 3},
+        {"key_result_id": "7"},
+        {"key_result_id": "7", "threshold": "3"},
+        {"key_result_id": "7", "threshold": float("inf")},
+        {"key_result_id": "7", "threshold": True},
+        {"key_result_id": "7", "threshold": 3, "must_change": "yes"},
+    ],
+)
+def test_metric_gte_invalid_args_are_unclear(args):
+    r = evaluate_deterministic(_metric(args), _mf({"7": 5.0}))
+    assert r.verdict is CriterionVerdict.UNCLEAR and "invalid_args" in r.reason
+
+
+def test_must_change_requires_baseline_and_a_difference():
+    args = {"key_result_id": "7", "threshold": 3, "must_change": True}
+    assert evaluate_deterministic(_metric(args), _mf({"7": 5.0})).reason.endswith(
+        "baseline_unavailable"
+    )
+    unchanged = evaluate_deterministic(_metric(args), _mf({"7": 5.0}, {"7": 5.0}))
+    assert unchanged.verdict is CriterionVerdict.FAIL and "metric_unchanged" in unchanged.reason
+    changed = evaluate_deterministic(_metric(args), _mf({"7": 5.0}, {"7": 1.0}))
+    assert changed.verdict is CriterionVerdict.PASS
 
 
 def test_result_keeps_required_flag():

@@ -55,6 +55,8 @@ from apps.cosa.worker.wga_verify import (
     WGA_TASK_OUTPUT_DISPLAY_NAME,
     WGA_TASK_OUTPUT_REF_TEMPLATE,
     VerificationOutcome,
+    fetch_kr_values,
+    metric_criteria_ids,
     verification_enabled,
     verify_task_result,
 )
@@ -227,6 +229,25 @@ async def fetch_task_agent_context(
     return resp if isinstance(resp, dict) else None
 
 
+def _wants_change(done_criteria: dict[str, Any], kr_id: str) -> bool:
+    """Có tiêu chí metric_gte cho `kr_id` yêu cầu `must_change is True`. Không ném."""
+    criteria = done_criteria.get("criteria") if isinstance(done_criteria, dict) else None
+    for c in criteria if isinstance(criteria, list) else []:
+        pred = c.get("predicate") if isinstance(c, dict) else None
+        args = (
+            pred.get("args")
+            if isinstance(pred, dict) and pred.get("kind") == "metric_gte"
+            else None
+        )
+        if (
+            isinstance(args, dict)
+            and args.get("key_result_id") == kr_id
+            and args.get("must_change") is True
+        ):
+            return True
+    return False
+
+
 async def _verify_completed_run(
     plane: CosaAgentPlane,
     *,
@@ -240,6 +261,8 @@ async def _verify_completed_run(
     done_criteria: dict[str, Any] | None,
     run_result: Any,
     output_text: str,
+    metrics_before: dict[str, float | None] | None = None,
+    sub: str = "0",
 ) -> VerificationOutcome | None:
     """Xác minh sau khi run hoàn tất (cờ WGA_VERIFY_ON_COMPLETE, đọc lúc gọi). Không bao giờ ném."""
     if not (verification_enabled() and done_criteria):
@@ -257,6 +280,8 @@ async def _verify_completed_run(
             done_criteria=done_criteria,
             run_result=run_result,
             output_text=output_text,
+            metrics_before=metrics_before,
+            sub=sub,
         )
     except Exception as exc:  # hợp đồng: verify không ném; nếu vẫn ném thì fail-closed
         logger.exception("wga verification crashed task=%s run=%s", task_id, task_run_id)
@@ -315,6 +340,8 @@ async def advance_wga_task_after_resume(
                     done_criteria=ctx["doneCriteria"],
                     run_result=SimpleNamespace(final_output=final_output),
                     output_text=output_text,
+                    # Không có giá trị trước ở đường resume: must_change => baseline_unavailable.
+                    sub=sub or "0",
                 )
     # Token ủy quyền sống 600s; thẩm phán có thể làm nó hết hạn: cấp ngay trước advance.
     token = mint_company_delegation(
@@ -813,6 +840,21 @@ async def _execute_claimed_task(
     if t.get("doneCriteria"):
         extra_metadata["done_criteria"] = t["doneCriteria"]
 
+    # Giá trị KR trước khi chạy, chỉ cho tiêu chí metric_gte có must_change (so sánh sau khi chạy).
+    metrics_before: dict[str, float | None] = {}
+    if verification_enabled() and t.get("doneCriteria"):
+        must_change_ids = [
+            i for i in metric_criteria_ids(t["doneCriteria"]) if _wants_change(t["doneCriteria"], i)
+        ]
+        if must_change_ids:
+            metrics_before = await fetch_kr_values(
+                plane,
+                workspace_id=workspace_id,
+                sub=sub,
+                run_id=task_run_id,
+                key_result_ids=must_change_ids,
+            )
+
     try:
         prep = await prepare_run(
             plane,
@@ -859,6 +901,8 @@ async def _execute_claimed_task(
             done_criteria=t.get("doneCriteria"),
             run_result=run_result,
             output_text=output_text,
+            metrics_before=metrics_before,
+            sub=sub,
         )
         # Token ủy quyền sống 600s; run + thẩm phán có thể làm nó hết hạn: cấp lại ngay trước advance.
         adv_token = mint_company_delegation(

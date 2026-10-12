@@ -10,7 +10,7 @@ import math
 import os
 import re
 import uuid
-from collections.abc import Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -36,6 +36,7 @@ from agent.verification.models import (
 from agent.verification.repository import VerificationReport
 
 from apps.cosa.agents.specs import COSA_VERIFIER_AGENT_SPEC
+from apps.cosa.auth.jwt import mint_company_delegation
 from apps.cosa.models.resolver import ModelRouteNotFound
 from apps.cosa.policies.evaluator import READ_ONLY_RUN_KEY
 from apps.cosa.worker.run_core import RunCoreError, prepare_run, run_kernel
@@ -43,6 +44,9 @@ from apps.cosa.worker.run_core import RunCoreError, prepare_run, run_kernel
 logger = logging.getLogger(__name__)
 
 _JUDGE_MAX_ATTEMPTS = 2
+
+# Capability đọc KR (listKeyResults chấp nhận AGENT_CAP.OKR_OBJECTIVE_LIST qua delegation).
+_CAP_KR_READ = "okr.objective.list"
 
 # Danh tính artifact evidence tự động của nền tảng — định nghĩa MỘT lần, dùng ở
 # `record_wga_task_evidence` (wga_run) và `_is_platform_evidence`.
@@ -214,8 +218,60 @@ def _is_platform_evidence(artifact: Any, task_run_id: str) -> bool:
     )
 
 
+def metric_criteria_ids(done_criteria: dict[str, Any]) -> list[str]:
+    """`key_result_id` của các tiêu chí `metric_gte` hợp lệ (không trùng, giữ thứ tự). Không ném."""
+    ids: list[str] = []
+    criteria = (done_criteria or {}).get("criteria") if isinstance(done_criteria, dict) else None
+    for c in criteria if isinstance(criteria, list) else []:
+        pred = c.get("predicate") if isinstance(c, dict) else None
+        if not isinstance(pred, dict) or pred.get("kind") != "metric_gte":
+            continue
+        args = pred.get("args")
+        kr_id = args.get("key_result_id") if isinstance(args, dict) else None
+        if isinstance(kr_id, str) and kr_id.strip() and kr_id not in ids:
+            ids.append(kr_id)
+    return ids
+
+
+async def fetch_kr_values(
+    plane: Any, *, workspace_id: str, sub: str, run_id: str, key_result_ids: Collection[str]
+) -> dict[str, float | None]:
+    """Giá trị hiện tại của các KR cần chấm. Không ném: lỗi hoặc thiếu => None (INCONCLUSIVE ở người gọi)."""
+    result: dict[str, float | None] = {k: None for k in key_result_ids}
+    if not result:
+        return result
+    try:
+        token = mint_company_delegation(
+            sub=sub, workspace_id=workspace_id, run_id=run_id, capability_ids=[_CAP_KR_READ]
+        )
+        resp = await plane.company_client.get(
+            "/operations/key-results",
+            headers={"X-Workspace-Id": workspace_id, "Authorization": f"Bearer {token}"},
+        )
+    except Exception as exc:  # CompanyServiceError, lỗi mạng, thiếu secret
+        logger.warning("verify: KR read failed ws=%s: %s", workspace_id, exc.__class__.__name__)
+        return result
+    # MvpSuccess<KeyResult[]> = {"data": [...], "meta": {...}} (mvpList ở services/company).
+    rows = resp.get("data") if isinstance(resp, dict) else None
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict):
+            continue
+        rid = str(row.get("id"))
+        value = row.get("currentValue")
+        if rid in result and isinstance(value, (int, float)) and not isinstance(value, bool):
+            result[rid] = float(value)
+    return result
+
+
 async def collect_run_facts(
-    plane: Any, *, workspace_id: str, task_run_id: str, run_result: Any, output_text: str
+    plane: Any,
+    *,
+    workspace_id: str,
+    task_run_id: str,
+    run_result: Any,
+    output_text: str,
+    metrics: Mapping[str, float | None] | None = None,
+    metrics_before: Mapping[str, float | None] | None = None,
 ) -> RunFacts:
     """Dữ kiện có thật của run để chấm tiêu chí tất định.
 
@@ -246,7 +302,11 @@ async def collect_run_facts(
             )
             artifacts = []
     return RunFacts(
-        output_text=output_text, structured_output=structured, artifacts=tuple(artifacts)
+        output_text=output_text,
+        structured_output=structured,
+        artifacts=tuple(artifacts),
+        metrics=dict(metrics or {}),
+        metrics_before=dict(metrics_before or {}),
     )
 
 
@@ -338,6 +398,8 @@ async def verify_task_result(
     done_criteria: dict[str, Any],
     run_result: Any,
     output_text: str,
+    metrics_before: Mapping[str, float | None] | None = None,
+    sub: str = "0",
 ) -> VerificationOutcome:
     """Kiểm tra kết quả task theo doneCriteria. KHÔNG BAO GIỜ ném: mọi lỗi => INCONCLUSIVE."""
     try:
@@ -353,6 +415,8 @@ async def verify_task_result(
             done_criteria=done_criteria,
             run_result=run_result,
             output_text=output_text,
+            metrics_before=metrics_before,
+            sub=sub,
         )
     except Exception as exc:
         logger.exception(
@@ -376,6 +440,8 @@ async def _verify_task_result(
     done_criteria: dict[str, Any],
     run_result: Any,
     output_text: str,
+    metrics_before: Mapping[str, float | None] | None = None,
+    sub: str = "0",
 ) -> VerificationOutcome:
     try:
         parsed = parse_done_criteria(done_criteria)
@@ -383,12 +449,26 @@ async def _verify_task_result(
         return VerificationOutcome(Verdict.INCONCLUSIVE, None, "criteria_invalid", [])
     criteria: list[Any] = parsed["criteria"]
 
+    # Chỉ đọc KR khi có tiêu chí metric_gte (không gọi Company thừa).
+    kr_ids = metric_criteria_ids(parsed)
+    metrics: dict[str, float | None] = {}
+    if kr_ids:
+        metrics = await fetch_kr_values(
+            plane,
+            workspace_id=workspace_id,
+            sub=sub,
+            run_id=task_run_id,
+            key_result_ids=kr_ids,
+        )
+
     facts = await collect_run_facts(
         plane,
         workspace_id=workspace_id,
         task_run_id=task_run_id,
         run_result=run_result,
         output_text=output_text,
+        metrics=metrics,
+        metrics_before=metrics_before,
     )
 
     # Tiêu chí có id hợp lệ mới được chấm; id hỏng => UNCLEAR `invalid_criterion` (fail-closed, hiển thị).
