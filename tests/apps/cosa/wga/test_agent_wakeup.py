@@ -127,3 +127,19 @@ async def test_run_core_error_is_contained_and_escalates(monkeypatch):
     s = await _setup(monkeypatch, run_outcome=RunCoreError("usage_budget_exceeded"))
     await agent_wakeup.execute_agent_wakeup_task(s.plane, None, s.payload)
     assert s.sched.calls
+
+
+@pytest.mark.parametrize("missing", ["workspace_id", "assignment_id", "project_id"])
+@pytest.mark.parametrize("blank", [False, True])
+async def test_missing_payload_field_is_logged_and_ignored(monkeypatch, missing, blank, caplog):
+    s = await _setup(monkeypatch, run_outcome=RunStatus.COMPLETED)
+    payload = dict(s.payload)
+    if blank:
+        payload[missing] = ""
+    else:
+        del payload[missing]
+    with caplog.at_level("WARNING"):
+        await agent_wakeup.execute_agent_wakeup_task(s.plane, None, payload)
+    assert not s.prompts and not s.sched.calls
+    assert "missing" in caplog.text
+    assert len(await s.ledger.list_unhandled(WS, str(s.dev.assignment_id), "p1")) == 1

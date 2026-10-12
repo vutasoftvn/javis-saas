@@ -7,7 +7,7 @@ Kế hoạch triển khai: [2026-10-12-agent-structure-C-org-chart-wakeup-impl.m
 ## Đã làm
 
 - C1 toàn vẹn org chart: từ chối vòng và tự tham chiếu (migration agent 021), cảnh báo `manager_not_active` ở `GET /org-chart`.
-- C2 bộ phân giải leo thang thuần (`agent.workforce.escalation`), dừng ở operator khi hết quản lý hoặc chạm hop cap.
+- C2 bộ phân giải leo thang thuần (`agent.workforce.escalation`), dừng ở operator khi hết quản lý hoặc chạm hop cap (v1: operator chỉ là một dòng log WARNING `agent_wakeup failed (...) -> operator`, chưa có thông báo/hàng đợi).
 - C3 wakeup: sổ cái `agent.workforce_wakeups` (migration agent 022), `WakeupService`, handler `agent_wakeup` (run chỉ đọc), cổng ACTIVE/autonomy/rate cap/hop cap/debounce, cờ `AGENT_WAKEUP_ENABLED`.
 - C5 wake thất bại leo thang lên quản lý; task `blocked` ở sweep đánh thức người phụ trách; `POST /agent/workforce/assignments/{id}/wakeups` (founder/co-founder).
 - Test đầu-cuối trong tiến trình: `tests/apps/cosa/wga/test_agent_wakeup_e2e.py`.
@@ -20,8 +20,8 @@ Kế hoạch triển khai: [2026-10-12-agent-structure-C-org-chart-wakeup-impl.m
 - Wakeup có quyền ghi (sau khi Verifier phủ các đường đó).
 - Nối `functional_key` vào thực thi và bỏ 501 của `schedules/{id}/run-now`.
 - UI hiển thị lịch sử wakeup.
-- Route thủ công nhận `project_id` mà chưa kiểm project thuộc workspace (founder-only, run chỉ đọc).
-- Quyết định cần chốt với chủ dự án: ngưỡng autonomy L2 (hiện chỉ `founder_office_orchestrator` đánh thức được vì finance=L1, marketing=L0), hop cap 3, ánh xạ `functional_key -> profile`, kiểm sở hữu `project_id` ở route thủ công.
+- Thông báo operator (queue/inbox/alert): v1 "operator" chỉ là một dòng log WARNING `agent_wakeup failed (...) -> operator`, không có thông báo, hàng đợi hay hàng sổ cái.
+- Quyết định cần chốt với chủ dự án: ngưỡng autonomy L2 (hiện chỉ `founder_office_orchestrator` đánh thức được vì finance=L1, marketing=L0), hop cap 3, ánh xạ `functional_key -> profile`.
 
 Tương ứng Paperclip: org chart với đường báo cáo, heartbeat thức dậy theo hàng đợi có coalescing; và ảnh Dots: Dot điều phối giao nhánh song song.
 

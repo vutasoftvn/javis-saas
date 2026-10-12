@@ -440,7 +440,10 @@ class PostgresWorkforceRepository:
         async with self._session_factory() as session:
             # Khoá tư vấn theo workspace: hai ghi đồng thời không thể cùng tạo vòng (nhả khi commit).
             await session.execute(
-                text("SELECT pg_advisory_xact_lock(hashtextextended(:ws, 0))"), {"ws": workspace_id}
+                text(
+                    "SELECT pg_advisory_xact_lock(hashtextextended('workforce_reporting:' || :ws, 0))"
+                ),
+                {"ws": workspace_id},
             )
             existing = (
                 await session.execute(

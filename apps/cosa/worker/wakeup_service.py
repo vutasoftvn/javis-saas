@@ -24,6 +24,7 @@ __all__ = [
     "WAKE_PROFILE_BY_FUNCTIONAL_KEY",
     "WakeOutcome",
     "WakeupService",
+    "canonical_assignment_id",
     "evaluate_wake_target",
 ]
 
@@ -48,6 +49,14 @@ _ELIGIBILITY_REASONS = frozenset(
 _RANK = {"L0": 0, "L1": 1, "L2": 2, "L3": 3}
 
 
+def canonical_assignment_id(value: str) -> str | None:
+    """Dạng chuẩn (chữ thường, có gạch ngang) của UUID; None nếu không phải UUID."""
+    try:
+        return str(UUID(str(value)))
+    except (ValueError, AttributeError, TypeError):
+        return None
+
+
 def _profile_autonomy(profile: str) -> str:
     spec = AGENT_PROFILE_SPECS.get(profile)
     return AutonomyLevel(spec.autonomy_level).value if spec is not None else "L0"
@@ -64,6 +73,10 @@ async def evaluate_wake_target(
     workforce_repo: Any, workspace_id: str, assignment_id: str
 ) -> tuple[str | None, str | None]:
     """(profile, None) nếu đánh thức được; ngược lại (None, lý do)."""
+    canonical = canonical_assignment_id(assignment_id)
+    if canonical is None:
+        return None, "invalid_assignment_id"
+    assignment_id = canonical
     assignment = await workforce_repo.get_assignment(workspace_id, assignment_id)
     if assignment is None:
         return None, "assignment_not_found"
@@ -110,6 +123,10 @@ class WakeupService:
         if not wakeup_enabled():
             return WakeOutcome("suppressed", "flag_off")
         config = self._config or WakeConfig.from_env()
+        canonical = canonical_assignment_id(assignment_id)
+        if canonical is None:
+            return WakeOutcome("suppressed", "invalid_assignment_id")
+        assignment_id = canonical
         profile, reason = await evaluate_wake_target(self._repo, workspace_id, assignment_id)
         if profile is None:
             return WakeOutcome("suppressed", reason)
@@ -166,10 +183,10 @@ class WakeupService:
         if not wakeup_enabled():
             return WakeOutcome("suppressed", "flag_off")
         config = self._config or WakeConfig.from_env()
-        try:
-            current = UUID(from_assignment_id)
-        except ValueError:
+        canonical = canonical_assignment_id(from_assignment_id)
+        if canonical is None:
             return WakeOutcome("suppressed", "invalid_assignment_id")
+        current = UUID(canonical)
         records = await self._repo.list_assignments(workspace_id)
         nodes: dict[UUID, tuple[UUID | None, str]] = {
             r.assignment_id: (r.reports_to_assignment_id, r.status) for r in records
@@ -191,6 +208,12 @@ class WakeupService:
             if outcome.status == "suppressed" and outcome.reason in _ELIGIBILITY_REASONS:
                 # Quản lý không đánh thức được: chỉ đi tiếp lên quản lý kế, không nới gì.
                 # Vòng lặp bị chặn bởi hop_cap vì mỗi bước tăng hop.
+                logger.info(
+                    "wakeup escalate skipped manager ws=%s assignment=%s reason=%s",
+                    workspace_id,
+                    target.assignment_id,
+                    outcome.reason,
+                )
                 current, hop = target.assignment_id, target.hop
                 continue
             return outcome

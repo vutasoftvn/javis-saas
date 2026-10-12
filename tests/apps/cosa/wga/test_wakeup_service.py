@@ -1,12 +1,11 @@
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
-from uuid import uuid4
 
 import pytest
-
 from agent.workforce.repository import InMemoryWorkforceRepository
 from agent.workforce.wakeup import WakeConfig
 from agent.workforce.wakeup_ledger import InMemoryWakeupLedger
+
 from apps.cosa.worker import wakeup_service as ws_mod
 from apps.cosa.worker.wakeup_service import WakeupService, evaluate_wake_target
 
@@ -273,3 +272,62 @@ async def test_escalate_flag_off_and_invalid_id(env, monkeypatch):
     assert (await _esc(env, dev, from_assignment_id="not-a-uuid")).reason == "invalid_assignment_id"
     monkeypatch.delenv("AGENT_WAKEUP_ENABLED")
     assert (await _esc(env, dev)).reason == "flag_off"
+
+
+async def test_non_canonical_ids_collapse_to_one_identity(env):
+    a = await _assign(env.repo, "founder_office_orchestrator")
+    canon = str(a.assignment_id)
+    variants = [canon.upper(), canon.replace("-", ""), "{" + canon + "}", "urn:uuid:" + canon]
+    first = await env.svc.request_wakeup(
+        workspace_id=WS,
+        assignment_id=variants[0],
+        project_id="p1",
+        reason_kind="task_blocked",
+        source_ref="task:1",
+    )
+    assert first.status == "scheduled" and first.assignment_id == canon
+    for v in variants[1:]:
+        again = await env.svc.request_wakeup(
+            workspace_id=WS,
+            assignment_id=v,
+            project_id="p1",
+            reason_kind="task_blocked",
+            source_ref="task:1",
+        )
+        assert again.status == "duplicate"
+    assert len(env.sched.calls) == 1
+    call = env.sched.calls[0]
+    assert call["input_payload"]["assignment_id"] == canon
+    assert call["coalescing_key"] == f"wake:{WS}:{canon}:p1"
+    assert len(await env.ledger.list_unhandled(WS, canon, "p1")) == 1
+
+
+async def test_non_canonical_ids_share_rate_cap(env):
+    a = await _assign(env.repo, "founder_office_orchestrator")
+    canon = str(a.assignment_id)
+    forms = [canon, canon.upper(), canon.replace("-", ""), "urn:uuid:" + canon]
+    outcomes = [
+        await env.svc.request_wakeup(
+            workspace_id=WS,
+            assignment_id=form,
+            project_id="p1",
+            reason_kind="task_blocked",
+            source_ref=f"task:{i}",
+        )
+        for i, form in enumerate(forms)
+    ]
+    # max_per_day=2: hai lần đầu scheduled, các biến thể còn lại bị rate cap chung
+    assert [o.status for o in outcomes[:2]] == ["scheduled", "scheduled"]
+    assert [o.reason for o in outcomes[2:]] == ["rate_cap", "rate_cap"]
+
+
+async def test_request_wakeup_invalid_id_suppressed(env):
+    out = await env.svc.request_wakeup(
+        workspace_id=WS,
+        assignment_id="not-a-uuid",
+        project_id="p1",
+        reason_kind="task_blocked",
+        source_ref="task:1",
+    )
+    assert (out.status, out.reason) == ("suppressed", "invalid_assignment_id")
+    assert env.sched.calls == []

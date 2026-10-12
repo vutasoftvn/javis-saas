@@ -17,6 +17,7 @@ from apps.cosa.api.approval_authority import (
     require_approval_authority,
 )
 from apps.cosa.api.mvp_response import MvpSourceRef, MvpSuccess, mvp_item, mvp_list
+from apps.cosa.api.project_context import verify_project_context
 from apps.cosa.api.workforce_schemas import (
     _ARTIFACT_STATUS_MAP,
     ApprovalDecisionRequest,
@@ -56,7 +57,11 @@ from apps.cosa.auth.jwt import MissingPlatformIdentityError
 from apps.cosa.capabilities.client import CompanyServiceError
 from apps.cosa.composition.agent_plane import CosaAgentPlane
 from apps.cosa.policies.locale_policy import ProfileLocaleUnavailable
-from apps.cosa.worker.wakeup_service import WakeupService, evaluate_wake_target
+from apps.cosa.worker.wakeup_service import (
+    WakeupService,
+    canonical_assignment_id,
+    evaluate_wake_target,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -254,6 +259,13 @@ async def request_assignment_wakeup(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="founder authority required",
         )
+    canonical_id = canonical_assignment_id(assignment_id)
+    if canonical_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="assignment_id must be a valid UUID",
+        )
+    assignment_id = canonical_id
     plane = _get_plane(request)
     repo = _get_workforce_repo(request)
     ledger = getattr(plane, "wakeup_ledger_repository", None)
@@ -269,6 +281,8 @@ async def request_assignment_wakeup(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Assignment '{assignment_id}' not found in workspace",
         )
+    # project_id phải thuộc workspace của principal (404 nếu lạ/không có quyền).
+    verified_project = await verify_project_context(plane, identity, req.project_id)
     # Lý do tự do chỉ vào log (cắt ngắn), không vào sổ cái/prompt.
     logger.info(
         "manual wakeup ws=%s assignment=%s reason=%r",
@@ -281,7 +295,7 @@ async def request_assignment_wakeup(
     ).request_wakeup(
         workspace_id=identity.workspace_id,
         assignment_id=assignment_id,
-        project_id=req.project_id,
+        project_id=verified_project.project_id,
         reason_kind="manual",
         source_ref=f"manual:{uuid4().hex}",
     )

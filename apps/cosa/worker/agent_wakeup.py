@@ -28,9 +28,15 @@ async def execute_agent_wakeup_task(plane: Any, stream_mgr: Any, payload: dict[s
         logger.error("agent_wakeup: ledger/workforce repository not configured")
         return
 
-    workspace_id = str(payload["workspace_id"])
-    assignment_id = str(payload["assignment_id"])
-    project_id = str(payload["project_id"])
+    workspace_id = str(payload.get("workspace_id") or "")
+    assignment_id = str(payload.get("assignment_id") or "")
+    project_id = str(payload.get("project_id") or "")
+    if not (workspace_id and assignment_id and project_id):
+        logger.warning(
+            "agent_wakeup payload missing workspace_id/assignment_id/project_id: keys=%s",
+            sorted(payload),
+        )
+        return
 
     entries = await ledger.list_unhandled(workspace_id, assignment_id, project_id)
     if not entries:
