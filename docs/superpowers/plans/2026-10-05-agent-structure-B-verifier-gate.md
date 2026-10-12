@@ -21,10 +21,11 @@ Bản thiết kế gốc (bắt buộc bước `VERIFIER` trong workflow trướ
 
 ## Còn lại
 
-- Verify đường resume và task `NEEDS_APPROVAL`.
-- `metric_gte` cần capability đọc giá trị KR (hiện luôn INCONCLUSIVE).
+Đã làm (đợt 2, 2026-10-12): verify đường resume và task `NEEDS_APPROVAL`; `metric_gte` (đọc `currentValue` của KR, `must_change` tùy chọn); model-policy REST nhận scope `verifier` (`cosa.agents.verifier`); UI Flutter (huy hiệu kanban + sheet, API gộp `taskIds`). Chi tiết vận hành: [runbook](../../runbooks/wga-verifier.md).
+
+Còn lại:
+
 - Cổng duyệt cho workflow (khi có workflow production dùng approval).
-- Bật cờ mặc định sau khi quan sát ở workspace dev.
-- UI Flutter hiển thị verdict (endpoint chưa vào `shared/contracts/mvp-surface.json` cho đến khi có màn hình dùng).
 - `BudgetGate` vẫn chưa nối runtime.
-- Ép mô hình thẩm phán khác producer: REST model-policy chưa nhận scope `cosa.agents.verifier`; hiện dùng `set_policy`.
+- Đưa verdict vào hash duyệt / scorecard.
+- Bật cờ `WGA_VERIFY_ON_COMPLETE` mặc định: cổng của người, chờ kết quả quan sát theo runbook (mục "Quan sát trước khi bật mặc định"); mặc định hiện vẫn tắt.
