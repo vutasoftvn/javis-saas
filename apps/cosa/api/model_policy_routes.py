@@ -32,6 +32,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from apps.cosa.agents.agent_profile_specs import AGENT_PROFILE_SPECS
+from apps.cosa.agents.internal_policy_specs import INTERNAL_MODEL_POLICY_SPECS
 from apps.cosa.api.model_policy_schemas import (
     CreateModelProviderRequest,
     ModelPolicyView,
@@ -396,7 +397,9 @@ def _resolve_agent_spec_id(agent_profile: str) -> str:
     (final-review finding #1). Raise 404 nếu `agent_profile` không nằm trong
     bảng — KHÔNG âm thầm coi `agent_profile` là chính `agent_spec_id` (tránh
     lặp lại đúng bug đó dưới dạng khác)."""
-    spec = AGENT_PROFILE_SPECS.get(agent_profile)
+    # Spec nội bộ (vd "verifier" — thẩm phán độc lập) cấu hình được policy nhưng
+    # KHÔNG phải profile công khai nên nằm ở bảng riêng.
+    spec = AGENT_PROFILE_SPECS.get(agent_profile) or INTERNAL_MODEL_POLICY_SPECS.get(agent_profile)
     if spec is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
