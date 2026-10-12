@@ -98,6 +98,8 @@ Producer WGA và thẩm phán đều khai `model_input_capability_ref` mà khôn
 
 **Trạng thái: mặc định `WGA_VERIFY_ON_COMPLETE` vẫn TẮT.** Đổi mặc định là cổng của người, chỉ làm sau khi chủ dự án ghi kết quả quan sát bên dưới. Không đổi mặc định `WGA_REQUIRE_DONE_CRITERIA` trong đợt này.
 
+**Quyết định của chủ dự án (2026-10-12):** giữ mặc định TẮT, đóng plan Verifier follow-ups mà không đổi mặc định. Việc đổi mặc định (Task 6 Step 4 của plan `2026-10-12-verifier-wga-followups-impl.md`) hoãn tới khi có số liệu quan sát theo tiêu chí bên dưới. Để bắt đầu thu thập số liệu, bật `WGA_VERIFY_ON_COMPLETE=1` (cùng `WGA_REQUIRE_DONE_CRITERIA=1`) bằng biến môi trường ở workspace dev.
+
 Truy vấn chỉ-đọc (chạy trên DB agent, thay `<ws>`):
 
 ```sql
