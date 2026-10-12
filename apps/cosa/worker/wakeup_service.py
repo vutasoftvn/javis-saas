@@ -1,0 +1,167 @@
+"""Dịch vụ wakeup (Dự án C): cổng kiểm tra, sổ cái, schedule. Org chart chỉ là đường leo
+thang; không nới capability/autonomy của ai."""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from typing import Any, Literal
+from uuid import UUID, uuid4
+
+from agent.governance.contracts import AutonomyLevel
+from agent.workforce.escalation import next_escalation_target
+from agent.workforce.wakeup import WakeConfig, wakeup_enabled
+from agent.workforce.wakeup_ledger import WakeupEntry, WakeupLedger
+
+from apps.cosa.agents.agent_profile_specs import AGENT_PROFILE_SPECS
+
+logger = logging.getLogger(__name__)
+
+__all__ = [
+    "MIN_WAKE_AUTONOMY",
+    "WAKE_PROFILE_BY_FUNCTIONAL_KEY",
+    "WakeOutcome",
+    "WakeupService",
+    "evaluate_wake_target",
+]
+
+# Ánh xạ bảo thủ functional_key -> profile thực thi được. Vắng mặt = không thể đánh thức.
+WAKE_PROFILE_BY_FUNCTIONAL_KEY: dict[str, str] = {
+    "cashflow_planner": "finance",
+    "accounting_document_specialist": "finance",
+    "campaign_planner": "marketing",
+    "founder_office_orchestrator": "operations",
+}
+
+MIN_WAKE_AUTONOMY = AutonomyLevel.L2
+_RANK = {"L0": 0, "L1": 1, "L2": 2, "L3": 3}
+
+
+def _profile_autonomy(profile: str) -> str:
+    spec = AGENT_PROFILE_SPECS.get(profile)
+    return AutonomyLevel(spec.autonomy_level).value if spec is not None else "L0"
+
+
+@dataclass(frozen=True)
+class WakeOutcome:
+    status: Literal["scheduled", "duplicate", "suppressed", "operator"]
+    reason: str | None = None
+    assignment_id: str | None = None
+
+
+async def evaluate_wake_target(
+    workforce_repo: Any, workspace_id: str, assignment_id: str
+) -> tuple[str | None, str | None]:
+    """(profile, None) nếu đánh thức được; ngược lại (None, lý do)."""
+    assignment = await workforce_repo.get_assignment(workspace_id, assignment_id)
+    if assignment is None:
+        return None, "assignment_not_found"
+    if assignment.status != "ACTIVE":
+        return None, "assignment_not_active"
+    if assignment.agent_instance_id is not None:
+        employee = await workforce_repo.get_employee(workspace_id, assignment.agent_instance_id)
+        if employee is None or employee.status != "ACTIVE":
+            return None, "employee_not_active"
+    profile = WAKE_PROFILE_BY_FUNCTIONAL_KEY.get(assignment.functional_key)
+    if profile is None or profile not in AGENT_PROFILE_SPECS:
+        return None, "no_executable_profile"
+    if _RANK[_profile_autonomy(profile)] < _RANK[MIN_WAKE_AUTONOMY.value]:
+        return None, "autonomy_below_minimum"
+    return profile, None
+
+
+class WakeupService:
+    def __init__(
+        self,
+        *,
+        workforce_repo: Any,
+        ledger: WakeupLedger,
+        scheduler: Any,
+        config: WakeConfig | None = None,
+        now: Callable[[], datetime] = lambda: datetime.now(UTC),
+    ) -> None:
+        self._repo = workforce_repo
+        self._ledger = ledger
+        self._scheduler = scheduler
+        self._config = config
+        self._now = now
+
+    async def request_wakeup(
+        self,
+        *,
+        workspace_id: str,
+        assignment_id: str,
+        project_id: str,
+        reason_kind: str,
+        source_ref: str,
+        hop: int = 0,
+    ) -> WakeOutcome:
+        if not wakeup_enabled():
+            return WakeOutcome("suppressed", "flag_off")
+        config = self._config or WakeConfig.from_env()
+        profile, reason = await evaluate_wake_target(self._repo, workspace_id, assignment_id)
+        if profile is None:
+            return WakeOutcome("suppressed", reason)
+        if hop > config.hop_cap:
+            return WakeOutcome("suppressed", "hop_cap_reached")
+        now = self._now()
+        recent = await self._ledger.count_since(
+            workspace_id, assignment_id, now - timedelta(hours=24)
+        )
+        if recent >= config.max_per_day:
+            return WakeOutcome("suppressed", "rate_cap")
+        entry = WakeupEntry(
+            wake_id=uuid4().hex,
+            workspace_id=workspace_id,
+            assignment_id=assignment_id,
+            project_id=project_id,
+            reason_kind=reason_kind,
+            source_ref=source_ref,
+            hop=hop,
+            created_at=now,
+        )
+        if not await self._ledger.record_if_absent(entry):
+            return WakeOutcome("duplicate", assignment_id=assignment_id)
+        await self._scheduler.schedule(
+            target_spec_id=AGENT_PROFILE_SPECS[profile].id,
+            input_payload={
+                "task_type": "agent_wakeup",
+                "workspace_id": workspace_id,
+                "assignment_id": assignment_id,
+                "project_id": project_id,
+            },
+            coalescing_key=f"wake:{workspace_id}:{assignment_id}:{project_id}",
+            run_at=now + timedelta(seconds=config.debounce_sec),
+        )
+        return WakeOutcome("scheduled", assignment_id=assignment_id)
+
+    async def escalate(
+        self,
+        *,
+        workspace_id: str,
+        from_assignment_id: str,
+        project_id: str,
+        reason_kind: str,
+        source_ref: str,
+        hop: int = 0,
+    ) -> WakeOutcome:
+        config = self._config or WakeConfig.from_env()
+        records = await self._repo.list_assignments(workspace_id)
+        nodes: dict[UUID, tuple[UUID | None, str]] = {
+            r.assignment_id: (r.reports_to_assignment_id, r.status) for r in records
+        }
+        target = next_escalation_target(
+            nodes=nodes, assignment_id=UUID(from_assignment_id), hop=hop, hop_cap=config.hop_cap
+        )
+        if target.kind == "operator" or target.assignment_id is None:
+            return WakeOutcome("operator", target.reason)
+        return await self.request_wakeup(
+            workspace_id=workspace_id,
+            assignment_id=str(target.assignment_id),
+            project_id=project_id,
+            reason_kind=reason_kind,
+            source_ref=source_ref,
+            hop=target.hop,
+        )
