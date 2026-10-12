@@ -21,7 +21,8 @@ Mọi lỗi của verifier đều thành INCONCLUSIVE, không bao giờ làm tas
 ## Phạm vi kiểm
 
 - Lần chạy đầu của task **AUTO**, đường **resume** sau duyệt và task **`NEEDS_APPROVAL`** đều được kiểm khi cờ bật (`apps/cosa/worker/wga_run.py`: `_verify_completed_run`, `advance_wga_task_after_resume`, `fetch_task_agent_context`).
-- PASS ở task `NEEDS_APPROVAL` **không** tự đóng task; việc đóng vẫn do người duyệt.
+- PASS ở task `NEEDS_APPROVAL` trên **đường ban đầu** **không** tự đóng task; việc đóng vẫn do người duyệt. Ở **đường resume** (founder đã duyệt checkpoint) PASS đóng task về `done` (hành vi cũ); FAIL/INCONCLUSIVE vẫn giữ `in_progress`.
+- Ở đường resume, `sub` ủy quyền để đọc KR/task là id user Company cục bộ của **người duyệt** (`actor_id` trong payload resume do `decide_approval` đặt).
 - Bật cờ mà không lấy được agent-context của task: task giữ `in_progress`, note `verification_inconclusive: context_unavailable`.
 - Ở đường resume không có ảnh chụp trước lần chạy, nên `must_change` của `metric_gte` luôn cho INCONCLUSIVE `baseline_unavailable`.
 
@@ -31,7 +32,7 @@ Mọi lỗi của verifier đều thành INCONCLUSIVE, không bao giờ làm tas
 |---|---|
 | `artifact_exists` (`kind?`, `display_name_contains?`) | chỉ tính artifact do **công cụ của agent** tạo ra; artifact "WGA task output" tự động của nền tảng không bao giờ được tính |
 | `field_present` (`path` dạng `a.b.c`) | cần đầu ra dạng dict có cấu trúc; đầu ra chỉ có `{"response": ...}` thì INCONCLUSIVE |
-| `metric_gte` (`key_result_id` string, `threshold` số hữu hạn không phải bool, `must_change?` bool) | đọc `currentValue` của KR qua `GET /operations/key-results` (capability ủy quyền `okr.objective.list`) và so với `threshold`; endpoint này trả **mọi** KR của workspace ở mỗi lần xác minh. Mã lý do: `metric_met`, `metric_below_threshold`, `metric_unavailable`, `baseline_unavailable`, `metric_unchanged`, `invalid_args`. `must_change: true` cần ảnh chụp trước lần chạy, chỉ có ở đường sweep ban đầu (không có ở resume, xem trên). Rủi ro đạt rỗng: KR đã vượt ngưỡng từ trước thì không có `must_change` sẽ PASS dù agent không làm gì; KR kiểu giảm (scoring giảm dần) cần ngưỡng riêng, v1 không đảo chiều |
+| `metric_gte` (`key_result_id` string, `threshold` số hữu hạn không phải bool, `must_change?` bool) | đọc `currentValue` của KR qua `GET /operations/key-results` (capability ủy quyền `okr.objective.list`) và so với `threshold`; endpoint này trả **mọi** KR của workspace ở mỗi lần xác minh. Mã lý do: `metric_met`, `metric_below_threshold`, `metric_unavailable`, `baseline_unavailable`, `metric_unchanged`, `invalid_args`. `must_change: true` cần ảnh chụp trước lần chạy, chỉ có ở đường sweep ban đầu (không có ở resume, xem trên). PASS của `metric_gte` có thể đến từ check-in KR do chính agent thực hiện (spec operations có `okr.key_result.checkin/update`, founder duyệt ở mức T2), nên `must_change` và việc chủ KR rà soát là hai lớp bảo vệ. Rủi ro đạt rỗng: KR đã vượt ngưỡng từ trước thì không có `must_change` sẽ PASS dù agent không làm gì; KR kiểu giảm (scoring giảm dần) cần ngưỡng riêng, v1 không đảo chiều |
 | `rubric` | chấm bởi thẩm phán độc lập `cosa.agents.verifier` (một lần gọi cho mọi tiêu chí rubric) |
 
 Tiêu chí `required: false` được ghi lại nhưng không chặn.
@@ -112,6 +113,11 @@ FROM agent.verification_reports r, jsonb_array_elements(r.criteria_results) c
 WHERE r.workspace_id = '<ws>' AND r.verdict = 'INCONCLUSIVE'
   AND r.created_at >= now() - interval '14 days'
 GROUP BY 1, 2 ORDER BY 3 DESC;
+
+-- Lưu ý: INCONCLUSIVE cấp báo cáo như `context_unavailable`, `criteria_invalid`,
+-- `unsupported_owner_agent_profile`, `verification_error:*` KHÔNG tạo bản ghi nào
+-- (không có báo cáo để truy vấn). Chúng chỉ hiện ở note của task (`verification_inconclusive: ...`)
+-- và log worker; theo dõi bằng cách đếm task giữ `in_progress` với note đó.
 
 -- Mẫu để duyệt tay: 20 báo cáo PASS gần nhất kèm task
 SELECT report_id, task_id, run_id, mode, created_at

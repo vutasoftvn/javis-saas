@@ -16,7 +16,7 @@ Bản thiết kế gốc (bắt buộc bước `VERIFIER` trong workflow trướ
 1. **Không có bước `VERIFIER` trong workflow engine:** không workflow production nào có cổng duyệt để ép.
 2. **Không verify ở approval của gateway:** approval diễn ra trước khi thực thi nên chưa có kết quả để kiểm.
 3. **Điểm gắn là việc hoàn thành task WGA** (task AUTO tự đóng `done` chỉ với văn bản không rỗng), đúng chỗ rủi ro "đóng giả" nằm.
-4. Chỉ kiểm lần chạy đầu của task AUTO; `NEEDS_APPROVAL` và đường resume sau duyệt không kiểm.
+4. ~~Chỉ kiểm lần chạy đầu của task AUTO; `NEEDS_APPROVAL` và đường resume sau duyệt không kiểm.~~ **Superseded 2026-10-12**: đường resume và `NEEDS_APPROVAL` đã được kiểm (xem runbook `wga-verifier.md`).
 5. Verdict không buộc vào hash duyệt và chưa đưa vào scorecard.
 
 ## Còn lại
