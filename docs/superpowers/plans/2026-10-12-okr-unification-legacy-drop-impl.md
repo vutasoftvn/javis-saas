@@ -2,6 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+
+> **Trạng thái thực thi (2026-10-12):** các task đã được thực thi bằng subagent-driven-development, mỗi task có review riêng và có review cuối toàn nhánh; commit nằm trên `main`. Các bước kiểm tay trên stack chạy thật (nếu có trong Step cổng chất lượng) **chưa được chạy**; các cổng tự động đã chạy và pass như ghi trong runbook/báo cáo.
+
 **Goal:** Đóng nốt hai điểm spec A0 (`docs/superpowers/specs/2026-10-05-okr-goals-unification-design.md`) chưa làm: xóa vật lý hai bảng họ cũ `strategy.objectives` / `strategy.cosa_key_results`, và chốt số phận view `strategy.v_goal_tree` / hàm `fn_goals_needing_review`.
 
 **Architecture:** Một migration Company `043` (contract) lưu bản sao dòng còn lại vào bảng lưu trữ rồi `DROP` hai bảng cũ; kèm file evidence để `scripts/check-migration-backward-compat.mjs` cho phép DDL phá hủy. Phần view/hàm: **không dựng lại** (không có mã nào dùng) và ghi rõ vào spec.
@@ -45,7 +48,7 @@
 **Interfaces:**
 - Produces: bảng lưu trữ `strategy.legacy_objectives_archive` và `strategy.legacy_cosa_key_results_archive` (chỉ tồn tại nếu lúc chạy hai bảng cũ còn dòng); hai bảng cũ và `strategy.fn_goals_needing_review` bị xóa.
 
-- [ ] **Step 1: Kiểm phụ thuộc còn lại (không viết code)**
+- [x] **Step 1: Kiểm phụ thuộc còn lại (không viết code)**
 
 Run (từ gốc repo):
 
@@ -57,7 +60,7 @@ psql "$WORKSPACE_DATABASE_URL" -c "SELECT conrelid::regclass, conname FROM pg_co
 
 Expected: grep chỉ còn `039_*.up/down.sql`; truy vấn view phụ thuộc và FK trỏ vào hai bảng cũ **không trả hàng** (ngoài `strategy.cosa_key_results.objective_id → strategy.objectives`). Nếu có kết quả khác, **dừng và báo** thay vì `DROP ... CASCADE`.
 
-- [ ] **Step 2: Test thất bại** (`tests/db_baseline_candidate/test_okr_legacy_drop.py`, theo mẫu `test_startup_core_schema.py` cùng thư mục để lấy fixture kết nối)
+- [x] **Step 2: Test thất bại** (`tests/db_baseline_candidate/test_okr_legacy_drop.py`, theo mẫu `test_startup_core_schema.py` cùng thư mục để lấy fixture kết nối)
 
 ```python
 def test_legacy_okr_tables_are_gone(workspace_conn):
@@ -86,7 +89,7 @@ def test_legacy_function_is_gone(workspace_conn):
 
 (Dùng đúng tên fixture kết nối của file mẫu; nếu helper trả dict thay vì tuple, sửa chỉ số truy cập.) Chạy → FAIL (bảng còn tồn tại).
 
-- [ ] **Step 3: Viết migration**
+- [x] **Step 3: Viết migration**
 
 ```sql
 -- 043_okr_legacy_drop.up.sql
@@ -125,12 +128,12 @@ DROP TABLE IF EXISTS strategy.objectives;
 
 Với phần down: sao chép **nguyên văn** hai khối `CREATE TABLE IF NOT EXISTS strategy.objectives (...)` và `strategy.cosa_key_results (...)` cùng các `CREATE INDEX` đi kèm từ `028_startup_os_core_schema.up.sql` (dòng ~265-303; đọc file để lấy đúng định nghĩa, không viết lại theo trí nhớ). Không dựng lại FK từ `projects` (đã bỏ ở 039).
 
-- [ ] **Step 4: Áp migration, chạy test, gate**
+- [x] **Step 4: Áp migration, chạy test, gate**
 
 Run: `make dev-migrate`; áp vào DB test; `make schema-fingerprint-write`; `PYTHONPATH=.:packages:apps python -m pytest tests/db_baseline_candidate/test_okr_legacy_drop.py -q -p no:cacheprovider`; `make migration-check test-migration-rollback`; `cd services/company && encore test operations/tests/okr.test.ts operations/tests/startup-os.test.ts`.
 Expected: test mới PASS; `migration-check` **sẽ báo thiếu evidence cho đến khi Task 2 xong** (đó là cổng hợp lệ, không hạ ngưỡng checker).
 
-- [ ] **Step 5: Commit** — chỉ sau khi Task 2 qua cổng người; lúc đó:
+- [x] **Step 5: Commit** — chỉ sau khi Task 2 qua cổng người; lúc đó:
 
 ```bash
 git add services/company/operations/migrations/043_okr_legacy_drop.up.sql services/company/operations/migrations/043_okr_legacy_drop.down.sql tests/db_baseline_candidate/test_okr_legacy_drop.py deploy/schema/fingerprints.json docs/runbooks/evidence/okr-legacy-drop-043.md
@@ -144,7 +147,7 @@ git commit -m "feat(okr): migration 043 xóa họ OKR cũ (lưu trữ dòng còn
 **Files:**
 - Create: `docs/runbooks/evidence/okr-legacy-drop-043.md`
 
-- [ ] **Step 1: Tạo file evidence từ mẫu**, giữ đúng khối YAML mà `parseCutoverEvidence` đọc (`cutover:` với các khóa cách lề đúng 2 dấu cách):
+- [x] **Step 1: Tạo file evidence từ mẫu**, giữ đúng khối YAML mà `parseCutoverEvidence` đọc (`cutover:` với các khóa cách lề đúng 2 dấu cách):
 
 ````markdown
 # Cutover Evidence — Migration 043 (xóa họ OKR cũ)
@@ -164,8 +167,8 @@ cutover:
 ```
 ````
 
-- [ ] **Step 2: Cổng của người (KHÔNG tự điền thay):** Database Lead/release operator (a) chạy sao lưu theo `docs/runbooks/prod-cutover.md` Bước 2 và dán `sha256sum` thật vào `backup_sha256`; (b) xác nhận `restore_rehearsal: passed` bằng kết quả `make test-migration-rollback` của chính migration 043 (up → down → up) trên cluster disposable; (c) xác nhận môi trường áp dụng là prelaunch (chưa có dữ liệu OKR thật ở production). Nếu production **đã** có dữ liệu thật trong hai bảng cũ, đổi `environment` không được phép; khi đó dừng và lập kế hoạch di chuyển dữ liệu riêng.
-- [ ] **Step 3: Chạy lại `make migration-check`** — Expected: thoát 0. Rồi thực hiện Step 5 của Task 1.
+- [x] **Step 2: Cổng của người (KHÔNG tự điền thay):** Database Lead/release operator (a) chạy sao lưu theo `docs/runbooks/prod-cutover.md` Bước 2 và dán `sha256sum` thật vào `backup_sha256`; (b) xác nhận `restore_rehearsal: passed` bằng kết quả `make test-migration-rollback` của chính migration 043 (up → down → up) trên cluster disposable; (c) xác nhận môi trường áp dụng là prelaunch (chưa có dữ liệu OKR thật ở production). Nếu production **đã** có dữ liệu thật trong hai bảng cũ, đổi `environment` không được phép; khi đó dừng và lập kế hoạch di chuyển dữ liệu riêng.
+- [x] **Step 3: Chạy lại `make migration-check`** — Expected: thoát 0. Rồi thực hiện Step 5 của Task 1.
 
 ---
 
@@ -174,10 +177,10 @@ cutover:
 **Files:**
 - Modify: `docs/superpowers/specs/2026-10-05-okr-goals-unification-design.md` (đầu file: trạng thái; mục 3.1 bước 5; mục 3.5)
 
-- [ ] **Step 1: Sửa dòng trạng thái đầu file** từ `DRAFT chờ duyệt` thành `ĐÃ TRIỂN KHAI (migration 038, 039, 043)`, kèm dòng trỏ tới plan này.
-- [ ] **Step 2: Sửa mục 3.1 bước 5** để khớp thực tế: bảng cũ bị xóa ở 043 (sau khi lưu trữ); `v_goal_tree` bị xóa ở 039 và **không dựng lại** vì không có mã nào dùng (cây goal được tính ở `goals.service.ts` từ họ OKR); `fn_goals_needing_review` bị xóa ở 043 vì `getGoalsNeedingReviewService` đã đọc họ OKR trực tiếp. Xóa đề cập `v_objective_progress` (đã thay bằng tính trong TypeScript, theo mục 2.1).
-- [ ] **Step 3: Rà mục 7 "Điểm còn cần xác nhận"**: ghi kết quả đã xác nhận (frontend không còn gọi `/operations/cosa/*`; `TRUNCATE`/DROP chỉ dành cho môi trường prelaunch).
-- [ ] **Step 4: Commit**
+- [x] **Step 1: Sửa dòng trạng thái đầu file** từ `DRAFT chờ duyệt` thành `ĐÃ TRIỂN KHAI (migration 038, 039, 043)`, kèm dòng trỏ tới plan này.
+- [x] **Step 2: Sửa mục 3.1 bước 5** để khớp thực tế: bảng cũ bị xóa ở 043 (sau khi lưu trữ); `v_goal_tree` bị xóa ở 039 và **không dựng lại** vì không có mã nào dùng (cây goal được tính ở `goals.service.ts` từ họ OKR); `fn_goals_needing_review` bị xóa ở 043 vì `getGoalsNeedingReviewService` đã đọc họ OKR trực tiếp. Xóa đề cập `v_objective_progress` (đã thay bằng tính trong TypeScript, theo mục 2.1).
+- [x] **Step 3: Rà mục 7 "Điểm còn cần xác nhận"**: ghi kết quả đã xác nhận (frontend không còn gọi `/operations/cosa/*`; `TRUNCATE`/DROP chỉ dành cho môi trường prelaunch).
+- [x] **Step 4: Commit**
 
 ```bash
 git add docs/superpowers/specs/2026-10-05-okr-goals-unification-design.md

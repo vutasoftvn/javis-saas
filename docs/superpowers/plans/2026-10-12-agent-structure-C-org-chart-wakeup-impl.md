@@ -2,6 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+
+> **Trạng thái thực thi (2026-10-12):** các task đã được thực thi bằng subagent-driven-development, mỗi task có review riêng và có review cuối toàn nhánh; commit nằm trên `main`. Các bước kiểm tay trên stack chạy thật (nếu có trong Step cổng chất lượng) **chưa được chạy**; các cổng tự động đã chạy và pass như ghi trong runbook/báo cáo.
+
 **Goal:** Đường báo cáo (`reports_to_assignment_id`) được kiểm toàn vẹn (không vòng, cha tồn tại và ACTIVE), và một agent chỉ được "đánh thức" qua hàng đợi bền có kiểm soát (cờ, autonomy, hop cap, rate cap, dedup) để xử lý các tín hiệu như task bị chặn, rồi leo thang lên người quản lý trước khi tới operator.
 
 **Architecture:** Hàm thuần ở `packages/agent/workforce/` (kiểm đường báo cáo, bộ phân giải leo thang, prompt wakeup); sổ cái bền `agent.workforce_wakeups` (migration `022`) giữ lý do, dedup, hop và rate cap; `WakeupService` ở `apps/cosa/worker/` gắn các cổng kiểm tra rồi `scheduler.schedule(task_type="agent_wakeup")`; nhánh worker mới chạy một run **chỉ đọc**. Hai điểm kích hoạt v1: task bị `blocked` trong sweep WGA, và API thủ công cho operator.
@@ -72,7 +75,7 @@ Thiết kế gốc: `docs/superpowers/plans/2026-10-05-agent-structure-C-org-cha
   - `direct_reports(nodes: ReportingNodes, manager_id: UUID) -> list[UUID]` (chỉ ACTIVE).
   - Protocol/repo: `async list_direct_reports(workspace_id, assignment_id) -> list[WorkforceAssignmentRecord]`, `async resolve_manager_chain(workspace_id, assignment_id, max_hops=3) -> list[WorkforceAssignmentRecord]`.
 
-- [ ] **Step 1: Test thuần thất bại** (`tests/agent/workforce/test_reporting.py`)
+- [x] **Step 1: Test thuần thất bại** (`tests/agent/workforce/test_reporting.py`)
 
 ```python
 from uuid import uuid4
@@ -177,7 +180,7 @@ def test_direct_reports_lists_only_active():
 
 Run: `source .venv/bin/activate && PYTHONPATH=.:packages:apps python -m pytest tests/agent/workforce/test_reporting.py -q -p no:cacheprovider` → Expected: FAIL (ModuleNotFoundError).
 
-- [ ] **Step 2: Cài đặt `reporting.py`**
+- [x] **Step 2: Cài đặt `reporting.py`**
 
 ```python
 """Kiểm toàn vẹn đường báo cáo của workforce (Dự án C). Hàm thuần, dùng chung cho
@@ -266,7 +269,7 @@ def direct_reports(nodes: ReportingNodes, manager_id: UUID) -> list[UUID]:
 
 Export `ReportingLineError`, `check_reporting_line`, `manager_chain`, `direct_reports` trong `packages/agent/workforce/__init__.py` (`__all__`). Chạy lại test Step 1 → PASS.
 
-- [ ] **Step 3: Migration 021**
+- [x] **Step 3: Migration 021**
 
 ```sql
 -- 021_workforce_reporting_integrity.sql
@@ -305,7 +308,7 @@ DROP INDEX IF EXISTS agent.uix_workforce_assignments_id_workspace;
 
 Áp vào DB dev và DB test; `make schema-fingerprint-write`; xác nhận `make schema-fingerprint-check migration-check` thoát 0. Thêm dòng 021 vào `packages/agent/migrations/README.md`.
 
-- [ ] **Step 4: Test repository thất bại** (thêm vào `tests/agent/workforce/test_repository.py`, dùng `get_workforce_repo` có sẵn; ca Postgres tự skip khi không có DB)
+- [x] **Step 4: Test repository thất bại** (thêm vào `tests/agent/workforce/test_repository.py`, dùng `get_workforce_repo` có sẵn; ca Postgres tự skip khi không có DB)
 
 ```python
 from agent.workforce.reporting import ReportingLineError
@@ -362,7 +365,7 @@ async def test_direct_reports_and_manager_chain(kind: str) -> None:
 
 Run: `PYTHONPATH=.:packages:apps python -m pytest tests/agent/workforce/test_repository.py -q -p no:cacheprovider -k "reporting or direct_reports or same_workspace"` → Expected: FAIL.
 
-- [ ] **Step 5: Cài đặt trong repository**
+- [x] **Step 5: Cài đặt trong repository**
 
 1. Import: `from agent.workforce.reporting import ReportingLineError, check_reporting_line, direct_reports as _direct_reports, manager_chain as _manager_chain` (dùng alias để không đè tên phương thức).
 2. Hàm tiện ích mức module:
@@ -459,7 +462,7 @@ Sau đó dùng `effective_id` làm `aid` ở nhánh tạo mới (thay `aid = UUI
         return [by_id[i] for i in chain]
 ```
 
-- [ ] **Step 6: Route trả 422 và test**
+- [x] **Step 6: Route trả 422 và test**
 
 Trong route tạo assignment (`workforce_routes.py`, ngay quanh `await repo.create_assignment(...)` ở ~L205), bọc:
 
@@ -475,12 +478,12 @@ Trong route tạo assignment (`workforce_routes.py`, ngay quanh `await repo.crea
 
 Import `ReportingLineError` từ `agent.workforce`. Test route theo mẫu sẵn có của các test route workforce (tìm bằng `grep -rn "workforce/assignments" tests/apps/cosa | head`): tạo assignment cha, tạo con hợp lệ → 200; gửi `reports_to_assignment_id` ngẫu nhiên → 422 và `detail["code"] == "reporting_line_parent_not_found"`.
 
-- [ ] **Step 7: Chạy test + gate**
+- [x] **Step 7: Chạy test + gate**
 
 Run: `PYTHONPATH=.:packages:apps python -m pytest tests/agent/workforce tests/apps/cosa -q -p no:cacheprovider -k "workforce or reporting"`; `make lint typecheck-py migration-check schema-fingerprint-check`.
 Expected: PASS (ca Postgres skip nếu thiếu `AGENT_TEST_DATABASE_URL`; phải chạy ít nhất một lần có DB trước khi commit).
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add packages/agent/workforce/reporting.py packages/agent/workforce/repository.py packages/agent/workforce/__init__.py packages/agent/migrations/021_workforce_reporting_integrity.sql packages/agent/migrations/021_workforce_reporting_integrity.down.sql packages/agent/migrations/README.md apps/cosa/api/workforce_routes.py tests/agent/workforce tests/apps/cosa deploy/schema/fingerprints.json
@@ -502,7 +505,7 @@ git commit -m "feat(workforce): toàn vẹn đường báo cáo (không vòng, c
   - `@dataclass(frozen=True) EscalationTarget(kind: Literal["manager","operator"], assignment_id: UUID | None, hop: int, reason: str)`.
   - `next_escalation_target(*, nodes: ReportingNodes, assignment_id: UUID, hop: int, hop_cap: int = DEFAULT_HOP_CAP) -> EscalationTarget` — `hop` là số lần đã leo thang tới giờ (lần đầu = 0); kết quả mang `hop + 1`. Trả `operator` khi: không có quản lý ACTIVE (`no_manager`), hoặc `hop >= hop_cap` (`hop_cap_reached`).
 
-- [ ] **Step 1: Test thất bại**
+- [x] **Step 1: Test thất bại**
 
 ```python
 from uuid import uuid4
@@ -563,7 +566,7 @@ Nếu `hypothesis` chưa có trong dev deps (`grep -n hypothesis pyproject.toml 
 
 Run → FAIL (ModuleNotFoundError).
 
-- [ ] **Step 2: Cài đặt**
+- [x] **Step 2: Cài đặt**
 
 ```python
 """Bộ phân giải leo thang (Dự án C). Hàm thuần: org chart chỉ là đường leo thang, không
@@ -605,8 +608,8 @@ def next_escalation_target(
     return EscalationTarget("manager", chain[0], hop + 1, "escalated_to_manager")
 ```
 
-- [ ] **Step 3: Chạy test, lint** — `pytest tests/agent/workforce/test_escalation.py -q`; `ruff check`/`ruff format` file mới. Expected: PASS.
-- [ ] **Step 4: Commit**
+- [x] **Step 3: Chạy test, lint** — `pytest tests/agent/workforce/test_escalation.py -q`; `ruff check`/`ruff format` file mới. Expected: PASS.
+- [x] **Step 4: Commit**
 
 ```bash
 git add packages/agent/workforce/escalation.py tests/agent/workforce/test_escalation.py
@@ -632,7 +635,7 @@ git commit -m "feat(workforce): bộ phân giải leo thang thuần (hop cap, d�
   - `wakeup_enabled() -> bool` (`AGENT_WAKEUP_ENABLED == "1"`).
   - `build_wake_prompt(reasons: Sequence[tuple[str, str]]) -> str` — mỗi phần tử `(reason_kind, source_ref)`.
 
-- [ ] **Step 1: Migration 022**
+- [x] **Step 1: Migration 022**
 
 ```sql
 -- 022_workforce_wakeups.sql
@@ -675,7 +678,7 @@ DROP TABLE IF EXISTS agent.workforce_wakeups;
 
 Áp vào DB dev/test, `make schema-fingerprint-write`, xác nhận `make schema-fingerprint-check migration-check`; thêm dòng 022 vào README migrations.
 
-- [ ] **Step 2: Test thất bại** (`tests/agent/workforce/test_wakeup_ledger.py`)
+- [x] **Step 2: Test thất bại** (`tests/agent/workforce/test_wakeup_ledger.py`)
 
 ```python
 from datetime import UTC, datetime, timedelta
@@ -776,7 +779,7 @@ def test_prompt_limits_number_of_reasons():
 
 Run → FAIL.
 
-- [ ] **Step 3: Cài đặt `wakeup.py`**
+- [x] **Step 3: Cài đặt `wakeup.py`**
 
 ```python
 """Cấu hình và prompt của wakeup (Dự án C). Hàm thuần."""
@@ -842,7 +845,7 @@ def build_wake_prompt(reasons: Sequence[tuple[str, str]]) -> str:
     )
 ```
 
-- [ ] **Step 4: Cài đặt `wakeup_ledger.py`** theo đúng mẫu `packages/agent/verification/repository.py` (Dự án B: pydantic model + Protocol + InMemory + Postgres dùng `sqlalchemy.text()`, `ValueError` khi `session_factory is None`). Câu SQL Postgres:
+- [x] **Step 4: Cài đặt `wakeup_ledger.py`** theo đúng mẫu `packages/agent/verification/repository.py` (Dự án B: pydantic model + Protocol + InMemory + Postgres dùng `sqlalchemy.text()`, `ValueError` khi `session_factory is None`). Câu SQL Postgres:
 
 ```python
 _INSERT = text(
@@ -880,13 +883,13 @@ _MARK = text(
 
 `record_if_absent` trả `result.first() is not None` (RETURNING có hàng ⇒ mới); `mark_handled` trả `result.rowcount`; `wake_ids` truyền `list[str]`. Commit sau mỗi ghi. Thêm ca Postgres vào test (lặp 3 test trên, thêm: hai `record_if_absent` song song cùng nguồn chỉ một cái trả `True`); tự skip khi không có `AGENT_TEST_DATABASE_URL`.
 
-- [ ] **Step 5: Wiring plane** — mirror đúng cách `verification_report_repository` đã gắn trong `apps/cosa/composition/agent_plane.py` (lệnh định vị: `grep -n "verification_report_repository" apps/cosa/composition/agent_plane.py`): tham số constructor, thuộc tính, `_build_wakeup_ledger(session_factory)` chọn Postgres khi có `storage.model_routing_session_factory`, nếu không InMemory, gán trong `build_cosa_agent_plane`. Chỗ dùng truy cập bằng `getattr(plane, "wakeup_ledger_repository", None)` (test dựng plane giả bằng `SimpleNamespace`).
+- [x] **Step 5: Wiring plane** — mirror đúng cách `verification_report_repository` đã gắn trong `apps/cosa/composition/agent_plane.py` (lệnh định vị: `grep -n "verification_report_repository" apps/cosa/composition/agent_plane.py`): tham số constructor, thuộc tính, `_build_wakeup_ledger(session_factory)` chọn Postgres khi có `storage.model_routing_session_factory`, nếu không InMemory, gán trong `build_cosa_agent_plane`. Chỗ dùng truy cập bằng `getattr(plane, "wakeup_ledger_repository", None)` (test dựng plane giả bằng `SimpleNamespace`).
 
-- [ ] **Step 6: Chạy test + gate**
+- [x] **Step 6: Chạy test + gate**
 
 Run: `PYTHONPATH=.:packages:apps python -m pytest tests/agent/workforce tests/apps/cosa -q -p no:cacheprovider -k "wakeup or composition or agent_plane"`; `make lint typecheck-py migration-check schema-fingerprint-check`. Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add packages/agent/migrations/022_workforce_wakeups.sql packages/agent/migrations/022_workforce_wakeups.down.sql packages/agent/migrations/README.md packages/agent/workforce/wakeup_ledger.py packages/agent/workforce/wakeup.py apps/cosa/composition/agent_plane.py tests/agent/workforce deploy/schema/fingerprints.json
@@ -912,7 +915,7 @@ git commit -m "feat(workforce): sổ cái wakeup, cấu hình và prompt (migrat
 
 Thứ tự trong `request_wakeup`: (0) cờ tắt ⇒ `suppressed/flag_off`; (1) `evaluate_wake_target`; (2) `hop > config.hop_cap` ⇒ `suppressed/hop_cap_reached`; (3) rate cap `count_since(now-24h) >= max_per_day` ⇒ `suppressed/rate_cap`; (4) `ledger.record_if_absent` ⇒ trùng thì `duplicate`; (5) `scheduler.schedule(target_spec_id=<spec id của profile>, input_payload={"task_type":"agent_wakeup","workspace_id","assignment_id","project_id"}, coalescing_key=f"wake:{ws}:{assignment}:{project}", run_at=now+debounce)` ⇒ `scheduled`. `escalate`: dựng `nodes` từ `list_assignments(ws)`, gọi `next_escalation_target(nodes, from_assignment_id, hop, config.hop_cap)`; `operator` ⇒ `WakeOutcome("operator", reason)` (không schedule; để người gọi giữ hành vi `escalated_to_operator` hiện có); `manager` ⇒ `request_wakeup(assignment_id=target, hop=target.hop, ...)`.
 
-- [ ] **Step 1: Test thất bại** — dùng `InMemoryWorkforceRepository`, `InMemoryWakeupLedger`, và scheduler giả ghi lại lời gọi:
+- [x] **Step 1: Test thất bại** — dùng `InMemoryWorkforceRepository`, `InMemoryWakeupLedger`, và scheduler giả ghi lại lời gọi:
 
 ```python
 from datetime import UTC, datetime, timedelta
@@ -1057,7 +1060,7 @@ async def test_evaluate_wake_target_real_autonomy_gate():
 
 Run: `PYTHONPATH=.:packages:apps python -m pytest tests/apps/cosa/wga/test_wakeup_service.py -q -p no:cacheprovider` → FAIL.
 
-- [ ] **Step 2: Cài đặt `wakeup_service.py`**
+- [x] **Step 2: Cài đặt `wakeup_service.py`**
 
 ```python
 """Dịch vụ wakeup (Dự án C): cổng kiểm tra, sổ cái, schedule. Org chart chỉ là đường leo
@@ -1224,8 +1227,8 @@ class WakeupService:
 
 Kiểm đường import thật của `AGENT_PROFILE_SPECS` (`grep -rn "AGENT_PROFILE_SPECS =" apps/cosa/agents`) và sửa dòng import nếu khác. `AGENT_PROFILE_SPECS[profile].id` phải là `cosa.agents.<profile>` (test `test_schedules_with_reference_only_payload_and_coalescing_key` khẳng định).
 
-- [ ] **Step 3: Chạy test + lint/typecheck** — Expected: PASS.
-- [ ] **Step 4: Commit**
+- [x] **Step 3: Chạy test + lint/typecheck** — Expected: PASS.
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/cosa/worker/wakeup_service.py tests/apps/cosa/wga/test_wakeup_service.py
@@ -1247,7 +1250,7 @@ git commit -m "feat(workforce): WakeupService với cổng cờ/autonomy/hop/rat
 
 Hành vi: cờ tắt ⇒ return (không đánh dấu handled; lý do chờ). `evaluate_wake_target` thất bại ⇒ `mark_handled` các lý do và return. Chạy `prepare_run(local_spec=AGENT_PROFILE_SPECS[profile], prompt=build_wake_prompt(reasons), principal=f"system:wake:{ws}", conversation_id=f"wake_{run_id}", extra_metadata={READ_ONLY_RUN_KEY: True}, project_id=project_id)` rồi `run_kernel`. `RunCoreError`/`ModelRouteNotFound`/status khác `COMPLETED` ⇒ gọi `WakeupService.escalate(from_assignment_id=assignment_id, reason_kind="wake_failed", source_ref=f"run:{run_id}", hop=max(hop của các lý do))`. Cuối cùng `mark_handled`.
 
-- [ ] **Step 1: Test thất bại** (`tests/apps/cosa/wga/test_agent_wakeup.py`), stub `prepare_run`/`run_kernel` như `test_wga_verify_judge.py`:
+- [x] **Step 1: Test thất bại** (`tests/apps/cosa/wga/test_agent_wakeup.py`), stub `prepare_run`/`run_kernel` như `test_wga_verify_judge.py`:
 
 ```python
 from types import SimpleNamespace
@@ -1355,7 +1358,7 @@ async def test_run_core_error_is_contained_and_escalates(monkeypatch):
 
 Run → FAIL.
 
-- [ ] **Step 2: Cài đặt `agent_wakeup.py`**
+- [x] **Step 2: Cài đặt `agent_wakeup.py`**
 
 ```python
 """Handler wakeup (Dự án C): chạy một run CHỈ ĐỌC cho assignment được đánh thức."""
@@ -1447,7 +1450,7 @@ async def execute_agent_wakeup_task(plane: Any, stream_mgr: Any, payload: dict[s
         )
 ```
 
-- [ ] **Step 3: Nhánh worker** — trong `apps/cosa/worker/main.py`:
+- [x] **Step 3: Nhánh worker** — trong `apps/cosa/worker/main.py`:
 1. Thêm `_dispatch_agent_wakeup_task(plane, task, payload)` sao chép đúng khung của `_dispatch_wga_task` (L199-239: import cục bộ handler, `_heartbeat_task_claim_only`, `complete_task(success=True)` có kiểm fencing, `except` → `complete_task(success=False, error=str(exc))`), gọi `execute_agent_wakeup_task`.
 2. Trong `dispatch_one_task`, thêm ngay sau nhánh `goal_decomposition|workspace_task_sweep` (~L494):
 
@@ -1460,11 +1463,11 @@ async def execute_agent_wakeup_task(plane: Any, stream_mgr: Any, payload: dict[s
 
 3. Test hợp đồng: thêm vào `tests/apps/cosa/events/test_event_worker_contract.py` ca khẳng định `task_type="agent_wakeup"` **không** rơi vào nhánh "unknown task_type" (theo mẫu ca `workspace_task_sweep` trong cùng file), cả khi cờ tắt (task hoàn tất `success=True`, không chạy run).
 
-- [ ] **Step 4: Chạy test + gate**
+- [x] **Step 4: Chạy test + gate**
 
 Run: `PYTHONPATH=.:packages:apps python -m pytest tests/apps/cosa/wga tests/apps/cosa/events -q -p no:cacheprovider -k "wakeup or event_worker_contract"`; `make lint typecheck-py boundary-check`. Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/cosa/worker/agent_wakeup.py apps/cosa/worker/main.py tests/apps/cosa
@@ -1485,7 +1488,7 @@ git commit -m "feat(workforce): nhánh worker agent_wakeup chạy run chỉ đ�
   - `async def escalate_blocked_task(plane, t: dict[str, Any], *, workspace_id: str) -> WakeOutcome | None` trong `apps/cosa/worker/wga_run.py` (hoặc `wakeup_service.py` nếu import vòng): tìm assignment ACTIVE đầu tiên (theo `created_at`) có `functional_key` ánh xạ tới `t["ownerAgentProfile"]`; không có ⇒ `None`. Có ⇒ `service.request_wakeup(assignment_id, project_id=t["projectId"], reason_kind="task_blocked", source_ref=f"task:{t['taskId']}", hop=0)`. Chỉ gọi khi `wakeup_enabled()`; bọc `contextlib.suppress(Exception)` + log, vì lỗi wakeup **không bao giờ** được làm hỏng sweep.
   - `POST /agent/workforce/assignments/{assignment_id}/wakeups` body `{project_id: str, reason: str (1..200)}` → `{status, reason}` của `WakeOutcome`; `source_ref = f"manual:{uuid4().hex}"`, `reason_kind="manual"`. Dùng **đúng dependencies xác thực/quyền** như route `POST /assignments` (mở `workforce_routes.py` quanh L150-200 và sao chép khai báo `Depends(...)`).
 
-- [ ] **Step 1: Test thất bại — sweep** (`test_wga_blocked_escalation.py`): dựng `plane` giả như `test_wga_run.py`, patch `_execute_claimed_task` trả `"blocked"` cho task `{"taskId": "7", "projectId": "p1", "ownerAgentProfile": "marketing", ...}`, có assignment `campaign_planner` ACTIVE:
+- [x] **Step 1: Test thất bại — sweep** (`test_wga_blocked_escalation.py`): dựng `plane` giả như `test_wga_run.py`, patch `_execute_claimed_task` trả `"blocked"` cho task `{"taskId": "7", "projectId": "p1", "ownerAgentProfile": "marketing", ...}`, có assignment `campaign_planner` ACTIVE:
 
 ```python
 async def test_blocked_task_requests_wakeup_when_enabled(...):
@@ -1509,7 +1512,7 @@ async def test_done_task_does_not_wake_anyone(...):
 
 Viết đầy đủ thân test theo `tests/apps/cosa/wga/test_wga_run.py` (dùng cùng helper `_plane` và fixture; không để chỗ trống khi triển khai).
 
-- [ ] **Step 2: Cài đặt hook sweep.** Trong vòng lặp ở `execute_workspace_task_sweep_task`, ngay sau `progress.record(t, outcome)`:
+- [x] **Step 2: Cài đặt hook sweep.** Trong vòng lặp ở `execute_workspace_task_sweep_task`, ngay sau `progress.record(t, outcome)`:
 
 ```python
         if outcome == "blocked":
@@ -1550,7 +1553,7 @@ async def _maybe_escalate_blocked(plane: CosaAgentPlane, t: dict[str, Any], *, w
 
 Import `wakeup_enabled`, `WakeupService`, `WAKE_PROFILE_BY_FUNCTIONAL_KEY`. Nếu import `wakeup_service` từ `wga_run` gây vòng, đặt `_maybe_escalate_blocked` trong `wakeup_service.py` và import một chiều.
 
-- [ ] **Step 3: Route thủ công.** Schema (`workforce_schemas.py`):
+- [x] **Step 3: Route thủ công.** Schema (`workforce_schemas.py`):
 
 ```python
 class WakeupRequestIn(BaseModel):
@@ -1565,14 +1568,14 @@ class WakeupOutcomeOut(BaseModel):
 
 Route: lấy `repo = _get_workforce_repo(request)`, `ledger = getattr(_get_plane(request), "wakeup_ledger_repository", None)` (503 nếu `None`), gọi `WakeupService(...).request_wakeup(reason_kind="manual", source_ref=f"manual:{uuid4().hex}")` với `assignment_id` từ đường dẫn, trả `mvp_item(WakeupOutcomeOut(...), [MvpSourceRef(kind="agent_db", ref="agent.workforce_wakeups")])`. Lý do người nhập **không** đi vào prompt (prompt chỉ có `reason_kind` và `source_ref`); ghi lý do vào log nghiệp vụ bằng `logger.info` đã cắt độ dài. Test: 200 + `scheduled` khi đủ điều kiện (cờ bật, autonomy patch L2); `suppressed/flag_off` khi cờ tắt; 404 khi assignment không thuộc workspace của người gọi (`evaluate_wake_target` trả `assignment_not_found` ⇒ map 404); không lộ assignment của workspace khác.
 
-- [ ] **Step 4: Cảnh báo org chart.** Thêm `warning: str | None = None` vào `WorkforceOrgChartNode`. Trong `get_org_chart`, nút có `reports_to_assignment_id` nhưng cha không nằm trong `node_map` (ACTIVE) vẫn vào `roots` như cũ **và** gắn `warning="manager_not_active"`. Test: retire cha, con xuất hiện ở roots kèm cảnh báo.
+- [x] **Step 4: Cảnh báo org chart.** Thêm `warning: str | None = None` vào `WorkforceOrgChartNode`. Trong `get_org_chart`, nút có `reports_to_assignment_id` nhưng cha không nằm trong `node_map` (ACTIVE) vẫn vào `roots` như cũ **và** gắn `warning="manager_not_active"`. Test: retire cha, con xuất hiện ở roots kèm cảnh báo.
 
-- [ ] **Step 5: Chạy test + gate**
+- [x] **Step 5: Chạy test + gate**
 
 Run: `PYTHONPATH=.:packages:apps python -m pytest tests/apps/cosa -q -p no:cacheprovider -k "wakeup or blocked_escalation or org_chart or reporting"`; `make lint typecheck-py`; nếu thêm route công khai đổi hợp đồng: `make mvp-contracts-check route-inventory-check route-auth-allowlist-check` (route mới nằm dưới `/agent/workforce/*` nên cần kiểm allowlist; **không** sửa tay file sinh ra, chạy generator tương ứng; chưa đưa vào `mvp-surface.json` cho đến khi có màn hình dùng).
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/cosa/worker/wga_run.py apps/cosa/worker/wakeup_service.py apps/cosa/api/workforce_routes.py apps/cosa/api/workforce_schemas.py tests/apps/cosa
@@ -1587,10 +1590,10 @@ git commit -m "feat(workforce): đánh thức người phụ trách khi task b�
 - Create: `docs/runbooks/agent-wakeup.md`, `tests/e2e/test_agent_wakeup_flow.py` (hoặc `tests/apps/cosa/wga/test_agent_wakeup_e2e.py` nếu `tests/e2e` cần dịch vụ ngoài)
 - Modify: `docs/superpowers/plans/2026-10-05-agent-structure-C-org-chart-heartbeat.md` (đầu file: trạng thái + "Đã làm / Còn lại", theo mẫu file Dự án B), `docs/COSA_RUNBOOK.md` (một dòng trỏ runbook)
 
-- [ ] **Step 1: Test luồng đầu-cuối trong tiến trình** dùng repo/ledger/scheduler InMemory và stub `run_kernel`: tạo chuỗi ceo ← lead ← dev; sweep gặp task `blocked` của dev ⇒ wakeup `dev`; stub run **thất bại** ⇒ wakeup `lead` (hop 1) ⇒ run thất bại ⇒ `ceo` (hop 2) ⇒ thất bại ⇒ hop 3 = trần ⇒ `operator`, và **không** còn schedule nào. Khẳng định: tổng số lần schedule = 3, mọi hàng sổ cái `handled`, bật `AGENT_WAKEUP_ENABLED` rồi tắt giữa chừng thì không có schedule mới, cùng `source_ref` không đánh thức hai lần.
-- [ ] **Step 2: Runbook** `docs/runbooks/agent-wakeup.md`: cờ và biến (`AGENT_WAKEUP_ENABLED`, `AGENT_WAKEUP_MAX_PER_DAY`, `AGENT_WAKEUP_DEBOUNCE_SEC`, `AGENT_WAKEUP_HOP_CAP`); bảng ánh xạ `functional_key → profile` và cách mở rộng; cách đọc sổ cái (`SELECT ... FROM agent.workforce_wakeups WHERE workspace_id = ... ORDER BY created_at DESC`); cách kiểm một wakeup bị bỏ qua (các `reason` của `WakeOutcome`); khuyến cáo chỉ bật ở workspace dev trước; nhắc **run wakeup v1 chỉ đọc**.
-- [ ] **Step 3: Cập nhật tài liệu thiết kế C** (đầu file): trạng thái **ĐÃ TRIỂN KHAI v1 (sau cờ, mặc định tắt)**, link plan và runbook; mục "Còn lại": trần chi phí theo assignment (cần caller cho `record_cost_observation`), kind hoạt động `assignment.created`/`comment.created`/`approval.rejected` (cần bản ghi canonical bền), fan-out C6, wakeup có quyền ghi (sau khi Verifier phủ), nối `functional_key` vào thực thi và bỏ 501 của `run-now`, UI hiển thị lịch sử wakeup, chốt ngưỡng L2/hop cap 3/ánh xạ profile với chủ dự án.
-- [ ] **Step 4: Cổng chất lượng**
+- [x] **Step 1: Test luồng đầu-cuối trong tiến trình** dùng repo/ledger/scheduler InMemory và stub `run_kernel`: tạo chuỗi ceo ← lead ← dev; sweep gặp task `blocked` của dev ⇒ wakeup `dev`; stub run **thất bại** ⇒ wakeup `lead` (hop 1) ⇒ run thất bại ⇒ `ceo` (hop 2) ⇒ thất bại ⇒ hop 3 = trần ⇒ `operator`, và **không** còn schedule nào. Khẳng định: tổng số lần schedule = 3, mọi hàng sổ cái `handled`, bật `AGENT_WAKEUP_ENABLED` rồi tắt giữa chừng thì không có schedule mới, cùng `source_ref` không đánh thức hai lần.
+- [x] **Step 2: Runbook** `docs/runbooks/agent-wakeup.md`: cờ và biến (`AGENT_WAKEUP_ENABLED`, `AGENT_WAKEUP_MAX_PER_DAY`, `AGENT_WAKEUP_DEBOUNCE_SEC`, `AGENT_WAKEUP_HOP_CAP`); bảng ánh xạ `functional_key → profile` và cách mở rộng; cách đọc sổ cái (`SELECT ... FROM agent.workforce_wakeups WHERE workspace_id = ... ORDER BY created_at DESC`); cách kiểm một wakeup bị bỏ qua (các `reason` của `WakeOutcome`); khuyến cáo chỉ bật ở workspace dev trước; nhắc **run wakeup v1 chỉ đọc**.
+- [x] **Step 3: Cập nhật tài liệu thiết kế C** (đầu file): trạng thái **ĐÃ TRIỂN KHAI v1 (sau cờ, mặc định tắt)**, link plan và runbook; mục "Còn lại": trần chi phí theo assignment (cần caller cho `record_cost_observation`), kind hoạt động `assignment.created`/`comment.created`/`approval.rejected` (cần bản ghi canonical bền), fan-out C6, wakeup có quyền ghi (sau khi Verifier phủ), nối `functional_key` vào thực thi và bỏ 501 của `run-now`, UI hiển thị lịch sử wakeup, chốt ngưỡng L2/hop cap 3/ánh xạ profile với chủ dự án.
+- [x] **Step 4: Cổng chất lượng**
 
 ```bash
 make lint typecheck-py migration-check schema-fingerprint-check boundary-check
@@ -1601,7 +1604,7 @@ make verify
 
 Expected: thoát 0 (trừ các lỗi có sẵn nêu ở Global Constraints). Kiểm thủ công theo mục 5 của thiết kế gốc: (1) vòng và tự tham chiếu bị từ chối (Task 1); (2) nhiều sự kiện liên tiếp gộp thành một lần chạy với đủ lý do (đọc từ sổ cái); (3) leo thang đúng quản lý rồi operator và dừng ở hop cap; (4) tắt cờ ⇒ không có wakeup; (5) assignment RETIRED hoặc autonomy < L2 ⇒ không thức dậy.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docs/runbooks/agent-wakeup.md docs/superpowers/plans/2026-10-05-agent-structure-C-org-chart-heartbeat.md docs/COSA_RUNBOOK.md tests

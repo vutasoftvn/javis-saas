@@ -2,6 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+
+> **Trạng thái thực thi (2026-10-12):** các task đã được thực thi bằng subagent-driven-development, mỗi task có review riêng và có review cuối toàn nhánh; commit nằm trên `main`. Các bước kiểm tay trên stack chạy thật (nếu có trong Step cổng chất lượng) **chưa được chạy**; các cổng tự động đã chạy và pass như ghi trong runbook/báo cáo.
+
 **Goal:** Hoàn tất các việc còn lại của Verifier: kiểm cả đường resume sau duyệt và task `NEEDS_APPROVAL`, đánh giá được tiêu chí `metric_gte`, ép được mô hình thẩm phán độc lập qua REST, cho founder thấy verdict trên Flutter, và có cổng quyết định có số liệu trước khi bật cờ mặc định.
 
 **Architecture:** (1) Company thêm một endpoint đọc ngữ cảnh task cho worker (`doneCriteria`, tiêu đề, profile, project) để đường resume biết tiêu chí. (2) `wga_run.py` gom logic xác minh thành hàm dùng chung cho đường ban đầu và đường resume. (3) `metric_gte` đọc giá trị KR qua endpoint Company có sẵn `GET /operations/key-results` (capability `okr.objective.list`). (4) Model-policy REST nhận thêm scope nội bộ `verifier`. (5) API báo cáo có thêm truy vấn theo lô `taskIds`, Flutter hiển thị huy hiệu trên thẻ kanban. (6) Runbook + cổng quyết định bật mặc định.
@@ -68,7 +71,7 @@ Quyết định thiết kế:
   - `getTaskAgentContextService(wsId: bigint, taskId: string): Promise<TaskAgentContext>` — `APIError.notFound` khi task không thuộc workspace, đã xóa mềm, hoặc không phải task sinh từ execution plan.
   - `GET /operations/tasks/:id/agent-context` → `TaskAgentContext`.
 
-- [ ] **Step 1: Viết test thất bại** (`task-agent-context.test.ts`; copy helper `seedAcceptedPlan`/`autoItem` từ `agent-claimable.test.ts` hoặc import nếu đã có ở `_helpers.ts`):
+- [x] **Step 1: Viết test thất bại** (`task-agent-context.test.ts`; copy helper `seedAcceptedPlan`/`autoItem` từ `agent-claimable.test.ts` hoặc import nếu đã có ở `_helpers.ts`):
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -118,7 +121,7 @@ describe("getTaskAgentContextService", () => {
 
 Thân test cuối viết đầy đủ theo cách `task.service.test.ts` tạo task thường (không để dấu `...` khi triển khai). Run: `cd services/company && encore test operations/tests/task-agent-context.test.ts` → Expected: FAIL (hàm chưa có).
 
-- [ ] **Step 2: Cài đặt service**
+- [x] **Step 2: Cài đặt service**
 
 ```ts
 export interface TaskAgentContext {
@@ -172,7 +175,7 @@ export async function getTaskAgentContextService(
 
 `BigInt(taskId)` ném `SyntaxError` với id không phải số; bọc: `if (!/^\d+$/.test(taskId)) throw APIError.invalidArgument("task id must be numeric")` ở đầu hàm.
 
-- [ ] **Step 3: Handler**, ngay sau `listAgentClaimableTasks`:
+- [x] **Step 3: Handler**, ngay sau `listAgentClaimableTasks`:
 
 ```ts
 // Gọi bởi worker apps/cosa (đường resume sau duyệt) — cosa delegation, tái dùng
@@ -197,12 +200,12 @@ export const getTaskAgentContext = api(
 );
 ```
 
-- [ ] **Step 4: Chạy test + typecheck + gate**
+- [x] **Step 4: Chạy test + typecheck + gate**
 
 Run: `cd services/company && npm run typecheck && encore test operations/tests/task-agent-context.test.ts operations/tests/agent-claimable.test.ts`; `make route-inventory-check route-auth-allowlist-check mvp-contracts-check`. Nếu route inventory/allowlist đổi, chạy generator tương ứng (`make route-inventory`, …), **không** sửa tay file sinh ra; route mới không vào `mvp-surface.json` (chỉ worker dùng).
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add services/company/operations/services/task.service.ts services/company/operations/handlers/task.handler.ts services/company/operations/tests/task-agent-context.test.ts
@@ -225,7 +228,7 @@ git commit -m "feat(wga): endpoint agent-context để worker xác minh task sau
   - `async def _verify_completed_run(plane, *, spec: AgentSpec, workspace_id: str, project_id: str, task_id: str, task_run_id: str, title: str, decision_reason: str, done_criteria: dict[str, Any] | None, run_result: Any, output_text: str) -> VerificationOutcome | None` — `None` khi cờ tắt hoặc không có tiêu chí; **không bao giờ ném** (lỗi ⇒ `INCONCLUSIVE`).
   - `advance_wga_task_after_resume(..., final_output: Any = None)` (tham số mới, tùy chọn).
 
-- [ ] **Step 1: Test thất bại — resume** (`test_wga_verify_resume.py`). Stub `fetch_task_agent_context`, `verify_task_result`, `record_wga_task_evidence`, `_advance_task`, `finalize_wga_task_completion` bằng `monkeypatch`:
+- [x] **Step 1: Test thất bại — resume** (`test_wga_verify_resume.py`). Stub `fetch_task_agent_context`, `verify_task_result`, `record_wga_task_evidence`, `_advance_task`, `finalize_wga_task_completion` bằng `monkeypatch`:
 
 ```python
 from types import SimpleNamespace
@@ -333,7 +336,7 @@ Thêm vào `test_wga_run.py` một ca: task `NEEDS_APPROVAL` chạy xong không 
 
 Run: `PYTHONPATH=.:packages:apps python -m pytest tests/apps/cosa/wga/test_wga_verify_resume.py -q -p no:cacheprovider` → Expected: FAIL.
 
-- [ ] **Step 2: Cài đặt helper dùng chung** trong `wga_run.py` (đặt gần `finalize_wga_task_completion`):
+- [x] **Step 2: Cài đặt helper dùng chung** trong `wga_run.py` (đặt gần `finalize_wga_task_completion`):
 
 ```python
 async def fetch_task_agent_context(
@@ -394,7 +397,7 @@ async def _verify_completed_run(
 
 (Import `AgentSpec` nếu chưa có trong file; kiểm bằng `grep -n "AgentSpec" apps/cosa/worker/wga_run.py`.)
 
-- [ ] **Step 3: Dùng helper ở đường ban đầu.** Trong `_execute_claimed_task`, thay khối `done_criteria = ...; verification = None; if verification_enabled() and done_criteria and not needs_approval: try: ... except ...` (L744-770) bằng:
+- [x] **Step 3: Dùng helper ở đường ban đầu.** Trong `_execute_claimed_task`, thay khối `done_criteria = ...; verification = None; if verification_enabled() and done_criteria and not needs_approval: try: ... except ...` (L744-770) bằng:
 
 ```python
         verification = await _verify_completed_run(
@@ -414,7 +417,7 @@ async def _verify_completed_run(
 
 Phần phía dưới giữ nguyên (token cấp lại, nhánh FAIL/INCONCLUSIVE, thêm `verification:<id>` vào evidence, `finalize_wga_task_completion` với `evidence_refs=None if needs_approval else evidence`). Cập nhật comment ngay trên cho đúng: task `NEEDS_APPROVAL` cũng được xác minh nhưng PASS không làm nó tự đóng.
 
-- [ ] **Step 4: Đường resume.** Viết lại `advance_wga_task_after_resume` (thêm tham số `final_output: Any = None`):
+- [x] **Step 4: Đường resume.** Viết lại `advance_wga_task_after_resume` (thêm tham số `final_output: Any = None`):
 
 ```python
     m = _WGA_TASK_RUN_RE.match(run_id or "")
@@ -474,14 +477,14 @@ Phần phía dưới giữ nguyên (token cấp lại, nhánh FAIL/INCONCLUSIVE,
 
 `from types import SimpleNamespace` nếu chưa có. Lưu ý: `collect_run_facts` đọc `run_result.final_output` (mọi thuộc tính khác dùng `getattr` mặc định) nên `SimpleNamespace(final_output=...)` đủ; khẳng định lại bằng test `test_structured_final_output_reaches_the_verifier`.
 
-- [ ] **Step 5: Truyền `final_output` từ handler.** Trong `apps/cosa/worker/handlers.py` L1637-1643 thêm `final_output=res.final_output,` vào lời gọi `advance_wga_task_after_resume` (biến `res` đã có ở phạm vi này; xác nhận bằng đọc quanh L1600-1645).
+- [x] **Step 5: Truyền `final_output` từ handler.** Trong `apps/cosa/worker/handlers.py` L1637-1643 thêm `final_output=res.final_output,` vào lời gọi `advance_wga_task_after_resume` (biến `res` đã có ở phạm vi này; xác nhận bằng đọc quanh L1600-1645).
 
-- [ ] **Step 6: Chạy test + gate**
+- [x] **Step 6: Chạy test + gate**
 
 Run: `PYTHONPATH=.:packages:apps python -m pytest tests/apps/cosa/wga tests/agent/verification -q -p no:cacheprovider`; `make lint typecheck-py`.
 Expected: PASS (kể cả các test đợt 1 `test_wga_verify*.py`).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/cosa/worker/wga_run.py apps/cosa/worker/handlers.py tests/apps/cosa/wga
@@ -510,7 +513,7 @@ Ngữ nghĩa (`evaluate_deterministic`):
 - `must_change` và (`metrics_before.get(id)` là `None`/vắng) ⇒ `UNCLEAR baseline_unavailable`; bằng nhau ⇒ `FAIL metric_unchanged`.
 - `value >= threshold` ⇒ `PASS metric_met`, ngược lại `FAIL metric_below_threshold`.
 
-- [ ] **Step 1: Cập nhật test thuần**. Trong `test_deterministic.py` thay `test_metric_gte_is_not_evaluable_in_v1` bằng:
+- [x] **Step 1: Cập nhật test thuần**. Trong `test_deterministic.py` thay `test_metric_gte_is_not_evaluable_in_v1` bằng:
 
 ```python
 def _mf(metrics, before=None):
@@ -560,7 +563,7 @@ def test_must_change_requires_baseline_and_a_difference():
 
 Run → FAIL (RunFacts chưa có trường).
 
-- [ ] **Step 2: Cài đặt thuần.** `models.py`: thêm `from collections.abc import Mapping` và `from dataclasses import dataclass, field`; thêm hai trường vào `RunFacts` **sau** `artifacts` (có mặc định nên không phá chỗ dựng cũ). `deterministic.py`:
+- [x] **Step 2: Cài đặt thuần.** `models.py`: thêm `from collections.abc import Mapping` và `from dataclasses import dataclass, field`; thêm hai trường vào `RunFacts` **sau** `artifacts` (có mặc định nên không phá chỗ dựng cũ). `deterministic.py`:
 
 ```python
 import math
@@ -596,7 +599,7 @@ def _metric_gte(criterion: dict[str, Any], args: dict[str, Any], facts: RunFacts
 
 Trong `evaluate_deterministic`, thay nhánh `metric_gte` bằng `return _metric_gte(criterion, args, facts)`. Chạy lại test Step 1 → PASS.
 
-- [ ] **Step 3: Test I/O thất bại** (`test_wga_verify_metrics.py`) — stub `plane.company_client.get`:
+- [x] **Step 3: Test I/O thất bại** (`test_wga_verify_metrics.py`) — stub `plane.company_client.get`:
 
 ```python
 async def test_fetch_kr_values_maps_ids_and_marks_missing_as_none():
@@ -643,7 +646,7 @@ Viết đầy đủ thân test cuối theo mẫu `tests/apps/cosa/wga/test_wga_v
 
 Run → FAIL.
 
-- [ ] **Step 4: Cài đặt I/O** trong `wga_verify.py`:
+- [x] **Step 4: Cài đặt I/O** trong `wga_verify.py`:
 
 ```python
 _CAP_KR_READ = "okr.objective.list"
@@ -692,7 +695,7 @@ Nối vào `_verify_task_result`: sau `parse_done_criteria`, `kr_ids = metric_cr
 
 Kiểm quyền: `grep -rn "okr.objective.list" services/company/shared/auth services/company/operations` để xác nhận token ủy quyền của cosa với capability này được `requireWorkspaceAccess(..., { agentCapabilities: [AGENT_CAP.OKR_OBJECTIVE_LIST] })` chấp nhận. Nếu cơ chế delegation yêu cầu allowlist capability theo run (xem `shared/auth/cosa-task-delegation.ts` và `mint_company_delegation`), thêm `okr.objective.list` vào allowlist đó và một test Company xác nhận.
 
-- [ ] **Step 5: Chụp giá trị trước khi chạy** (`wga_run.py::_execute_claimed_task`, ngay trước `prepare_run`):
+- [x] **Step 5: Chụp giá trị trước khi chạy** (`wga_run.py::_execute_claimed_task`, ngay trước `prepare_run`):
 
 ```python
     metrics_before: dict[str, float | None] = {}
@@ -710,12 +713,12 @@ Kiểm quyền: `grep -rn "okr.objective.list" services/company/shared/auth serv
 
 với `_wants_change(done_criteria, kr_id)` = có tiêu chí `metric_gte` cùng `key_result_id` có `must_change is True`. Truyền `metrics_before` vào `_verify_completed_run` → `verify_task_result`. Đường resume **không** có giá trị trước (run đã chạy xong từ trước) ⇒ tiêu chí `must_change` ở đường resume ra `UNCLEAR baseline_unavailable` (INCONCLUSIVE, an toàn); ghi điều này vào runbook.
 
-- [ ] **Step 6: Chạy test + gate**
+- [x] **Step 6: Chạy test + gate**
 
 Run: `PYTHONPATH=.:packages:apps python -m pytest tests/agent/verification tests/apps/cosa/wga -q -p no:cacheprovider`; `make lint typecheck-py`; `cd services/company && encore test` file test capability nếu đã thêm.
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add packages/agent/verification apps/cosa/worker/wga_verify.py apps/cosa/worker/wga_run.py tests/agent/verification tests/apps/cosa/wga
@@ -733,7 +736,7 @@ git commit -m "feat(verifier): đánh giá tiêu chí metric_gte từ giá trị
 **Interfaces:**
 - Produces: `INTERNAL_MODEL_POLICY_SPECS: dict[str, AgentSpec] = {"verifier": COSA_VERIFIER_AGENT_SPEC}` (module nhẹ, không import chain nặng, theo ghi chú của `agent_profile_specs.py`); `_resolve_agent_spec_id("verifier") == "cosa.agents.verifier"`.
 
-- [ ] **Step 1: Test thất bại** — theo mẫu test model-policy sẵn có (`grep -rln "model-policy\|model_policy" tests/apps/cosa | head`; dùng cùng fixture app/identity):
+- [x] **Step 1: Test thất bại** — theo mẫu test model-policy sẵn có (`grep -rln "model-policy\|model_policy" tests/apps/cosa | head`; dùng cùng fixture app/identity):
 
 ```python
 def test_resolve_agent_spec_id_accepts_verifier():
@@ -758,7 +761,7 @@ async def test_put_then_get_policy_for_verifier_roundtrips(...):
 
 Viết đầy đủ ca round-trip theo mẫu PUT/GET policy hiện có. Run → FAIL.
 
-- [ ] **Step 2: Cài đặt.** Module `apps/cosa/agents/internal_policy_specs.py`:
+- [x] **Step 2: Cài đặt.** Module `apps/cosa/agents/internal_policy_specs.py`:
 
 ```python
 """Spec nội bộ cho phép cấu hình model-policy nhưng KHÔNG phải profile công khai.
@@ -774,8 +777,8 @@ INTERNAL_MODEL_POLICY_SPECS: dict[str, AgentSpec] = {"verifier": COSA_VERIFIER_A
 
 (Sao chép dòng import `AgentSpec` từ `apps/cosa/agents/specs.py`.) Trong `_resolve_agent_spec_id`: `spec = AGENT_PROFILE_SPECS.get(agent_profile) or INTERNAL_MODEL_POLICY_SPECS.get(agent_profile)`; thông điệp 404 giữ nguyên. Chạy `rg -n "_resolve_agent_spec_id|AGENT_PROFILE_SPECS" apps/cosa/api` để đảm bảo mọi route model-policy khác (`GET .../effective`, `DELETE`) đi qua cùng hàm.
 
-- [ ] **Step 3: Chạy test + gate** — `pytest tests/apps/cosa -k "model_policy or verifier" -q`; `make lint typecheck-py boundary-check`; `pytest tests/contracts/test_company_agent_spec_pins.py -q`. Expected: PASS.
-- [ ] **Step 4: Commit**
+- [x] **Step 3: Chạy test + gate** — `pytest tests/apps/cosa -k "model_policy or verifier" -q`; `make lint typecheck-py boundary-check`; `pytest tests/contracts/test_company_agent_spec_pins.py -q`. Expected: PASS.
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/cosa/agents/internal_policy_specs.py apps/cosa/api/model_policy_routes.py tests/apps/cosa/api/test_model_policy_verifier_scope.py
@@ -798,7 +801,7 @@ git commit -m "feat(verifier): model-policy REST nhận scope nội bộ verifie
   - Contract id `workforce.verification_reports.list` (schema `workforce.verification_reports.list.v1`).
   - Dart: `VerificationReportModel {reportId, taskId, runId, verdict (pass|fail|inconclusive), mode, criteria: List<VerificationCriterion {id, required, check, verdict, reason}>, createdAt}`; `WorkforceMvpService.listVerificationReports(List<String> taskIds)`; `TasksController.verificationByTask` (`RxMap<String, VerificationReportModel>`); widget `VerificationBadge(report)`.
 
-- [ ] **Step 1: Test repo thất bại** (thêm vào `tests/agent/verification/test_repository.py`):
+- [x] **Step 1: Test repo thất bại** (thêm vào `tests/agent/verification/test_repository.py`):
 
 ```python
 async def test_list_latest_for_tasks_returns_one_newest_per_task_and_is_scoped():
@@ -813,7 +816,7 @@ async def test_list_latest_for_tasks_returns_one_newest_per_task_and_is_scoped()
 
 Thêm ca Postgres tương đương (tự skip khi thiếu DB). Run → FAIL.
 
-- [ ] **Step 2: Cài đặt repo.** InMemory: gom theo `task_id` trong `workspace_id`, lấy `max(created_at)`. Postgres:
+- [x] **Step 2: Cài đặt repo.** InMemory: gom theo `task_id` trong `workspace_id`, lấy `max(created_at)`. Postgres:
 
 ```python
 _LATEST_FOR_TASKS = text(
@@ -830,11 +833,11 @@ _LATEST_FOR_TASKS = text(
 
 `task_ids` truyền `list[str]` đã khử trùng/loại rỗng, tối đa 50; tái dùng hàm `_row_to_report` sẵn có.
 
-- [ ] **Step 3: Route.** Thêm tham số `task_ids: str | None = Query(None, alias="taskIds", max_length=2000)`; nếu có thì: 422 khi kèm `taskId`/`runId`; tách bằng dấu phẩy, `strip`, loại rỗng/trùng, quá 50 phần tử ⇒ 422; gọi `repo.list_latest_for_tasks(identity.workspace_id, ids)`. Test route (`tests/apps/cosa/test_workforce_routes.py`): hai task có báo cáo ⇒ trả đúng hai báo cáo mới nhất; workspace khác không lọt; 51 id ⇒ 422; `taskIds` + `taskId` ⇒ 422; repo `None` ⇒ danh sách rỗng (hành vi hiện có).
+- [x] **Step 3: Route.** Thêm tham số `task_ids: str | None = Query(None, alias="taskIds", max_length=2000)`; nếu có thì: 422 khi kèm `taskId`/`runId`; tách bằng dấu phẩy, `strip`, loại rỗng/trùng, quá 50 phần tử ⇒ 422; gọi `repo.list_latest_for_tasks(identity.workspace_id, ids)`. Test route (`tests/apps/cosa/test_workforce_routes.py`): hai task có báo cáo ⇒ trả đúng hai báo cáo mới nhất; workspace khác không lọt; 51 id ⇒ 422; `taskIds` + `taskId` ⇒ 422; repo `None` ⇒ danh sách rỗng (hành vi hiện có).
 
-- [ ] **Step 4: Hợp đồng.** Thêm entry `workforce.verification_reports.list` vào `shared/contracts/mvp-surface.json` bằng cách **sao chép entry `workforce.run.read` làm mẫu** (đọc cách các trường `schema`, `backend_test`, `flutter_test`, `integration_test` được kiểm: `make mvp-surface-check`), đặt `method: "GET"`, `path: "/agent/workforce/verification-reports"`, `frontend_symbol: "WorkforceMvpService.listVerificationReports"`, `backend_test: "tests/apps/cosa/test_workforce_routes.py"`, `flutter_test: "frontend/test/modules/workforce/workforce_mvp_service_test.dart"`. Chạy `make mvp-contracts-gen` rồi `make mvp-contracts-check mvp-surface-check route-inventory-check frontend-api-contract-check route-auth-allowlist-check`. Không sửa tay file sinh ra. Nếu kiểm tra yêu cầu `integration_test`, thêm ca vào `tests/integration/test_mvp_workforce_in_process.py` theo mẫu các ca lân cận.
+- [x] **Step 4: Hợp đồng.** Thêm entry `workforce.verification_reports.list` vào `shared/contracts/mvp-surface.json` bằng cách **sao chép entry `workforce.run.read` làm mẫu** (đọc cách các trường `schema`, `backend_test`, `flutter_test`, `integration_test` được kiểm: `make mvp-surface-check`), đặt `method: "GET"`, `path: "/agent/workforce/verification-reports"`, `frontend_symbol: "WorkforceMvpService.listVerificationReports"`, `backend_test: "tests/apps/cosa/test_workforce_routes.py"`, `flutter_test: "frontend/test/modules/workforce/workforce_mvp_service_test.dart"`. Chạy `make mvp-contracts-gen` rồi `make mvp-contracts-check mvp-surface-check route-inventory-check frontend-api-contract-check route-auth-allowlist-check`. Không sửa tay file sinh ra. Nếu kiểm tra yêu cầu `integration_test`, thêm ca vào `tests/integration/test_mvp_workforce_in_process.py` theo mẫu các ca lân cận.
 
-- [ ] **Step 5: Flutter — model + service + test.** `verification_report_model.dart` (parse an toàn: trường thiếu ⇒ giá trị mặc định, `verdict` chuẩn hóa chữ thường, không ném):
+- [x] **Step 5: Flutter — model + service + test.** `verification_report_model.dart` (parse an toàn: trường thiếu ⇒ giá trị mặc định, `verdict` chuẩn hóa chữ thường, không ném):
 
 ```dart
 enum VerificationVerdict { pass, fail, inconclusive }
@@ -890,15 +893,15 @@ class VerificationReportModel {
 
 Khóa JSON thật do `_verification_report_view` (`workforce_routes.py`) quyết định: **mở hàm đó và khớp đúng tên khóa** (snake_case hay camelCase), rồi sửa `fromJson` + test cho khớp, không để cả hai kiểu nếu backend chỉ có một. Service: `Future<Map<String, VerificationReportModel>> listVerificationReports(List<String> taskIds)` — gọi endpoint qua `MvpEndpoints` sinh ra (xem `workforceApprovalDecide` ở `mvp_endpoints.g.dart` làm mẫu cách gọi), trả map `taskId → báo cáo`; `taskIds` rỗng ⇒ map rỗng, không gọi mạng. Test trong `workforce_mvp_service_test.dart` theo mẫu các ca có sẵn (mock HTTP): phân tích đúng verdict/criteria, rỗng không gọi mạng, 403 ném `StateError`.
 
-- [ ] **Step 6: Flutter — controller + huy hiệu.** `TasksController`: sau khi nạp danh sách task, lấy các `id` của task có `status` `in_progress` hoặc `done` (tối đa 50), gọi một lần `listVerificationReports`, gán `verificationByTask`; lỗi ⇒ giữ map cũ, **không** làm hỏng bảng (bắt lỗi, log). `VerificationBadge(report)`: chip nhỏ cùng phong cách các badge sẵn có trong `kanban_task_card.dart` (nền `color.withValues(alpha: 0.15)`, chữ cỡ 9.5): PASS xanh `#10B981` "Đã kiểm", FAIL đỏ `#EF4444` "Không đạt", INCONCLUSIVE vàng `#F59E0B` "Chưa kết luận"; `onTap` mở `showModalBottomSheet` liệt kê tiêu chí (id, bắt buộc/tùy chọn, kết quả, mã lý do) — chỉ hiển thị **mã**, không diễn giải tự do. Chuỗi hiển thị theo cơ chế `L10nKey` của module (thêm khóa mới vào `app_translations`, theo cách `L10nKey.hubWaitingTitle` được định nghĩa: `grep -rn "hubWaitingTitle" frontend/lib | head`). Chèn badge vào `KanbanTaskCard` khi `controller.verificationByTask[task.id]` có giá trị.
+- [x] **Step 6: Flutter — controller + huy hiệu.** `TasksController`: sau khi nạp danh sách task, lấy các `id` của task có `status` `in_progress` hoặc `done` (tối đa 50), gọi một lần `listVerificationReports`, gán `verificationByTask`; lỗi ⇒ giữ map cũ, **không** làm hỏng bảng (bắt lỗi, log). `VerificationBadge(report)`: chip nhỏ cùng phong cách các badge sẵn có trong `kanban_task_card.dart` (nền `color.withValues(alpha: 0.15)`, chữ cỡ 9.5): PASS xanh `#10B981` "Đã kiểm", FAIL đỏ `#EF4444` "Không đạt", INCONCLUSIVE vàng `#F59E0B` "Chưa kết luận"; `onTap` mở `showModalBottomSheet` liệt kê tiêu chí (id, bắt buộc/tùy chọn, kết quả, mã lý do) — chỉ hiển thị **mã**, không diễn giải tự do. Chuỗi hiển thị theo cơ chế `L10nKey` của module (thêm khóa mới vào `app_translations`, theo cách `L10nKey.hubWaitingTitle` được định nghĩa: `grep -rn "hubWaitingTitle" frontend/lib | head`). Chèn badge vào `KanbanTaskCard` khi `controller.verificationByTask[task.id]` có giá trị.
 
-- [ ] **Step 7: Test widget** (`verification_badge_test.dart`): ba verdict hiển thị đúng nhãn/màu; chạm mở sheet liệt kê đúng số tiêu chí; báo cáo rỗng criteria vẫn hiển thị an toàn.
+- [x] **Step 7: Test widget** (`verification_badge_test.dart`): ba verdict hiển thị đúng nhãn/màu; chạm mở sheet liệt kê đúng số tiêu chí; báo cáo rỗng criteria vẫn hiển thị an toàn.
 
-- [ ] **Step 8: Chạy test + gate**
+- [x] **Step 8: Chạy test + gate**
 
 Run: `PYTHONPATH=.:packages:apps python -m pytest tests/agent/verification tests/apps/cosa/test_workforce_routes.py -q -p no:cacheprovider`; `cd frontend && flutter test test/modules/workforce test/modules/tasks && flutter analyze`; `make frontend-test frontend-analyze frontend-boundary-check` (nếu có). Expected: PASS.
 
-- [ ] **Step 9: Commit** (liệt kê đường dẫn thật đã đổi; không `git add -A` vì `frontend/*` có thể còn thay đổi của người dùng):
+- [x] **Step 9: Commit** (liệt kê đường dẫn thật đã đổi; không `git add -A` vì `frontend/*` có thể còn thay đổi của người dùng):
 
 ```bash
 git add packages/agent/verification/repository.py apps/cosa/api/workforce_routes.py shared/contracts/mvp-surface.json frontend/lib/core/network/mvp_endpoints.g.dart frontend/lib/data/models/verification_report_model.dart frontend/lib/modules/tasks frontend/lib/modules/workforce tests/agent/verification tests/apps/cosa frontend/test
@@ -913,8 +916,8 @@ git commit -m "feat(verifier): hiển thị verdict trên thẻ kanban (API theo
 - Modify: `docs/runbooks/wga-verifier.md`, `docs/superpowers/plans/2026-10-05-agent-structure-B-verifier-gate.md` (mục "Còn lại"), `docs/superpowers/plans/2026-10-05-agent-structure-A-goal-ancestry-done-criteria.md` (một dòng trạng thái nếu thiếu)
 - Test: `tests/apps/cosa/wga/test_wga_verify_flag_default.py` (chỉ thêm ở Step 4 sau khi con người duyệt)
 
-- [ ] **Step 1: Cập nhật runbook** `docs/runbooks/wga-verifier.md`: bỏ câu "không kiểm" về resume/`NEEDS_APPROVAL` (nay có kiểm, kèm hai ghi chú: PASS ở task `NEEDS_APPROVAL` không tự đóng; `must_change` ở đường resume luôn `INCONCLUSIVE baseline_unavailable`); thay dòng `metric_gte` bằng ngữ nghĩa mới (`key_result_id`, `threshold`, `must_change`, đọc `currentValue`, rủi ro đạt rỗng, KR kiểu giảm cần ngưỡng riêng); thêm mục "Ép mô hình thẩm phán độc lập" với lệnh PUT/GET model-policy scope `verifier` (mẫu request lấy từ test Task 4); thêm mục "Hiển thị" cho huy hiệu Flutter và `taskIds`.
-- [ ] **Step 2: Thêm mục "Quan sát trước khi bật mặc định"** vào runbook với các truy vấn đọc-chỉ (chạy trên DB agent, thay `<ws>`):
+- [x] **Step 1: Cập nhật runbook** `docs/runbooks/wga-verifier.md`: bỏ câu "không kiểm" về resume/`NEEDS_APPROVAL` (nay có kiểm, kèm hai ghi chú: PASS ở task `NEEDS_APPROVAL` không tự đóng; `must_change` ở đường resume luôn `INCONCLUSIVE baseline_unavailable`); thay dòng `metric_gte` bằng ngữ nghĩa mới (`key_result_id`, `threshold`, `must_change`, đọc `currentValue`, rủi ro đạt rỗng, KR kiểu giảm cần ngưỡng riêng); thêm mục "Ép mô hình thẩm phán độc lập" với lệnh PUT/GET model-policy scope `verifier` (mẫu request lấy từ test Task 4); thêm mục "Hiển thị" cho huy hiệu Flutter và `taskIds`.
+- [x] **Step 2: Thêm mục "Quan sát trước khi bật mặc định"** vào runbook với các truy vấn đọc-chỉ (chạy trên DB agent, thay `<ws>`):
 
 ```sql
 -- Phân bố verdict theo ngày (cửa sổ quan sát)
@@ -938,8 +941,8 @@ ORDER BY created_at DESC LIMIT 20;
 ```
 
   Tiêu chí quyết định (ghi vào runbook, **người duyệt có thể chỉnh**): (a) quan sát tối thiểu 14 ngày trên workspace dev/staging với `WGA_VERIFY_ON_COMPLETE=1` và `WGA_REQUIRE_DONE_CRITERIA=1`; (b) ít nhất 30 báo cáo; (c) tỷ lệ INCONCLUSIVE ≤ 20% và nguyên nhân chủ yếu không phải lỗi hạ tầng (`judge_timeout`, `context_unavailable`, `usage_budget_exceeded`); (d) duyệt tay 20 báo cáo PASS: 0 trường hợp đạt sai (nội dung rõ ràng không thỏa tiêu chí); (e) thẩm phán đã có policy mô hình riêng (Task 4) hoặc chấp nhận có chủ đích dùng chung route mặc định.
-- [ ] **Step 3: Cập nhật mục "Còn lại" của thiết kế B**: đánh dấu đã làm (resume + `NEEDS_APPROVAL`, `metric_gte`, model-policy REST, UI Flutter); còn lại: cổng duyệt cho workflow, `BudgetGate`, đưa verdict vào hash duyệt/scorecard, bật mặc định (chờ Step 4).
-- [ ] **Step 4: CỔNG CỦA NGƯỜI — đổi mặc định cờ.** Chỉ làm khi chủ dự án xác nhận đã đạt tiêu chí ở Step 2 (ghi kết quả vào runbook: ngày, số báo cáo, tỷ lệ INCONCLUSIVE, người duyệt). Khi đó: đổi `verification_enabled()` thành bật mặc định, tắt khi `WGA_VERIFY_ON_COMPLETE == "0"`; test thất bại trước:
+- [x] **Step 3: Cập nhật mục "Còn lại" của thiết kế B**: đánh dấu đã làm (resume + `NEEDS_APPROVAL`, `metric_gte`, model-policy REST, UI Flutter); còn lại: cổng duyệt cho workflow, `BudgetGate`, đưa verdict vào hash duyệt/scorecard, bật mặc định (chờ Step 4).
+- [x] **Step 4: CỔNG CỦA NGƯỜI — đổi mặc định cờ.** *(Đóng theo quyết định của chủ dự án 2026-10-12: **giữ mặc định TẮT**, không đổi code; hoãn tới khi có số liệu quan sát theo tiêu chí ở Step 2. Ghi trong `docs/runbooks/wga-verifier.md`. Phần mô tả bên dưới giữ nguyên làm hướng dẫn cho lần đổi sau.)* Chỉ làm khi chủ dự án xác nhận đã đạt tiêu chí ở Step 2 (ghi kết quả vào runbook: ngày, số báo cáo, tỷ lệ INCONCLUSIVE, người duyệt). Khi đó: đổi `verification_enabled()` thành bật mặc định, tắt khi `WGA_VERIFY_ON_COMPLETE == "0"`; test thất bại trước:
 
 ```python
 def test_verification_is_on_by_default_after_rollout(monkeypatch):
@@ -952,7 +955,7 @@ def test_explicit_zero_turns_it_off(monkeypatch):
 ```
 
   và cập nhật các test đợt 1/Task 2 đang giả định "mặc định tắt" (chúng đặt/gỡ biến môi trường tường minh nên chủ yếu cần `monkeypatch.setenv("WGA_VERIFY_ON_COMPLETE", "0")` ở ca "cờ tắt"). Không đổi mặc định `WGA_REQUIRE_DONE_CRITERIA` trong phiên này; đó là quyết định riêng.
-- [ ] **Step 5: Cổng chất lượng**
+- [x] **Step 5: Cổng chất lượng**
 
 ```bash
 make lint typecheck-py migration-check schema-fingerprint-check boundary-check
@@ -964,7 +967,7 @@ make verify
 ```
 
 Expected: thoát 0 (trừ các lỗi có sẵn nêu ở Global Constraints). Kiểm tay: (1) tạo task `NEEDS_APPROVAL` có `doneCriteria`, duyệt checkpoint, xác nhận report xuất hiện và task đóng/giữ đúng verdict; (2) KR đạt ngưỡng ⇒ `metric_gte` PASS, KR dưới ngưỡng ⇒ FAIL; (3) PUT policy `verifier` đổi mô hình, `GET` trả `scope_key = cosa.agents.verifier`; (4) bảng kanban hiện huy hiệu đúng màu và chạm mở được chi tiết.
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add docs/runbooks/wga-verifier.md docs/superpowers/plans/2026-10-05-agent-structure-B-verifier-gate.md
