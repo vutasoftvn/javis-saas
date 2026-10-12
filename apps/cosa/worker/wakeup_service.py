@@ -36,6 +36,15 @@ WAKE_PROFILE_BY_FUNCTIONAL_KEY: dict[str, str] = {
 }
 
 MIN_WAKE_AUTONOMY = AutonomyLevel.L2
+_ELIGIBILITY_REASONS = frozenset(
+    {
+        "assignment_not_found",
+        "assignment_not_active",
+        "employee_not_active",
+        "no_executable_profile",
+        "autonomy_below_minimum",
+    }
+)
 _RANK = {"L0": 0, "L1": 1, "L2": 2, "L3": 3}
 
 
@@ -112,6 +121,7 @@ class WakeupService:
         )
         if recent >= config.max_per_day:
             return WakeOutcome("suppressed", "rate_cap")
+        # count_since -> record_if_absent là soft cap: chấp nhận vượt nhẹ khi đồng thời.
         entry = WakeupEntry(
             wake_id=uuid4().hex,
             workspace_id=workspace_id,
@@ -124,17 +134,23 @@ class WakeupService:
         )
         if not await self._ledger.record_if_absent(entry):
             return WakeOutcome("duplicate", assignment_id=assignment_id)
-        await self._scheduler.schedule(
-            target_spec_id=AGENT_PROFILE_SPECS[profile].id,
-            input_payload={
-                "task_type": "agent_wakeup",
-                "workspace_id": workspace_id,
-                "assignment_id": assignment_id,
-                "project_id": project_id,
-            },
-            coalescing_key=f"wake:{workspace_id}:{assignment_id}:{project_id}",
-            run_at=now + timedelta(seconds=config.debounce_sec),
-        )
+        try:
+            await self._scheduler.schedule(
+                target_spec_id=AGENT_PROFILE_SPECS[profile].id,
+                input_payload={
+                    "task_type": "agent_wakeup",
+                    "workspace_id": workspace_id,
+                    "assignment_id": assignment_id,
+                    "project_id": project_id,
+                },
+                coalescing_key=f"wake:{workspace_id}:{assignment_id}:{project_id}",
+                run_at=now + timedelta(seconds=config.debounce_sec),
+            )
+        except Exception as exc:
+            logger.warning("wakeup schedule failed: %s", type(exc).__name__)
+            # Hàng sổ cái vẫn UNHANDLED: lần wakeup kế tiếp của cùng (assignment, project)
+            # sẽ nhặt nó vì handler đọc list_unhandled.
+            return WakeOutcome("suppressed", "schedule_failed", assignment_id=assignment_id)
         return WakeOutcome("scheduled", assignment_id=assignment_id)
 
     async def escalate(
@@ -147,21 +163,34 @@ class WakeupService:
         source_ref: str,
         hop: int = 0,
     ) -> WakeOutcome:
+        if not wakeup_enabled():
+            return WakeOutcome("suppressed", "flag_off")
         config = self._config or WakeConfig.from_env()
+        try:
+            current = UUID(from_assignment_id)
+        except ValueError:
+            return WakeOutcome("suppressed", "invalid_assignment_id")
         records = await self._repo.list_assignments(workspace_id)
         nodes: dict[UUID, tuple[UUID | None, str]] = {
             r.assignment_id: (r.reports_to_assignment_id, r.status) for r in records
         }
-        target = next_escalation_target(
-            nodes=nodes, assignment_id=UUID(from_assignment_id), hop=hop, hop_cap=config.hop_cap
-        )
-        if target.kind == "operator" or target.assignment_id is None:
-            return WakeOutcome("operator", target.reason)
-        return await self.request_wakeup(
-            workspace_id=workspace_id,
-            assignment_id=str(target.assignment_id),
-            project_id=project_id,
-            reason_kind=reason_kind,
-            source_ref=source_ref,
-            hop=target.hop,
-        )
+        while True:
+            target = next_escalation_target(
+                nodes=nodes, assignment_id=current, hop=hop, hop_cap=config.hop_cap
+            )
+            if target.kind == "operator" or target.assignment_id is None:
+                return WakeOutcome("operator", target.reason)
+            outcome = await self.request_wakeup(
+                workspace_id=workspace_id,
+                assignment_id=str(target.assignment_id),
+                project_id=project_id,
+                reason_kind=reason_kind,
+                source_ref=source_ref,
+                hop=target.hop,
+            )
+            if outcome.status == "suppressed" and outcome.reason in _ELIGIBILITY_REASONS:
+                # Quản lý không đánh thức được: chỉ đi tiếp lên quản lý kế, không nới gì.
+                # Vòng lặp bị chặn bởi hop_cap vì mỗi bước tăng hop.
+                current, hop = target.assignment_id, target.hop
+                continue
+            return outcome

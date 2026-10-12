@@ -152,14 +152,6 @@ async def test_escalate_without_manager_returns_operator(env):
     assert (out.status, out.reason) == ("operator", "no_manager") and not env.sched.calls
 
 
-async def test_evaluate_wake_target_real_autonomy_gate():
-    repo = InMemoryWorkforceRepository()
-    a = await _assign(repo, "campaign_planner")
-    profile, reason = await evaluate_wake_target(repo, WS, str(a.assignment_id))
-    # Kết quả phụ thuộc autonomy thật của spec marketing: chỉ khẳng định tính nhất quán.
-    assert (profile, reason) in {("marketing", None), (None, "autonomy_below_minimum")}
-
-
 @pytest.mark.parametrize(
     ("key", "expected"),
     [
@@ -173,3 +165,111 @@ async def test_evaluate_wake_target_precise_real_autonomy(key, expected):
     repo = InMemoryWorkforceRepository()
     a = await _assign(repo, key)
     assert await evaluate_wake_target(repo, WS, str(a.assignment_id)) == expected
+
+
+class FlakyScheduler(FakeScheduler):
+    fail = True
+
+    async def schedule(self, **kw):
+        if self.fail:
+            raise RuntimeError("boom secret-payload")
+        return await super().schedule(**kw)
+
+
+async def test_schedule_failure_keeps_ledger_row_and_recovers(env):
+    env.sched.__class__ = FlakyScheduler
+    a = await _assign(env.repo, "campaign_planner")
+    out = await _req(env, a, source_ref="s1")
+    assert (out.status, out.reason) == ("suppressed", "schedule_failed")
+    assert len(await env.ledger.list_unhandled(WS, str(a.assignment_id), "p1")) == 1
+    env.sched.fail = False
+    assert (await _req(env, a, source_ref="s2")).status == "scheduled"
+    rows = await env.ledger.list_unhandled(WS, str(a.assignment_id), "p1")
+    assert {r.source_ref for r in rows} == {"s1", "s2"}
+
+
+async def _esc(env, dev, **over):
+    kw = dict(
+        workspace_id=WS,
+        from_assignment_id=str(dev.assignment_id),
+        project_id="p1",
+        reason_kind="task_blocked",
+        source_ref="task:9",
+        hop=0,
+    )
+    kw.update(over)
+    return await env.svc.escalate(**kw)
+
+
+async def test_escalate_skips_unmapped_manager_to_grand_manager(env):
+    top = await _assign(env.repo, "founder_office_orchestrator")
+    mid = await _assign(env.repo, "market_research_specialist", parent=top.assignment_id)
+    dev = await _assign(env.repo, "campaign_planner", parent=mid.assignment_id)
+    out = await _esc(env, dev)
+    assert out.status == "scheduled" and out.assignment_id == str(top.assignment_id)
+    entry = (await env.ledger.list_unhandled(WS, str(top.assignment_id), "p1"))[0]
+    assert entry.hop == 2
+
+
+async def _with_employee(env, key, code, parent=None):
+    emp = await env.repo.create_employee(WS, code, code, "u")
+    rec = await env.repo.create_assignment(
+        workspace_id=WS,
+        functional_key=key,
+        spec_id=f"functional.{key}",
+        spec_version="1.0.0",
+        definition_hash=f"sha256:{code}",
+        configured_by="u",
+        reports_to_assignment_id=parent,
+        agent_instance_id=emp.agent_instance_id,
+    )
+    await env.repo.suspend_employee(WS, emp.agent_instance_id)
+    return rec
+
+
+async def test_escalate_skips_manager_with_suspended_employee(env):
+    top = await _assign(env.repo, "founder_office_orchestrator")
+    mid = await _with_employee(env, "campaign_planner", "e1", top.assignment_id)
+    dev = await _assign(env.repo, "cashflow_planner", parent=mid.assignment_id)
+    out = await _esc(env, dev)
+    assert out.status == "scheduled" and out.assignment_id == str(top.assignment_id)
+
+
+async def test_evaluate_employee_not_active(env):
+    a = await _with_employee(env, "campaign_planner", "e2")
+    assert await evaluate_wake_target(env.repo, WS, str(a.assignment_id)) == (
+        None,
+        "employee_not_active",
+    )
+
+
+async def test_escalate_all_managers_unwakeable_returns_operator(env):
+    top = await _assign(env.repo, "market_research_specialist")
+    mid = await _assign(env.repo, "legal_specialist", parent=top.assignment_id)
+    dev = await _assign(env.repo, "campaign_planner", parent=mid.assignment_id)
+    out = await _esc(env, dev)
+    assert out.status == "operator" and not env.sched.calls
+
+
+async def test_escalate_rate_cap_on_first_manager_is_returned_not_skipped(env):
+    top = await _assign(env.repo, "cashflow_planner")
+    mid = await _assign(env.repo, "founder_office_orchestrator", parent=top.assignment_id)
+    dev = await _assign(env.repo, "campaign_planner", parent=mid.assignment_id)
+    await _req(env, mid, source_ref="a")
+    await _req(env, mid, source_ref="b")
+    out = await _esc(env, dev, source_ref="c")
+    assert (out.status, out.reason) == ("suppressed", "rate_cap")
+
+
+async def test_escalate_at_hop_cap_returns_operator(env):
+    boss = await _assign(env.repo, "founder_office_orchestrator")
+    dev = await _assign(env.repo, "campaign_planner", parent=boss.assignment_id)
+    out = await _esc(env, dev, hop=3)
+    assert (out.status, out.reason) == ("operator", "hop_cap_reached")
+
+
+async def test_escalate_flag_off_and_invalid_id(env, monkeypatch):
+    dev = await _assign(env.repo, "campaign_planner")
+    assert (await _esc(env, dev, from_assignment_id="not-a-uuid")).reason == "invalid_assignment_id"
+    monkeypatch.delenv("AGENT_WAKEUP_ENABLED")
+    assert (await _esc(env, dev)).reason == "flag_off"
