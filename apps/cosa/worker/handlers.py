@@ -1640,6 +1640,7 @@ async def execute_resume_task(
                     workspace_id=workspace_id,
                     sub=_sub,
                     output_text=output_text,
+                    final_output=res.final_output,
                 )
 
     elif res.status == RunStatus.WAITING_APPROVAL:

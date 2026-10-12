@@ -1048,15 +1048,28 @@ async def test_hook_non_pass_survives_company_rejection(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_hook_needs_approval_task_is_not_verified(monkeypatch):
+async def test_hook_needs_approval_task_pass_is_verified_but_not_auto_closed(monkeypatch):
     task = {**_AUTO_TASK, "autonomyClass": "NEEDS_APPROVAL", "doneCriteria": _DONE_CRITERIA}
     result, verify, bodies = await _sweep_with_verification(
         monkeypatch, task=task, outcome=_outcome(Verdict.PASS)
     )
-    verify.assert_not_awaited()
+    verify.assert_awaited_once()
     assert result == "pending_review"
     assert [b["toStatus"] for b in bodies] == ["in_progress", "in_progress"]
+    assert not any(b["toStatus"] == "done" for b in bodies)
     assert bodies[1]["note"] == "completion_pending_founder_review"
+
+
+@pytest.mark.asyncio
+async def test_hook_needs_approval_task_fail_keeps_in_progress(monkeypatch):
+    task = {**_AUTO_TASK, "autonomyClass": "NEEDS_APPROVAL", "doneCriteria": _DONE_CRITERIA}
+    result, verify, bodies = await _sweep_with_verification(
+        monkeypatch, task=task, outcome=_outcome(Verdict.FAIL)
+    )
+    verify.assert_awaited_once()
+    assert result == "pending_review"
+    assert [b["toStatus"] for b in bodies] == ["in_progress", "in_progress"]
+    assert bodies[1]["note"].startswith("verification_fail")
 
 
 @pytest.mark.asyncio

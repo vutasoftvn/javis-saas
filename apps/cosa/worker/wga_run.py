@@ -26,10 +26,12 @@ import logging
 import os
 import re
 import uuid
+from types import SimpleNamespace
 from typing import Any
 
 from agent.artifacts import WorkspaceArtifact
 from agent.contracts.run import RunStatus
+from agent.contracts.spec import AgentSpec
 from agent.conversations.models import MessageRecord
 from agent.verification.models import Verdict
 
@@ -207,6 +209,62 @@ async def finalize_wga_task_completion(
     return False
 
 
+async def fetch_task_agent_context(
+    plane: CosaAgentPlane, *, workspace_id: str, task_id: str, sub: str, run_id: str
+) -> dict[str, Any] | None:
+    """Ngữ cảnh task (tiêu chí, tiêu đề, profile, project) cho đường resume. None khi không lấy được."""
+    token = mint_company_delegation(
+        sub=sub, workspace_id=workspace_id, run_id=run_id, capability_ids=[_CAP_TASK_LIST]
+    )
+    try:
+        resp = await plane.company_client.get(
+            f"/operations/tasks/{task_id}/agent-context",
+            headers={"X-Workspace-Id": workspace_id, "Authorization": f"Bearer {token}"},
+        )
+    except CompanyServiceError as exc:
+        logger.warning("agent-context fetch failed ws=%s task=%s: %s", workspace_id, task_id, exc)
+        return None
+    return resp if isinstance(resp, dict) else None
+
+
+async def _verify_completed_run(
+    plane: CosaAgentPlane,
+    *,
+    spec: AgentSpec,
+    workspace_id: str,
+    project_id: str,
+    task_id: str,
+    task_run_id: str,
+    title: str,
+    decision_reason: str,
+    done_criteria: dict[str, Any] | None,
+    run_result: Any,
+    output_text: str,
+) -> VerificationOutcome | None:
+    """Xác minh sau khi run hoàn tất (cờ WGA_VERIFY_ON_COMPLETE, đọc lúc gọi). Không bao giờ ném."""
+    if not (verification_enabled() and done_criteria):
+        return None
+    try:
+        return await verify_task_result(
+            plane,
+            producer_spec=spec,
+            workspace_id=workspace_id,
+            project_id=project_id,
+            task_id=task_id,
+            task_run_id=task_run_id,
+            task_title=title,
+            decision_reason=decision_reason,
+            done_criteria=done_criteria,
+            run_result=run_result,
+            output_text=output_text,
+        )
+    except Exception as exc:  # hợp đồng: verify không ném; nếu vẫn ném thì fail-closed
+        logger.exception("wga verification crashed task=%s run=%s", task_id, task_run_id)
+        return VerificationOutcome(
+            Verdict.INCONCLUSIVE, None, f"verification_error:{exc.__class__.__name__}", []
+        )
+
+
 async def advance_wga_task_after_resume(
     plane: CosaAgentPlane,
     *,
@@ -214,9 +272,11 @@ async def advance_wga_task_after_resume(
     workspace_id: str | None,
     sub: str,
     output_text: str = "",
+    final_output: Any = None,
 ) -> None:
     """Sau khi founder duyệt checkpoint và `execute_resume_task` chạy xong
-    (COMPLETED), lưu evidence từ output rồi gọi finalizer chung."""
+    (COMPLETED), lưu evidence từ output, xác minh doneCriteria (khi cờ bật)
+    rồi gọi finalizer chung. FAIL/INCONCLUSIVE không bao giờ đóng task."""
     m = _WGA_TASK_RUN_RE.match(run_id or "")
     if not m or not workspace_id:
         return
@@ -230,6 +290,51 @@ async def advance_wga_task_after_resume(
     evidence = await record_wga_task_evidence(
         plane, workspace_id=workspace_id, run_id=run_id, output_text=output_text
     )
+
+    verification: VerificationOutcome | None = None
+    if verification_enabled():
+        ctx = await fetch_task_agent_context(
+            plane, workspace_id=workspace_id, task_id=task_id, sub=sub or "0", run_id=run_id
+        )
+        if ctx is None:
+            # Không lấy được ngữ cảnh khi cờ bật: fail-closed, không đóng task.
+            verification = VerificationOutcome(
+                Verdict.INCONCLUSIVE, None, "context_unavailable", []
+            )
+        elif ctx.get("doneCriteria"):
+            # Cùng mặc định "operations" với đường sweep (_execute_claimed_task).
+            spec = _SPEC_BY_PROFILE.get(str(ctx.get("ownerAgentProfile") or "operations"))
+            if spec is None:
+                verification = VerificationOutcome(
+                    Verdict.INCONCLUSIVE, None, "unsupported_owner_agent_profile", []
+                )
+            else:
+                verification = await _verify_completed_run(
+                    plane,
+                    spec=spec,
+                    workspace_id=workspace_id,
+                    project_id=str(ctx.get("projectId") or ""),
+                    task_id=task_id,
+                    task_run_id=run_id,
+                    title=str(ctx.get("title") or ""),
+                    decision_reason=str(ctx.get("decisionReason") or ""),
+                    done_criteria=ctx["doneCriteria"],
+                    run_result=SimpleNamespace(final_output=final_output),
+                    output_text=output_text,
+                )
+    if verification is not None and verification.verdict is not Verdict.PASS:
+        await _advance_task(
+            plane,
+            workspace_id=workspace_id,
+            task_id=task_id,
+            to_status="in_progress",
+            run_id=run_id,
+            token=token,
+            note=f"verification_{verification.verdict.value.lower()}: {verification.summary[:300]}",
+        )
+        return
+    if verification is not None and verification.report_id and evidence:
+        evidence = [*evidence, f"verification:{verification.report_id}"]
     await finalize_wga_task_completion(
         plane,
         workspace_id=workspace_id,
@@ -739,33 +844,21 @@ async def _execute_claimed_task(
         evidence = await record_wga_task_evidence(
             plane, workspace_id=workspace_id, run_id=task_run_id, output_text=output_text
         )
-        # Xác minh doneCriteria (sau cờ WGA_VERIFY_ON_COMPLETE; đọc lúc gọi). Chỉ đường AUTO ban đầu:
-        # đường resume sau duyệt và task NEEDS_APPROVAL giữ nguyên, không xác minh (quyết định có chủ đích).
-        done_criteria = t.get("doneCriteria")
-        verification: VerificationOutcome | None = None
-        if verification_enabled() and done_criteria and not needs_approval:
-            try:
-                verification = await verify_task_result(
-                    plane,
-                    producer_spec=spec,
-                    workspace_id=workspace_id,
-                    project_id=task_project_id,
-                    task_id=task_id,
-                    task_run_id=task_run_id,
-                    task_title=t.get("title") or "",
-                    decision_reason=t.get("decisionReason") or "",
-                    done_criteria=done_criteria,
-                    run_result=run_result,
-                    output_text=output_text,
-                )
-            except Exception as exc:  # hợp đồng: verify không ném; nếu vẫn ném thì fail-closed
-                logger.exception("wga verification crashed task=%s run=%s", task_id, task_run_id)
-                verification = VerificationOutcome(
-                    Verdict.INCONCLUSIVE,
-                    None,
-                    f"verification_error:{exc.__class__.__name__}",
-                    [],
-                )
+        # Xác minh doneCriteria (sau cờ WGA_VERIFY_ON_COMPLETE; đọc lúc gọi). Task NEEDS_APPROVAL
+        # cũng được xác minh nhưng PASS không làm nó tự đóng (founder vẫn xác nhận bên dưới).
+        verification = await _verify_completed_run(
+            plane,
+            spec=spec,
+            workspace_id=workspace_id,
+            project_id=task_project_id,
+            task_id=task_id,
+            task_run_id=task_run_id,
+            title=t.get("title") or "",
+            decision_reason=t.get("decisionReason") or "",
+            done_criteria=t.get("doneCriteria"),
+            run_result=run_result,
+            output_text=output_text,
+        )
         # Token ủy quyền sống 600s; run + thẩm phán có thể làm nó hết hạn: cấp lại ngay trước advance.
         adv_token = mint_company_delegation(
             sub=sub, workspace_id=workspace_id, run_id=task_run_id, capability_ids=caps
