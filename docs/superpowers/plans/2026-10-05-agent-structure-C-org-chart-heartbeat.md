@@ -1,6 +1,27 @@
 # Dự án C — Org chart có hiệu lực và wakeup theo sự kiện (heartbeat)
 
-Ngày: 2026-10-05 · Trạng thái: DRAFT chờ duyệt · Phụ thuộc: A (ngữ cảnh), B (kiểm tra trước khi agent tự chủ tạo tác động)
+Ngày: 2026-10-05, cập nhật 2026-10-12 · Trạng thái: **ĐÃ TRIỂN KHAI v1 (sau cờ, mặc định tắt)** · Phụ thuộc: A (ngữ cảnh), B (kiểm tra trước khi agent tự chủ tạo tác động)
+
+Kế hoạch triển khai: [2026-10-12-agent-structure-C-org-chart-wakeup-impl.md](2026-10-12-agent-structure-C-org-chart-wakeup-impl.md). Vận hành: [docs/runbooks/agent-wakeup.md](../../runbooks/agent-wakeup.md). Phần thiết kế bên dưới là bản gốc; khi khác với runbook thì runbook đúng.
+
+## Đã làm
+
+- C1 toàn vẹn org chart: từ chối vòng và tự tham chiếu (migration agent 021), cảnh báo `manager_not_active` ở `GET /org-chart`.
+- C2 bộ phân giải leo thang thuần (`agent.workforce.escalation`), dừng ở operator khi hết quản lý hoặc chạm hop cap.
+- C3 wakeup: sổ cái `agent.workforce_wakeups` (migration agent 022), `WakeupService`, handler `agent_wakeup` (run chỉ đọc), cổng ACTIVE/autonomy/rate cap/hop cap/debounce, cờ `AGENT_WAKEUP_ENABLED`.
+- C5 wake thất bại leo thang lên quản lý; task `blocked` ở sweep đánh thức người phụ trách; `POST /agent/workforce/assignments/{id}/wakeups` (founder/co-founder).
+- Test đầu-cuối trong tiến trình: `tests/apps/cosa/wga/test_agent_wakeup_e2e.py`.
+
+## Còn lại
+
+- Trần chi phí theo assignment (`record_cost_observation` chưa có caller); v1 thay bằng rate cap theo ngày.
+- Kind hoạt động `assignment.created`, `comment.created`, `approval.rejected` (cần bản ghi canonical bền) và C4 (wakeup theo hoạt động).
+- Fan-out C6.
+- Wakeup có quyền ghi (sau khi Verifier phủ các đường đó).
+- Nối `functional_key` vào thực thi và bỏ 501 của `schedules/{id}/run-now`.
+- UI hiển thị lịch sử wakeup.
+- Route thủ công nhận `project_id` mà chưa kiểm project thuộc workspace (founder-only, run chỉ đọc).
+- Quyết định cần chốt với chủ dự án: ngưỡng autonomy L2 (hiện chỉ `founder_office_orchestrator` đánh thức được vì finance=L1, marketing=L0), hop cap 3, ánh xạ `functional_key -> profile`, kiểm sở hữu `project_id` ở route thủ công.
 
 Tương ứng Paperclip: org chart với đường báo cáo, heartbeat thức dậy theo hàng đợi có coalescing; và ảnh Dots: Dot điều phối giao nhánh song song.
 

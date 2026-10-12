@@ -400,4 +400,5 @@ Before deploying to production:
 - Migrations: `docs/operations/migrations.md`
 - Runtime Closure: `docs/implementation/production-runtime-closure.md`
 - ADRs: `docs/architecture/adr/` (especially `ADR-RUNTIME-002`, `ADR-CONTROLPLANE-001`)
+- Agent wakeup (Dự án C, org chart + đánh thức theo sự kiện): `docs/runbooks/agent-wakeup.md`
 - Original Plan: `COSA_FINAL_INTEGRATION_AND_LEGACY_EXIT_PLAN_2026-08-25.md`
