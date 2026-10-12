@@ -1,6 +1,6 @@
 # Dự án A0 — Hợp nhất Goals / OKR về một mô hình chuẩn
 
-Ngày: 2026-10-05 · Trạng thái: DRAFT chờ duyệt · Chạy **trước** Dự án A (ancestry) và B (verifier)
+Ngày: 2026-10-05 · Trạng thái: ĐÃ TRIỂN KHAI (migration 038, 039, 043; plan `docs/superpowers/plans/2026-10-12-okr-unification-legacy-drop-impl.md`) · Chạy **trước** Dự án A (ancestry) và B (verifier)
 
 Quyết định đã chốt với chủ dự án (2026-10-05): dữ liệu hiện có chỉ là dữ liệu thử, được phép reset; hỗ trợ objective cấp công ty và cấp project, căn chỉnh qua `parent_objective_id`.
 
@@ -53,7 +53,7 @@ goal (leo parent_id)
 **Quyết định (2026-10-05):** giữ cả hai đường `projects.objective_id` và `okr_objectives.parent_objective_id`, kèm ràng buộc đồng nhất: với objective `scope=project`, `parent_objective_id` phải bằng `projects.objective_id` của project đó (hoặc NULL, khi đó coi như thừa kế từ project). Postgres CHECK không tham chiếu được bảng khác nên dùng trigger `BEFORE INSERT/UPDATE` trên `okr_objectives` và trên `projects` (khi đổi `objective_id`, chặn nếu còn objective dự án trỏ `parent_objective_id` khác). Lưu ý đây là ràng buộc dư; nếu về sau không cần căn chỉnh riêng từng objective thì bỏ `parent_objective_id`.
 
 Quy tắc:
-- Tiến độ objective **tính ra** từ KR (view `strategy.v_objective_progress`), không lưu `progress_pct` nhập tay. Tiến độ goal tính từ objective con.
+- Tiến độ objective **tính ra** từ KR (trong TypeScript, `okr-scoring.service.ts`; không có view SQL), không lưu `progress_pct` nhập tay. Tiến độ goal tính từ objective con.
 - Mọi bảng có `workspace_id NOT NULL` và `UNIQUE (id, workspace_id)`; FK ghép khi tham chiếu (theo mẫu `uix_okr_objectives_id_workspace`).
 - Không còn tự chọn project: `scope='project'` bắt buộc `projectId`.
 - Objective công ty không có task trực tiếp; chỉ cung cấp tiêu chí và tiến độ gộp từ objective project con.
@@ -82,7 +82,7 @@ Migration `038_okr_goals_unification.up.sql` + `.down.sql` (thứ tự Agent →
    - Trigger trên `projects`: đổi `objective_id` bị chặn nếu còn objective dự án có `parent_objective_id` khác giá trị mới; `objective_id` phải trỏ objective `scope='company'`.
    - Kiểm tra nhất quán chuỗi: `initiative.project_id`, `task.project_id` phải trùng `project_id` của objective dự án qua KR (kiểm ở service và test; DB chỉ ép nếu chi phí chấp nhận được).
 4. Đổi FK `projects.objective_id` từ `strategy.objectives` sang `strategy.okr_objectives`.
-5. `DROP strategy.cosa_key_results`, `strategy.objectives`; viết lại `v_goal_tree`, `fn_goals_needing_review` theo họ OKR; thêm `v_objective_progress`.
+5. `DROP strategy.cosa_key_results`, `strategy.objectives` ở migration 043 (sau khi lưu dòng còn lại vào `strategy.legacy_*_archive`; có file evidence `docs/runbooks/evidence/okr-legacy-drop-043.md`). `v_goal_tree` đã bị xóa ở 039 và **không dựng lại** vì không có mã nào dùng (cây goal được tính ở `goals.service.ts` từ họ OKR). `fn_goals_needing_review` bị xóa ở 043 vì `getGoalsNeedingReviewService` đã đọc họ OKR trực tiếp. Không tạo `v_objective_progress`: tiến độ được tính trong TypeScript (mục 2.1).
 6. Cập nhật `scripts/preflight-workspace-tenancy.sql` và chạy `make schema-fingerprint-write`.
 
 ### 3.2 Company service (TypeScript)
@@ -140,5 +140,8 @@ Kiểm tra thủ công: tạo goal → objective công ty (cycle Q4) → objecti
 
 ## 7. Điểm còn cần xác nhận lúc thực thi
 
-- Môi trường nào được phép `TRUNCATE` (dev, staging) và production có dữ liệu thật không.
-- Frontend có đang gọi `/operations/cosa/*` không (cần grep xác nhận trước bước 6).
+Kết quả đã xác nhận (2026-10-12):
+
+- `TRUNCATE`/DROP chỉ dành cho môi trường prelaunch: hệ thống chưa có dữ liệu production thật (`docs/operations/migrations.md`, quyết định #4). File evidence của 043 ghi `environment: prelaunch-only`; áp 043 lên môi trường khác cần sao lưu và evidence riêng của môi trường đó.
+- Frontend (và mọi mã trong repo) không còn gọi `/operations/cosa/*` (đã grep, không còn tham chiếu).
+- Không còn view hay FK nào phụ thuộc hai bảng cũ ngoài FK `cosa_key_results.objective_id`, nên 043 dùng `DROP` thường, không `CASCADE`.
