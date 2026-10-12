@@ -21,6 +21,15 @@ from agent.workforce.models import (
     WorkforceScheduleRecord,
 )
 from agent.workforce.outcome_analysis import OutcomeAnalysisBinding
+from agent.workforce.reporting import (
+    check_reporting_line,
+)
+from agent.workforce.reporting import (
+    direct_reports as _direct_reports,
+)
+from agent.workforce.reporting import (
+    manager_chain as _manager_chain,
+)
 
 __all__ = [
     "DuplicateEmployeeCodeError",
@@ -38,6 +47,12 @@ class DuplicateEmployeeCodeError(Exception):
 
 class EmployeeNotAssignableError(Exception):
     """assignment nối tới employee không tồn tại hoặc không ở trạng thái ACTIVE."""
+
+
+def _nodes_of(
+    records: list[WorkforceAssignmentRecord],
+) -> dict[UUID, tuple[UUID | None, str]]:
+    return {r.assignment_id: (r.reports_to_assignment_id, r.status) for r in records}
 
 
 @runtime_checkable
@@ -97,6 +112,14 @@ class WorkforceRepository(Protocol):
         agent_instance_id: UUID | str | None = None,
         company_workforce_member_id: str | None = None,
     ) -> WorkforceAssignmentRecord: ...
+
+    async def list_direct_reports(
+        self, workspace_id: str, assignment_id: UUID | str
+    ) -> list[WorkforceAssignmentRecord]: ...
+
+    async def resolve_manager_chain(
+        self, workspace_id: str, assignment_id: UUID | str, max_hops: int = 3
+    ) -> list[WorkforceAssignmentRecord]: ...
 
     async def get_assignment(
         self, workspace_id: str, assignment_id: UUID | str
@@ -415,6 +438,59 @@ class PostgresWorkforceRepository:
         now = datetime.now(UTC)
 
         async with self._session_factory() as session:
+            # Khoá tư vấn theo workspace: hai ghi đồng thời không thể cùng tạo vòng (nhả khi commit).
+            await session.execute(
+                text("SELECT pg_advisory_xact_lock(hashtextextended(:ws, 0))"), {"ws": workspace_id}
+            )
+            existing = (
+                await session.execute(
+                    text(
+                        """
+                        SELECT assignment_id FROM agent.workforce_assignments
+                        WHERE workspace_id = :workspace_id AND functional_key = :functional_key
+                          AND spec_id = :spec_id AND spec_version = :spec_version
+                          AND definition_hash = :definition_hash
+                        """
+                    ),
+                    {
+                        "workspace_id": workspace_id,
+                        "functional_key": functional_key,
+                        "spec_id": spec_id,
+                        "spec_version": spec_version,
+                        "definition_hash": definition_hash,
+                    },
+                )
+            ).scalar_one_or_none()
+            # Id hiệu lực: dòng đã có (đường upsert) hoặc id mới.
+            effective_id = UUID(str(existing)) if existing else aid
+            rows = (
+                (
+                    await session.execute(
+                        text(
+                            """
+                        SELECT assignment_id, reports_to_assignment_id, status
+                        FROM agent.workforce_assignments WHERE workspace_id = :workspace_id
+                        """
+                        ),
+                        {"workspace_id": workspace_id},
+                    )
+                )
+                .mappings()
+                .all()
+            )
+            check_reporting_line(
+                assignment_id=effective_id,
+                parent_id=rid,
+                nodes={
+                    UUID(str(r["assignment_id"])): (
+                        UUID(str(r["reports_to_assignment_id"]))
+                        if r["reports_to_assignment_id"]
+                        else None,
+                        r["status"],
+                    )
+                    for r in rows
+                },
+            )
             await session.execute(
                 text(
                     """
@@ -485,6 +561,21 @@ class PostgresWorkforceRepository:
             row = res.mappings().first()
             assert row is not None
             return self._row_to_assignment(row)
+
+    async def list_direct_reports(
+        self, workspace_id: str, assignment_id: UUID | str
+    ) -> list[WorkforceAssignmentRecord]:
+        records = await self.list_assignments(workspace_id, status="ACTIVE")
+        wanted = set(_direct_reports(_nodes_of(records), UUID(str(assignment_id))))
+        return [r for r in records if r.assignment_id in wanted]
+
+    async def resolve_manager_chain(
+        self, workspace_id: str, assignment_id: UUID | str, max_hops: int = 3
+    ) -> list[WorkforceAssignmentRecord]:
+        records = await self.list_assignments(workspace_id)
+        by_id = {r.assignment_id: r for r in records}
+        chain = _manager_chain(_nodes_of(records), UUID(str(assignment_id)), max_hops)
+        return [by_id[i] for i in chain]
 
     async def get_assignment(
         self, workspace_id: str, assignment_id: UUID | str
@@ -1221,6 +1312,28 @@ class InMemoryWorkforceRepository:
                     f"in workspace {workspace_id!r}"
                 )
 
+        # Id hiệu lực: dòng trùng khoá duy nhất (đường upsert) hoặc id mới; kiểm đường báo cáo theo id này.
+        existing_id = next(
+            (
+                e.assignment_id
+                for e in self.assignments.values()
+                if e.workspace_id == workspace_id
+                and e.functional_key == functional_key
+                and e.spec_id == spec_id
+                and e.spec_version == spec_version
+                and e.definition_hash == definition_hash
+            ),
+            None,
+        )
+        effective_id = existing_id or (UUID(str(assignment_id)) if assignment_id else uuid4())
+        check_reporting_line(
+            assignment_id=effective_id,
+            parent_id=rid,
+            nodes=_nodes_of(
+                [a for a in self.assignments.values() if a.workspace_id == workspace_id]
+            ),
+        )
+
         # Check unique constraint (workspace_id, functional_key, spec_id, spec_version, definition_hash)
         for existing in self.assignments.values():
             if (
@@ -1249,7 +1362,7 @@ class InMemoryWorkforceRepository:
                 self.assignments[existing.assignment_id] = updated
                 return updated
 
-        aid = UUID(str(assignment_id)) if assignment_id else uuid4()
+        aid = effective_id
         record = WorkforceAssignmentRecord(
             assignment_id=aid,
             workspace_id=workspace_id,
@@ -1267,6 +1380,21 @@ class InMemoryWorkforceRepository:
         )
         self.assignments[aid] = record
         return record
+
+    async def list_direct_reports(
+        self, workspace_id: str, assignment_id: UUID | str
+    ) -> list[WorkforceAssignmentRecord]:
+        records = await self.list_assignments(workspace_id, status="ACTIVE")
+        wanted = set(_direct_reports(_nodes_of(records), UUID(str(assignment_id))))
+        return [r for r in records if r.assignment_id in wanted]
+
+    async def resolve_manager_chain(
+        self, workspace_id: str, assignment_id: UUID | str, max_hops: int = 3
+    ) -> list[WorkforceAssignmentRecord]:
+        records = await self.list_assignments(workspace_id)
+        by_id = {r.assignment_id: r for r in records}
+        chain = _manager_chain(_nodes_of(records), UUID(str(assignment_id)), max_hops)
+        return [by_id[i] for i in chain]
 
     async def get_assignment(
         self, workspace_id: str, assignment_id: UUID | str

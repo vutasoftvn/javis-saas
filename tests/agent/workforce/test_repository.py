@@ -6,6 +6,7 @@ from uuid import uuid4
 
 import pytest
 
+from agent.workforce.reporting import ReportingLineError
 from agent.workforce.repository import (
     InMemoryWorkforceRepository,
     PostgresWorkforceRepository,
@@ -21,6 +22,7 @@ def get_workforce_repo(kind: str) -> WorkforceRepository:
         if not db_url:
             pytest.skip("AGENT_DATABASE_URL not set for PostgresWorkforceRepository test")
         from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
         asyncpg_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
         engine = create_async_engine(asyncpg_url)
         session_factory = async_sessionmaker(engine, expire_on_commit=False)
@@ -225,3 +227,59 @@ async def test_outcome_analysis_binding_upsert_bumps_version_and_is_scoped(kind:
 
     other_ws = f"ws_{uuid4().hex[:8]}"
     assert await workforce_repo.get_outcome_analysis_binding(other_ws, "project_outcome") is None
+
+
+async def _mk(repo, key, *, parent=None, ws="1001"):
+    return await repo.create_assignment(
+        workspace_id=ws,
+        functional_key=key,
+        spec_id=f"functional.{key}",
+        spec_version="1.0.0",
+        definition_hash=f"sha256:{key}",
+        configured_by="u1",
+        reports_to_assignment_id=parent,
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["in_memory", "postgres"])
+async def test_reporting_line_is_validated_on_create(kind: str) -> None:
+    repo = get_workforce_repo(kind)
+    ws = f"ws-{uuid4().hex[:8]}"
+    boss = await _mk(repo, "boss", ws=ws)
+    dev = await _mk(repo, "dev", parent=boss.assignment_id, ws=ws)
+    assert dev.reports_to_assignment_id == boss.assignment_id
+
+    with pytest.raises(ReportingLineError) as e:
+        await _mk(repo, "orphan", parent=uuid4(), ws=ws)
+    assert e.value.code == "parent_not_found"
+
+    # upsert theo khoá duy nhất: gắn boss báo cáo cho dev tạo vòng
+    with pytest.raises(ReportingLineError) as e:
+        await _mk(repo, "boss", parent=dev.assignment_id, ws=ws)
+    assert e.value.code == "cycle"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["in_memory", "postgres"])
+async def test_parent_must_be_in_same_workspace(kind: str) -> None:
+    repo = get_workforce_repo(kind)
+    other = await _mk(repo, "boss", ws=f"ws-{uuid4().hex[:8]}")
+    with pytest.raises(ReportingLineError) as e:
+        await _mk(repo, "dev", parent=other.assignment_id, ws=f"ws-{uuid4().hex[:8]}")
+    assert e.value.code == "parent_not_found"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["in_memory", "postgres"])
+async def test_direct_reports_and_manager_chain(kind: str) -> None:
+    repo = get_workforce_repo(kind)
+    ws = f"ws-{uuid4().hex[:8]}"
+    ceo = await _mk(repo, "ceo", ws=ws)
+    vp = await _mk(repo, "vp", parent=ceo.assignment_id, ws=ws)
+    dev = await _mk(repo, "dev", parent=vp.assignment_id, ws=ws)
+    assert [r.assignment_id for r in await repo.list_direct_reports(ws, ceo.assignment_id)] == [
+        vp.assignment_id
+    ]
+    chain = await repo.resolve_manager_chain(ws, dev.assignment_id, max_hops=3)
+    assert [r.assignment_id for r in chain] == [vp.assignment_id, ceo.assignment_id]

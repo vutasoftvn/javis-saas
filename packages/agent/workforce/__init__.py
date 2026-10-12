@@ -30,6 +30,12 @@ from agent.workforce.outcome_analysis import (
     OutcomeAnalysisBinding,
     resolve_outcome_analysis_binding,
 )
+from agent.workforce.reporting import (
+    ReportingLineError,
+    check_reporting_line,
+    direct_reports,
+    manager_chain,
+)
 from agent.workforce.repository import (
     DuplicateEmployeeCodeError,
     EmployeeNotAssignableError,
@@ -51,6 +57,7 @@ __all__ = [
     "InMemoryWorkforceRepository",
     "OutcomeAnalysisBinding",
     "PostgresWorkforceRepository",
+    "ReportingLineError",
     "RunCostObservationRecord",
     "RuntimeSignalOutboxRecord",
     "WorkforceAssignment",
@@ -61,7 +68,10 @@ __all__ = [
     "build_functional_spec",
     "capability_change_requires_new_spec",
     "catalog_keys",
+    "check_reporting_line",
     "compose_workforce",
+    "direct_reports",
     "execution_capabilities",
+    "manager_chain",
     "resolve_outcome_analysis_binding",
 ]

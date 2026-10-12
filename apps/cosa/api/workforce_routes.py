@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from agent.workforce.catalog import FUNCTIONAL_AGENT_CATALOG, build_functional_spec
+from agent.workforce.reporting import ReportingLineError
 from agent.workforce.repository import WorkforceRepository, WorkforceScheduleRecord
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
@@ -201,16 +202,22 @@ async def create_assignment(
     spec = build_functional_spec(req.functional_key)
     spec_with_hash = spec.with_hash()
 
-    rec = await repo.create_assignment(
-        workspace_id=identity.workspace_id,
-        functional_key=req.functional_key,
-        spec_id=spec_with_hash.id,
-        spec_version=spec_with_hash.version,
-        definition_hash=spec_with_hash.definition_hash or "",
-        reports_to_assignment_id=req.reports_to_assignment_id,
-        configured_by=identity.principal_id,
-        company_workforce_member_id=req.company_workforce_member_id,
-    )
+    try:
+        rec = await repo.create_assignment(
+            workspace_id=identity.workspace_id,
+            functional_key=req.functional_key,
+            spec_id=spec_with_hash.id,
+            spec_version=spec_with_hash.version,
+            definition_hash=spec_with_hash.definition_hash or "",
+            reports_to_assignment_id=req.reports_to_assignment_id,
+            configured_by=identity.principal_id,
+            company_workforce_member_id=req.company_workforce_member_id,
+        )
+    except ReportingLineError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": f"reporting_line_{exc.code}", "message": str(exc)},
+        ) from exc
 
     out = WorkforceAssignmentOut(
         assignment_id=str(rec.assignment_id),

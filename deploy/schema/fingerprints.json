@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "generated_at": "2026-10-05T10:44:27.895Z",
+  "generated_at": "2026-10-12T06:10:31.149Z",
   "groups": {
     "agent": {
-      "fingerprint": "2f3d0bff48413386072ef11ca861be4a40c281c9646881e5ffff4b4bdaf71e1e",
+      "fingerprint": "b60f7a4ef70ca56e535a78dcf744e3c20de737b5fefc19de30365da2c6fc153c",
       "schemas": [
         "agent",
         "agent_artifact",
@@ -5760,9 +5760,37 @@
               ]
             }
           ],
-          "foreign_keys": [],
-          "check_constraints": [],
+          "foreign_keys": [
+            {
+              "name": "fk_workforce_assignments_reports_to",
+              "columns": [
+                "reports_to_assignment_id",
+                "workspace_id"
+              ],
+              "foreign_table": "agent.workforce_assignments",
+              "foreign_columns": [
+                "assignment_id",
+                "workspace_id"
+              ],
+              "on_update": "NO ACTION",
+              "on_delete": "NO ACTION"
+            }
+          ],
+          "check_constraints": [
+            {
+              "name": "chk_workforce_assignments_no_self_report",
+              "clause": "((reports_to_assignment_id IS NULL) OR (reports_to_assignment_id <> assignment_id))"
+            }
+          ],
           "indexes": [
+            {
+              "name": "idx_workforce_assignments_ws_reports_to",
+              "definition": "CREATE INDEX idx_workforce_assignments_ws_reports_to ON agent.workforce_assignments USING btree (workspace_id, reports_to_assignment_id) WHERE (reports_to_assignment_id IS NOT NULL)"
+            },
+            {
+              "name": "uix_workforce_assignments_id_workspace",
+              "definition": "CREATE UNIQUE INDEX uix_workforce_assignments_id_workspace ON agent.workforce_assignments USING btree (assignment_id, workspace_id)"
+            },
             {
               "name": "workforce_assignments_pkey",
               "definition": "CREATE UNIQUE INDEX workforce_assignments_pkey ON agent.workforce_assignments USING btree (assignment_id)"
